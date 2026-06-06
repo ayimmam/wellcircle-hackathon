@@ -38,7 +38,7 @@ export default function SplashScreen() {
 
   return (
     <div className="splash" id="splash-screen">
-      <div className="splash-logo">🌿</div>
+      <img src="/well.png" className="splash-logo" alt="Well Circle Logo" />
       <h1 className="splash-title">Well Circle</h1>
       <p className="splash-tagline">
         Your tribe, your wellness.<br />Right where you chat.

@@ -11,7 +11,7 @@ export default function Header({ onMenuOpen }) {
   return (
     <header className="top-header" id="top-header">
       <div className="header-brand" onClick={() => navigate('/home')}>
-        <div className="header-logo">🌿</div>
+        <img src="/well.png" className="header-logo" alt="Well Circle Logo" />
         <div className="header-text">
           <span className="header-name">WELL CIRCLE</span>
           <span className="header-sub">YOUR WELLNESS TRIBE</span>

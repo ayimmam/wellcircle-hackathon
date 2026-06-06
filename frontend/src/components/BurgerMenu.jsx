@@ -31,7 +31,7 @@ export default function BurgerMenu({ isOpen, onClose }) {
         {/* Header */}
         <div className="burger-header">
           <div className="burger-brand">
-            <div className="burger-logo">🌿</div>
+            <img src="/well.png" className="burger-logo" alt="Well Circle Logo" />
             <div>
               <div className="burger-brand-name">WELL CIRCLE</div>
               <div className="burger-brand-sub">YOUR WELLNESS TRIBE</div>

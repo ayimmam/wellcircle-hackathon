@@ -115,6 +115,7 @@ def seed():
             )
         ]
         db.add_all(providers)
+        db.flush()
 
         print("🌱 Seeding Communities...")
         communities = [

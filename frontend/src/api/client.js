@@ -50,17 +50,7 @@ export async function authTelegram(initData) {
     throw new Error('Telegram initData is missing. Please open the app inside Telegram, or set VITE_USE_MOCK=true for testing.');
   }
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 second timeout
-    const res = await request('POST', '/auth/telegram', { init_data: initData }, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    return res;
-  } catch (err) {
-    console.warn('Backend cold start detected (timeout or unreachable). Auto-falling back to Mock Mode.');
-    USE_MOCK = true;
-    return authTelegram(initData); // Retry immediately in mock mode
-  }
+  return request('POST', '/auth/telegram', { init_data: initData });
 }
 
 // ─── Users ──────────────────────────────────────────

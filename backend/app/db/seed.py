@@ -16,16 +16,7 @@ def seed():
 
     db = SessionLocal()
     try:
-        # Check if already seeded and clear them to re-seed real data
-        if db.query(Provider).count() > 0:
-            print("⚠️  Database already has providers. Deleting them to re-seed real data...")
-            db.query(Reaction).delete()
-            db.query(Post).delete()
-            db.query(CircleMember).delete()
-            db.query(Circle).delete()
-            db.query(Community).delete()
-            db.query(Provider).delete()
-            db.commit()
+        # Using db.merge to append/upsert without deleting existing data
 
         users = []
         if db.query(User).count() == 0:
@@ -57,7 +48,8 @@ def seed():
                     last_activity_at=datetime.now(timezone.utc),
                 )
             ]
-            db.add_all(users)
+            for user in users:
+                db.merge(user)
             db.commit()
         else:
             users = db.query(User).all()
@@ -118,7 +110,94 @@ def seed():
                 owner_user_id=users[1].id
             )
         ]
-        db.add_all(providers)
+        for provider in providers:
+            db.merge(provider)
+
+        p5_id = uuid.UUID('11111111-0000-0000-0000-000000000005')
+        p6_id = uuid.UUID('11111111-0000-0000-0000-000000000006')
+        p7_id = uuid.UUID('11111111-0000-0000-0000-000000000007')
+        p8_id = uuid.UUID('11111111-0000-0000-0000-000000000008')
+        p9_id = uuid.UUID('11111111-0000-0000-0000-000000000009')
+        p10_id = uuid.UUID('11111111-0000-0000-0000-000000000010')
+
+        extra_providers = [
+            Provider(
+                id=p5_id,
+                name="Nourish Ethiopia",
+                category="nutrition",
+                description="Registered dietitians specialising in Ethiopian food culture and modern sports nutrition. Meal plans that work with injera, not against it.",
+                location_text="Sarbet, Nifas Silk-Lafto Sub-City, Addis Ababa",
+                lat=8.9812, lng=38.7654,
+                price_range="ETB 1,200 – 8,000",
+                rating=4.8,
+                cover_photo_url="https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800",
+                owner_user_id=users[0].id
+            ),
+            Provider(
+                id=p6_id,
+                name="Green Plate Kitchen",
+                category="nutrition",
+                description="Meal prep subscription and nutrition coaching service in Megenagna. Weekly healthy Ethiopian and Mediterranean meal boxes.",
+                location_text="Megenagna, Yeka Sub-City, Addis Ababa",
+                lat=9.0315, lng=38.7934,
+                price_range="ETB 2,000 – 6,000",
+                rating=4.4,
+                cover_photo_url="https://images.unsplash.com/photo-1547592180-85f173990554?w=800",
+                owner_user_id=users[1].id
+            ),
+            Provider(
+                id=p7_id,
+                name="Haile Spa & Wellness",
+                category="spa",
+                description="Luxury urban spa in Bole offering full-body massages, traditional Ethiopian coffee scrubs, hammam rituals, and facial treatments.",
+                location_text="Bole Atlas, Bole Sub-City, Addis Ababa",
+                lat=9.0089, lng=38.7912,
+                price_range="ETB 1,500 – 6,500",
+                rating=4.8,
+                cover_photo_url="https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800",
+                owner_user_id=users[0].id
+            ),
+            Provider(
+                id=p8_id,
+                name="Piassa Heritage Hammam",
+                category="spa",
+                description="Authentic steam and hammam experience in the historic Piassa neighbourhood. Traditional Ethiopian and North African bathing rituals.",
+                location_text="Piassa (Arada), Arada Sub-City, Addis Ababa",
+                lat=9.0379, lng=38.7542,
+                price_range="ETB 400 – 3,000",
+                rating=4.5,
+                cover_photo_url="https://images.unsplash.com/photo-1517430816045-df4b7de11d1d?w=800",
+                owner_user_id=users[1].id
+            ),
+            Provider(
+                id=p9_id,
+                name="Biruh Mind Wellness",
+                category="therapy",
+                description="Addis Ababa's first Telegram-native mental wellness clinic. Licensed psychotherapists and counsellors. Bilingual: Amharic & English.",
+                location_text="Kazanchis, Kirkos Sub-City, Addis Ababa",
+                lat=9.0201, lng=38.7598,
+                price_range="ETB 1,500 – 5,000",
+                rating=4.9,
+                cover_photo_url="https://images.unsplash.com/photo-1573497620053-ea5300f94f21?w=800",
+                owner_user_id=users[0].id
+            ),
+            Provider(
+                id=p10_id,
+                name="MoveMind Running Club",
+                category="gym",
+                description="Community-first running club training at altitude (2,355m). Weekly group runs around Entoto and the ring road.",
+                location_text="Addis Ababa Stadium, Kirkos Sub-City",
+                lat=9.0261, lng=38.7505,
+                price_range="ETB 300 – 1,500",
+                rating=4.7,
+                cover_photo_url="https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800",
+                owner_user_id=users[1].id
+            )
+        ]
+
+        for provider in extra_providers:
+            db.merge(provider)
+
         db.flush()
 
         print("🌱 Seeding Communities...")
@@ -156,7 +235,63 @@ def seed():
                 member_count=210
             )
         ]
-        db.add_all(communities)
+        for community in communities:
+            db.merge(community)
+
+        extra_communities = [
+            Community(
+                id=uuid.UUID('22222222-0000-0000-0000-000000000005'),
+                provider_id=p5_id,
+                name="Nourish Community",
+                description="Registered dietitians specialising in Ethiopian food culture and modern sports nutrition. Meal plans that work with injera, not against it.",
+                category="nutrition",
+                member_count=61
+            ),
+            Community(
+                id=uuid.UUID('22222222-0000-0000-0000-000000000006'),
+                provider_id=p6_id,
+                name="Green Plate Members",
+                description="Meal prep subscription and nutrition coaching service in Megenagna. Weekly healthy Ethiopian and Mediterranean meal boxes.",
+                category="nutrition",
+                member_count=22
+            ),
+            Community(
+                id=uuid.UUID('22222222-0000-0000-0000-000000000007'),
+                provider_id=p7_id,
+                name="Haile Spa Circle",
+                description="Luxury urban spa in Bole offering full-body massages, traditional Ethiopian coffee scrubs, hammam rituals, and facial treatments.",
+                category="spa",
+                member_count=54
+            ),
+            Community(
+                id=uuid.UUID('22222222-0000-0000-0000-000000000008'),
+                provider_id=p8_id,
+                name="Piassa Hammam Club",
+                description="Authentic steam and hammam experience in the historic Piassa neighbourhood. Traditional Ethiopian and North African bathing rituals.",
+                category="spa",
+                member_count=18
+            ),
+            Community(
+                id=uuid.UUID('22222222-0000-0000-0000-000000000009'),
+                provider_id=p9_id,
+                name="Biruh Mind Space",
+                description="Addis Ababa's first Telegram-native mental wellness clinic. Licensed psychotherapists and counsellors. Bilingual: Amharic & English.",
+                category="therapy",
+                member_count=96
+            ),
+            Community(
+                id=uuid.UUID('22222222-0000-0000-0000-000000000010'),
+                provider_id=p10_id,
+                name="MoveMind Runners",
+                description="Community-first running club training at altitude (2,355m). Weekly group runs around Entoto and the ring road.",
+                category="gym",
+                member_count=142
+            )
+        ]
+        
+        for community in extra_communities:
+            db.merge(community)
+
         
         db.flush()
 
@@ -168,14 +303,15 @@ def seed():
             description="We run every morning at 6 AM around Meskel Square.",
             owner_id=users[0].id
         )
-        db.add(circle)
+        db.merge(circle)
         db.flush()
 
         circle_members = [
             CircleMember(circle_id=circle_id, user_id=users[0].id, weekly_points=120),
             CircleMember(circle_id=circle_id, user_id=users[1].id, weekly_points=85)
         ]
-        db.add_all(circle_members)
+        for member in circle_members:
+            db.merge(member)
         db.flush()
 
         print("🌱 Seeding Posts & Reactions...")
@@ -186,7 +322,7 @@ def seed():
             user_id=users[0].id,
             content="Just finished a 5K run! Feeling great! 🏃‍♀️"
         )
-        db.add(post)
+        db.merge(post)
         db.flush()
 
         reaction = Reaction(
@@ -201,7 +337,8 @@ def seed():
             emoji="👏",
             points_gifted=5
         )
-        db.add_all([reaction, reaction2])
+        for reaction in [reaction, reaction2]:
+            db.merge(reaction)
 
         db.commit()
         print(f"✅ Seeded successfully!")

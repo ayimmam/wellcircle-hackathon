@@ -1,25 +1,35 @@
 import { useState, useEffect } from 'react';
-import { getCommunities, joinCommunity } from '../api/client';
+import { getCommunities, joinCommunity, getCircles, createCircle } from '../api/client';
 import { CATEGORIES } from '../data/mock';
 import CommunityCard from '../components/CommunityCard';
 import { showToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function CommunityList() {
   const { user, setUser } = useAuth();
+  const navigate = useNavigate();
   const [communities, setCommunities] = useState([]);
-  const [tab, setTab] = useState('explore'); // 'explore' | 'joined'
+  const [circles, setCircles] = useState([]);
+  const [tab, setTab] = useState('explore'); // 'explore' | 'joined' | 'circles'
   const [category, setCategory] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [newCircleName, setNewCircleName] = useState('');
 
   useEffect(() => {
     setLoading(true);
-    getCommunities(
-      tab === 'joined' ? true : null,
-      category !== 'all' ? category : null
-    )
-      .then(res => setCommunities(res.communities))
-      .finally(() => setLoading(false));
+    if (tab === 'circles') {
+      getCircles()
+        .then(res => setCircles(res.circles || []))
+        .finally(() => setLoading(false));
+    } else {
+      getCommunities(
+        tab === 'joined' ? true : null,
+        category !== 'all' ? category : null
+      )
+        .then(res => setCommunities(res.communities))
+        .finally(() => setLoading(false));
+    }
   }, [tab, category]);
 
   const handleJoin = async (id) => {
@@ -38,6 +48,16 @@ export default function CommunityList() {
     } catch (err) {
       showToast('Already a member', '👥');
     }
+  const handleCreateCircle = async () => {
+    if (!newCircleName.trim()) return;
+    try {
+      await createCircle({ name: newCircleName, description: '' });
+      setNewCircleName('');
+      showToast('Circle created!', '✨');
+      getCircles().then(res => setCircles(res.circles || []));
+    } catch (err) {
+      showToast('Error creating circle', '❌');
+    }
   };
 
   return (
@@ -51,31 +71,36 @@ export default function CommunityList() {
         <button
           className={`chip ${tab === 'explore' ? 'active' : ''}`}
           onClick={() => setTab('explore')}
-          id="tab-explore"
         >
           🌍 Explore
         </button>
         <button
           className={`chip ${tab === 'joined' ? 'active' : ''}`}
           onClick={() => setTab('joined')}
-          id="tab-joined"
         >
           ✅ Joined
         </button>
+        <button
+          className={`chip ${tab === 'circles' ? 'active' : ''}`}
+          onClick={() => setTab('circles')}
+        >
+          ⭕ My Circles
+        </button>
       </div>
 
-      {/* Category Filters */}
-      <div className="filter-chips">
-        {CATEGORIES.map(cat => (
-          <button
-            key={cat.value}
-            className={`chip ${category === cat.value ? 'active' : ''}`}
-            onClick={() => setCategory(cat.value)}
-          >
-            {cat.emoji} {cat.label}
-          </button>
-        ))}
-      </div>
+      {tab !== 'circles' && (
+        <div className="filter-chips">
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat.value}
+              className={`chip ${category === cat.value ? 'active' : ''}`}
+              onClick={() => setCategory(cat.value)}
+            >
+              {cat.emoji} {cat.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Community List */}
       {loading ? (
@@ -89,6 +114,33 @@ export default function CommunityList() {
               </div>
             </div>
           ))}
+        </div>
+      ) : tab === 'circles' ? (
+        <div className="flex-col gap-12">
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-body flex gap-8">
+              <input 
+                type="text" 
+                placeholder="New Circle Name..." 
+                className="input" 
+                value={newCircleName}
+                onChange={e => setNewCircleName(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <button className="btn btn-primary" onClick={handleCreateCircle} disabled={!newCircleName.trim()}>Create</button>
+            </div>
+          </div>
+          {circles.map(c => (
+            <div key={c.id} className="card" onClick={() => navigate(`/circle/${c.id}`)}>
+              <div className="card-body">
+                <h3 style={{ fontSize: '1.1rem', marginBottom: 4 }}>{c.name}</h3>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  👥 {c.member_count} members
+                </div>
+              </div>
+            </div>
+          ))}
+          {circles.length === 0 && <div className="empty-state">No circles yet. Create one above!</div>}
         </div>
       ) : communities.length > 0 ? (
         <div className="flex-col gap-12">

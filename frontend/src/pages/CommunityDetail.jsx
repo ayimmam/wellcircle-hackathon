@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getCommunity, getCommunityFeed, joinCommunity, leaveCommunity, checkinCommunity } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import FeedEvent from '../components/FeedEvent';
+import PostFeed from '../components/PostFeed';
 import { showToast } from '../components/Toast';
 
 export default function CommunityDetail() {
@@ -14,6 +15,7 @@ export default function CommunityDetail() {
   const [loading, setLoading] = useState(true);
   const [checkedIn, setCheckedIn] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [activeTab, setActiveTab] = useState('feed'); // 'feed' | 'posts'
   const lastTimestamp = useRef(null);
 
   // Load community details and feed
@@ -177,25 +179,39 @@ export default function CommunityDetail() {
         <span className={`category-badge ${community.category}`}>{community.category}</span>
       </div>
 
-      {/* Live Feed */}
-      <div className="section-header">
-        <h2 className="section-title">Live Feed</h2>
-        <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
-          🟢 Live · updates every 5s
-        </span>
+      {/* Tabs for Feed and Posts */}
+      <div className="flex gap-8 mb-16">
+        <button
+          className={`chip ${activeTab === 'feed' ? 'active' : ''}`}
+          onClick={() => setActiveTab('feed')}
+        >
+          📡 Live Feed
+        </button>
+        <button
+          className={`chip ${activeTab === 'posts' ? 'active' : ''}`}
+          onClick={() => setActiveTab('posts')}
+        >
+          📝 Posts & Reactions
+        </button>
       </div>
 
-      {events.length > 0 ? (
-        <div className="feed">
-          {events.map(event => (
-            <FeedEvent key={event.id} event={event} />
-          ))}
-        </div>
+      {activeTab === 'feed' ? (
+        <>
+          {events.length > 0 ? (
+            <div className="feed">
+              {events.map(event => (
+                <FeedEvent key={event.id} event={event} />
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <div className="empty-state-icon">📡</div>
+              <div className="empty-state-text">No activity yet. Be the first to join!</div>
+            </div>
+          )}
+        </>
       ) : (
-        <div className="empty-state">
-          <div className="empty-state-icon">📡</div>
-          <div className="empty-state-text">No activity yet. Be the first to join!</div>
-        </div>
+        <PostFeed communityId={id} />
       )}
     </div>
   );

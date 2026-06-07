@@ -14,6 +14,7 @@ import ExploreScreen from './pages/ExploreScreen';
 import ProviderDetail from './pages/ProviderDetail';
 import CommunityList from './pages/CommunityList';
 import CommunityDetail from './pages/CommunityDetail';
+import CircleDetailScreen from './pages/CircleDetailScreen';
 import BookingFlow from './pages/BookingFlow';
 import ProfileScreen from './pages/ProfileScreen';
 import ProviderDashboard from './pages/ProviderDashboard';
@@ -43,6 +44,7 @@ export default function App() {
             {/* Detail screens */}
             <Route path="/provider/:id" element={<ProviderDetail />} />
             <Route path="/community/:id" element={<CommunityDetail />} />
+            <Route path="/circle/:id" element={<CircleDetailScreen />} />
             <Route path="/booking/:providerId" element={<BookingFlow />} />
 
             {/* Provider dashboard */}

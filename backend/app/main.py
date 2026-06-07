@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, providers, communities, bookings, payments, users
+from app.api import auth, providers, communities, bookings, payments, users, circles, posts
 from app.api.admin import router as admin_router
 from app.api.bot import router as bot_router
 from app.config import settings
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     if settings.ENVIRONMENT == "development":
         try:
             from app.database import engine, Base
-            from app.models import User, Provider, Community, Booking  # noqa: ensure models loaded
+            from app.models import User, Provider, Community, Booking, Circle, Post  # noqa: ensure models loaded
             Base.metadata.create_all(bind=engine)
             print("📦 Database tables ensured")
         except Exception as e:
@@ -71,6 +71,8 @@ app.include_router(providers.router, prefix="/api/providers", tags=["Providers"]
 app.include_router(communities.router, prefix="/api/communities", tags=["Communities"])
 app.include_router(bookings.router, prefix="/api/bookings", tags=["Bookings"])
 app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
+app.include_router(circles.router, prefix="/api/circles", tags=["Circles"])
+app.include_router(posts.router, prefix="/api/posts", tags=["Posts"])
 app.include_router(admin_router, prefix="/api/admin", tags=["Admin"])
 app.include_router(bot_router, prefix="/api/bot", tags=["Bot"])
 

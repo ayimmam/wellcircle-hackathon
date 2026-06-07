@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 
 from app.database import SessionLocal, engine, Base
-from app.models import User, Provider, Community
+from app.models import User, Provider, Community, Circle, CircleMember, Post, Reaction
 
 
 def seed():
@@ -19,6 +19,10 @@ def seed():
         # Check if already seeded and clear them to re-seed real data
         if db.query(Provider).count() > 0:
             print("⚠️  Database already has providers. Deleting them to re-seed real data...")
+            db.query(Reaction).delete()
+            db.query(Post).delete()
+            db.query(CircleMember).delete()
+            db.query(Circle).delete()
             db.query(Community).delete()
             db.query(Provider).delete()
             db.commit()
@@ -154,6 +158,51 @@ def seed():
         ]
         db.add_all(communities)
         
+        db.flush()
+
+        print("🌱 Seeding Circles & Leaderboards...")
+        circle_id = uuid.UUID('33333333-0000-0000-0000-000000000001')
+        circle = Circle(
+            id=circle_id,
+            name="Addis Morning Runners",
+            description="We run every morning at 6 AM around Meskel Square.",
+            owner_id=users[0].id
+        )
+        db.add(circle)
+        db.flush()
+
+        circle_members = [
+            CircleMember(circle_id=circle_id, user_id=users[0].id, weekly_points=120),
+            CircleMember(circle_id=circle_id, user_id=users[1].id, weekly_points=85)
+        ]
+        db.add_all(circle_members)
+        db.flush()
+
+        print("🌱 Seeding Posts & Reactions...")
+        post_id = uuid.UUID('44444444-0000-0000-0000-000000000001')
+        post = Post(
+            id=post_id,
+            circle_id=circle_id,
+            user_id=users[0].id,
+            content="Just finished a 5K run! Feeling great! 🏃‍♀️"
+        )
+        db.add(post)
+        db.flush()
+
+        reaction = Reaction(
+            post_id=post_id,
+            user_id=users[1].id,
+            emoji="🔥",
+            points_gifted=0
+        )
+        reaction2 = Reaction(
+            post_id=post_id,
+            user_id=users[1].id,
+            emoji="👏",
+            points_gifted=5
+        )
+        db.add_all([reaction, reaction2])
+
         db.commit()
         print(f"✅ Seeded successfully!")
 

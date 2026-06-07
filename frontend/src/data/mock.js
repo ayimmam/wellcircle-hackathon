@@ -375,6 +375,37 @@ export const MOCK_POINTS_HISTORY = {
   tier_emoji: '🌿'
 };
 
+// ─── Circles & Leaderboards ─────────────────────────
+export const MOCK_CIRCLES = [
+  { id: '33333333-0000-0000-0000-000000000001', name: 'Addis Morning Runners', description: 'We run every morning at 6 AM around Meskel Square.', member_count: 24 }
+];
+
+export const MOCK_LEADERBOARD = [
+  { user_id: '001', name: 'Dawit', photo_url: 'https://i.pravatar.cc/150?u=dawit', weekly_points: 120, total_points: 720 },
+  { user_id: '002', name: 'Meron Tadesse', photo_url: 'https://i.pravatar.cc/150?u=meron', weekly_points: 85, total_points: 120 },
+  { user_id: '003', name: 'Sara', photo_url: 'https://i.pravatar.cc/150?u=sara', weekly_points: 40, total_points: 110 }
+];
+
+// ─── Posts & Reactions ──────────────────────────────
+export const MOCK_POSTS = [
+  {
+    id: '44444444-0000-0000-0000-000000000001',
+    content: "Just finished a 5K run! Feeling great! 🏃‍♀️",
+    user: { id: '002', name: 'Meron Tadesse', photo_url: 'https://i.pravatar.cc/150?u=meron' },
+    created_at: new Date(now - 1 * 3600000).toISOString(),
+    reactions: { '🔥': 2, '👏': 1 },
+    total_points_gifted: 5
+  },
+  {
+    id: '44444444-0000-0000-0000-000000000002',
+    content: "Anyone up for a group yoga session tomorrow at 7 AM?",
+    user: { id: '001', name: 'Dawit', photo_url: 'https://i.pravatar.cc/150?u=dawit' },
+    created_at: new Date(now - 4 * 3600000).toISOString(),
+    reactions: { '🔥': 5 },
+    total_points_gifted: 0
+  }
+];
+
 // ─── Provider Dashboard Stats ───────────────────────
 export const MOCK_PROVIDER_STATS = {
   provider_id: '11111111-0000-0000-0000-000000000003',

@@ -10,7 +10,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api
 
 import {
   MOCK_USER, MOCK_PROVIDERS, MOCK_COMMUNITIES, MOCK_FEED_EVENTS,
-  MOCK_POINTS_HISTORY, MOCK_PROVIDER_STATS
+  MOCK_POINTS_HISTORY, MOCK_PROVIDER_STATS, MOCK_CIRCLES, MOCK_POSTS, MOCK_LEADERBOARD
 } from '../data/mock';
 
 // ─── Auth helpers ───────────────────────────────────
@@ -257,4 +257,65 @@ export async function getPaymentStatus(bookingId) {
     };
   }
   return request('GET', `/payments/${bookingId}/status`);
+}
+
+// ─── Circles ─────────────────────────────────────────
+export async function getCircles() {
+  if (USE_MOCK) {
+    await delay();
+    return { circles: [...MOCK_CIRCLES] };
+  }
+  return request('GET', '/circles');
+}
+
+export async function createCircle(data) {
+  if (USE_MOCK) {
+    await delay();
+    return { id: 'mock-circle-id', name: data.name };
+  }
+  return request('POST', '/circles', data);
+}
+
+export async function joinCircle(id) {
+  if (USE_MOCK) {
+    await delay();
+    return { message: "Joined successfully" };
+  }
+  return request('POST', `/circles/${id}/join`);
+}
+
+export async function getCircleLeaderboard(id) {
+  if (USE_MOCK) {
+    await delay();
+    return { leaderboard: [...MOCK_LEADERBOARD] };
+  }
+  return request('GET', `/circles/${id}/leaderboard`);
+}
+
+// ─── Posts & Reactions ────────────────────────────────
+export async function getPosts(communityId = null, circleId = null) {
+  if (USE_MOCK) {
+    await delay();
+    return { posts: [...MOCK_POSTS] };
+  }
+  const params = new URLSearchParams();
+  if (communityId) params.set('community_id', communityId);
+  if (circleId) params.set('circle_id', circleId);
+  return request('GET', `/posts?${params}`);
+}
+
+export async function createPost(data) {
+  if (USE_MOCK) {
+    await delay();
+    return { id: 'mock-post-id', message: "Success" };
+  }
+  return request('POST', '/posts', data);
+}
+
+export async function reactToPost(postId, data) {
+  if (USE_MOCK) {
+    await delay();
+    return { message: "Success", points_gifted: data.points_gifted || 0 };
+  }
+  return request('POST', `/posts/${postId}/react`, data);
 }

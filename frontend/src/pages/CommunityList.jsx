@@ -48,6 +48,7 @@ export default function CommunityList() {
     } catch (err) {
       showToast('Already a member', '👥');
     }
+  };
   const handleCreateCircle = async () => {
     if (!newCircleName.trim()) return;
     try {

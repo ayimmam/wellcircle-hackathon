@@ -23,11 +23,14 @@ export default function CommunityList() {
         .then(res => setCircles(res.circles || []))
         .finally(() => setLoading(false));
     } else {
-      getCommunities(
-        tab === 'joined' ? true : null,
-        category !== 'all' ? category : null
-      )
-        .then(res => setCommunities(res.communities))
+      Promise.all([
+        getCommunities(tab === 'joined' ? true : null, category !== 'all' ? category : null),
+        tab === 'explore' ? getCircles() : Promise.resolve({ circles: [] })
+      ])
+        .then(([commRes, circRes]) => {
+          setCommunities(commRes.communities);
+          setCircles(circRes.circles || []);
+        })
         .finally(() => setLoading(false));
     }
   }, [tab, category]);
@@ -142,6 +145,33 @@ export default function CommunityList() {
             </div>
           ))}
           {circles.length === 0 && <div className="empty-state">No circles yet. Create one above!</div>}
+        </div>
+      ) : tab === 'explore' ? (
+        <div className="flex-col gap-12">
+          {communities.map(c => (
+            <CommunityCard key={c.id} community={c} onJoin={handleJoin} />
+          ))}
+          {circles.length > 0 && (
+            <>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 800, marginTop: 16 }}>Community User Circles</h2>
+              {circles.map(c => (
+                <div key={c.id} className="card" onClick={() => navigate(`/circle/${c.id}`)}>
+                  <div className="card-body">
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: 4 }}>⭕ {c.name}</h3>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      👥 {c.member_count} members
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+          {communities.length === 0 && circles.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-state-icon">🔍</div>
+              <div className="empty-state-text">No circles found.</div>
+            </div>
+          )}
         </div>
       ) : communities.length > 0 ? (
         <div className="flex-col gap-12">

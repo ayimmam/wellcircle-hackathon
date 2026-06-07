@@ -27,7 +27,8 @@ export default function SplashScreen() {
           navigate('/home', { replace: true });
         }
       } catch (err) {
-        // In mock mode, still navigate
+        // Show an error toast so we know why it failed
+        alert(`Auth Failed: ${err.message}`);
         if (!cancelled) navigate('/home', { replace: true });
       }
     }

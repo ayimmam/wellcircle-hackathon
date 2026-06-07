@@ -16,8 +16,13 @@ export default function HomeScreen() {
   const [alertDismissed, setAlertDismissed] = useState(false);
 
   useEffect(() => {
-    getProviders().then(res => setProviders(res.providers));
-    getCommunities().then(res => setCommunities(res.communities.filter(c => !c.user_joined).slice(0, 4)));
+    getProviders()
+      .then(res => setProviders(res.providers))
+      .catch(err => showToast(`Providers Error: ${err.message}`, '❌'));
+      
+    getCommunities()
+      .then(res => setCommunities(res.communities.filter(c => !c.user_joined).slice(0, 4)))
+      .catch(err => showToast(`Communities Error: ${err.message}`, '❌'));
   }, []);
 
   const alertText = user?.location_neighborhood

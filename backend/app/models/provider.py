@@ -1,6 +1,6 @@
 """Provider ORM model - wellness service providers."""
 
-from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Text
+from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 import uuid
 from datetime import datetime, timezone
@@ -13,7 +13,7 @@ class Provider(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
-    category = Column(String(50), nullable=False)     # gym|yoga|nutrition|spa|therapy
+    category = Column(String(50), nullable=False)     # gym|yoga|nutrition|spa|therapy|running
     description = Column(Text, nullable=True)
     location_text = Column(String(255), nullable=True)  # e.g. "Bole, Addis Ababa"
     lat = Column(Float, nullable=True)
@@ -24,6 +24,12 @@ class Provider(Base):
     photos = Column(JSONB, nullable=True)                # Array of photo URLs (max 5)
     services = Column(JSONB, nullable=True)              # [{name, price, duration}]
     owner_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+    # --- Lifecycle (Phase 2) ---
+    status = Column(String(50), default="active")  # draft|pending_approval|active|inactive|rejected
+    onboarded_by_admin = Column(Boolean, default=False)
+    submitted_at = Column(DateTime(timezone=True), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
 
     # --- Theme customization for provider dashboard ---
     theme_primary_color = Column(String(7), nullable=True, default="#10B981")   # Hex color

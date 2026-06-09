@@ -1499,3 +1499,225 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .text-center { text-align: center; }
 .w-full { width: 100%; }
 .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ================================================================
+   PHASE 2 — Admin, Products, Onboarding
+   ================================================================ */
+.admin-shell {
+  min-height: 100vh;
+  padding: 16px 16px calc(var(--safe-bottom) + 16px);
+  background: var(--bg-primary);
+}
+
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.admin-title { font-size: 1.1rem; font-weight: 700; }
+.admin-subtitle { font-size: 0.72rem; color: var(--text-secondary); margin-top: 4px; }
+
+.admin-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  margin-bottom: 16px;
+  padding-bottom: 4px;
+}
+
+.admin-tab {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+}
+
+.admin-tab.active {
+  color: var(--text-inverse);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.admin-subtabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-subtab {
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  color: var(--text-secondary);
+}
+
+.admin-subtab.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.admin-card-list { display: flex; flex-direction: column; gap: 12px; }
+
+.admin-bar-row {
+  display: grid;
+  grid-template-columns: 70px 1fr 32px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.admin-bar-track {
+  height: 8px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.admin-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--secondary), var(--accent));
+  border-radius: var(--radius-full);
+}
+
+.admin-bar-label { font-size: 0.75rem; text-transform: capitalize; }
+.admin-bar-count { font-size: 0.75rem; text-align: right; }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.badge-danger { background: rgba(239,68,68,0.2); color: var(--danger); }
+.badge-success { background: rgba(16,185,129,0.2); color: var(--success); }
+.badge-muted { background: var(--bg-elevated); color: var(--text-tertiary); }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 430px;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  border: 1px solid var(--border-card);
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.form-stack { display: flex; flex-direction: column; gap: 12px; }
+.checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; }
+.progress-bar { height: 4px; background: var(--bg-elevated); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); transition: width 0.3s; }
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.product-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-card);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.product-card:active { transform: scale(0.98); }
+
+.product-card-img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+}
+
+.product-card-body { padding: 10px; }
+.product-card-title { font-size: 0.82rem; font-weight: 600; margin-bottom: 4px; }
+.product-card-price { font-size: 0.85rem; color: var(--accent); font-weight: 700; margin-top: 4px; }
+
+.product-price-lg { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+
+.product-carousel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.product-detail-img {
+  flex: 1;
+  height: 200px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+}
+
+.carousel-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.voucher-box {
+  background: var(--bg-elevated);
+  border: 1px dashed var(--accent);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.voucher-box code { font-size: 1.1rem; font-weight: 700; color: var(--accent); letter-spacing: 0.05em; }
+
+.filter-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.chip {
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+}
+
+.chip.active { border-color: var(--accent); color: var(--accent); }
+
+.admin-report-card { cursor: pointer; text-align: left; width: 100%; }
+.admin-report-card:active { opacity: 0.9; }
+
+.section-subtitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.btn-danger { background: var(--danger); color: white; }
+.btn-sm { padding: 6px 12px; font-size: 0.75rem; }
+.flex-wrap { flex-wrap: wrap; }
+.text-sm { font-size: 0.82rem; }
+.text-xs { font-size: 0.72rem; }
+.text-left { text-align: left; }
+.onboard-page { padding-top: 16px; }

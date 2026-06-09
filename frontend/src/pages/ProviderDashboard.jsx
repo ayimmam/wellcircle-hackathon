@@ -1,11 +1,17 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getProviderStats } from '../api/client';
+import { getProviderStats, getProviderProducts, getProviderRedemptions, createProviderProduct } from '../api/client';
 import FeedEvent from '../components/FeedEvent';
+import { showToast } from '../components/Toast';
 
 export default function ProviderDashboard() {
   const navigate = useNavigate();
+  const [tab, setTab] = useState('analytics');
   const [stats, setStats] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [redemptions, setRedemptions] = useState([]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newProduct, setNewProduct] = useState({ name: '', type: 'digital', price_etb: '', quantity_in_stock: '10' });
   const [loading, setLoading] = useState(true);
 
   // Use Shanti Yoga Addis as the demo provider
@@ -13,9 +19,15 @@ export default function ProviderDashboard() {
 
   useEffect(() => {
     setLoading(true);
-    getProviderStats(providerId)
-      .then(setStats)
-      .finally(() => setLoading(false));
+    Promise.all([
+      getProviderStats(providerId),
+      getProviderProducts(),
+      getProviderRedemptions(),
+    ]).then(([s, p, r]) => {
+      setStats(s);
+      setProducts(p.products || []);
+      setRedemptions(r.redemptions || []);
+    }).finally(() => setLoading(false));
   }, []);
 
   // Poll stats every 10 seconds for live updates
@@ -57,6 +69,75 @@ export default function ProviderDashboard() {
         <span style={{ fontSize: '0.72rem', color: 'var(--accent)' }}>🟢 Live</span>
       </div>
 
+      <div className="admin-subtabs mb-16">
+        <button className={`admin-subtab ${tab === 'analytics' ? 'active' : ''}`} onClick={() => setTab('analytics')}>Analytics</button>
+        <button className={`admin-subtab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')}>Products</button>
+      </div>
+
+      {tab === 'products' ? (
+        <>
+          <div className="flex justify-between items-center mb-16">
+            <div>
+              <p className="text-sm">Total: {products.length} | Active: {products.filter(p => p.is_active).length}</p>
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>+ Create Product</button>
+          </div>
+          <div className="admin-card-list mb-24">
+            {products.map(p => (
+              <div key={p.id} className="card">
+                <div className="card-body">
+                  <h3 className="card-title text-sm">{p.name}</h3>
+                  <p className="text-xs text-secondary">{p.type} | {p.price_etb} pts | Stock: {p.quantity_in_stock}</p>
+                  <span className={`badge ${p.is_active ? 'badge-success' : 'badge-muted'}`}>{p.is_active ? 'Active' : 'Inactive'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {redemptions.length > 0 && (
+            <>
+              <h3 className="section-subtitle mb-12">Recent Redemptions</h3>
+              {redemptions.map(r => (
+                <div key={r.id} className="card mb-8">
+                  <div className="card-body text-sm">
+                    {r.user_name} → {r.redemption_code || r.product_name} | {r.delivery_status}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+          {showCreate && (
+            <div className="modal-overlay" onClick={() => setShowCreate(false)}>
+              <div className="modal-card" onClick={e => e.stopPropagation()}>
+                <h3 className="card-title mb-16">Create Product</h3>
+                <div className="form-stack">
+                  <input className="input" placeholder="Name" value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))} />
+                  <select className="input" value={newProduct.type} onChange={e => setNewProduct(p => ({ ...p, type: e.target.value }))}>
+                    <option value="digital">Digital</option>
+                    <option value="physical">Physical</option>
+                  </select>
+                  <input className="input" type="number" placeholder="Price (points)" value={newProduct.price_etb} onChange={e => setNewProduct(p => ({ ...p, price_etb: e.target.value }))} />
+                  <input className="input" type="number" placeholder="Stock" value={newProduct.quantity_in_stock} onChange={e => setNewProduct(p => ({ ...p, quantity_in_stock: e.target.value }))} />
+                  <button className="btn btn-primary" onClick={async () => {
+                    try {
+                      await createProviderProduct({
+                        name: newProduct.name,
+                        type: newProduct.type,
+                        price_etb: parseInt(newProduct.price_etb, 10),
+                        quantity_in_stock: parseInt(newProduct.quantity_in_stock, 10),
+                      });
+                      showToast('Product created', '✅');
+                      setShowCreate(false);
+                      const p = await getProviderProducts();
+                      setProducts(p.products || []);
+                    } catch (err) { showToast(err.message, '❌'); }
+                  }}>Create</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+      <>
       {/* KPI Cards */}
       <div className="kpi-grid">
         <div className="kpi-card accent">
@@ -170,6 +251,8 @@ export default function ProviderDashboard() {
             </table>
           </div>
         </>
+      )}
+      </>
       )}
     </div>
   );

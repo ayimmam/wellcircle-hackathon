@@ -104,6 +104,16 @@ async def update_my_profile(
     return _build_response(user, db)
 
 
+@router.get("/me/redemptions")
+async def get_my_redemptions(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.crud.product import get_user_redemptions
+    items = get_user_redemptions(db, user.id)
+    return {"redemptions": items, "count": len(items)}
+
+
 @router.get("/me/points-history", response_model=PointsHistoryResponse)
 async def get_points_history(
     user: User = Depends(get_current_user),

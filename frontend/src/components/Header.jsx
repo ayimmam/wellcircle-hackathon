@@ -4,8 +4,8 @@ export default function Header({ onMenuOpen }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Hide header on splash and onboarding
-  const hidden = ['/', '/onboarding'].includes(location.pathname);
+  // Hide header on splash, onboarding, and admin
+  const hidden = ['/', '/onboarding'].includes(location.pathname) || location.pathname.startsWith('/admin');
   if (hidden) return null;
 
   return (

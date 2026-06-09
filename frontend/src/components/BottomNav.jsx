@@ -11,10 +11,9 @@ export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Hide nav on splash, onboarding, and full-screen flows
-  const hidden = ['/', '/onboarding'].some(
-    p => location.pathname === p
-  );
+  // Hide nav on splash, onboarding, admin, and full-screen flows
+  const hiddenPaths = ['/', '/onboarding', '/provider-onboard'];
+  const hidden = hiddenPaths.includes(location.pathname) || location.pathname.startsWith('/admin');
   if (hidden) return null;
 
   const current = TABS.find(t => location.pathname.startsWith(t.path))?.path;

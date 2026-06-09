@@ -495,6 +495,169 @@ export const MOCK_TIME_SLOTS = [
   '12:00', '14:00', '15:30', '17:00', '18:00', '18:30', '19:00'
 ];
 
+// ─── Phase 2: Products Store ────────────────────────
+export const MOCK_PRODUCTS = [
+  {
+    id: 'prod-001',
+    name: 'Private Yoga Session',
+    description: '90-minute personalized yoga session with certified instructor.',
+    type: 'digital',
+    price_etb: 2000,
+    image_url: 'https://images.unsplash.com/photo-1545205597-3b2a3a0b0b0b?w=400',
+    provider_id: '11111111-0000-0000-0000-000000000003',
+    provider_name: 'Shanti Yoga Addis',
+    max_redemptions_per_user: 1,
+    expiry_date: '2026-12-31T23:59:59Z',
+    is_in_stock: true,
+    is_recommended: true,
+    quantity_in_stock: 15,
+    images: ['https://images.unsplash.com/photo-1545205597-3b2a3a0b0b0b?w=800'],
+    provider: { id: '11111111-0000-0000-0000-000000000003', name: 'Shanti Yoga Addis', category: 'yoga', location_text: 'Bole, Addis Ababa', rating: 4.8 },
+    provider_instructions: 'Valid for 90 days. Book online or call studio.',
+    shipping_required: false,
+    redemption_count: 8
+  },
+  {
+    id: 'prod-002',
+    name: 'Wellness Nutrition Kit',
+    description: 'Curated organic supplements and meal plan guide.',
+    type: 'physical',
+    price_etb: 1500,
+    image_url: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400',
+    provider_id: '11111111-0000-0000-0000-000000000001',
+    provider_name: 'Lifestyle Fitness Center',
+    max_redemptions_per_user: 2,
+    expiry_date: '2026-12-31T23:59:59Z',
+    is_in_stock: true,
+    is_recommended: false,
+    quantity_in_stock: 5,
+    images: ['https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800'],
+    provider: { id: '11111111-0000-0000-0000-000000000001', name: 'Lifestyle Fitness Center', category: 'nutrition', location_text: 'Bole', rating: 4.7 },
+    provider_instructions: 'Delivered within 5 business days in Addis Ababa.',
+    shipping_required: true,
+    redemption_count: 3
+  },
+  {
+    id: 'prod-003',
+    name: 'Gym Day Pass Voucher',
+    description: 'Full-day access to premium gym facilities.',
+    type: 'digital',
+    price_etb: 800,
+    image_url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400',
+    provider_id: '11111111-0000-0000-0000-000000000002',
+    provider_name: 'Iron & Soul Gym',
+    max_redemptions_per_user: 3,
+    expiry_date: '2026-09-30T23:59:59Z',
+    is_in_stock: true,
+    is_recommended: true,
+    quantity_in_stock: 20,
+    images: ['https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800'],
+    provider: { id: '11111111-0000-0000-0000-000000000002', name: 'Iron & Soul Gym', category: 'gym', location_text: 'Kazanchis', rating: 4.5 },
+    provider_instructions: 'Present voucher code at reception.',
+    shipping_required: false,
+    redemption_count: 12
+  }
+];
+
+export const MOCK_REDEMPTIONS = [
+  {
+    id: 'red-001',
+    product_name: 'Private Yoga Session',
+    product_image_url: 'https://images.unsplash.com/photo-1545205597-3b2a3a0b0b0b?w=400',
+    provider_name: 'Shanti Yoga Addis',
+    points_spent: 2000,
+    redeemed_at: '2026-06-08T10:30:00Z',
+    type: 'digital',
+    delivery_status: 'confirmed',
+    redemption_code: 'YOGA-ABC123',
+    delivery_address: null,
+    provider_notes: null
+  },
+  {
+    id: 'red-002',
+    product_name: 'Wellness Nutrition Kit',
+    product_image_url: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400',
+    provider_name: 'Lifestyle Fitness Center',
+    points_spent: 1500,
+    redeemed_at: '2026-06-05T14:00:00Z',
+    type: 'physical',
+    delivery_status: 'shipped',
+    redemption_code: null,
+    delivery_address: 'Addis Ababa, Bole, Building 45',
+    provider_notes: 'Shipped via DHL. Tracking: 123ABC'
+  }
+];
+
+export const MOCK_ADMIN_ANALYTICS = {
+  total_users: 156,
+  onboarded_users: 120,
+  total_providers: 8,
+  total_communities: 12,
+  total_bookings: 47,
+  successful_payments: 38,
+  total_revenue_etb: 45600,
+  active_users_7d: 89,
+  new_users_today: 5,
+  top_categories: [
+    { category: 'yoga', count: 48 },
+    { category: 'gym', count: 35 },
+    { category: 'nutrition', count: 12 }
+  ]
+};
+
+export const MOCK_PENDING_PROVIDERS = [
+  {
+    id: 'prov-pending-001',
+    name: 'Zen Yoga Studio',
+    category: 'yoga',
+    status: 'pending_approval',
+    owner_user_id: '00000000-0000-0000-0000-000000000002',
+    owner_name: 'Abebe Tadesse',
+    owner_telegram_handle: '@abebe_fitness',
+    submitted_at: new Date(now - 2 * 3600000).toISOString(),
+    description: 'Premium yoga in Bole with certified instructors.',
+    location_text: 'Bole, Addis Ababa',
+    lat: 9.0054,
+    lng: 38.7636,
+    price_range: 'ETB 500-2000',
+    services: [
+      { name: 'Morning Vinyasa', price: 800, duration: '60 min' },
+      { name: 'Private Session', price: 2000, duration: '90 min' }
+    ],
+    cover_photo_url: 'https://images.unsplash.com/photo-1545205597-3b2a3a0b0b0b?w=800',
+    photos: []
+  }
+];
+
+export const MOCK_ADMIN_PROVIDERS = [
+  { id: '11111111-0000-0000-0000-000000000003', name: 'Shanti Yoga Addis', category: 'yoga', status: 'active', location_text: 'Bole', owner_name: 'Sara M.', member_count: 83, onboarded_by_admin: true },
+  { id: '11111111-0000-0000-0000-000000000001', name: 'Lifestyle Fitness Center', category: 'gym', status: 'active', location_text: 'Bole', owner_name: 'Admin', member_count: 47, onboarded_by_admin: true }
+];
+
+export const MOCK_ADMIN_PRODUCTS = MOCK_PRODUCTS.map(p => ({
+  id: p.id,
+  name: p.name,
+  provider_id: p.provider_id,
+  provider_name: p.provider_name,
+  type: p.type,
+  price_etb: p.price_etb,
+  quantity_in_stock: p.quantity_in_stock,
+  redemption_count: p.redemption_count,
+  is_active: true,
+  created_at: '2026-06-01T00:00:00Z'
+}));
+
+export const MOCK_PROVIDER_PRODUCTS = MOCK_PRODUCTS.filter(
+  p => p.provider_id === '11111111-0000-0000-0000-000000000003'
+).map(p => ({
+  id: p.id,
+  name: p.name,
+  type: p.type,
+  price_etb: p.price_etb,
+  quantity_in_stock: p.quantity_in_stock,
+  is_active: true
+}));
+
 // Generate next 7 days for date picker
 export function getNextDays(count = 7) {
   const days = [];

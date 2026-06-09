@@ -14,7 +14,7 @@ class ServiceItem(BaseModel):
 
 class ProviderBase(BaseModel):
     name: str = Field(..., max_length=255)
-    category: str = Field(..., pattern="^(gym|yoga|nutrition|spa|therapy)$")
+    category: str = Field(..., pattern="^(gym|yoga|nutrition|spa|therapy|running)$")
     description: Optional[str] = None
     location_text: Optional[str] = None
     lat: Optional[float] = None

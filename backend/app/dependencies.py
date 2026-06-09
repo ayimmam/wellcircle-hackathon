@@ -76,6 +76,28 @@ async def get_super_admin(
     return current_user
 
 
+async def get_optional_user(
+    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False)),
+    db: Session = Depends(get_db),
+) -> User | None:
+    """Return authenticated user if JWT present, else None."""
+    if not credentials:
+        return None
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            settings.JWT_SECRET,
+            algorithms=[settings.JWT_ALGORITHM],
+        )
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            return None
+    except JWTError:
+        return None
+
+    return db.query(User).filter(User.id == user_id).first()
+
+
 async def verify_bot_api_key(
     x_bot_api_key: str = Header(..., alias="X-Bot-API-Key"),
 ) -> bool:

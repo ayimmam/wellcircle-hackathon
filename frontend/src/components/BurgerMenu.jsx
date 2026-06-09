@@ -1,18 +1,21 @@
-import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const MENU_ITEMS = [
   { path: '/home', icon: '🏠', label: 'Home' },
   { path: '/explore', icon: '🔍', label: 'Explore' },
   { path: '/community', icon: '👥', label: 'Communities' },
+  { path: '/products', icon: '🛍️', label: 'Points Store' },
   { path: '/profile', icon: '👤', label: 'Profile' },
   { path: '/booking-history', icon: '📅', label: 'Bookings' },
   { path: '/provider-dashboard', icon: '📊', label: 'Dashboard' },
+  { path: '/provider-onboard', icon: '🏪', label: 'Become Provider' },
 ];
 
 export default function BurgerMenu({ isOpen, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   if (!isOpen) return null;
 
@@ -42,7 +45,7 @@ export default function BurgerMenu({ isOpen, onClose }) {
 
         {/* Nav items */}
         <nav className="burger-nav">
-          {MENU_ITEMS.map(item => {
+          {[...MENU_ITEMS, ...(user?.is_super_admin ? [{ path: '/admin', icon: '⚙️', label: 'Admin' }] : [])].map(item => {
             const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
             return (
               <button

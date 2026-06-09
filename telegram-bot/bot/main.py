@@ -8,6 +8,7 @@ from telegram import Update, BotCommand
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from bot.handlers.start import start_handler
+from bot.handlers.admin import admin_handler
 from bot.services.reengagement import schedule_reengagement
 from bot.config import BOT_TOKEN
 
@@ -20,9 +21,10 @@ logger = logging.getLogger(__name__)
 
 async def post_init(application: Application) -> None:
     """Set bot commands after initialization."""
-    await application.bot.set_my_commands([
-        BotCommand("start", "Open Well Circle"),
-    ])
+    commands = [BotCommand("start", "Open Well Circle")]
+    # /admin is registered globally; visibility is enforced in the handler
+    commands.append(BotCommand("admin", "Access admin dashboard"))
+    await application.bot.set_my_commands(commands)
     logger.info("🟢 Well Circle Bot started")
 
 
@@ -32,6 +34,7 @@ def main():
 
     # Register handlers
     app.add_handler(CommandHandler("start", start_handler))
+    app.add_handler(CommandHandler("admin", admin_handler))
 
     # Schedule re-engagement check (daily)
     job_queue = app.job_queue

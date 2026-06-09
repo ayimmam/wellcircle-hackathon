@@ -60,6 +60,10 @@ from app.models.user import User
 from app.models.provider import Provider
 from app.models.community import Community, CommunityMember, CommunityFeedEvent
 from app.models.booking import Booking
+from app.models.provider_invite import ProviderInvite
+from app.models.product import Product
+from app.models.user_redemption import UserRedemption
+from app.models.admin_notification import AdminNotification
 
 # Create in-memory SQLite
 engine = create_engine("sqlite:///:memory:", echo=False)
@@ -264,9 +268,50 @@ def test_all():
         assert POINTS_CHECKIN == 10 and POINTS_DECAY_PER_DAY == 5
         print("   ✅ points_engine constants")
 
+        # === 8. PHASE 2 — ONBOARDING & PRODUCTS ===
+        print("\n8. Phase 2 — Onboarding & Products")
+        from app.crud.provider_invite import create_invite, get_valid_invite
+        from app.crud.provider import create_self_onboarded_provider, approve_provider
+        from app.crud.product import create_product, redeem_product, browse_products
+
+        admin_user = create_user_from_bot(db, telegram_id=999888777, telegram_handle="admin_test")
+        admin_user.is_super_admin = True
+        db.commit()
+
+        invite = create_invite(db, admin_user.id)
+        assert invite.invite_code.startswith("INVITE-")
+        print("   ✅ create_invite")
+
+        applicant = create_user_from_bot(db, telegram_id=555666777, telegram_handle="applicant")
+        valid = get_valid_invite(db, invite.invite_code)
+        new_provider = create_self_onboarded_provider(
+            db, applicant, valid, name="Test Studio", category="yoga", location_text="Bole",
+        )
+        assert new_provider.status == "pending_approval"
+        print("   ✅ self_onboard + approve flow")
+
+        approved = approve_provider(db, new_provider.id)
+        db.refresh(applicant)
+        assert approved.status == "active" and applicant.is_provider
+        print("   ✅ approve_provider")
+
+        product = create_product(
+            db, provider.id, name="Voucher", type="digital",
+            price_etb=50, quantity_in_stock=5, digital_code_template="YOGA-{RANDOM_6CHARS}",
+        )
+        user.points_balance = 100
+        db.commit()
+        result = redeem_product(db, product.id, user)
+        assert result["redemption_code"] and user.points_balance == 50
+        print("   ✅ redeem_product")
+
+        items, total = browse_products(db)
+        assert total >= 1
+        print("   ✅ browse_products")
+
         # === DONE ===
         print("\n" + "=" * 50)
-        print("  🎉 ALL 25 TESTS PASSED")
+        print("  🎉 ALL TESTS PASSED (including Phase 2)")
         print("  Backend + Bot integration is ready to ship!")
         print("=" * 50)
 

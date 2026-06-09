@@ -3,39 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function SplashScreen() {
-  const { login } = useAuth();
+  const { user, loading, error } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    let cancelled = false;
+    if (loading) return;
 
-    async function init() {
-      try {
-        // Expand Telegram Mini App viewport
-        if (window.Telegram?.WebApp) {
-          window.Telegram.WebApp.expand();
-          window.Telegram.WebApp.ready();
-        }
-
-        const res = await login();
-
-        if (cancelled) return;
-
-        if (!res.user.is_onboarded) {
-          navigate('/onboarding', { replace: true });
-        } else {
-          navigate('/home', { replace: true });
-        }
-      } catch (err) {
-        // Show an error toast so we know why it failed
-        alert(`Auth Failed: ${err.message}`);
-        if (!cancelled) navigate('/home', { replace: true });
-      }
+    if (error || !user) {
+      alert(`Auth Failed: ${error || 'Could not sign in'}`);
+      navigate('/home', { replace: true });
+      return;
     }
 
-    init();
-    return () => { cancelled = true; };
-  }, [login, navigate]);
+    if (!user.is_onboarded) {
+      navigate('/onboarding', { replace: true });
+    } else {
+      navigate('/home', { replace: true });
+    }
+  }, [loading, user, error, navigate]);
 
   return (
     <div className="splash" id="splash-screen">

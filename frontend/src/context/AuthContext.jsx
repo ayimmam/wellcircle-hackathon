@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { authTelegram, setToken, getMe, onboardUser as apiOnboard, updateProfile as apiUpdate } from '../api/client';
 
 const AuthContext = createContext(null);
@@ -43,6 +43,15 @@ export function AuthProvider({ children }) {
       setLoading(false);
     }
   }, []);
+
+  // Auth must run on every entry route (e.g. /admin from Telegram WebApp), not only on /
+  useEffect(() => {
+    if (window.Telegram?.WebApp) {
+      window.Telegram.WebApp.expand();
+      window.Telegram.WebApp.ready();
+    }
+    login().catch(() => {});
+  }, [login]);
 
   const refreshUser = useCallback(async () => {
     try {

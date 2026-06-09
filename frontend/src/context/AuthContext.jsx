@@ -19,9 +19,14 @@ export function AuthProvider({ children }) {
         const savedToken = localStorage.getItem('wc_token');
         if (savedToken) {
           setToken(savedToken);
-          const u = await getMe();
-          setUser(u);
-          return { token: savedToken, user: u };
+          try {
+            const u = await getMe();
+            setUser(u);
+            return { token: savedToken, user: u };
+          } catch {
+            localStorage.removeItem('wc_token');
+            setToken(null);
+          }
         }
         initData = 'mock-init-data';
       }

@@ -24,10 +24,16 @@ The core MVP loop has been successfully built, integrated, and deployed.
 - **Circles & Leaderboards**: Enabled user-created micro-communities ("My Circles") complete with join functionality and dynamic weekly fitness leaderboards to drive engagement.
 - **Community Posts & Reactions**: Users can post updates within communities and circles. Includes an interactive reaction system where users can gift Legacy Points directly to post authors.
 
-### 4. Infrastructure & Deployment
-- **Backend (Render)**: Python/FastAPI backend deployed securely over HTTPS.
-- **Database (Supabase)**: PostgreSQL deployed with fully mapped models for Users, Providers, Communities, Members, and Bookings.
-- **Frontend (Vercel)**: React/Vite web app fully deployed and integrated with the production backend.
+### 4. Admin & Provider Operations (Phase 2 Features)
+- **Provider Self-Onboarding**: An automated multi-step flow for new wellness providers to apply, register, and create listings.
+- **Wellness Products Store**: A marketplace where users can browse, search, and redeem earned Legacy Points for wellness products or discounts.
+- **Super Admin Dashboard**: A comprehensive suite for super admins to view platform analytics, manage product inventory, approve/reject provider applications, and export CSV reports.
+- **Telegram Bot Admin Access**: Added a secure `/admin` command handler in the Telegram bot to provide authenticated dashboard access for authorized super admins.
+
+### 5. Infrastructure & Deployment
+- **Backend (Vercel Serverless)**: Python/FastAPI backend successfully migrated from Render to Vercel Serverless Functions using Mangum, eliminating "cold start" latency for live demos.
+- **Database (Supabase)**: PostgreSQL deployed with fully mapped models. The `seed.py` utility is optimized to safely `UPSERT` all 10 mock providers and communities without raising foreign-key constraints.
+- **Frontend (Vercel)**: React/Vite web app fully deployed with strict connection to the production API (auto-mock fallback removed to enforce real data syncing). Includes real-time error toasts for network and deployment debugging.
 
 ---
 
@@ -44,8 +50,6 @@ These features were explicitly marked as out-of-scope for the Hackathon but are 
 ### Phase 2 (Month 3) - Deepening Community & Retention
 - **Real Health Data Integration**: Replacing the mock Health App UI with live data APIs from Apple Health, Google Fit, and Garmin.
 - **Dynamic Push Notifications**: Transitioning from hardcoded neighborhood alerts to a dynamic, location-aware notification infrastructure.
-- **Wellness Products Store**: A marketplace to redeem earned Legacy Points for physical goods or discounts.
-- **Provider Self-Onboarding**: An automated flow for new wellness providers to register and create listings without manual database seeding.
 
 ### Phase 3 (Month 6) - B2B Scale & Fintech Features
 - **Corporate Benefits Portal (B2B)**: Dedicated UI for HR managers to track team wellness and allocate corporate budgets.

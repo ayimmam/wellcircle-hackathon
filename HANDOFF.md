@@ -32,14 +32,13 @@ The core MVP loop has been successfully built, integrated, and deployed.
 
 ### 5. Infrastructure & Deployment
 - **Backend (Vercel Serverless)**: Python/FastAPI backend successfully migrated from Render to Vercel Serverless Functions using Mangum, eliminating "cold start" latency for live demos.
-- **Database (Supabase)**: PostgreSQL deployed with fully mapped models. The `seed.py` utility is optimized to safely `UPSERT` all 10 mock providers and communities without raising foreign-key constraints.
-- **Frontend (Vercel)**: React/Vite web app fully deployed with strict connection to the production API (auto-mock fallback removed to enforce real data syncing). Includes real-time error toasts for network and deployment debugging.
+- **Database (Supabase)**: PostgreSQL deployed with fully mapped models. Phase 2 schema migrations (Products, Redemptions, Admin Notifications) have been patched into the live production database to ensure compatibility with recent feature additions. Row Level Security (RLS) has been enabled on the `users` table with strict least-privilege policies to secure the PostgREST API against unauthorized data access.
+- **Frontend (Vercel)**: React/Vite web app fully deployed with strict connection to the production API (auto-mock fallback removed to enforce real data syncing). Includes real-time error toasts for network and deployment debugging. Critical UI bugs, such as active filter chip contrast issues, have been resolved.
+- **Admin & Provider Configuration**: Demo `super_admin` roles and provider ownership assignments have been manually configured in the production database, ensuring the Provider Dashboard and Admin Panel are fully functional for live hackathon presentations.
 
 ---
 
-## 🚧 Partially Implemented / Integration Pending
-
-- **Payment Integrations (Telebirr & M-Pesa)**: The backend API endpoints and UI flows exist, but require live sandbox credentials (e.g., Telebirr Open API keys) to complete the end-to-end transaction loop. Currently functions in UI/Mock state.
+- **Payment Integrations (Telebirr & M-Pesa)**: The backend API endpoints and UI flows exist. To accommodate the hackathon demo without requiring live sandbox credentials, the backend is now configured to automatically simulate and auto-approve mock transactions. This ensures the 3-step booking flow completes seamlessly in production without external webhook dependencies.
 
 ---
 

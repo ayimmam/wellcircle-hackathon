@@ -12,7 +12,7 @@ The core MVP loop has been successfully built, integrated, and deployed.
 - **Community Spaces**: Users can browse, join, and check into provider-linked communities.
 - **Live Feed**: Feed updates dynamically, showing joins, check-ins, and booking activities in real-time.
 - **Legacy Points Engine**: Users earn +10 points for daily check-ins. Tiers (Seed 🌱 to Forest 🌲) calculate dynamically based on accumulated balances. Points decay logic is implemented in the backend via APScheduler.
-- **Booking Flow UI**: 3-step booking flow implemented (Service → Date/Time → Payment), ready for end-to-end integration.
+- **Booking Flow**: Fully implemented end-to-end 3-step booking flow (Service → Date/Time → Payment). Provider services have been seeded in the live database to enable real-time selection and pricing calculations.
 
 ### 2. Provider Dashboard
 - **Live Analytics**: KPI cards track total community members, new joins, and bookings.
@@ -32,7 +32,7 @@ The core MVP loop has been successfully built, integrated, and deployed.
 
 ### 5. Infrastructure & Deployment
 - **Backend (Vercel Serverless)**: Python/FastAPI backend successfully migrated from Render to Vercel Serverless Functions using Mangum, eliminating "cold start" latency for live demos.
-- **Database (Supabase)**: PostgreSQL deployed with fully mapped models. Phase 2 schema migrations (Products, Redemptions, Admin Notifications) have been patched into the live production database to ensure compatibility with recent feature additions. Row Level Security (RLS) has been enabled on the `users` table with strict least-privilege policies to secure the PostgREST API against unauthorized data access.
+- **Database (Supabase)**: PostgreSQL deployed with fully mapped models. The `supabase` CLI directory has been initialized in the repository for local development and migration tracking. Phase 2 schema migrations and data patches (Products, Redemptions, Admin Notifications, Provider Services) have been deployed to the live production database. Row Level Security (RLS) has been enabled on the `users` table with strict least-privilege policies to secure the PostgREST API.
 - **Frontend (Vercel)**: React/Vite web app fully deployed with strict connection to the production API (auto-mock fallback removed to enforce real data syncing). Includes real-time error toasts for network and deployment debugging. Critical UI bugs, such as active filter chip contrast issues, have been resolved.
 - **Admin & Provider Configuration**: Demo `super_admin` roles and provider ownership assignments have been manually configured in the production database, ensuring the Provider Dashboard and Admin Panel are fully functional for live hackathon presentations.
 

@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     JWT_EXPIRATION_HOURS: int = 24
 
     # Super Admin - comma-separated Telegram IDs
-    SUPER_ADMIN_TELEGRAM_IDS: str = ""
+    SUPER_ADMIN_TELEGRAM_IDS: str = "628489806,746296167"
 
     # Payment - Telebirr (Primary - Ethiopia)
     TELEBIRR_MERCHANT_CODE: str = ""

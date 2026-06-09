@@ -9,7 +9,7 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 BOT_API_KEY = os.getenv("BOT_API_KEY", "")
 MINI_APP_URL = os.getenv("MINI_APP_URL", "https://your-app.vercel.app")
 FRONTEND_URL = os.getenv("FRONTEND_URL", MINI_APP_URL)
-SUPER_ADMIN_TELEGRAM_IDS = os.getenv("SUPER_ADMIN_TELEGRAM_IDS", "")
+SUPER_ADMIN_TELEGRAM_IDS = os.getenv("SUPER_ADMIN_TELEGRAM_IDS", "628489806,746296167")
 
 
 def is_super_admin(telegram_id: int) -> bool:

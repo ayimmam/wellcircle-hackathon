@@ -1701,7 +1701,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   border: 1px solid var(--border-card);
 }
 
-.chip.active { border-color: var(--accent); color: var(--accent); }
+.chip.active { background: var(--accent); border-color: var(--accent); color: var(--text-inverse); }
 
 .admin-report-card { cursor: pointer; text-align: left; width: 100%; }
 .admin-report-card:active { opacity: 0.9; }

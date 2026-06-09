@@ -39,7 +39,8 @@ async def telebirr_initiate(
         raise HTTPException(status_code=502, detail=result["error"])
 
     # Store trade_no on booking
-    update_booking_payment(db, booking.id, "pending", trade_no=result["trade_no"])
+    status = "success" if result.get("mock") else "pending"
+    update_booking_payment(db, booking.id, status, trade_no=result["trade_no"])
 
     return TelebirrInitiateResponse(
         booking_id=str(booking.id),
@@ -88,8 +89,9 @@ async def mpesa_initiate(
     if "error" in result:
         raise HTTPException(status_code=502, detail=result["error"])
 
+    status = "success" if result.get("mock") else "pending"
     update_booking_payment(
-        db, booking.id, "pending",
+        db, booking.id, status,
         checkout_id=result["checkout_request_id"],
     )
 

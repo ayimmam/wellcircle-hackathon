@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # Frontend URL (Vercel - for CORS and bot WebApp button)
     FRONTEND_URL: str = "http://localhost:5173"
 
+    # Backend URL
+    BACKEND_URL: str = ""
+
     # Bot API Key - shared secret between bot and backend
     BOT_API_KEY: str = ""
 

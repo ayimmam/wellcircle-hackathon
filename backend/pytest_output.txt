@@ -1,0 +1,118 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-7.4.3, pluggy-1.6.0
+rootdir: /home/sda1/Downloads2/wellcirclev2/backend
+plugins: asyncio-0.21.1, anyio-3.7.1
+asyncio: mode=Mode.STRICT
+collected 0 items / 1 error
+
+==================================== ERRORS ====================================
+________________ ERROR collecting app/tests/test_integration.py ________________
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/visitors.py:139: in _compiler_dispatch
+    meth = getter(visitor)
+E   AttributeError: 'SQLiteTypeCompiler' object has no attribute 'visit_UUID'. Did you mean: 'visit_uuid'?
+
+The above exception was the direct cause of the following exception:
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py:6487: in visit_create_table
+    processed = self.process(
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py:912: in process
+    return obj._compiler_dispatch(self, **kwargs)
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/visitors.py:143: in _compiler_dispatch
+    return meth(self, **kw)  # type: ignore  # noqa: E501
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py:6518: in visit_create_column
+    text = self.get_column_specification(column, first_pk=first_pk)
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/sqlite/base.py:1534: in get_column_specification
+    coltype = self.dialect.type_compiler_instance.process(
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py:957: in process
+    return type_._compiler_dispatch(self, **kw)
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/visitors.py:141: in _compiler_dispatch
+    return visitor.visit_unsupported_compilation(self, err, **kw)  # type: ignore  # noqa: E501
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py:962: in visit_unsupported_compilation
+    raise exc.UnsupportedCompilationError(self, element) from err
+E   sqlalchemy.exc.UnsupportedCompilationError: Compiler <sqlalchemy.dialects.sqlite.base.SQLiteTypeCompiler object at 0x7bb91b3bf980> can't render element of type UUID (Background on this error at: https://sqlalche.me/e/20/l7de)
+
+The above exception was the direct cause of the following exception:
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/_pytest/runner.py:341: in from_call
+    result: Optional[TResult] = func()
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/_pytest/runner.py:372: in <lambda>
+    call = CallInfo.from_call(lambda: list(collector.collect()), "collect")
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/_pytest/python.py:531: in collect
+    self._inject_setup_module_fixture()
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/_pytest/python.py:545: in _inject_setup_module_fixture
+    self.obj, ("setUpModule", "setup_module")
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/_pytest/python.py:310: in obj
+    self._obj = obj = self._getobj()
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/_pytest/python.py:528: in _getobj
+    return self._importtestmodule()
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/_pytest/python.py:617: in _importtestmodule
+    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/_pytest/pathlib.py:567: in import_path
+    importlib.import_module(module_name)
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1331: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:935: in _load_unlocked
+    ???
+<frozen importlib._bootstrap_external>:995: in exec_module
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+app/tests/__init__.py:32: in <module>
+    Base.metadata.create_all(bind=engine)
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/schema.py:5828: in create_all
+    bind._run_ddl_visitor(
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:3243: in _run_ddl_visitor
+    conn._run_ddl_visitor(visitorcallable, element, **kwargs)
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2447: in _run_ddl_visitor
+    visitorcallable(self.dialect, self, **kwargs).traverse_single(element)
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/visitors.py:671: in traverse_single
+    return meth(obj, **kw)
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/ddl.py:919: in visit_metadata
+    self.traverse_single(
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/visitors.py:671: in traverse_single
+    return meth(obj, **kw)
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/ddl.py:957: in visit_table
+    )._invoke_with(self.connection)
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/ddl.py:315: in _invoke_with
+    return bind.execute(self)
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1416: in execute
+    return meth(
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/ddl.py:181: in _execute_on_connection
+    return connection._execute_ddl(
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1525: in _execute_ddl
+    compiled = ddl.compile(
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:308: in compile
+    return self._compiler(dialect, **kw)
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/ddl.py:69: in _compiler
+    return dialect.ddl_compiler(dialect, self, **kw)
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py:867: in __init__
+    self.string = self.process(self.statement, **compile_kwargs)
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py:912: in process
+    return obj._compiler_dispatch(self, **kwargs)
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/visitors.py:143: in _compiler_dispatch
+    return meth(self, **kw)  # type: ignore  # noqa: E501
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/compiler.py:6497: in visit_create_table
+    raise exc.CompileError(
+E   sqlalchemy.exc.CompileError: (in table 'users', column 'id'): Compiler <sqlalchemy.dialects.sqlite.base.SQLiteTypeCompiler object at 0x7bb91b3bf980> can't render element of type UUID
+=============================== warnings summary ===============================
+../../wellcircle/backend/.venv/lib/python3.12/site-packages/pydantic/_internal/_config.py:268
+  /home/sda1/Downloads2/wellcircle/backend/.venv/lib/python3.12/site-packages/pydantic/_internal/_config.py:268: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    warnings.warn(DEPRECATION_MESSAGE, DeprecationWarning)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR app/tests/test_integration.py - sqlalchemy.exc.CompileError: (in table ...
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+========================= 1 warning, 1 error in 0.92s ==========================

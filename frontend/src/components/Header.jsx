@@ -5,7 +5,8 @@ export default function Header({ onMenuOpen }) {
   const location = useLocation();
 
   // Hide header on splash, onboarding, and admin
-  const hidden = ['/', '/onboarding'].includes(location.pathname) || location.pathname.startsWith('/admin');
+  const hidden = ['/', '/onboarding', '/provider-onboard'].includes(location.pathname)
+    || location.pathname.startsWith('/admin');
   if (hidden) return null;
 
   return (

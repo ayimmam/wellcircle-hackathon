@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
@@ -30,7 +31,7 @@ def _build_response(user: User, db: Session) -> UserResponse:
         exercise_frequency=user.exercise_frequency,
         points_balance=user.points_balance, tier=tier, tier_emoji=emoji,
         is_onboarded=user.is_onboarded, is_provider=user.is_provider,
-        is_super_admin=user.is_super_admin,
+        is_super_admin=user.is_super_admin or user.telegram_id in settings.super_admin_ids,
         location_neighborhood=user.location_neighborhood,
         health_app_connected=user.health_app_connected,
         joined_communities=joined, created_at=user.created_at,

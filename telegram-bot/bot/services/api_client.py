@@ -31,6 +31,17 @@ async def register_user(
         return response.json()
 
 
+async def check_admin_access(telegram_id: int) -> dict:
+    """Check if user has super-admin access via GET /api/bot/users/{id}/admin-access."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.get(
+            f"{BACKEND_URL}/api/bot/users/{telegram_id}/admin-access",
+            headers=HEADERS,
+        )
+        response.raise_for_status()
+        return response.json()
+
+
 async def get_inactive_users(days: int = 7) -> dict:
     """Get inactive users via GET /api/bot/inactive-users."""
     async with httpx.AsyncClient(timeout=10) as client:

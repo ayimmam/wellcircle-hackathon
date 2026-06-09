@@ -19,7 +19,7 @@ export const MOCK_USER = {
   tier_emoji: '🌿',
   is_onboarded: true,
   is_provider: false,
-  is_super_admin: false,
+  is_super_admin: import.meta.env.VITE_MOCK_SUPER_ADMIN === 'true',
   location_neighborhood: null,
   health_app_connected: false,
   joined_communities: [

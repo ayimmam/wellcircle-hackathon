@@ -1,61 +1,146 @@
-# Well Circle - Hackathon Progress & Handoff
+# Well Circle — Project Handoff
 
-This document tracks the current implementation status of the Well Circle MVP against the Product Requirements Document (`PRD.md`), summarizing shipped features and outlining the next steps for Phase 2 and beyond.
+This document tracks implementation status against `PRD.md` and `IMPLEMENTATION_PROMPT.md`.  
+**Last updated:** June 2026 — after Phase 2 (provider onboarding, products store, admin dashboard).
 
-## 🚀 Shipped Features (MVP Complete)
-
-The core MVP loop has been successfully built, integrated, and deployed.
-
-### 1. Consumer Experience
-- **Telegram Mini App Shell**: Successfully integrated. Auto-authenticates users via Telegram `initData` without a separate login screen.
-- **Provider Marketplace**: Users can browse verified providers, filter by category, and view detailed listing pages (services, pricing, and locations).
-- **Community Spaces**: Users can browse, join, and check into provider-linked communities.
-- **Live Feed**: Feed updates dynamically, showing joins, check-ins, and booking activities in real-time.
-- **Legacy Points Engine**: Users earn +10 points for daily check-ins. Tiers (Seed 🌱 to Forest 🌲) calculate dynamically based on accumulated balances. Points decay logic is implemented in the backend via APScheduler.
-- **Booking Flow**: Fully implemented end-to-end 3-step booking flow (Service → Date/Time → Payment). Provider services have been seeded in the live database to enable real-time selection and pricing calculations.
-
-### 2. Provider Dashboard
-- **Live Analytics**: KPI cards track total community members, new joins, and bookings.
-- **Real-time Member Feed**: Providers can watch the member counter and community feed update in near real-time, providing immediate ROI proof during demos.
-
-### 3. Personalized Engagement & Social (Phase 2 Features)
-- **Demographic-based Notifications**: Implemented the neighbourhood opt-in flow on the Profile screen. Corresponding targeted wellness alerts automatically display on the Home screen.
-- **Health App Integration (UI-Only)**: Added the "Health & Activity" connection toggle with animated mock metrics (Steps, Active Mins, Wellness Score) to signal future wearable integration capabilities.
-- **Circles & Leaderboards**: Enabled user-created micro-communities ("My Circles") complete with join functionality and dynamic weekly fitness leaderboards to drive engagement.
-- **Community Posts & Reactions**: Users can post updates within communities and circles. Includes an interactive reaction system where users can gift Legacy Points directly to post authors.
-
-### 4. Admin & Provider Operations (Phase 2 Features)
-- **Provider Self-Onboarding**: An automated multi-step flow for new wellness providers to apply, register, and create listings.
-- **Wellness Products Store**: A marketplace where users can browse, search, and redeem earned Legacy Points for wellness products or discounts.
-- **Super Admin Dashboard**: A comprehensive suite for super admins to view platform analytics, manage product inventory, approve/reject provider applications, and export CSV reports.
-- **Telegram Bot Admin Access**: Added a secure `/admin` command handler in the Telegram bot to provide authenticated dashboard access for authorized super admins.
-
-### 5. Infrastructure & Deployment
-- **Backend (Vercel Serverless)**: Python/FastAPI backend successfully migrated from Render to Vercel Serverless Functions using Mangum, eliminating "cold start" latency for live demos.
-- **Database (Supabase)**: PostgreSQL deployed with fully mapped models. The `supabase` CLI directory has been initialized in the repository for local development and migration tracking. Phase 2 schema migrations and data patches (Products, Redemptions, Admin Notifications, Provider Services) have been deployed to the live production database. Row Level Security (RLS) has been enabled on the `users` table with strict least-privilege policies to secure the PostgREST API.
-- **Frontend (Vercel)**: React/Vite web app fully deployed with strict connection to the production API (auto-mock fallback removed to enforce real data syncing). Includes real-time error toasts for network and deployment debugging. Critical UI bugs, such as active filter chip contrast issues, have been resolved.
-- **Admin & Provider Configuration**: Demo `super_admin` roles and provider ownership assignments have been manually configured in the production database, ensuring the Provider Dashboard and Admin Panel are fully functional for live hackathon presentations.
+For deployment-specific steps, see **`PHASE2_DEPLOYMENT_CHANGELOG.md`**.
 
 ---
 
-- **Payment Integrations (Telebirr & M-Pesa)**: The backend API endpoints and UI flows exist. To accommodate the hackathon demo without requiring live sandbox credentials, the backend is now configured to automatically simulate and auto-approve mock transactions. This ensures the 3-step booking flow completes seamlessly in production without external webhook dependencies.
+## Shipped Features
+
+### MVP (Complete)
+
+#### Consumer Experience
+- **Telegram Mini App shell** — auto-auth via Telegram `initData`, no separate login screen
+- **Provider marketplace** — browse, filter by category, provider detail pages
+- **Community spaces** — join, leave, daily check-in, live feed
+- **Legacy Points engine** — +10 per check-in, tiers (Seed → Forest), backend decay via APScheduler
+- **Booking flow** — 3-step flow (service → date/time → payment); provider services seeded in production DB
+
+#### Provider Dashboard (MVP)
+- Live KPI cards (members, bookings, revenue, engagement)
+- Real-time community feed polling
+
+#### Social & Engagement
+- Neighbourhood opt-in on Profile → targeted alerts on Home
+- Health app connection toggle (UI mock metrics)
+- Circles with leaderboards
+- Community posts and point-gifting reactions
 
 ---
 
-## 🗓️ Yet to Be Implemented (Phase 2 & 3 Roadmap)
+### Phase 2 (Complete — June 2026)
 
-These features were explicitly marked as out-of-scope for the Hackathon but are critical for the next phases of development, as outlined in the PRD.
+#### Provider Self-Onboarding
+- **Route:** `/provider-onboard` — 4-step form (invite code → details → services → review)
+- **API:** `POST /api/providers/self-onboard` with gated invite codes
+- **Admin API:** `POST /api/providers/invite-code/generate`
+- Provider applications enter `pending_approval` until admin approves
+- Approval auto-creates linked community and sends Telegram notification
 
-### Phase 2 (Month 3) - Deepening Community & Retention
-- **Real Health Data Integration**: Replacing the mock Health App UI with live data APIs from Apple Health, Google Fit, and Garmin.
-- **Dynamic Push Notifications**: Transitioning from hardcoded neighborhood alerts to a dynamic, location-aware notification infrastructure.
+#### Wellness Products Store
+- **Routes:** `/products`, `/products/:id`, `/products/:id/redeem`, `/users/me/redemptions`
+- Browse, search, filter (type, in-stock), recommended products by interest
+- Redeem with Legacy Points (digital voucher codes + physical delivery address)
+- Stock decrements on redemption; points deducted atomically
 
-### Phase 3 (Month 6) - B2B Scale & Fintech Features
-- **Corporate Benefits Portal (B2B)**: Dedicated UI for HR managers to track team wellness and allocate corporate budgets.
-- **Tribe Vault & Group Wallet**: Auto-split payments for group bookings directly within the app.
-- **Rotating Wellness Savings Pool**: Implementing digital *Equb* structures for high-ticket wellness retreats.
-- **National & Cross-Border Expansion**: Supporting diaspora wellness bookings and expanding beyond Addis Ababa.
+#### Super Admin Dashboard
+- **Route:** `/admin` (protected — super admin only)
+- **Tabs:** Analytics, Providers (pending/active/rejected), Products inventory, Reports/CSV export
+- **API:** pending approve/reject, promote-user, notifications, stock updates, redemption status
+- Accessible from burger menu when user is super admin
+
+#### Provider Dashboard (Phase 2 additions)
+- **Products tab** — list, create products, view recent redemptions
+- **API:** `GET/POST/PATCH /api/providers/me/products`, `GET /api/providers/me/redemptions`
+
+#### Telegram Bot
+- **`/admin` command** — opens Admin Dashboard as Mini App WebApp button (super admins only)
+- Checks `SUPER_ADMIN_TELEGRAM_IDS` env **and** backend `is_super_admin` DB flag via `GET /api/bot/users/{id}/admin-access`
+- Approval/rejection messages sent by backend (`telegram_notify.py`) on admin actions
 
 ---
 
-*Document prepared for final hackathon review and post-event roadmap planning.*
+## Infrastructure & Deployment
+
+| Service | Platform | Status |
+|---------|----------|--------|
+| Backend API | Vercel Serverless (Mangum) / Render | Deployed |
+| Database | Supabase PostgreSQL | Phase 2 migration applied |
+| Frontend Mini App | Vercel | Deployed (`VITE_USE_MOCK=false` in prod) |
+| Telegram Bot | Railway | Deployed |
+
+### Database (Phase 2 schema)
+- `providers` — added `status`, `onboarded_by_admin`, `submitted_at`, `reviewed_at`
+- New tables: `provider_invites`, `products`, `user_redemptions`, `admin_notifications`
+- RLS enabled on `users` table
+- Demo `is_super_admin` and provider ownership configured for hackathon demos
+
+### Payments (Demo mode)
+- Telebirr/M-Pesa endpoints exist; backend can auto-approve mock transactions for demo flows without live sandbox credentials
+
+---
+
+## Admin Access Setup
+
+Super admin is granted if **either** condition is true:
+
+1. `users.is_super_admin = true` in Supabase, **or**
+2. User's `telegram_id` is in `SUPER_ADMIN_TELEGRAM_IDS` (backend + bot env)
+
+**Frontend** also respects `VITE_SUPER_ADMIN_TELEGRAM_IDS` for the `/admin` route guard.
+
+**Local mock testing:** set `VITE_MOCK_SUPER_ADMIN=true` in frontend `.env`.
+
+---
+
+## Partially Implemented / Known Gaps
+
+| Item | Status |
+|------|--------|
+| Telebirr / M-Pesa live payments | UI + API ready; sandbox credentials optional |
+| Real health data (Apple Health, etc.) | UI mock only |
+| Dynamic push notifications | Hardcoded neighbourhood alerts |
+| Admin invite-code UI | API exists; generate via `/docs` or add UI button later |
+| PDF report generation | Placeholder in Reports tab |
+
+---
+
+## Yet to Implement (Phase 3+)
+
+- Real health data integration (Apple Health, Google Fit, Garmin)
+- Dynamic location-aware push notifications
+- Corporate B2B benefits portal
+- Tribe Vault / group wallet split payments
+- Rotating wellness savings pool (digital Equb)
+- National / diaspora expansion
+
+---
+
+## Key Files (Phase 2)
+
+```
+backend/alembic/versions/001_phase2_schema.py
+backend/app/api/products.py
+backend/app/services/telegram_notify.py
+frontend/src/pages/admin/*
+frontend/src/pages/ProductsStore.jsx
+frontend/src/pages/ProviderOnboard.jsx
+telegram-bot/bot/handlers/admin.py
+PHASE2_DEPLOYMENT_CHANGELOG.md
+```
+
+---
+
+## Quick Verification Checklist
+
+- [ ] User can browse `/products` and redeem with points
+- [ ] Provider can apply at `/provider-onboard` with invite code
+- [ ] Admin can approve at `/admin/providers`
+- [ ] Bot `/admin` opens dashboard for super admin Telegram account
+- [ ] Existing MVP flows (explore, communities, bookings) still work
+
+---
+
+*Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*

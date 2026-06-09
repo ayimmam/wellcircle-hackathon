@@ -56,9 +56,15 @@ export default function ProductsStore() {
           )}
           <h3 className="section-subtitle mb-12">More Products</h3>
           <div className="product-grid">
-            {(others.length ? others : products).map(p => (
-              <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
-            ))}
+            {(others.length ? others : products).length === 0 ? (
+              <p className="text-secondary text-center" style={{ gridColumn: '1 / -1', padding: '24px 0' }}>
+                No products found. Try adjusting your filters.
+              </p>
+            ) : (
+              (others.length ? others : products).map(p => (
+                <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />
+              ))
+            )}
           </div>
         </>
       )}

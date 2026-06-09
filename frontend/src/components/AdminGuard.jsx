@@ -1,18 +1,19 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { isSuperAdmin } from '../utils/auth';
 
 export default function AdminGuard({ children }) {
   const { user, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="page admin-page">
+      <div className="admin-shell">
         <div className="skeleton" style={{ height: 200 }} />
       </div>
     );
   }
 
-  if (!user?.is_super_admin) {
+  if (!isSuperAdmin(user)) {
     return <Navigate to="/home" replace />;
   }
 

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.dependencies import verify_bot_api_key
 from app.crud.user import get_user_by_telegram_id, create_user_from_bot, get_inactive_users
@@ -26,11 +27,15 @@ async def bot_register(
         if request.telegram_handle and request.telegram_handle != existing.telegram_handle:
             existing.telegram_handle = request.telegram_handle
             db.commit()
+        is_admin = (
+            existing.telegram_id in settings.super_admin_ids or existing.is_super_admin
+        )
         return {
             "id": str(existing.id),
             "telegram_id": existing.telegram_id,
             "telegram_handle": existing.telegram_handle,
             "is_onboarded": existing.is_onboarded,
+            "is_super_admin": is_admin,
             "created": False,
         }
 
@@ -40,12 +45,33 @@ async def bot_register(
         telegram_handle=request.telegram_handle,
         photo_url=request.photo_url,
     )
+    is_admin = user.telegram_id in settings.super_admin_ids or user.is_super_admin
     return {
         "id": str(user.id),
         "telegram_id": user.telegram_id,
         "telegram_handle": user.telegram_handle,
         "is_onboarded": user.is_onboarded,
+        "is_super_admin": is_admin,
         "created": True,
+    }
+
+
+@router.get("/users/{telegram_id}/admin-access")
+async def bot_admin_access(
+    telegram_id: int,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_bot_api_key),
+):
+    """Check if a Telegram user has super-admin access (for /admin bot command)."""
+    user = get_user_by_telegram_id(db, telegram_id)
+    is_admin = (
+        telegram_id in settings.super_admin_ids
+        or (user is not None and user.is_super_admin)
+    )
+    return {
+        "telegram_id": telegram_id,
+        "is_super_admin": is_admin,
+        "user_exists": user is not None,
     }
 
 

@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { isSuperAdmin } from '../utils/auth';
 
 const MENU_ITEMS = [
   { path: '/home', icon: '🏠', label: 'Home' },
@@ -45,7 +46,7 @@ export default function BurgerMenu({ isOpen, onClose }) {
 
         {/* Nav items */}
         <nav className="burger-nav">
-          {[...MENU_ITEMS, ...(user?.is_super_admin ? [{ path: '/admin', icon: '⚙️', label: 'Admin' }] : [])].map(item => {
+          {[...MENU_ITEMS, ...(isSuperAdmin(user) ? [{ path: '/admin', icon: '⚙️', label: 'Admin' }] : [])].map(item => {
             const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
             return (
               <button

@@ -32,7 +32,7 @@ export default function MyRedemptions() {
       <button className="btn btn-icon btn-secondary mb-16" onClick={() => navigate(-1)}>←</button>
       <h1 className="section-title mb-16">My Redemptions</h1>
 
-      <div className="filter-chips mb-16">
+      <div className="filter-chips wrap mb-16">
         {['all', 'pending', 'delivered'].map(f => (
           <button key={f} className={`chip ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
             {f.charAt(0).toUpperCase() + f.slice(1)}

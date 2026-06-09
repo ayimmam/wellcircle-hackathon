@@ -535,6 +535,44 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
 .onboarding-input::placeholder { color: var(--text-tertiary); }
 
+/* Shared form input (Phase 2 pages) */
+.input,
+select.input,
+textarea.input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input:focus,
+select.input:focus,
+textarea.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.input::placeholder,
+textarea.input::placeholder { color: var(--text-tertiary); }
+
+select.input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239CA3AF' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+select.input option {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
 .option-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -635,6 +673,13 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .card:active { transform: scale(0.985); }
 .card-cover { width: 100%; height: 160px; object-fit: cover; }
 .card-body { padding: 14px; }
+
+.card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
 
 /* --- Provider Card --- */
 .provider-card {
@@ -1484,19 +1529,24 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .flex { display: flex; }
 .flex-col { display: flex; flex-direction: column; }
 .items-center { align-items: center; }
+.items-start { align-items: flex-start; }
 .justify-between { justify-content: space-between; }
 .gap-8 { gap: 8px; }
 .gap-12 { gap: 12px; }
 .gap-16 { gap: 16px; }
 .gap-20 { gap: 20px; }
+.mb-8 { margin-bottom: 8px; }
 .mb-12 { margin-bottom: 12px; }
 .mb-16 { margin-bottom: 16px; }
 .mb-20 { margin-bottom: 20px; }
 .mb-24 { margin-bottom: 24px; }
 .mt-8 { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
 .mt-16 { margin-top: 16px; }
+.mt-24 { margin-top: 24px; }
 .mt-auto { margin-top: auto; }
 .text-center { text-align: center; }
+.text-secondary { color: var(--text-secondary); }
 .w-full { width: 100%; }
 .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -1561,8 +1611,10 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 
 .admin-subtab.active {
+  background: var(--accent);
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--text-inverse);
+  box-shadow: 0 0 12px var(--accent-glow);
 }
 
 .admin-card-list { display: flex; flex-direction: column; gap: 12px; }
@@ -1691,17 +1743,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
 .voucher-box code { font-size: 1.1rem; font-weight: 700; color: var(--accent); letter-spacing: 0.05em; }
 
-.filter-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-
-.chip {
-  padding: 6px 12px;
-  border-radius: var(--radius-full);
-  font-size: 0.75rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-}
-
-.chip.active { background: var(--accent); border-color: var(--accent); color: var(--text-inverse); }
+/* Compact chips in admin/redemption filters (inherits .chip.active from filter section) */
+.filter-chips.wrap { flex-wrap: wrap; overflow-x: visible; }
 
 .admin-report-card { cursor: pointer; text-align: left; width: 100%; }
 .admin-report-card:active { opacity: 0.9; }
@@ -1714,10 +1757,18 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   letter-spacing: 0.05em;
 }
 
-.btn-danger { background: var(--danger); color: white; }
-.btn-sm { padding: 6px 12px; font-size: 0.75rem; }
 .flex-wrap { flex-wrap: wrap; }
 .text-sm { font-size: 0.82rem; }
 .text-xs { font-size: 0.72rem; }
 .text-left { text-align: left; }
-.onboard-page { padding-top: 16px; }
+.onboard-page {
+  padding-top: calc(var(--header-height) + 8px);
+  padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 16px);
+}
+
+/* Service tags on onboarding */
+.chip:not(.active) {
+  color: var(--text-secondary);
+}
+
+textarea.input { resize: vertical; min-height: 80px; }

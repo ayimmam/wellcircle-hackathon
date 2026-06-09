@@ -74,7 +74,7 @@ export default function ProviderOnboard() {
 
   if (done) {
     return (
-      <div className="page onboard-page">
+      <div className="page onboard-page" id="provider-onboard-screen">
         <div className="card text-center">
           <div className="card-body">
             <div style={{ fontSize: '3rem', marginBottom: 16 }}>✓</div>
@@ -90,7 +90,7 @@ export default function ProviderOnboard() {
   }
 
   return (
-    <div className="page onboard-page">
+    <div className="page onboard-page" id="provider-onboard-screen">
       <button className="btn btn-icon btn-secondary mb-16" onClick={() => step > 0 ? setStep(s => s - 1) : navigate(-1)}>←</button>
       <h1 className="section-title mb-8">Become a Wellness Provider</h1>
       <p className="text-secondary text-sm mb-16">Step {step + 1} of {STEPS.length}: {STEPS[step]}</p>

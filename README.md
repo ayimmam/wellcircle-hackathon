@@ -85,7 +85,8 @@ wellcircle/
 │  Frontend    │                        │
 │  Mini App    │ ── JWT auth ──►┌───────▼───────┐
 │  (Vercel)    │                │  Backend API  │
-│              │ ◄── JSON ───── │  (Render)     │
+│              │ ◄── JSON ───── │  (Serverless) |
+│              |                |     Vercel    |
 └──────────────┘                │               │
                                 │  Supabase DB  │
 ┌──────────────┐                │  (PostgreSQL) │

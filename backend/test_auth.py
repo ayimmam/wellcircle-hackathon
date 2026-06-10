@@ -4,7 +4,7 @@ import urllib.parse
 import json
 import time
 
-bot_token = "8839515595:AAGwLHPgbxuvvoBiZrCbBnKFQBNlPtouBGI"
+bot_token = ""
 user_data = {
     "id": 12345678,
     "first_name": "Test",

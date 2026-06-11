@@ -530,3 +530,67 @@ export async function getAdminNotifications(limit = 20, offset = 0) {
   }
   return request('GET', `/admin/notifications?limit=${limit}&offset=${offset}`);
 }
+
+// ─── Phase 3 ──────────────────────────────────────
+export async function getFeaturedEvents() {
+  if (USE_MOCK) {
+    await delay();
+    return { events: [] };
+  }
+  return request('GET', '/events?boosted_only=true');
+}
+
+export async function getChallenges(communityId) {
+  if (USE_MOCK) return { challenges: [] };
+  return request('GET', `/communities/${communityId}/challenges`);
+}
+
+export async function createCommunityChallenge(communityId, data) {
+  if (USE_MOCK) return { id: 'chal-new-' + Date.now(), ...data };
+  return request('POST', `/providers/me/communities/${communityId}/challenges`, data);
+}
+
+export async function getLeaderboard(communityId) {
+  if (USE_MOCK) return { leaderboard: [] };
+  return request('GET', `/communities/${communityId}/leaderboard`);
+}
+
+export async function getNotifications() {
+  if (USE_MOCK) return { notifications: [] };
+  return request('GET', '/users/me/notifications');
+}
+
+export async function markNotificationRead(id) {
+  if (USE_MOCK) return { is_read: true };
+  return request('POST', `/users/me/notifications/${id}/read`);
+}
+
+export async function markAllNotificationsRead() {
+  if (USE_MOCK) return { marked_read: 0 };
+  return request('POST', '/users/me/notifications/read-all');
+}
+
+export async function getMyBookings() {
+  if (USE_MOCK) return { bookings: [] };
+  return request('GET', '/users/me/bookings');
+}
+
+export async function getProviderEvents(providerId) {
+  if (USE_MOCK) return { events: [] };
+  return request('GET', `/providers/${providerId}/events`);
+}
+
+export async function createProviderEvent(data) {
+  if (USE_MOCK) return { id: 'evt-new-' + Date.now(), ...data };
+  return request('POST', '/providers/me/events', data);
+}
+
+export async function getSubscriptionPlans() {
+  if (USE_MOCK) return { plans: [] };
+  return request('GET', '/subscriptions/plans');
+}
+
+export async function initiateSubscription(data) {
+  if (USE_MOCK) return { to_pay_url: 'https://mock.pay', trade_no: 'mock' };
+  return request('POST', '/providers/me/subscriptions/initiate', data);
+}

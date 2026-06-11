@@ -11,6 +11,8 @@ import SplashScreen from './pages/SplashScreen';
 import OnboardingFlow from './pages/OnboardingFlow';
 import HomeScreen from './pages/HomeScreen';
 import ExploreScreen from './pages/ExploreScreen';
+import NotificationsScreen from './pages/NotificationsScreen';
+import MyBookings from './pages/MyBookings';
 import ProviderDetail from './pages/ProviderDetail';
 import CommunityList from './pages/CommunityList';
 import CommunityDetail from './pages/CommunityDetail';
@@ -49,6 +51,8 @@ export default function App() {
             {/* Main tabs */}
             <Route path="/home" element={<HomeScreen />} />
             <Route path="/explore" element={<ExploreScreen />} />
+            <Route path="/notifications" element={<NotificationsScreen />} />
+            <Route path="/my-bookings" element={<MyBookings />} />
             <Route path="/community" element={<CommunityList />} />
             <Route path="/profile" element={<ProfileScreen />} />
 

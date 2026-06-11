@@ -183,6 +183,50 @@ def checkin_community(db: Session, community_id: UUID, user: User):
     db.commit()
     db.refresh(event)
 
+    # --- Phase 3: Challenge completion check ---
+    from app.models.community_challenge import CommunityChallenge, ChallengeAward
+    from app.models.user_notification import UserNotification
+    
+    active_challenges = db.query(CommunityChallenge).filter(
+        CommunityChallenge.community_id == community_id,
+        CommunityChallenge.is_active == True,
+        CommunityChallenge.starts_at <= datetime.now(timezone.utc),
+        CommunityChallenge.ends_at >= datetime.now(timezone.utc)
+    ).all()
+    
+    for challenge in active_challenges:
+        # check user progress
+        checkins = db.query(CommunityFeedEvent).filter(
+            CommunityFeedEvent.user_id == user.id,
+            CommunityFeedEvent.community_id == community_id,
+            CommunityFeedEvent.event_type == "checkin",
+            CommunityFeedEvent.created_at >= challenge.starts_at,
+            CommunityFeedEvent.created_at <= challenge.ends_at
+        ).count()
+        
+        if checkins >= challenge.target_checkins:
+            already_awarded = db.query(ChallengeAward).filter(
+                ChallengeAward.challenge_id == challenge.id,
+                ChallengeAward.user_id == user.id
+            ).first()
+            if not already_awarded:
+                user.points_balance += challenge.reward_points
+                db.add(ChallengeAward(
+                    challenge_id=challenge.id,
+                    user_id=user.id,
+                    points_given=challenge.reward_points
+                ))
+                create_notification(
+                    db,
+                    user_id=user.id,
+                    type="challenge_completed",
+                    title="Challenge Completed! 🏆",
+                    body=f"You completed '{challenge.title}' and earned {challenge.reward_points} pts!",
+                    action_url=f"/community/{community_id}"
+                )
+    db.commit()
+    # -------------------------------------------
+
     from app.crud.user import get_points_tier
     tier, tier_emoji = get_points_tier(user.points_balance)
     return {

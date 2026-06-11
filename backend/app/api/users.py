@@ -115,6 +115,50 @@ async def get_my_redemptions(
     return {"redemptions": items, "count": len(items)}
 
 
+@router.get("/me/bookings")
+async def get_my_bookings(
+    status: str = "all",
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.models.booking import Booking
+    from app.models.provider import Provider
+    from datetime import datetime, timezone
+    
+    query = db.query(Booking, Provider).outerjoin(Provider, Booking.provider_id == Provider.id).filter(
+        Booking.user_id == user.id
+    )
+    
+    now = datetime.now(timezone.utc)
+    if status == "upcoming":
+        query = query.filter(Booking.slot_datetime >= now, Booking.payment_status != "cancelled")
+    elif status == "completed":
+        query = query.filter(Booking.slot_datetime < now, Booking.payment_status == "success")
+    elif status == "cancelled":
+        query = query.filter(Booking.payment_status == "cancelled")
+        
+    query = query.order_by(Booking.slot_datetime.desc())
+    results = query.all()
+    
+    bookings_list = []
+    for booking, provider in results:
+        bookings_list.append({
+            "id": str(booking.id),
+            "provider_id": str(booking.provider_id),
+            "provider_name": provider.name if provider else None,
+            "provider_cover_photo_url": provider.cover_photo_url if provider else None,
+            "service_name": booking.service_name,
+            "slot_datetime": booking.slot_datetime,
+            "amount_etb": booking.amount_etb,
+            "payment_method": booking.payment_method,
+            "payment_status": booking.payment_status,
+            "event_id": str(booking.event_id) if booking.event_id else None,
+            "created_at": booking.created_at
+        })
+        
+    return {"bookings": bookings_list, "count": len(bookings_list)}
+
+
 @router.get("/me/points-history", response_model=PointsHistoryResponse)
 async def get_points_history(
     user: User = Depends(get_current_user),

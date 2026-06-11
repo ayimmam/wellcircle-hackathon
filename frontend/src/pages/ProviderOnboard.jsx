@@ -4,7 +4,7 @@ import { selfOnboardProvider } from '../api/client';
 import { INTEREST_CATEGORIES } from '../data/mock';
 import { showToast } from '../components/Toast';
 
-const STEPS = ['Invite Code', 'Basic Info', 'Services & Photos', 'Review'];
+const STEPS = ['Invite Code', 'Basic Info', 'Services & Photos', 'Payment Setup', 'Review'];
 
 export default function ProviderOnboard() {
   const navigate = useNavigate();
@@ -25,6 +25,9 @@ export default function ProviderOnboard() {
     photos: [],
     terms: false,
     guidelines: false,
+    payment_method: 'telebirr',
+    payment_account: '',
+    subscription_plan: 'free',
   });
   const [serviceDraft, setServiceDraft] = useState({ name: '', price: '', duration: '' });
 
@@ -140,11 +143,37 @@ export default function ProviderOnboard() {
 
       {step === 3 && (
         <div className="form-stack">
-          <div className="card"><div className="card-body">
+          <p className="text-secondary text-sm">How would you like to receive payments from bookings?</p>
+          <select className="input" value={form.payment_method} onChange={e => update('payment_method', e.target.value)}>
+            <option value="telebirr">Telebirr</option>
+            <option value="mpesa">M-Pesa</option>
+            <option value="cbe">CBE Birr</option>
+          </select>
+          <input className="input" placeholder="Account Number or Phone *" value={form.payment_account} onChange={e => update('payment_account', e.target.value)} />
+          
+          <div className="card mt-16" style={{ background: '#fef3c7', border: '1px solid #f59e0b' }}>
+            <div className="card-body">
+              <h4 className="font-bold mb-4 text-sm" style={{ color: '#92400e' }}>Boost your visibility! 🚀</h4>
+              <p className="text-xs text-secondary mb-8">Subscribe to a premium plan to be featured on the Explore page and boost your upcoming events.</p>
+              <select className="input" value={form.subscription_plan} onChange={e => update('subscription_plan', e.target.value)}>
+                <option value="free">Free Plan</option>
+                <option value="pro_monthly">Pro Monthly (1000 ETB)</option>
+                <option value="pro_yearly">Pro Yearly (10000 ETB)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {step === 4 && (
+        <div className="form-stack">
+          <div className="card mt-8"><div className="card-body">
             <p><strong>Studio:</strong> {form.name}</p>
             <p><strong>Category:</strong> {form.category} | {form.location_text}</p>
             <p><strong>Services:</strong> {form.services.length}</p>
             <p><strong>Price Range:</strong> {form.price_range}</p>
+            <p><strong>Payout:</strong> {form.payment_method} ({form.payment_account})</p>
+            <p><strong>Plan:</strong> {form.subscription_plan}</p>
           </div></div>
           <label className="checkbox-row">
             <input type="checkbox" checked={form.terms} onChange={e => update('terms', e.target.checked)} />
@@ -158,7 +187,7 @@ export default function ProviderOnboard() {
       )}
 
       <div className="flex gap-12 mt-24">
-        {step < 3 ? (
+        {step < 4 ? (
           <button className="btn btn-primary btn-block" onClick={next}>Next</button>
         ) : (
           <button className="btn btn-primary btn-block" onClick={submit} disabled={submitting}>

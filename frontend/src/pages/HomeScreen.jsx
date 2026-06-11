@@ -7,6 +7,7 @@ import ProviderCard from '../components/ProviderCard';
 import CommunityCard from '../components/CommunityCard';
 import PointsBadge from '../components/PointsBadge';
 import { showToast } from '../components/Toast';
+import FeaturedEventsCarousel from '../components/FeaturedEventsCarousel';
 
 export default function HomeScreen() {
   const { user, setUser } = useAuth();
@@ -128,6 +129,8 @@ export default function HomeScreen() {
           </div>
         </div>
       )}
+
+      <FeaturedEventsCarousel />
 
       {/* Featured Providers */}
       <div className="section-header">

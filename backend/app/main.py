@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, providers, communities, bookings, payments, users, circles, posts, products
+from app.api import auth, providers, communities, bookings, payments, users, circles, posts, products, events, challenges, notifications, subscriptions
 from app.api.admin import router as admin_router
 from app.api.bot import router as bot_router
 from app.config import settings
@@ -79,6 +79,12 @@ app.include_router(circles.router, prefix="/api/circles", tags=["Circles"])
 app.include_router(posts.router, prefix="/api/posts", tags=["Posts"])
 app.include_router(admin_router, prefix="/api/admin", tags=["Admin"])
 app.include_router(bot_router, prefix="/api/bot", tags=["Bot"])
+
+# Phase 3
+app.include_router(events.router, prefix="/api", tags=["Events"])
+app.include_router(challenges.router, prefix="/api", tags=["Challenges"])
+app.include_router(notifications.router, prefix="/api", tags=["Notifications"])
+app.include_router(subscriptions.router, prefix="/api", tags=["Subscriptions"])
 
 
 @app.get("/health", tags=["Health"])

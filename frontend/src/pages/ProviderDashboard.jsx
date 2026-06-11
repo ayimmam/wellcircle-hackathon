@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getProviderStats, getProviderProducts, getProviderRedemptions, createProviderProduct } from '../api/client';
+import { getProviderStats, getProviderProducts, getProviderRedemptions, createProviderProduct, getProviderEvents, createProviderEvent, getSubscriptionPlans, initiateSubscription, createCommunityChallenge } from '../api/client';
 import FeedEvent from '../components/FeedEvent';
 import { showToast } from '../components/Toast';
 
@@ -10,8 +10,19 @@ export default function ProviderDashboard() {
   const [stats, setStats] = useState(null);
   const [products, setProducts] = useState([]);
   const [redemptions, setRedemptions] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [plans, setPlans] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [showCreateEvent, setShowCreateEvent] = useState(false);
+  const [showCreateChallenge, setShowCreateChallenge] = useState(null);
+  
   const [newProduct, setNewProduct] = useState({ name: '', type: 'digital', price_etb: '', quantity_in_stock: '10' });
+  const [newEvent, setNewEvent] = useState({ service_name: '', description: '', starts_at: '', ends_at: '', capacity: 10, price_etb: 0 });
+  const [newChallenge, setNewChallenge] = useState({ title: '', description: '', points_reward: 100, target_checkins: 5, starts_at: '', ends_at: '' });
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('telebirr');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  
   const [loading, setLoading] = useState(true);
 
   // Use Shanti Yoga Addis as the demo provider
@@ -23,10 +34,14 @@ export default function ProviderDashboard() {
       getProviderStats(providerId),
       getProviderProducts(),
       getProviderRedemptions(),
-    ]).then(([s, p, r]) => {
+      getProviderEvents(providerId),
+      getSubscriptionPlans()
+    ]).then(([s, p, r, ev, pl]) => {
       setStats(s);
       setProducts(p.products || []);
       setRedemptions(r.redemptions || []);
+      setEvents(ev.events || []);
+      setPlans(pl.plans || []);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -69,9 +84,11 @@ export default function ProviderDashboard() {
         <span style={{ fontSize: '0.72rem', color: 'var(--accent)' }}>🟢 Live</span>
       </div>
 
-      <div className="admin-subtabs mb-16">
+      <div className="admin-subtabs mb-16" style={{ overflowX: 'auto', whiteSpace: 'nowrap', display: 'flex', gap: '8px' }}>
         <button className={`admin-subtab ${tab === 'analytics' ? 'active' : ''}`} onClick={() => setTab('analytics')}>Analytics</button>
+        <button className={`admin-subtab ${tab === 'events' ? 'active' : ''}`} onClick={() => setTab('events')}>Events</button>
         <button className={`admin-subtab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')}>Products</button>
+        <button className={`admin-subtab ${tab === 'subscriptions' ? 'active' : ''}`} onClick={() => setTab('subscriptions')}>Subscriptions</button>
       </div>
 
       {tab === 'products' ? (
@@ -136,6 +153,99 @@ export default function ProviderDashboard() {
             </div>
           )}
         </>
+      ) : tab === 'events' ? (
+        <>
+          <div className="flex justify-between items-center mb-16">
+            <div>
+              <p className="text-sm">Upcoming Events: {events.filter(e => !e.is_cancelled && new Date(e.starts_at) > new Date()).length}</p>
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={() => setShowCreateEvent(true)}>+ Create Event</button>
+          </div>
+          <div className="admin-card-list mb-24">
+            {events.map(e => (
+              <div key={e.id} className="card">
+                <div className="card-body">
+                  <h3 className="card-title text-sm">{e.service_name}</h3>
+                  <p className="text-xs text-secondary">{new Date(e.starts_at).toLocaleString()} | {e.price_etb} ETB | Spots: {e.spots_remaining}/{e.capacity}</p>
+                  <span className={`badge ${e.is_cancelled ? 'badge-muted' : 'badge-success'}`}>{e.is_cancelled ? 'Cancelled' : 'Active'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {showCreateEvent && (
+            <div className="modal-overlay" onClick={() => setShowCreateEvent(false)}>
+              <div className="modal-card" onClick={ev => ev.stopPropagation()}>
+                <h3 className="card-title mb-16">Create Event</h3>
+                <div className="form-stack">
+                  <input className="input" placeholder="Service Name" value={newEvent.service_name} onChange={e => setNewEvent(p => ({ ...p, service_name: e.target.value }))} />
+                  <input className="input" placeholder="Description" value={newEvent.description} onChange={e => setNewEvent(p => ({ ...p, description: e.target.value }))} />
+                  <input className="input" type="datetime-local" placeholder="Starts At" value={newEvent.starts_at} onChange={e => setNewEvent(p => ({ ...p, starts_at: e.target.value }))} />
+                  <input className="input" type="datetime-local" placeholder="Ends At" value={newEvent.ends_at} onChange={e => setNewEvent(p => ({ ...p, ends_at: e.target.value }))} />
+                  <input className="input" type="number" placeholder="Capacity" value={newEvent.capacity} onChange={e => setNewEvent(p => ({ ...p, capacity: parseInt(e.target.value, 10) }))} />
+                  <input className="input" type="number" placeholder="Price (ETB)" value={newEvent.price_etb} onChange={e => setNewEvent(p => ({ ...p, price_etb: parseInt(e.target.value, 10) }))} />
+                  <button className="btn btn-primary" onClick={async () => {
+                    try {
+                      await createProviderEvent({
+                        service_name: newEvent.service_name,
+                        description: newEvent.description,
+                        starts_at: new Date(newEvent.starts_at).toISOString(),
+                        ends_at: new Date(newEvent.ends_at).toISOString(),
+                        capacity: newEvent.capacity,
+                        price_etb: newEvent.price_etb,
+                      });
+                      showToast('Event created', '✅');
+                      setShowCreateEvent(false);
+                      const ev = await getProviderEvents(providerId);
+                      setEvents(ev.events || []);
+                    } catch (err) { showToast(err.message, '❌'); }
+                  }}>Create</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      ) : tab === 'subscriptions' ? (
+        <>
+          <div className="section-header">
+            <h2 className="section-title">Subscription Plans</h2>
+          </div>
+          <div className="flex-col gap-12 mb-24">
+            {plans.map(p => (
+              <div key={p.plan_id} className={`card ${selectedPlan === p.plan_id ? 'border-primary' : ''}`} style={selectedPlan === p.plan_id ? { border: '2px solid var(--brand-primary)' } : {}} onClick={() => setSelectedPlan(p.plan_id)}>
+                <div className="card-body">
+                  <h3 className="card-title text-sm">{p.name}</h3>
+                  <p className="text-sm" style={{ fontWeight: 600, color: 'var(--brand-primary)' }}>{p.amount_etb} ETB</p>
+                  <ul style={{ fontSize: '0.8rem', paddingLeft: '20px', marginTop: '8px' }}>
+                    {p.features.map((f, i) => <li key={i} style={{ color: 'var(--text-secondary)' }}>{f}</li>)}
+                  </ul>
+                </div>
+              </div>
+            ))}
+          </div>
+          {selectedPlan && (
+            <div className="card" style={{ padding: '16px' }}>
+              <h3 className="card-title mb-12">Pay with</h3>
+              <div className="form-stack">
+                <select className="input" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                  <option value="telebirr">Telebirr</option>
+                  <option value="mpesa">M-Pesa</option>
+                </select>
+                {paymentMethod === 'mpesa' && (
+                  <input className="input" placeholder="Phone Number (e.g. 254...)" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} />
+                )}
+                <button className="btn btn-primary" onClick={async () => {
+                  try {
+                    const res = await initiateSubscription({ plan: selectedPlan, payment_method: paymentMethod, phone_number: phoneNumber });
+                    if (res.to_pay_url) window.location.href = res.to_pay_url;
+                    else showToast('Subscription successful', '✅');
+                  } catch (err) { showToast(err.message, '❌'); }
+                }}>
+                  Subscribe Now
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       ) : (
       <>
       {/* KPI Cards */}
@@ -195,11 +305,41 @@ export default function ProviderDashboard() {
                         👥 {c.member_count} · ✅ {c.checkins_today} check-ins · {Math.round(c.engagement_rate * 100)}% engagement
                       </div>
                     </div>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setShowCreateChallenge(c.id)}>+ Challenge</button>
                   </div>
                 </div>
               </div>
             ))}
           </div>
+          {showCreateChallenge && (
+            <div className="modal-overlay" onClick={() => setShowCreateChallenge(null)}>
+              <div className="modal-card" onClick={e => e.stopPropagation()}>
+                <h3 className="card-title mb-16">Create Challenge</h3>
+                <div className="form-stack">
+                  <input className="input" placeholder="Title" value={newChallenge.title} onChange={e => setNewChallenge(p => ({ ...p, title: e.target.value }))} />
+                  <input className="input" placeholder="Description" value={newChallenge.description} onChange={e => setNewChallenge(p => ({ ...p, description: e.target.value }))} />
+                  <input className="input" type="number" placeholder="Points Reward" value={newChallenge.points_reward} onChange={e => setNewChallenge(p => ({ ...p, points_reward: parseInt(e.target.value, 10) }))} />
+                  <input className="input" type="number" placeholder="Target Check-ins" value={newChallenge.target_checkins} onChange={e => setNewChallenge(p => ({ ...p, target_checkins: parseInt(e.target.value, 10) }))} />
+                  <input className="input" type="datetime-local" placeholder="Starts At" value={newChallenge.starts_at} onChange={e => setNewChallenge(p => ({ ...p, starts_at: e.target.value }))} />
+                  <input className="input" type="datetime-local" placeholder="Ends At" value={newChallenge.ends_at} onChange={e => setNewChallenge(p => ({ ...p, ends_at: e.target.value }))} />
+                  <button className="btn btn-primary" onClick={async () => {
+                    try {
+                      await createCommunityChallenge(showCreateChallenge, {
+                        title: newChallenge.title,
+                        description: newChallenge.description,
+                        points_reward: newChallenge.points_reward,
+                        target_checkins: newChallenge.target_checkins,
+                        starts_at: new Date(newChallenge.starts_at).toISOString(),
+                        ends_at: new Date(newChallenge.ends_at).toISOString(),
+                      });
+                      showToast('Challenge created', '✅');
+                      setShowCreateChallenge(null);
+                    } catch (err) { showToast(err.message, '❌'); }
+                  }}>Create</button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
 

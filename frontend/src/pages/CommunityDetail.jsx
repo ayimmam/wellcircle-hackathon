@@ -4,6 +4,8 @@ import { getCommunity, getCommunityFeed, joinCommunity, leaveCommunity, checkinC
 import { useAuth } from '../context/AuthContext';
 import FeedEvent from '../components/FeedEvent';
 import PostFeed from '../components/PostFeed';
+import ChallengesList from '../components/ChallengesList';
+import Leaderboard from '../components/Leaderboard';
 import { showToast } from '../components/Toast';
 
 export default function CommunityDetail() {
@@ -197,6 +199,8 @@ export default function CommunityDetail() {
 
       {activeTab === 'feed' ? (
         <>
+          <ChallengesList communityId={id} />
+          <Leaderboard communityId={id} />
           {events.length > 0 ? (
             <div className="feed">
               {events.map(event => (

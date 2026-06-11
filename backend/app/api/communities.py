@@ -103,3 +103,45 @@ async def community_feed(
 
     events = get_community_feed(db, UUID(community_id), since=since_dt, limit=limit)
     return {"events": events, "count": len(events)}
+
+
+@router.get("/{community_id}/leaderboard")
+async def community_leaderboard(
+    community_id: str,
+    limit: int = 10,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from sqlalchemy import func
+    from datetime import datetime, timezone, timedelta
+    from app.models.community import CommunityFeedEvent
+    
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    
+    results = (
+        db.query(
+            CommunityFeedEvent.user_id,
+            func.count(CommunityFeedEvent.id).label("checkins")
+        )
+        .filter(
+            CommunityFeedEvent.community_id == community_id,
+            CommunityFeedEvent.event_type == "checkin",
+            CommunityFeedEvent.created_at >= thirty_days_ago
+        )
+        .group_by(CommunityFeedEvent.user_id)
+        .order_by(func.count(CommunityFeedEvent.id).desc())
+        .limit(limit)
+        .all()
+    )
+    
+    leaderboard = []
+    for r in results:
+        u = db.query(User).filter(User.id == r.user_id).first()
+        leaderboard.append({
+            "user_id": str(r.user_id),
+            "name": u.name or u.telegram_handle if u else "Unknown",
+            "photo_url": u.photo_url if u else None,
+            "checkins_last_30_days": r.checkins
+        })
+        
+    return {"leaderboard": leaderboard}

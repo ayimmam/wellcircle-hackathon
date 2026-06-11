@@ -1,6 +1,6 @@
 """Booking ORM model - service reservations and payment tracking."""
 
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime, timezone
@@ -22,4 +22,6 @@ class Booking(Base):
     telebirr_trade_no = Column(String(255), nullable=True, unique=True)
     mpesa_checkout_id = Column(String(255), nullable=True)
     phone_number = Column(String(20), nullable=True)  # Payment phone number
+    event_id = Column(UUID(as_uuid=True), ForeignKey("provider_events.id"), nullable=True)
+    reminder_sent = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

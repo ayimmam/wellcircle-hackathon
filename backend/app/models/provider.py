@@ -31,6 +31,10 @@ class Provider(Base):
     submitted_at = Column(DateTime(timezone=True), nullable=True)
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
 
+    # --- Phase 3 Additions ---
+    is_featured = Column(Boolean, nullable=False, default=False)
+    subscription_plan = Column(String(50), nullable=True)
+
     # --- Theme customization for provider dashboard ---
     theme_primary_color = Column(String(7), nullable=True, default="#10B981")   # Hex color
     theme_accent_color = Column(String(7), nullable=True, default="#F59E0B")

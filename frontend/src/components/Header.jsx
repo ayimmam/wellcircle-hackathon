@@ -18,11 +18,16 @@ export default function Header({ onMenuOpen }) {
           <span className="header-sub">YOUR WELLNESS TRIBE</span>
         </div>
       </div>
-      <button className="header-menu-btn" onClick={onMenuOpen} id="header-menu-btn">
-        <span className="hamburger-line" />
-        <span className="hamburger-line" />
-        <span className="hamburger-line" />
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <button onClick={() => navigate('/notifications')} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', padding: '4px' }} id="header-notif-btn">
+          🔔
+        </button>
+        <button className="header-menu-btn" onClick={onMenuOpen} id="header-menu-btn">
+          <span className="hamburger-line" />
+          <span className="hamburger-line" />
+          <span className="hamburger-line" />
+        </button>
+      </div>
     </header>
   );
 }

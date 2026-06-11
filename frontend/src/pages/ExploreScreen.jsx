@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProviders } from '../api/client';
 import { CATEGORIES } from '../data/mock';
+import FeaturedEventsCarousel from '../components/FeaturedEventsCarousel';
 
 export default function ExploreScreen() {
   const navigate = useNavigate();
@@ -22,6 +23,8 @@ export default function ExploreScreen() {
       <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: 16 }}>
         Explore Providers
       </h1>
+
+      <FeaturedEventsCarousel />
 
       {/* Search */}
       <div className="search-bar">

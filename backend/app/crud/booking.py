@@ -42,6 +42,11 @@ def update_booking_payment(
 
     # On success, create feed event in provider's community
     if payment_status == "success":
+        from app.models.provider import Provider
+        from app.models.user_notification import UserNotification
+        
+        provider = db.query(Provider).filter(Provider.id == booking.provider_id).first()
+        
         community = (
             db.query(Community)
             .filter(Community.provider_id == booking.provider_id)
@@ -58,6 +63,33 @@ def update_booking_payment(
                 },
             )
             db.add(event)
+
+        # 1. Award +50 points to user
+        user = db.query(User).filter(User.id == booking.user_id).first()
+        if user:
+            user.points_balance = (user.points_balance or 0) + 50
+            
+        # Notify User
+        from app.services.notification_service import create_notification
+        create_notification(
+            db,
+            user_id=booking.user_id,
+            type="booking_confirmed",
+            title="Booking Confirmed! ✅",
+            body=f"Your booking for {booking.service_name} on {booking.slot_datetime.strftime('%a, %b %d %H:%M')} is confirmed.",
+            action_url="/my-bookings"
+        )
+        
+        # Notify Provider
+        if provider.owner_user_id:
+            create_notification(
+                db,
+                user_id=provider.owner_user_id,
+                type="new_booking",
+                title="New Booking! 🎉",
+                body=f"Someone booked '{booking.service_name}' for {booking.slot_datetime.strftime('%a, %b %d %H:%M')}.",
+                action_url="/provider-dashboard"
+            )
 
     db.commit()
     db.refresh(booking)

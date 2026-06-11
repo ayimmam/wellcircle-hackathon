@@ -173,6 +173,19 @@ export default function ProfileScreen() {
         </div>
       )}
 
+      {/* Bookings & History */}
+      <div className="profile-section">
+        <div className="profile-section-title">My Bookings</div>
+        <div className="profile-card" onClick={() => navigate('/my-bookings')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: '1.2rem' }}>🎟️</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>View Booking History</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>Upcoming & Past classes</div>
+          </div>
+          <span style={{ color: 'var(--text-tertiary)' }}>→</span>
+        </div>
+      </div>
+
       {/* Health & Activity */}
       <div className="profile-section">
         <div className="profile-section-title">Health & Activity</div>

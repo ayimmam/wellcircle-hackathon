@@ -13,7 +13,7 @@ class BookingCreate(BaseModel):
     amount_etb: int = Field(..., gt=0)
     payment_method: str = Field(..., pattern="^(telebirr|mpesa)$")
     phone_number: Optional[str] = None
-
+    event_id: Optional[str] = None
 
 class BookingResponse(BaseModel):
     """Booking detail."""
@@ -24,6 +24,7 @@ class BookingResponse(BaseModel):
     amount_etb: int
     payment_method: str
     payment_status: str
+    event_id: Optional[str] = None
     created_at: datetime
 
     class Config:

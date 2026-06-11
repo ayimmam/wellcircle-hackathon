@@ -10,6 +10,13 @@ from app.models.community import Community, CommunityMember, CommunityFeedEvent
 from app.models.booking import Booking
 from app.models.circle import Circle, CircleMember
 from app.models.post import Post, Reaction
+from app.models.post import Post, Reaction
+from app.models.provider_event import ProviderEvent
+from app.models.community_challenge import CommunityChallenge, ChallengeAward
+from app.models.user_notification import UserNotification
+from app.models.provider_subscription import ProviderSubscription
+from app.models.provider_promotion import ProviderPromotion
+from app.models.event_inventory_log import EventInventoryLog
 
 __all__ = [
     "User",
@@ -26,4 +33,11 @@ __all__ = [
     "CircleMember",
     "Post",
     "Reaction",
+    "ProviderEvent",
+    "CommunityChallenge",
+    "ChallengeAward",
+    "UserNotification",
+    "ProviderSubscription",
+    "ProviderPromotion",
+    "EventInventoryLog",
 ]

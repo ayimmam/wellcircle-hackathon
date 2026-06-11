@@ -129,7 +129,8 @@ Super admin is granted if **either** condition is true:
 | Admin redemption status UI | ✅ Redemptions sub-tab on `/admin/products` |
 | Admin CSV exports | ✅ Reports tab pulls live data from admin APIs |
 | PDF report generation | Placeholder toast in Reports tab |
-| Event cancellation refunds | Events can be cancelled and users notified; refund logic is TODO in `events.py` (Phase 4) |
+| Event cancellation refunds | Events cancelled with user notifications; payment refund logic deferred (Phase 4) |
+| Dedicated Phase 3 CRUD modules | Logic in route handlers + `subscription_service` / `promotion_service` (optional refactor) |
 
 ---
 

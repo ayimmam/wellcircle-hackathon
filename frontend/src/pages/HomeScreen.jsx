@@ -130,7 +130,7 @@ export default function HomeScreen() {
         </div>
       )}
 
-      <FeaturedEventsCarousel />
+      <FeaturedEventsCarousel title="Happening Soon" />
 
       {/* Featured Providers */}
       <div className="section-header">

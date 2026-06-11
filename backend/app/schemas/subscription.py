@@ -9,7 +9,7 @@ class SubscriptionInitiateRequest(BaseModel):
     plan: str
     payment_method: str
     phone_number: Optional[str] = None
-    provider_id: str
+    provider_id: Optional[str] = None
 
 
 class SubscriptionInitiateResponse(BaseModel):

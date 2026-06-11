@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getProvider, joinCommunity } from '../api/client';
+import { getProvider, joinCommunity, getProviderEvents } from '../api/client';
+import EventCard from '../components/EventCard';
 import { showToast } from '../components/Toast';
 
 export default function ProviderDetail() {
@@ -9,6 +10,7 @@ export default function ProviderDetail() {
   const [provider, setProvider] = useState(null);
   const [activePhoto, setActivePhoto] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState([]);
 
   useEffect(() => {
     setLoading(true);
@@ -16,6 +18,9 @@ export default function ProviderDetail() {
       .then(p => setProvider(p))
       .catch(() => navigate('/explore', { replace: true }))
       .finally(() => setLoading(false));
+    getProviderEvents(id)
+      .then(res => setEvents((res.events || []).filter(e => !e.is_cancelled)))
+      .catch(() => setEvents([]));
   }, [id, navigate]);
 
   const handleJoinCommunity = async () => {
@@ -80,6 +85,17 @@ export default function ProviderDetail() {
         </div>
         <p className="detail-desc">{provider.description}</p>
       </div>
+
+      {events.length > 0 && (
+        <>
+          <div className="section-header">
+            <h2 className="section-title">Upcoming Sessions</h2>
+          </div>
+          <div className="mb-24">
+            {events.slice(0, 5).map(e => <EventCard key={e.id} event={e} />)}
+          </div>
+        </>
+      )}
 
       {/* Services */}
       <div className="section-header">

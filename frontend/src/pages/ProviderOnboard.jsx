@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { selfOnboardProvider } from '../api/client';
+import { selfOnboardProvider, initiateSubscription, getSubscriptionStatus } from '../api/client';
 import { INTEREST_CATEGORIES } from '../data/mock';
 import { showToast } from '../components/Toast';
 
@@ -27,7 +27,7 @@ export default function ProviderOnboard() {
     guidelines: false,
     payment_method: 'telebirr',
     payment_account: '',
-    subscription_plan: 'free',
+    subscription_plan: 'starter',
   });
   const [serviceDraft, setServiceDraft] = useState({ name: '', price: '', duration: '' });
 
@@ -62,11 +62,32 @@ export default function ProviderOnboard() {
     }
     setSubmitting(true);
     try {
-      await selfOnboardProvider({
+      const res = await selfOnboardProvider({
         ...form,
         lat: form.lat ? parseFloat(form.lat) : null,
         lng: form.lng ? parseFloat(form.lng) : null,
       });
+      const paidPlans = ['starter', 'growth', 'pro'];
+      if (paidPlans.includes(form.subscription_plan) && res.provider_id) {
+        const sub = await initiateSubscription({
+          plan: form.subscription_plan,
+          payment_method: form.payment_method === 'mpesa' ? 'mpesa' : 'telebirr',
+          phone_number: form.payment_account,
+          provider_id: res.provider_id,
+        });
+        if (sub.to_pay_url && window.Telegram?.WebApp?.openLink) {
+          window.Telegram.WebApp.openLink(sub.to_pay_url);
+        }
+        if (sub.subscription_id) {
+          const poll = setInterval(async () => {
+            try {
+              const st = await getSubscriptionStatus(sub.subscription_id);
+              if (st.status === 'active' || st.status === 'success') clearInterval(poll);
+            } catch { /* ignore */ }
+          }, 3000);
+          setTimeout(() => clearInterval(poll), 120000);
+        }
+      }
       setDone(true);
     } catch (err) {
       showToast(err.message, '❌');
@@ -156,9 +177,9 @@ export default function ProviderOnboard() {
               <h4 className="font-bold mb-4 text-sm" style={{ color: '#92400e' }}>Boost your visibility! 🚀</h4>
               <p className="text-xs text-secondary mb-8">Subscribe to a premium plan to be featured on the Explore page and boost your upcoming events.</p>
               <select className="input" value={form.subscription_plan} onChange={e => update('subscription_plan', e.target.value)}>
-                <option value="free">Free Plan</option>
-                <option value="pro_monthly">Pro Monthly (1000 ETB)</option>
-                <option value="pro_yearly">Pro Yearly (10000 ETB)</option>
+                <option value="starter">Starter — 500 ETB/mo</option>
+                <option value="growth">Growth — 1,500 ETB/mo</option>
+                <option value="pro">Pro — 3,000 ETB/mo (Featured)</option>
               </select>
             </div>
           </div>

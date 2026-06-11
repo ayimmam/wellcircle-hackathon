@@ -66,6 +66,20 @@ async def telebirr_callback(request: Request, db: Session = Depends(get_db)):
     if booking:
         status = "success" if data["result_code"] == "0" else "failed"
         update_booking_payment(db, booking.id, status)
+        return {"status": "ok"}
+
+    from app.services.subscription_service import (
+        get_subscription_by_trade_no,
+        activate_subscription,
+    )
+    subscription = get_subscription_by_trade_no(db, data["trade_no"])
+    if subscription:
+        activate_subscription(
+            db,
+            subscription,
+            success=data["result_code"] == "0",
+        )
+        return {"status": "ok"}
 
     return {"status": "ok"}
 
@@ -116,6 +130,22 @@ async def mpesa_callback(request: Request, db: Session = Depends(get_db)):
     if booking:
         status = "success" if data.get("result_code") == 0 else "failed"
         update_booking_payment(db, booking.id, status)
+        return {"status": "ok"}
+
+    from app.services.subscription_service import (
+        get_subscription_by_checkout_id,
+        activate_subscription,
+    )
+    checkout_id = data.get("checkout_request_id")
+    if checkout_id:
+        subscription = get_subscription_by_checkout_id(db, checkout_id)
+        if subscription:
+            activate_subscription(
+                db,
+                subscription,
+                success=data.get("result_code") == 0,
+            )
+            return {"status": "ok"}
 
     return {"status": "ok"}
 

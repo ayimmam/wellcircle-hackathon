@@ -53,6 +53,7 @@ export default function App() {
             <Route path="/explore" element={<ExploreScreen />} />
             <Route path="/notifications" element={<NotificationsScreen />} />
             <Route path="/my-bookings" element={<MyBookings />} />
+            <Route path="/users/me/bookings" element={<MyBookings />} />
             <Route path="/community" element={<CommunityList />} />
             <Route path="/profile" element={<ProfileScreen />} />
 

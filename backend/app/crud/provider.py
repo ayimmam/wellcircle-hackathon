@@ -13,6 +13,7 @@ from app.models.community import Community, CommunityMember, CommunityFeedEvent
 from app.models.booking import Booking
 from app.models.user import User
 from app.crud.admin_notification import notify_all_admins
+from app.services.promotion_service import get_active_promotion
 
 
 def get_all_providers(
@@ -34,7 +35,11 @@ def get_all_providers(
             (Provider.description.ilike(search_filter))
         )
 
-    providers = query.order_by(Provider.name).all()
+    providers = query.order_by(
+        Provider.is_featured.desc(),
+        Provider.rating.desc(),
+        Provider.name,
+    ).all()
     result = []
     for p in providers:
         community = db.query(Community).filter(Community.provider_id == p.id).first()
@@ -49,8 +54,12 @@ def get_all_providers(
             "price_range": p.price_range,
             "rating": p.rating,
             "cover_photo_url": p.cover_photo_url,
+            "services": p.services or [],
             "member_count": community.member_count if community else 0,
             "community_id": str(community.id) if community else None,
+            "is_featured": bool(p.is_featured),
+            "subscription_plan": p.subscription_plan,
+            "active_promotion": get_active_promotion(db, p.id),
         })
     return result
 
@@ -100,6 +109,9 @@ def get_provider_detail(db: Session, provider_id: UUID, user_id: Optional[UUID] 
         } if community else None,
         "theme_primary_color": provider.theme_primary_color,
         "theme_accent_color": provider.theme_accent_color,
+        "is_featured": bool(provider.is_featured),
+        "subscription_plan": provider.subscription_plan,
+        "active_promotion": get_active_promotion(db, provider.id),
     }
 
 

@@ -22,6 +22,8 @@ from app.schemas.provider_onboarding import (
     ProviderMeResponse, ProviderMeUpdate,
 )
 from app.schemas.product import ProviderProductCreate, ProviderProductUpdate
+from app.schemas.promotion import PromotionCreate, PromotionResponse
+from app.models.provider_promotion import ProviderPromotion
 
 router = APIRouter()
 
@@ -142,6 +144,35 @@ async def update_my_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     return {"id": str(product.id), "name": product.name, "updated": True}
+
+
+@router.post("/me/promotions", response_model=PromotionResponse, status_code=201)
+async def create_my_promotion(
+    request: PromotionCreate,
+    user: User = Depends(get_current_provider),
+    db: Session = Depends(get_db),
+):
+    provider = get_provider_by_owner(db, user.id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+
+    promo = ProviderPromotion(
+        provider_id=provider.id,
+        headline=request.headline,
+        discount_pct=request.discount_pct,
+        valid_until=request.valid_until,
+        is_active=True,
+    )
+    db.add(promo)
+    db.commit()
+    db.refresh(promo)
+    return PromotionResponse(
+        id=str(promo.id),
+        headline=promo.headline,
+        discount_pct=promo.discount_pct,
+        valid_until=promo.valid_until,
+        is_active=promo.is_active,
+    )
 
 
 @router.get("/me/redemptions")

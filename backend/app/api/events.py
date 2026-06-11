@@ -29,6 +29,7 @@ def compute_urgency(spots_remaining: int) -> str:
 @router.get("/events", response_model=EventListResponse)
 def list_all_events(
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
     from_date: Optional[datetime] = Query(None, alias="from"),
     to_date: Optional[datetime] = Query(None, alias="to"),
     category: Optional[str] = None,

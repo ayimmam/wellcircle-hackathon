@@ -614,12 +614,24 @@ export async function getAdminNotifications(limit = 20, offset = 0) {
 }
 
 // ─── Phase 3 ──────────────────────────────────────
+export async function getEvents(params = {}) {
+  if (USE_MOCK) return { events: [], count: 0 };
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v != null && v !== '') qs.set(k, String(v));
+  });
+  const q = qs.toString();
+  return request('GET', q ? `/events?${q}` : '/events');
+}
+
 export async function getFeaturedEvents() {
   if (USE_MOCK) {
     await delay();
     return { events: [] };
   }
-  return request('GET', '/events?boosted_only=true');
+  const to = new Date();
+  to.setDate(to.getDate() + 7);
+  return request('GET', `/events?boosted_only=true&limit=10&to=${to.toISOString()}`);
 }
 
 export async function getChallenges(communityId) {
@@ -638,8 +650,14 @@ export async function getLeaderboard(communityId) {
 }
 
 export async function getNotifications() {
-  if (USE_MOCK) return { notifications: [] };
+  if (USE_MOCK) return { notifications: [], unread_count: 0 };
   return request('GET', '/users/me/notifications');
+}
+
+export async function getNotificationUnreadCount() {
+  if (USE_MOCK) return 0;
+  const res = await request('GET', '/users/me/notifications?unread=true&limit=1');
+  return res.unread_count ?? 0;
 }
 
 export async function markNotificationRead(id) {
@@ -667,12 +685,36 @@ export async function createProviderEvent(data) {
   return request('POST', '/providers/me/events', data);
 }
 
+export async function updateProviderEvent(eventId, data) {
+  if (USE_MOCK) return { id: eventId, ...data };
+  return request('PATCH', `/providers/me/events/${eventId}`, data);
+}
+
 export async function getSubscriptionPlans() {
   if (USE_MOCK) return { plans: [] };
-  return request('GET', '/subscriptions/plans');
+  const res = await request('GET', '/subscriptions/plans');
+  const plans = (res.plans || []).map(p => ({
+    ...p,
+    plan_id: p.id || p.plan_id,
+    amount_etb: p.price_etb ?? p.amount_etb,
+  }));
+  return { plans };
 }
 
 export async function initiateSubscription(data) {
-  if (USE_MOCK) return { to_pay_url: 'https://mock.pay', trade_no: 'mock' };
+  if (USE_MOCK) return { subscription_id: 'sub-mock', to_pay_url: 'https://mock.pay', trade_no: 'mock' };
+  if (data.provider_id) {
+    return request('POST', '/subscriptions/initiate', data);
+  }
   return request('POST', '/providers/me/subscriptions/initiate', data);
+}
+
+export async function getSubscriptionStatus(subscriptionId) {
+  if (USE_MOCK) return { subscription_id: subscriptionId, plan: 'growth', status: 'active' };
+  return request('GET', `/subscriptions/status/${subscriptionId}`);
+}
+
+export async function createProviderPromotion(data) {
+  if (USE_MOCK) return { id: 'promo-mock', ...data, is_active: true };
+  return request('POST', '/providers/me/promotions', data);
 }

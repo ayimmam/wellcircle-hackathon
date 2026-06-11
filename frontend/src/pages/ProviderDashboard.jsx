@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getProviderMe, getProviderStats, getProviderProducts, getProviderRedemptions, createProviderProduct, getProviderEvents, createProviderEvent, getSubscriptionPlans, initiateSubscription, createCommunityChallenge } from '../api/client';
+import {
+  getProviderMe, getProviderStats, getProviderProducts, getProviderRedemptions, createProviderProduct,
+  getProviderEvents, createProviderEvent, updateProviderEvent, getSubscriptionPlans,
+  initiateSubscription, getSubscriptionStatus, createCommunityChallenge,
+} from '../api/client';
 import FeedEvent from '../components/FeedEvent';
 import { showToast } from '../components/Toast';
 
@@ -190,15 +194,34 @@ export default function ProviderDashboard() {
             <button className="btn btn-primary btn-sm" onClick={() => setShowCreateEvent(true)}>+ Create Event</button>
           </div>
           <div className="admin-card-list mb-24">
-            {events.map(e => (
-              <div key={e.id} className="card">
-                <div className="card-body">
-                  <h3 className="card-title text-sm">{e.service_name}</h3>
-                  <p className="text-xs text-secondary">{new Date(e.starts_at).toLocaleString()} | {e.price_etb} ETB | Spots: {e.spots_remaining}/{e.capacity}</p>
-                  <span className={`badge ${e.is_cancelled ? 'badge-muted' : 'badge-success'}`}>{e.is_cancelled ? 'Cancelled' : 'Active'}</span>
+            {events.map(e => {
+              const fillPct = e.capacity ? Math.round(((e.capacity - e.spots_remaining) / e.capacity) * 100) : 0;
+              return (
+                <div key={e.id} className="card">
+                  <div className="card-body">
+                    <h3 className="card-title text-sm">{e.service_name}</h3>
+                    <p className="text-xs text-secondary">{new Date(e.starts_at).toLocaleString()} | {e.price_etb} ETB</p>
+                    <p className="text-xs text-secondary mb-8">Spots: {e.spots_remaining}/{e.capacity}</p>
+                    <div className="admin-bar-track mb-8" style={{ height: 6, background: 'var(--bg-tertiary)', borderRadius: 4 }}>
+                      <div className="admin-bar-fill" style={{ width: `${fillPct}%`, height: '100%', borderRadius: 4 }} />
+                    </div>
+                    <div className="flex gap-8">
+                      {!e.is_cancelled && (
+                        <button className="btn btn-secondary btn-sm" onClick={async () => {
+                          try {
+                            await updateProviderEvent(e.id, { is_cancelled: true });
+                            showToast('Event cancelled', '✅');
+                            const ev = await getProviderEvents(providerId);
+                            setEvents(ev.events || []);
+                          } catch (err) { showToast(err.message, '❌'); }
+                        }}>Cancel</button>
+                      )}
+                      <span className={`badge ${e.is_cancelled ? 'badge-muted' : 'badge-success'}`}>{e.is_cancelled ? 'Cancelled' : 'Active'}</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {showCreateEvent && (
             <div className="modal-overlay" onClick={() => setShowCreateEvent(false)}>
@@ -238,17 +261,19 @@ export default function ProviderDashboard() {
             <h2 className="section-title">Subscription Plans</h2>
           </div>
           <div className="flex-col gap-12 mb-24">
-            {plans.map(p => (
-              <div key={p.plan_id} className={`card ${selectedPlan === p.plan_id ? 'border-primary' : ''}`} style={selectedPlan === p.plan_id ? { border: '2px solid var(--brand-primary)' } : {}} onClick={() => setSelectedPlan(p.plan_id)}>
+            {plans.map(p => {
+              const planId = p.plan_id || p.id;
+              return (
+              <div key={planId} className={`card ${selectedPlan === planId ? 'border-primary' : ''}`} style={selectedPlan === planId ? { border: '2px solid var(--brand-primary)' } : {}} onClick={() => setSelectedPlan(planId)}>
                 <div className="card-body">
                   <h3 className="card-title text-sm">{p.name}</h3>
-                  <p className="text-sm" style={{ fontWeight: 600, color: 'var(--brand-primary)' }}>{p.amount_etb} ETB</p>
+                  <p className="text-sm" style={{ fontWeight: 600, color: 'var(--brand-primary)' }}>{p.amount_etb ?? p.price_etb} ETB</p>
                   <ul style={{ fontSize: '0.8rem', paddingLeft: '20px', marginTop: '8px' }}>
                     {p.features.map((f, i) => <li key={i} style={{ color: 'var(--text-secondary)' }}>{f}</li>)}
                   </ul>
                 </div>
               </div>
-            ))}
+            );})}
           </div>
           {selectedPlan && (
             <div className="card" style={{ padding: '16px' }}>
@@ -263,9 +288,31 @@ export default function ProviderDashboard() {
                 )}
                 <button className="btn btn-primary" onClick={async () => {
                   try {
-                    const res = await initiateSubscription({ plan: selectedPlan, payment_method: paymentMethod, phone_number: phoneNumber });
-                    if (res.to_pay_url) window.location.href = res.to_pay_url;
-                    else showToast('Subscription successful', '✅');
+                    const res = await initiateSubscription({
+                      plan: selectedPlan,
+                      payment_method: paymentMethod,
+                      phone_number: phoneNumber,
+                      provider_id: providerId,
+                    });
+                    if (res.to_pay_url && window.Telegram?.WebApp?.openLink) {
+                      window.Telegram.WebApp.openLink(res.to_pay_url);
+                    } else if (res.to_pay_url) {
+                      window.open(res.to_pay_url, '_blank');
+                    }
+                    const subId = res.subscription_id;
+                    if (subId) {
+                      const poll = setInterval(async () => {
+                        try {
+                          const st = await getSubscriptionStatus(subId);
+                          if (st.status === 'active' || st.status === 'success') {
+                            clearInterval(poll);
+                            showToast('Subscription active!', '✅');
+                          }
+                        } catch { /* keep polling */ }
+                      }, 3000);
+                      setTimeout(() => clearInterval(poll), 120000);
+                    }
+                    if (!res.to_pay_url) showToast('Subscription successful', '✅');
                   } catch (err) { showToast(err.message, '❌'); }
                 }}>
                   Subscribe Now

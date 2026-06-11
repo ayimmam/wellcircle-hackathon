@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getChallenges } from '../api/client';
 
-const ChallengesList = ({ communityId }) => {
+const ChallengesList = ({ communityId, refreshKey = 0 }) => {
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -17,7 +17,7 @@ const ChallengesList = ({ communityId }) => {
       }
     };
     fetchChallenges();
-  }, [communityId]);
+  }, [communityId, refreshKey]);
 
   if (loading) return null;
   if (challenges.length === 0) return null;

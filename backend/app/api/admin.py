@@ -21,13 +21,14 @@ from app.crud.provider import (
     get_pending_providers, approve_provider, reject_provider,
     promote_user_to_provider, user_has_active_provider, get_admin_providers,
 )
-from app.crud.product import admin_list_products, update_product_stock, update_redemption_status
+from app.crud.product import admin_list_products, update_product_stock, update_redemption_status, admin_list_redemptions
+from app.crud.booking import admin_list_bookings
 from app.crud.admin_notification import get_admin_notifications
 from app.services.telegram_notify import (
     send_telegram_message, build_approval_message, build_rejection_message,
 )
 from app.schemas.provider import ProviderCreate, ProviderUpdate
-from app.schemas.admin import PlatformAnalytics, AdminUserListResponse, AdminUserItem
+from app.schemas.admin import PlatformAnalytics, AdminUserListResponse, AdminUserItem, AdminBookingListResponse, AdminBookingItem
 from app.schemas.provider_onboarding import (
     PendingProvidersResponse, ProviderApproveRequest, ProviderApproveResponse,
     ProviderRejectRequest, ProviderRejectResponse,
@@ -37,6 +38,7 @@ from app.schemas.provider_onboarding import (
 from app.schemas.product import (
     AdminProductListResponse, StockUpdateRequest, StockUpdateResponse,
     RedemptionStatusUpdateRequest, RedemptionStatusUpdateResponse,
+    AdminRedemptionListResponse, AdminRedemptionItem,
 )
 
 router = APIRouter()
@@ -310,6 +312,39 @@ async def update_stock(
         product_id=str(product.id),
         quantity_in_stock=product.quantity_in_stock,
         updated=True,
+    )
+
+
+@router.get("/redemptions", response_model=AdminRedemptionListResponse)
+async def list_redemptions(
+    status: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=200),
+    admin: User = Depends(get_super_admin),
+    db: Session = Depends(get_db),
+):
+    items, total = admin_list_redemptions(db, status=status, page=page, per_page=per_page)
+    return AdminRedemptionListResponse(
+        redemptions=[AdminRedemptionItem.model_validate(i) for i in items],
+        total=total,
+        page=page,
+        per_page=per_page,
+    )
+
+
+@router.get("/bookings", response_model=AdminBookingListResponse)
+async def list_bookings(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(100, ge=1, le=500),
+    admin: User = Depends(get_super_admin),
+    db: Session = Depends(get_db),
+):
+    items, total = admin_list_bookings(db, page=page, per_page=per_page)
+    return AdminBookingListResponse(
+        bookings=[AdminBookingItem.model_validate(i) for i in items],
+        total=total,
+        page=page,
+        per_page=per_page,
     )
 
 

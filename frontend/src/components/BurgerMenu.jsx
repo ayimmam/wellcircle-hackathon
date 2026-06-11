@@ -2,14 +2,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { isSuperAdmin } from '../utils/auth';
 
-const MENU_ITEMS = [
+const BASE_MENU_ITEMS = [
   { path: '/home', icon: '🏠', label: 'Home' },
   { path: '/explore', icon: '🔍', label: 'Explore' },
   { path: '/community', icon: '👥', label: 'Communities' },
   { path: '/products', icon: '🛍️', label: 'Points Store' },
+  { path: '/notifications', icon: '🔔', label: 'Notifications' },
   { path: '/profile', icon: '👤', label: 'Profile' },
-  { path: '/booking-history', icon: '📅', label: 'Bookings' },
-  { path: '/provider-dashboard', icon: '📊', label: 'Dashboard' },
+  { path: '/my-bookings', icon: '📅', label: 'Bookings' },
   { path: '/provider-onboard', icon: '🏪', label: 'Become Provider' },
 ];
 
@@ -24,6 +24,13 @@ export default function BurgerMenu({ isOpen, onClose }) {
     navigate(path);
     onClose();
   };
+
+  const menuItems = [
+    ...BASE_MENU_ITEMS.slice(0, 5),
+    ...(user?.is_provider ? [{ path: '/provider-dashboard', icon: '📊', label: 'Dashboard' }] : []),
+    ...BASE_MENU_ITEMS.slice(5),
+    ...(isSuperAdmin(user) ? [{ path: '/admin', icon: '⚙️', label: 'Admin' }] : []),
+  ];
 
   return (
     <>
@@ -46,7 +53,7 @@ export default function BurgerMenu({ isOpen, onClose }) {
 
         {/* Nav items */}
         <nav className="burger-nav">
-          {[...MENU_ITEMS, ...(isSuperAdmin(user) ? [{ path: '/admin', icon: '⚙️', label: 'Admin' }] : [])].map(item => {
+          {menuItems.map(item => {
             const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
             return (
               <button

@@ -3,7 +3,7 @@
 import logging
 from telegram.ext import ContextTypes
 
-from bot.services.api_client import get_inactive_users
+from bot.services.api_client import get_inactive_users, mark_reengagement_sent
 from bot.utils.messages import REENGAGEMENT_MESSAGE
 
 logger = logging.getLogger(__name__)
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 async def schedule_reengagement(context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Job callback: check for users inactive 7+ days and send them a message.
-    Runs daily via job_queue.
+    Runs weekly via job_queue.
     """
     try:
         data = await get_inactive_users(days=7)
@@ -30,6 +30,7 @@ async def schedule_reengagement(context: ContextTypes.DEFAULT_TYPE) -> None:
                     text=message,
                     parse_mode="HTML",
                 )
+                await mark_reengagement_sent(telegram_id)
                 sent += 1
             except Exception as e:
                 # User may have blocked the bot

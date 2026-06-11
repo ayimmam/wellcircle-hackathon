@@ -32,6 +32,7 @@ class User(Base):
 
     # --- Engagement tracking ---
     last_activity_at = Column(DateTime(timezone=True), nullable=True)  # For re-engagement notifications
+    last_reengagement_at = Column(DateTime(timezone=True), nullable=True)  # Last bot re-engagement message
     is_onboarded = Column(Boolean, default=False)                      # Mini App onboarding complete?
 
     # --- Roles ---

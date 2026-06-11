@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.dependencies import verify_bot_api_key
-from app.crud.user import get_user_by_telegram_id, create_user_from_bot, get_inactive_users
+from app.crud.user import get_user_by_telegram_id, create_user_from_bot, get_inactive_users, mark_user_reengagement
 from app.schemas.user import BotRegisterRequest
 
 router = APIRouter()
@@ -23,9 +23,15 @@ async def bot_register(
     """Called by Telegram bot on /start. Creates minimal user record. Idempotent."""
     existing = get_user_by_telegram_id(db, request.telegram_id)
     if existing:
-        # Update handle if changed
+        # Update handle / photo if changed
+        changed = False
         if request.telegram_handle and request.telegram_handle != existing.telegram_handle:
             existing.telegram_handle = request.telegram_handle
+            changed = True
+        if request.photo_url and request.photo_url != existing.photo_url:
+            existing.photo_url = request.photo_url
+            changed = True
+        if changed:
             db.commit()
         is_admin = (
             existing.telegram_id in settings.super_admin_ids or existing.is_super_admin
@@ -95,3 +101,16 @@ async def inactive_users(
             "days_inactive": days_inactive,
         })
     return {"inactive_users": items, "count": len(items)}
+
+
+@router.post("/users/{telegram_id}/reengagement-sent")
+async def bot_reengagement_sent(
+    telegram_id: int,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_bot_api_key),
+):
+    """Mark that a re-engagement message was sent to this user."""
+    user = mark_user_reengagement(db, telegram_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"telegram_id": telegram_id, "marked": True}

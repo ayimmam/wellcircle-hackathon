@@ -56,7 +56,7 @@ export default function AdminAnalytics() {
         <div className="kpi-card secondary"><div className="kpi-value">{data.total_providers}</div><div className="kpi-label">Providers</div></div>
         <div className="kpi-card"><div className="kpi-value">{data.total_communities}</div><div className="kpi-label">Communities</div></div>
         <div className="kpi-card"><div className="kpi-value">{data.total_bookings}</div><div className="kpi-label">Bookings</div></div>
-        <div className="kpi-card accent"><div className="kpi-value">{(data.total_revenue_etb / 100).toLocaleString()}</div><div className="kpi-label">Revenue (ETB)</div></div>
+        <div className="kpi-card accent"><div className="kpi-value">{Number(data.total_revenue_etb).toLocaleString()}</div><div className="kpi-label">Revenue (ETB)</div></div>
       </div>
 
       <div className="card mt-16">

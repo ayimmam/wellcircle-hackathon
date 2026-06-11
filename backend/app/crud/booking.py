@@ -94,3 +94,38 @@ def update_booking_payment(
     db.commit()
     db.refresh(booking)
     return booking
+
+
+def admin_list_bookings(
+    db: Session,
+    page: int = 1,
+    per_page: int = 100,
+) -> tuple[List[dict], int]:
+    from app.models.provider import Provider
+
+    query = (
+        db.query(Booking, User, Provider)
+        .join(User, Booking.user_id == User.id)
+        .join(Provider, Booking.provider_id == Provider.id)
+    )
+    total = query.count()
+    rows = (
+        query.order_by(Booking.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+    items = []
+    for booking, user, provider in rows:
+        items.append({
+            "id": str(booking.id),
+            "user_name": user.name or user.telegram_handle or "User",
+            "provider_name": provider.name,
+            "service_name": booking.service_name,
+            "amount_etb": booking.amount_etb,
+            "payment_method": booking.payment_method,
+            "payment_status": booking.payment_status,
+            "slot_datetime": booking.slot_datetime,
+            "created_at": booking.created_at,
+        })
+    return items, total

@@ -50,6 +50,25 @@ class AdminUserListResponse(BaseModel):
     pages: int
 
 
+class AdminBookingItem(BaseModel):
+    id: str
+    user_name: str
+    provider_name: str
+    service_name: str
+    amount_etb: int
+    payment_method: str
+    payment_status: str
+    slot_datetime: datetime
+    created_at: datetime
+
+
+class AdminBookingListResponse(BaseModel):
+    bookings: List[AdminBookingItem]
+    total: int
+    page: int
+    per_page: int
+
+
 class AdminProviderCreateResponse(BaseModel):
     provider: dict
     community: Optional[dict] = None

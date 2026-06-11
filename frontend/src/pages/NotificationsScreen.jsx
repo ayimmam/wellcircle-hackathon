@@ -24,13 +24,14 @@ export default function NotificationsScreen() {
 
   const handleMarkRead = async (id, actionUrl) => {
     try {
-      if (actionUrl) {
-        navigate(actionUrl);
-      }
       const notif = notifications.find(n => n.id === id);
+      if (!notif) return;
       if (!notif.is_read) {
         await markNotificationRead(id);
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      }
+      if (actionUrl) {
+        navigate(actionUrl);
       }
     } catch (err) {
       console.error(err);

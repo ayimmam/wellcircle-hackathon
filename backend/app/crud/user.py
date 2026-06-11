@@ -147,19 +147,29 @@ def get_all_users(
     return users, total
 
 
-def get_inactive_users(db: Session, days: int = 7) -> List[User]:
-    """Get users who haven't been active in the given number of days."""
-    cutoff = datetime.now(timezone.utc).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+def get_inactive_users(db: Session, days: int = 7, reengagement_cooldown_days: int = 7) -> List[User]:
+    """Get onboarded users inactive for N+ days who haven't been re-engaged recently."""
     from datetime import timedelta
-    cutoff = cutoff - timedelta(days=days)
+    now = datetime.now(timezone.utc)
+    cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days)
+    reengagement_cutoff = now - timedelta(days=reengagement_cooldown_days)
 
     return (
         db.query(User)
         .filter(
             User.is_onboarded == True,
-            (User.last_activity_at < cutoff) | (User.last_activity_at.is_(None))
+            (User.last_activity_at < cutoff) | (User.last_activity_at.is_(None)),
+            (User.last_reengagement_at.is_(None)) | (User.last_reengagement_at < reengagement_cutoff),
         )
         .all()
     )
+
+
+def mark_user_reengagement(db: Session, telegram_id: int) -> Optional[User]:
+    user = get_user_by_telegram_id(db, telegram_id)
+    if not user:
+        return None
+    user.last_reengagement_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(user)
+    return user

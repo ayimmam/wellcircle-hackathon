@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 
 from bot.services.api_client import register_user
 from bot.utils.messages import WELCOME_MESSAGE
-from bot.config import MINI_APP_URL
+from bot.config import MINI_APP_URL, BOT_TOKEN
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,8 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         photos = await user.get_profile_photos(limit=1)
         if photos.total_count > 0:
             file = await photos.photos[0][0].get_file()
-            photo_url = file.file_path
+            if file.file_path:
+                photo_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file.file_path}"
     except Exception:
         pass
 

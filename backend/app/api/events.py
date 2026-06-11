@@ -13,7 +13,7 @@ from app.models.booking import Booking
 from app.models.user_notification import UserNotification
 from app.models.event_inventory_log import EventInventoryLog
 from app.schemas.event import EventCreate, EventUpdate, EventResponse, EventListResponse
-from app.dependencies import get_current_user, get_current_provider, get_current_super_admin
+from app.dependencies import get_current_user, get_current_provider, get_super_admin
 
 router = APIRouter()
 
@@ -229,7 +229,7 @@ def boost_event(
     provider_id: str,
     event_id: str,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_super_admin)
+    current_user = Depends(get_super_admin),
 ):
     event = db.query(ProviderEvent).filter(ProviderEvent.id == event_id, ProviderEvent.provider_id == provider_id).first()
     if not event:

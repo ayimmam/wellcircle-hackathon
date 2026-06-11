@@ -52,3 +52,14 @@ async def get_inactive_users(days: int = 7) -> dict:
         )
         response.raise_for_status()
         return response.json()
+
+
+async def mark_reengagement_sent(telegram_id: int) -> dict:
+    """Mark re-engagement message sent via POST /api/bot/users/{id}/reengagement-sent."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.post(
+            f"{BACKEND_URL}/api/bot/users/{telegram_id}/reengagement-sent",
+            headers=HEADERS,
+        )
+        response.raise_for_status()
+        return response.json()

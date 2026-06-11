@@ -52,7 +52,10 @@ const FeaturedEventsCarousel = () => {
                 </div>
               </div>
               <button 
-                onClick={() => navigate(`/book/${event.provider_id}?event_id=${event.id}`)}
+                onClick={() => navigate(
+                  `/booking/${event.provider_id}?event_id=${event.id}`,
+                  { state: { eventId: event.id, eventServiceName: event.service_name, eventPrice: event.price_etb } }
+                )}
                 className="btn btn-primary"
                 style={{ width: '100%', marginTop: 'auto' }}
               >

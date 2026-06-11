@@ -24,9 +24,10 @@ async def create_new_booking(
     db: Session = Depends(get_db),
 ):
     if request.event_id:
+        event_uuid = UUID(request.event_id)
         stmt = (
             update(ProviderEvent)
-            .where(ProviderEvent.id == request.event_id, ProviderEvent.spots_remaining > 0, ProviderEvent.is_cancelled == False)
+            .where(ProviderEvent.id == event_uuid, ProviderEvent.spots_remaining > 0, ProviderEvent.is_cancelled == False)
             .values(spots_remaining=ProviderEvent.spots_remaining - 1)
             .returning(ProviderEvent.id)
         )
@@ -42,10 +43,10 @@ async def create_new_booking(
             amount_etb=request.amount_etb,
             payment_method=request.payment_method,
             phone_number=request.phone_number,
-            event_id=request.event_id,
+            event_id=event_uuid,
         )
         db.add(EventInventoryLog(
-            event_id=request.event_id,
+            event_id=event_uuid,
             delta=-1,
             reason="booking_confirmed",
             booking_id=booking.id

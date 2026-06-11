@@ -408,3 +408,42 @@ def get_provider_redemptions(db: Session, provider_id: UUID, limit: int = 10) ->
             "delivery_status": redemption.delivery_status,
         })
     return items
+
+
+def admin_list_redemptions(
+    db: Session,
+    status: Optional[str] = None,
+    page: int = 1,
+    per_page: int = 50,
+) -> tuple[List[dict], int]:
+    query = (
+        db.query(UserRedemption, Product, Provider, User)
+        .join(Product, UserRedemption.product_id == Product.id)
+        .join(Provider, Product.provider_id == Provider.id)
+        .join(User, UserRedemption.user_id == User.id)
+    )
+    if status:
+        query = query.filter(UserRedemption.delivery_status == status)
+
+    total = query.count()
+    rows = (
+        query.order_by(UserRedemption.redeemed_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+    items = []
+    for redemption, product, provider, user in rows:
+        items.append({
+            "id": str(redemption.id),
+            "user_name": user.name or user.telegram_handle or "User",
+            "product_name": product.name,
+            "provider_name": provider.name,
+            "points_spent": redemption.points_spent,
+            "type": product.type,
+            "delivery_status": redemption.delivery_status,
+            "redemption_code": redemption.redemption_code,
+            "redeemed_at": redemption.redeemed_at,
+            "delivery_address": redemption.delivery_address,
+        })
+    return items, total

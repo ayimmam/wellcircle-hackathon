@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getProviderStats, getProviderProducts, getProviderRedemptions, createProviderProduct, getProviderEvents, createProviderEvent, getSubscriptionPlans, initiateSubscription, createCommunityChallenge } from '../api/client';
+import { getProviderMe, getProviderStats, getProviderProducts, getProviderRedemptions, createProviderProduct, getProviderEvents, createProviderEvent, getSubscriptionPlans, initiateSubscription, createCommunityChallenge } from '../api/client';
 import FeedEvent from '../components/FeedEvent';
 import { showToast } from '../components/Toast';
 
@@ -24,30 +24,44 @@ export default function ProviderDashboard() {
   const [phoneNumber, setPhoneNumber] = useState('');
   
   const [loading, setLoading] = useState(true);
+  const [providerId, setProviderId] = useState(null);
+  const [error, setError] = useState(null);
 
-  // Use Shanti Yoga Addis as the demo provider
-  const providerId = '11111111-0000-0000-0000-000000000003';
+  const loadDashboard = (pid) => Promise.all([
+    getProviderStats(pid),
+    getProviderProducts(),
+    getProviderRedemptions(),
+    getProviderEvents(pid),
+    getSubscriptionPlans(),
+  ]);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([
-      getProviderStats(providerId),
-      getProviderProducts(),
-      getProviderRedemptions(),
-      getProviderEvents(providerId),
-      getSubscriptionPlans()
-    ]).then(([s, p, r, ev, pl]) => {
-      setStats(s);
-      setProducts(p.products || []);
-      setRedemptions(r.redemptions || []);
-      setEvents(ev.events || []);
-      setPlans(pl.plans || []);
-    }).finally(() => setLoading(false));
+    setError(null);
+    getProviderMe()
+      .then(me => {
+        const pid = me?.id;
+        if (!pid) throw new Error('No provider profile found');
+        setProviderId(pid);
+        return loadDashboard(pid);
+      })
+      .then(([s, p, r, ev, pl]) => {
+        setStats(s);
+        setProducts(p.products || []);
+        setRedemptions(r.redemptions || []);
+        setEvents(ev.events || []);
+        setPlans(pl.plans || []);
+      })
+      .catch(err => {
+        setError(err.message || 'Could not load provider dashboard');
+        showToast(err.message || 'Could not load provider dashboard', '❌');
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   // Poll stats every 10 seconds for live updates
   useEffect(() => {
-    if (!stats) return;
+    if (!stats || !providerId) return;
     const interval = setInterval(async () => {
       try {
         const newStats = await getProviderStats(providerId);
@@ -57,14 +71,28 @@ export default function ProviderDashboard() {
       }
     }, 10000);
     return () => clearInterval(interval);
-  }, [stats]);
+  }, [stats, providerId]);
 
-  if (loading || !stats) {
+  if (loading) {
     return (
       <div className="page">
         <div className="skeleton" style={{ height: 24, width: '50%', margin: '20px auto 24px' }} />
         <div className="kpi-grid">
           {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height: 80 }} />)}
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !stats) {
+    return (
+      <div className="page">
+        <button className="btn btn-icon btn-secondary mb-16" onClick={() => navigate(-1)}>←</button>
+        <div className="empty-state">
+          <div className="empty-state-icon">📊</div>
+          <div className="empty-state-text">{error || 'Unable to load provider dashboard'}</div>
+          <p className="text-sm text-secondary mt-8">Provider access is required. Apply via Become Provider or ask an admin to approve your account.</p>
+          <button className="btn btn-primary mt-16" onClick={() => navigate('/provider-onboard')}>Become a Provider</button>
         </div>
       </div>
     );
@@ -327,7 +355,7 @@ export default function ProviderDashboard() {
                       await createCommunityChallenge(showCreateChallenge, {
                         title: newChallenge.title,
                         description: newChallenge.description,
-                        points_reward: newChallenge.points_reward,
+                        reward_points: newChallenge.points_reward,
                         target_checkins: newChallenge.target_checkins,
                         starts_at: new Date(newChallenge.starts_at).toISOString(),
                         ends_at: new Date(newChallenge.ends_at).toISOString(),

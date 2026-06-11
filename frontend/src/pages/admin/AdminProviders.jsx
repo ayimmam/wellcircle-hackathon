@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  getPendingProviders, getAdminProviders, approveProvider, rejectProvider, promoteProvider
+  getPendingProviders, getAdminProviders, approveProvider, rejectProvider, promoteProvider, generateInviteCode
 } from '../../api/client';
 import { INTEREST_CATEGORIES } from '../../data/mock';
 import { showToast } from '../../components/Toast';
@@ -26,6 +26,8 @@ export default function AdminProviders() {
     user_telegram_id: '', name: '', category: 'yoga', location_text: '', lat: '', lng: ''
   });
   const [loading, setLoading] = useState(true);
+  const [inviteCode, setInviteCode] = useState(null);
+  const [generatingInvite, setGeneratingInvite] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -86,10 +88,44 @@ export default function AdminProviders() {
     } catch (err) { showToast(err.message, '❌'); }
   };
 
+  const handleGenerateInvite = async () => {
+    setGeneratingInvite(true);
+    try {
+      const res = await generateInviteCode(30);
+      setInviteCode(res);
+      showToast('Invite code generated', '✅');
+    } catch (err) {
+      showToast(err.message, '❌');
+    } finally {
+      setGeneratingInvite(false);
+    }
+  };
+
+  const copyInviteCode = async () => {
+    if (!inviteCode?.invite_code) return;
+    try {
+      await navigator.clipboard.writeText(inviteCode.invite_code);
+      showToast('Copied to clipboard', '📋');
+    } catch {
+      showToast(inviteCode.invite_code, '📋');
+    }
+  };
+
   const list = subTab === 'pending' ? pending : subTab === 'active' ? active : rejected;
 
   return (
     <div>
+      <div className="flex gap-8 mb-16 flex-wrap">
+        <button className="btn btn-secondary btn-sm" onClick={handleGenerateInvite} disabled={generatingInvite}>
+          {generatingInvite ? 'Generating...' : 'Generate Invite Code'}
+        </button>
+        {inviteCode && (
+          <button className="btn btn-primary btn-sm" onClick={copyInviteCode}>
+            Copy {inviteCode.invite_code}
+          </button>
+        )}
+      </div>
+
       <div className="admin-subtabs">
         <button className={`admin-subtab ${subTab === 'pending' ? 'active' : ''}`} onClick={() => setSubTab('pending')}>
           Pending {pending.length > 0 && <span className="badge badge-danger">{pending.length}</span>}

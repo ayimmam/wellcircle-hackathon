@@ -36,16 +36,16 @@ def main():
     app.add_handler(CommandHandler("start", start_handler))
     app.add_handler(CommandHandler("admin", admin_handler))
 
-    # Schedule re-engagement check (daily)
+    # Schedule re-engagement check (weekly)
     job_queue = app.job_queue
     if job_queue:
         job_queue.run_repeating(
             schedule_reengagement,
-            interval=86400,  # 24 hours
-            first=10,        # 10 seconds after startup
+            interval=604800,  # 7 days
+            first=60,         # 1 minute after startup
             name="reengagement",
         )
-        logger.info("📅 Re-engagement job scheduled (every 24h)")
+        logger.info("📅 Re-engagement job scheduled (every 7 days)")
 
     # Start polling
     logger.info("🤖 Bot polling started...")

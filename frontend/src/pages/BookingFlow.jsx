@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { getProvider, createBooking, initiateTelebirr, initiateMpesa, getPaymentStatus } from '../api/client';
 import { MOCK_TIME_SLOTS, getNextDays } from '../data/mock';
 import { showToast } from '../components/Toast';
@@ -10,6 +10,8 @@ export default function BookingFlow() {
   const { providerId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const eventId = searchParams.get('event_id') || location.state?.eventId || null;
   const [step, setStep] = useState(0);
   const [provider, setProvider] = useState(location.state?.provider || null);
   const [loading, setLoading] = useState(!provider);
@@ -34,12 +36,24 @@ export default function BookingFlow() {
     }
   }, [providerId, provider, navigate]);
 
-  // Pre-select if coming from provider detail with a service
+  // Pre-select if coming from provider detail or featured event
   useEffect(() => {
     if (location.state?.selectedService) {
       setSelectedService(location.state.selectedService);
     }
   }, [location.state]);
+
+  useEffect(() => {
+    if (selectedService || !eventId || !provider?.services?.length) return;
+    const match = provider.services.find(s => s.name === location.state?.eventServiceName);
+    if (match) {
+      setSelectedService(match);
+      return;
+    }
+    if (location.state?.eventServiceName && location.state?.eventPrice) {
+      setSelectedService({ name: location.state.eventServiceName, price: location.state.eventPrice });
+    }
+  }, [eventId, provider, selectedService, location.state]);
 
   const canNext = () => {
     if (step === 0) return selectedService !== null;
@@ -58,7 +72,8 @@ export default function BookingFlow() {
         slot_datetime: `${selectedDate}T${selectedTime}:00Z`,
         amount_etb: selectedService.price,
         payment_method: paymentMethod,
-        phone_number: phoneNumber
+        phone_number: phoneNumber,
+        ...(eventId ? { event_id: eventId } : {}),
       });
       setBooking(bk);
 

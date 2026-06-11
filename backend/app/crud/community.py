@@ -185,7 +185,7 @@ def checkin_community(db: Session, community_id: UUID, user: User):
 
     # --- Phase 3: Challenge completion check ---
     from app.models.community_challenge import CommunityChallenge, ChallengeAward
-    from app.models.user_notification import UserNotification
+    from app.services.notification_service import create_notification
     
     active_challenges = db.query(CommunityChallenge).filter(
         CommunityChallenge.community_id == community_id,

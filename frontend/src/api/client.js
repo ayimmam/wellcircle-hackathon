@@ -518,6 +518,50 @@ export async function updateProductStock(productId, quantity) {
   return request('POST', `/admin/products/${productId}/update-stock`, { quantity });
 }
 
+export async function getAdminUsers(params = {}) {
+  if (USE_MOCK) {
+    await delay();
+    return {
+      users: [{ id: 'u1', telegram_id: 123, name: 'Meron Tadesse', is_onboarded: true, points_balance: 120, created_at: new Date().toISOString() }],
+      total: 1, page: 1, per_page: 100, pages: 1,
+    };
+  }
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v != null && v !== '') qs.set(k, v); });
+  return request('GET', `/admin/users?${qs}`);
+}
+
+export async function getAdminRedemptions(params = {}) {
+  if (USE_MOCK) {
+    await delay();
+    return {
+      redemptions: [{ id: 'r1', user_name: 'Meron', product_name: 'Yoga Session', provider_name: 'Shanti Yoga', points_spent: 500, type: 'digital', delivery_status: 'pending', redeemed_at: new Date().toISOString() }],
+      total: 1, page: 1, per_page: 50,
+    };
+  }
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v != null && v !== '') qs.set(k, v); });
+  return request('GET', `/admin/redemptions?${qs}`);
+}
+
+export async function getAdminBookings(params = {}) {
+  if (USE_MOCK) {
+    await delay();
+    return {
+      bookings: [{ id: 'b1', user_name: 'Meron', provider_name: 'Shanti Yoga', service_name: 'Vinyasa Flow', amount_etb: 500, payment_method: 'telebirr', payment_status: 'success', slot_datetime: new Date().toISOString(), created_at: new Date().toISOString() }],
+      total: 1, page: 1, per_page: 100,
+    };
+  }
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v != null && v !== '') qs.set(k, v); });
+  return request('GET', `/admin/bookings?${qs}`);
+}
+
+export async function updateRedemptionStatus(redemptionId, status, notes = '') {
+  if (USE_MOCK) { await delay(); return { redemption_id: redemptionId, delivery_status: status, provider_notes: notes }; }
+  return request('POST', `/admin/redemptions/${redemptionId}/update-status`, { status, notes: notes || undefined });
+}
+
 export async function getAdminNotifications(limit = 20, offset = 0) {
   if (USE_MOCK) {
     await delay();

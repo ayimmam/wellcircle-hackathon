@@ -18,6 +18,7 @@ export default function CommunityDetail() {
   const [checkedIn, setCheckedIn] = useState(false);
   const [joining, setJoining] = useState(false);
   const [activeTab, setActiveTab] = useState('feed'); // 'feed' | 'posts'
+  const [challengeRefreshKey, setChallengeRefreshKey] = useState(0);
   const lastTimestamp = useRef(null);
 
   // Load community details and feed
@@ -105,6 +106,7 @@ export default function CommunityDetail() {
       if (res.feed_event) {
         setEvents(prev => [{ ...res.feed_event, user_photo: user?.photo_url }, ...prev]);
       }
+      setChallengeRefreshKey(k => k + 1);
     } catch (err) {
       showToast('Already checked in today', '✅');
       setCheckedIn(true);
@@ -199,7 +201,7 @@ export default function CommunityDetail() {
 
       {activeTab === 'feed' ? (
         <>
-          <ChallengesList communityId={id} />
+          <ChallengesList communityId={id} refreshKey={challengeRefreshKey} />
           <Leaderboard communityId={id} />
           {events.length > 0 ? (
             <div className="feed">

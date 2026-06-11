@@ -131,6 +131,26 @@ class RedemptionStatusUpdateResponse(BaseModel):
     provider_notes: Optional[str] = None
 
 
+class AdminRedemptionItem(BaseModel):
+    id: str
+    user_name: str
+    product_name: str
+    provider_name: str
+    points_spent: int
+    type: str
+    delivery_status: str
+    redemption_code: Optional[str] = None
+    redeemed_at: datetime
+    delivery_address: Optional[str] = None
+
+
+class AdminRedemptionListResponse(BaseModel):
+    redemptions: List[AdminRedemptionItem]
+    total: int
+    page: int
+    per_page: int
+
+
 class ProviderProductCreate(BaseModel):
     name: str = Field(..., max_length=255)
     description: Optional[str] = None

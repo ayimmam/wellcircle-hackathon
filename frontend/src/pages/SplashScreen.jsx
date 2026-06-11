@@ -3,17 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function SplashScreen() {
-  const { user, loading, error } = useAuth();
+  const { user, loading, error, login } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (loading) return;
-
-    if (error || !user) {
-      alert(`Auth Failed: ${error || 'Could not sign in'}`);
-      navigate('/home', { replace: true });
-      return;
-    }
+    if (error || !user) return;
 
     if (!user.is_onboarded) {
       navigate('/onboarding', { replace: true });
@@ -29,7 +24,18 @@ export default function SplashScreen() {
       <p className="splash-tagline">
         Your tribe, your wellness.<br />Right where you chat.
       </p>
-      <div className="splash-spinner" />
+      {error ? (
+        <div style={{ textAlign: 'center', marginTop: 24, padding: '0 24px' }}>
+          <p style={{ color: 'var(--danger, #ef4444)', fontSize: '0.9rem', marginBottom: 16 }}>
+            {error}
+          </p>
+          <button className="btn btn-primary" onClick={() => login()}>
+            Retry
+          </button>
+        </div>
+      ) : (
+        <div className="splash-spinner" />
+      )}
     </div>
   );
 }

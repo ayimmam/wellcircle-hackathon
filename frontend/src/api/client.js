@@ -6,7 +6,13 @@
  */
 
 let USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+
+/** Production backend — used when VITE_API_BASE_URL is not set at build time */
+const PRODUCTION_API_BASE = 'https://wellcircle-hackathon-backend.vercel.app/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL
+  || (import.meta.env.PROD ? PRODUCTION_API_BASE : 'http://localhost:8000/api');
+
+export function getApiBase() { return API_BASE; }
 
 import {
   MOCK_USER, MOCK_PROVIDERS, MOCK_COMMUNITIES, MOCK_FEED_EVENTS,
@@ -22,6 +28,23 @@ export function setToken(token) { authToken = token; }
 export function getToken() { return authToken; }
 
 const REQUEST_TIMEOUT_MS = 15000;
+const NETWORK_RETRY_DELAY_MS = 800;
+
+function isNetworkError(err) {
+  return err instanceof TypeError
+    || err?.message === 'Failed to fetch'
+    || err?.name === 'AbortError';
+}
+
+function wrapNetworkError(err) {
+  if (err.name === 'AbortError') {
+    return new Error(`Request timed out — is the backend running at ${API_BASE}?`);
+  }
+  if (err instanceof TypeError || err?.message === 'Failed to fetch') {
+    return new Error(`Cannot reach API at ${API_BASE}. Check your connection and try again.`);
+  }
+  return err;
+}
 
 async function request(method, path, body = null, extraOptions = {}) {
   const headers = { 'Content-Type': 'application/json' };
@@ -45,10 +68,7 @@ async function request(method, path, body = null, extraOptions = {}) {
     }
     return res.json();
   } catch (err) {
-    if (err.name === 'AbortError') {
-      throw new Error(`Request timed out — is the backend running at ${API_BASE}?`);
-    }
-    throw err;
+    throw wrapNetworkError(err);
   } finally {
     clearTimeout(timeoutId);
   }
@@ -67,7 +87,13 @@ export async function authTelegram(initData) {
     throw new Error('Telegram initData is missing. Please open the app inside Telegram, or set VITE_USE_MOCK=true for testing.');
   }
 
-  return request('POST', '/auth/telegram', { init_data: initData });
+  try {
+    return await request('POST', '/auth/telegram', { init_data: initData });
+  } catch (err) {
+    if (!isNetworkError(err)) throw err;
+    await delay(NETWORK_RETRY_DELAY_MS);
+    return request('POST', '/auth/telegram', { init_data: initData });
+  }
 }
 
 // ─── Users ──────────────────────────────────────────

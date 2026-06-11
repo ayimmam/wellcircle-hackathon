@@ -7,10 +7,22 @@
 
 let USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
-/** Production backend — used when VITE_API_BASE_URL is not set at build time */
-const PRODUCTION_API_BASE = 'https://wellcircle-hackathon-backend.vercel.app/api';
-const API_BASE = import.meta.env.VITE_API_BASE_URL
-  || (import.meta.env.PROD ? PRODUCTION_API_BASE : 'http://localhost:8000/api');
+/** Vercel proxy target — see frontend/vercel.json rewrites */
+const BACKEND_ORIGIN = 'https://wellcircle-hackathon-backend.vercel.app';
+
+function resolveApiBase() {
+  const configured = import.meta.env.VITE_API_BASE_URL;
+  if (import.meta.env.PROD) {
+    // Same-origin /api proxy avoids CORS blocks in Telegram WebView
+    if (!configured || configured.startsWith(BACKEND_ORIGIN)) {
+      return '/api';
+    }
+    return configured;
+  }
+  return configured || 'http://localhost:8000/api';
+}
+
+const API_BASE = resolveApiBase();
 
 export function getApiBase() { return API_BASE; }
 

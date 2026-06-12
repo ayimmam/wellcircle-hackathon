@@ -76,19 +76,19 @@ export default function CommunityList() {
           className={`chip ${tab === 'explore' ? 'active' : ''}`}
           onClick={() => setTab('explore')}
         >
-          🌍 Explore
+          Explore
         </button>
         <button
           className={`chip ${tab === 'joined' ? 'active' : ''}`}
           onClick={() => setTab('joined')}
         >
-          ✅ Joined
+          Joined
         </button>
         <button
           className={`chip ${tab === 'circles' ? 'active' : ''}`}
           onClick={() => setTab('circles')}
         >
-          ⭕ My Circles
+          My Circles
         </button>
       </div>
 
@@ -100,7 +100,7 @@ export default function CommunityList() {
               className={`chip ${category === cat.value ? 'active' : ''}`}
               onClick={() => setCategory(cat.value)}
             >
-              {cat.emoji} {cat.label}
+              {cat.label}
             </button>
           ))}
         </div>

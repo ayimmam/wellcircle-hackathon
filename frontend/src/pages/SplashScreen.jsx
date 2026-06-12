@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import newLogo from '../new_logo.png';
 
 export default function SplashScreen() {
   const { user, loading, error, login } = useAuth();
@@ -19,7 +20,7 @@ export default function SplashScreen() {
 
   return (
     <div className="splash" id="splash-screen">
-      <img src="/well.png" className="splash-logo" alt="Well Circle Logo" />
+      <img src={newLogo} className="splash-logo" alt="Well Circle Logo" />
       <h1 className="splash-title">Well Circle</h1>
       <p className="splash-tagline">
         Your tribe, your wellness.<br />Right where you chat.

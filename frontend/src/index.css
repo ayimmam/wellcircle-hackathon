@@ -552,14 +552,12 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   width: 88px;
   height: 88px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 2.4rem;
   animation: splashPulse 2s ease-in-out infinite;
-  box-shadow: var(--shadow-glow);
-  border: 3px solid var(--accent-light);
 }
 
 @keyframes splashPulse {

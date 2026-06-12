@@ -1,16 +1,17 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { isSuperAdmin } from '../utils/auth';
+import Icon from './Icon';
 
 const BASE_MENU_ITEMS = [
-  { path: '/home', icon: '🏠', label: 'Home' },
-  { path: '/explore', icon: '🔍', label: 'Explore' },
-  { path: '/community', icon: '👥', label: 'Communities' },
-  { path: '/products', icon: '🛍️', label: 'Points Store' },
-  { path: '/notifications', icon: '🔔', label: 'Notifications' },
-  { path: '/profile', icon: '👤', label: 'Profile' },
-  { path: '/my-bookings', icon: '📅', label: 'Bookings' },
-  { path: '/provider-onboard', icon: '🏪', label: 'Become Provider' },
+  { path: '/home', icon: 'home', label: 'Home' },
+  { path: '/explore', icon: 'search', label: 'Explore' },
+  { path: '/community', icon: 'users', label: 'Communities' },
+  { path: '/products', icon: 'bag', label: 'Points Store' },
+  { path: '/notifications', icon: 'bell', label: 'Notifications' },
+  { path: '/profile', icon: 'user', label: 'Profile' },
+  { path: '/my-bookings', icon: 'calendar', label: 'Bookings' },
+  { path: '/provider-onboard', icon: 'store', label: 'Become Provider' },
 ];
 
 export default function BurgerMenu({ isOpen, onClose }) {
@@ -27,19 +28,16 @@ export default function BurgerMenu({ isOpen, onClose }) {
 
   const menuItems = [
     ...BASE_MENU_ITEMS.slice(0, 5),
-    ...(user?.is_provider ? [{ path: '/provider-dashboard', icon: '📊', label: 'Dashboard' }] : []),
+    ...(user?.is_provider ? [{ path: '/provider-dashboard', icon: 'chart', label: 'Dashboard' }] : []),
     ...BASE_MENU_ITEMS.slice(5),
-    ...(isSuperAdmin(user) ? [{ path: '/admin', icon: '⚙️', label: 'Admin' }] : []),
+    ...(isSuperAdmin(user) ? [{ path: '/admin', icon: 'settings', label: 'Admin' }] : []),
   ];
 
   return (
     <>
-      {/* Overlay */}
       <div className="burger-overlay" onClick={onClose} />
 
-      {/* Menu panel */}
       <div className="burger-menu" id="burger-menu">
-        {/* Header */}
         <div className="burger-header">
           <div className="burger-brand">
             <img src="/well.png" className="burger-logo" alt="Well Circle Logo" />
@@ -48,10 +46,11 @@ export default function BurgerMenu({ isOpen, onClose }) {
               <div className="burger-brand-sub">YOUR WELLNESS TRIBE</div>
             </div>
           </div>
-          <button className="burger-close" onClick={onClose} id="burger-close-btn">✕</button>
+          <button className="burger-close" onClick={onClose} id="burger-close-btn" aria-label="Close menu">
+            <Icon name="x" size={20} />
+          </button>
         </div>
 
-        {/* Nav items */}
         <nav className="burger-nav">
           {menuItems.map(item => {
             const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
@@ -62,22 +61,21 @@ export default function BurgerMenu({ isOpen, onClose }) {
                 onClick={() => handleNav(item.path)}
                 id={`burger-nav-${item.label.toLowerCase()}`}
               >
-                <span className="burger-nav-icon">{item.icon}</span>
+                <span className="burger-nav-icon"><Icon name={item.icon} size={20} /></span>
                 <span className="burger-nav-label">{item.label}</span>
-                {isActive && <span className="burger-nav-dot">●</span>}
+                {isActive && <span className="burger-nav-dot" />}
               </button>
             );
           })}
         </nav>
 
-        {/* CTA at bottom */}
         <div className="burger-footer">
           <button
             className="burger-cta"
             onClick={() => handleNav('/explore')}
             id="burger-book-cta"
           >
-            📅 Book a Session
+            <Icon name="calendar" size={18} /> Book a Session
           </button>
         </div>
       </div>

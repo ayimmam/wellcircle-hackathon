@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../api/client';
+import Icon from '../components/Icon';
 
 export default function NotificationsScreen() {
   const navigate = useNavigate();
@@ -55,7 +56,9 @@ export default function NotificationsScreen() {
     <div className="page" id="notifications-screen">
       <div className="flex items-center gap-12 mb-20" style={{ justifyContent: 'space-between' }}>
         <div className="flex items-center gap-12">
-          <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)}>←</button>
+          <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} aria-label="Go back">
+          <Icon name="chevron-left" size={20} />
+        </button>
           <h1 style={{ fontSize: '1.3rem', fontWeight: 800 }}>Notifications</h1>
         </div>
         {hasUnread && (
@@ -71,24 +74,25 @@ export default function NotificationsScreen() {
       <div className="flex-col gap-12">
         {notifications.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">🔔</div>
+            <div className="empty-state-icon"><Icon name="bell" size={40} strokeWidth={1.5} /></div>
             <div className="empty-state-text">No notifications yet.</div>
           </div>
         ) : (
           notifications.map(n => (
             <div 
               key={n.id} 
-              className="card" 
+              className={`card ${!n.is_read ? 'notification-unread' : ''}`}
               style={{ 
-                padding: '16px', 
-                background: n.is_read ? 'var(--bg-card)' : '#e0f2fe',
+                padding: '16px',
                 cursor: n.action_url ? 'pointer' : 'default',
-                borderLeft: n.is_read ? 'none' : '4px solid var(--brand-primary)'
               }}
               onClick={() => handleMarkRead(n.id, n.action_url)}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                <h3 style={{ fontWeight: 700, fontSize: '1rem', color: n.is_read ? 'var(--text-primary)' : 'var(--brand-primary)' }}>
+                <h3
+                  className={!n.is_read ? 'notification-unread-title' : ''}
+                  style={{ fontWeight: 700, fontSize: '1rem', color: n.is_read ? 'var(--text-primary)' : undefined }}
+                >
                   {n.title}
                 </h3>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>

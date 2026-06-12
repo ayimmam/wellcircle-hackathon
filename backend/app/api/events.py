@@ -189,16 +189,17 @@ def update_event(
         booked_count = event.capacity - event.spots_remaining
         if event_in.capacity < booked_count:
             raise HTTPException(status_code=422, detail="Cannot reduce capacity below current bookings")
-        # Update spots remaining based on new capacity
         capacity_diff = event_in.capacity - event.capacity
         event.capacity = event_in.capacity
         event.spots_remaining += capacity_diff
-        
-        db.add(EventInventoryLog(
-            event_id=event.id,
-            delta=capacity_diff,
-            reason="manual_adjustment"
-        ))
+        db.add(EventInventoryLog(event_id=event.id, delta=capacity_diff, reason="manual_adjustment"))
+
+    if event_in.spots_remaining is not None:
+        if event_in.spots_remaining > event.capacity:
+            raise HTTPException(status_code=422, detail="Spots remaining cannot exceed capacity")
+        diff = event_in.spots_remaining - event.spots_remaining
+        event.spots_remaining = event_in.spots_remaining
+        db.add(EventInventoryLog(event_id=event.id, delta=diff, reason="manual_adjustment"))
 
     if event_in.description is not None:
         event.description = event_in.description

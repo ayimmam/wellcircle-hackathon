@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getProviders, getEvents } from '../api/client';
 import { CATEGORIES } from '../data/mock';
 import EventCard from '../components/EventCard';
+import Icon from '../components/Icon';
 
 export default function ExploreScreen() {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ export default function ExploreScreen() {
       </div>
 
       <div className="search-bar">
-        <span className="search-bar-icon">🔍</span>
+        <span className="search-bar-icon"><Icon name="search" size={18} /></span>
         <input
           placeholder={view === 'studios' ? 'Search providers...' : 'Search events...'}
           value={search}
@@ -55,7 +56,7 @@ export default function ExploreScreen() {
             onClick={() => setCategory(cat.value)}
             id={`filter-${cat.value}`}
           >
-            {cat.emoji} {cat.label}
+            {cat.label}
           </button>
         ))}
       </div>
@@ -73,7 +74,7 @@ export default function ExploreScreen() {
           </div>
         ) : (
           <div className="empty-state">
-            <div className="empty-state-icon">📅</div>
+            <div className="empty-state-icon"><Icon name="calendar" size={40} strokeWidth={1.5} /></div>
             <div className="empty-state-text">No upcoming events in this category.</div>
           </div>
         )
@@ -93,9 +94,11 @@ export default function ExploreScreen() {
                   <span className="category-badge" style={{ position: 'absolute', top: 10, left: 10, background: 'var(--accent)' }}>Featured</span>
                 )}
                 <span className={`category-badge ${p.category}`} style={{ position: 'absolute', top: 10, right: 10 }}>{p.category}</span>
-                <div style={{
+                <div
+                  className="image-card-overlay"
+                  style={{
                   position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-                  padding: 14, background: 'linear-gradient(transparent 20%, rgba(0,0,0,0.75) 100%)',
+                  padding: 14,
                 }}>
                   <div style={{ fontSize: '1.05rem', fontWeight: 700 }}>{p.name}</div>
                   {p.active_promotion && (
@@ -108,7 +111,7 @@ export default function ExploreScreen() {
               <div className="card-body">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.78rem', color: 'var(--accent)' }}>{p.location_text?.split(',')[0]}</span>
-                  <span style={{ fontWeight: 700 }}>⭐ {p.rating}</span>
+                  <span className="inline-icon-text" style={{ fontWeight: 700 }}><Icon name="star" size={14} /> {p.rating}</span>
                 </div>
                 <button
                   className="btn btn-primary btn-block mt-12"
@@ -125,7 +128,7 @@ export default function ExploreScreen() {
         </div>
       ) : (
         <div className="empty-state">
-          <div className="empty-state-icon">🔍</div>
+          <div className="empty-state-icon"><Icon name="search" size={40} strokeWidth={1.5} /></div>
           <div className="empty-state-text">No providers found. Try a different category.</div>
         </div>
       )}

@@ -1,11 +1,13 @@
 import { useNavigate } from 'react-router-dom';
+import Icon from './Icon';
 
 export default function EventCard({ event, variant = 'list' }) {
   const navigate = useNavigate();
 
-  let urgencyStyle = { background: '#dcfce7', color: '#166534' };
-  if (event.urgency === 'high') urgencyStyle = { background: '#fee2e2', color: '#991b1b' };
-  else if (event.urgency === 'medium') urgencyStyle = { background: '#fef3c7', color: '#92400e' };
+  const urgencyClass =
+    event.urgency === 'high' ? 'urgency-high'
+    : event.urgency === 'medium' ? 'urgency-medium'
+    : 'urgency-low';
 
   const fillPct = event.capacity
     ? Math.round(((event.capacity - event.spots_remaining) / event.capacity) * 100)
@@ -27,16 +29,17 @@ export default function EventCard({ event, variant = 'list' }) {
       <div className="card" style={{ minWidth: '280px', padding: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
           {event.is_boosted && (
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '4px 8px', background: 'var(--primary)', color: 'white', borderRadius: '99px' }}>Boosted</span>
+            <span className="badge-on-accent" style={{ fontSize: '0.75rem', fontWeight: 600, padding: '4px 8px', borderRadius: '99px' }}>Boosted</span>
           )}
-          <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '4px 8px', borderRadius: '99px', ...urgencyStyle }}>
-            {event.spots_remaining} spots left
+          <span className={urgencyClass} style={{ fontSize: '0.75rem', fontWeight: 600, padding: '4px 8px', borderRadius: '99px' }}>
+            {event.spots_remaining} spots left out of {event.capacity}
           </span>
         </div>
         <h3 style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: 4 }}>{event.service_name}</h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 8 }}>{event.provider_name}</p>
-        <p style={{ fontSize: '0.85rem', marginBottom: 16 }}>
-          📅 {new Date(event.starts_at).toLocaleString()} · 💰 {event.price_etb} ETB
+        <p className="inline-icon-text" style={{ fontSize: '0.85rem', marginBottom: 16, gap: 8, flexWrap: 'wrap' }}>
+          <span className="inline-icon-text"><Icon name="calendar" size={14} /> {new Date(event.starts_at).toLocaleString()}</span>
+          <span className="inline-icon-text"><Icon name="coins" size={14} /> {event.price_etb} ETB</span>
         </p>
         <button className="btn btn-primary btn-block" onClick={book}>Book This Session</button>
       </div>
@@ -51,8 +54,8 @@ export default function EventCard({ event, variant = 'list' }) {
             <h3 className="card-title text-sm">{event.service_name}</h3>
             <p className="text-xs text-secondary">{event.provider_name || event.provider_category}</p>
           </div>
-          <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '4px 8px', borderRadius: '99px', ...urgencyStyle }}>
-            {event.spots_remaining} left
+          <span className={urgencyClass} style={{ fontSize: '0.72rem', fontWeight: 600, padding: '4px 8px', borderRadius: '99px' }}>
+            {event.spots_remaining} left out of {event.capacity}
           </span>
         </div>
         <p className="text-xs text-secondary mb-8">

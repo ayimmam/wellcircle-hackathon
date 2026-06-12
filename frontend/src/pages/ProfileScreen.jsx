@@ -1,12 +1,34 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import Icon from '../components/Icon';
 import { getPointsHistory } from '../api/client';
 import { getTier, NEIGHBOURHOODS, MOCK_HEALTH_METRICS, MOCK_COMMUNITIES } from '../data/mock';
 import { showToast } from '../components/Toast';
 
+const PointsTooltip = () => {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative inline-block ml-2 align-middle">
+      <button onClick={() => setShow(!show)} className="w-5 h-5 rounded-full bg-secondary text-white text-xs font-bold" style={{ border: 'none', background: 'var(--text-secondary)', color: 'white', width: '20px', height: '20px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>?</button>
+      {show && (
+        <div style={{ position: 'absolute', top: '24px', left: 0, width: '250px', padding: '12px', background: 'var(--bg-surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', borderRadius: '12px', border: '1px solid var(--border)', zIndex: 50, fontSize: '0.85rem' }}>
+          <h4 style={{ fontWeight: 'bold', marginBottom: '8px' }}>Legacy Points Dynamics</h4>
+          <ul style={{ paddingLeft: '16px', margin: 0, listStyleType: 'disc', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <li>🌱 <b>Seed Tier (100 pts):</b> 10% off specific events</li>
+            <li>🌿 <b>Sprout Tier (500 pts):</b> 20% off + free merch</li>
+            <li>🌳 <b>Tree Tier (1000 pts):</b> 1 Free month at partner gyms</li>
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function ProfileScreen() {
   const { user, updateProfile } = useAuth();
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [pointsHistory, setPointsHistory] = useState(null);
   const [showNeighbourhoodSheet, setShowNeighbourhoodSheet] = useState(false);
@@ -52,7 +74,7 @@ export default function ProfileScreen() {
           {user.photo_url ? (
             <img src={user.photo_url} alt={user.name} />
           ) : (
-            <span style={{ fontSize: '2rem' }}>👤</span>
+            <Icon name="user" size={36} strokeWidth={1.5} />
           )}
         </div>
         <h1 className="profile-name">{user.name}</h1>
@@ -66,7 +88,9 @@ export default function ProfileScreen() {
 
       {/* Points Stats */}
       <div className="profile-section">
-        <div className="profile-section-title">Legacy Points</div>
+        <div className="profile-section-title" style={{ display: 'flex', alignItems: 'center' }}>
+          Legacy Points <PointsTooltip />
+        </div>
         <div className="profile-card">
           <div className="profile-stat-row">
             <div>
@@ -123,6 +147,31 @@ export default function ProfileScreen() {
         </div>
       )}
 
+      {/* Appearance */}
+      <div className="profile-section">
+        <div className="profile-section-title">Appearance</div>
+        <div className="profile-card">
+          <div className="theme-toggle" role="group" aria-label="Theme">
+            <button
+              type="button"
+              className={`theme-toggle-btn ${theme === 'light' ? 'active' : ''}`}
+              onClick={() => setTheme('light')}
+              id="theme-light-btn"
+            >
+              <Icon name="sun" size={16} /> Light
+            </button>
+            <button
+              type="button"
+              className={`theme-toggle-btn ${theme === 'dark' ? 'active' : ''}`}
+              onClick={() => setTheme('dark')}
+              id="theme-dark-btn"
+            >
+              <Icon name="moon" size={16} /> Dark
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Neighbourhood Opt-in */}
       <div className="profile-section">
         <div className="profile-section-title">Local Alerts</div>
@@ -131,11 +180,11 @@ export default function ProfileScreen() {
           onClick={() => setShowNeighbourhoodSheet(true)}
           id="neighbourhood-optin"
         >
-          <span className="neighbourhood-icon">📍</span>
+          <span className="neighbourhood-icon"><Icon name="map-pin" size={20} /></span>
           <div className="neighbourhood-text">
             {user.location_neighborhood ? (
               <>
-                <div className="neighbourhood-title">✓ Showing alerts for {user.location_neighborhood}</div>
+                <div className="neighbourhood-title inline-icon-text"><Icon name="check" size={14} strokeWidth={2.5} /> Showing alerts for {user.location_neighborhood}</div>
                 <div className="neighbourhood-desc">Tap to change your neighbourhood</div>
               </>
             ) : (
@@ -145,7 +194,7 @@ export default function ProfileScreen() {
               </>
             )}
           </div>
-          <span style={{ color: 'var(--text-tertiary)' }}>→</span>
+          <Icon name="chevron-right" size={16} className="text-tertiary" style={{ color: 'var(--text-tertiary)' }} />
         </div>
       </div>
 
@@ -161,12 +210,12 @@ export default function ProfileScreen() {
                 style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
                 onClick={() => navigate(`/community/${c.id}`)}
               >
-                <span style={{ fontSize: '1.2rem' }}>🌿</span>
+                <Icon name="leaf" size={20} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>{c.name}</div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>👥 {c.member_count}</div>
+                  <div className="inline-icon-text" style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}><Icon name="users" size={12} /> {c.member_count}</div>
                 </div>
-                <span style={{ color: 'var(--text-tertiary)' }}>→</span>
+                <Icon name="chevron-right" size={16} className="text-tertiary" style={{ color: 'var(--text-tertiary)' }} />
               </div>
             ))}
           </div>
@@ -177,12 +226,12 @@ export default function ProfileScreen() {
       <div className="profile-section">
         <div className="profile-section-title">My Bookings</div>
         <div className="profile-card" onClick={() => navigate('/my-bookings')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: '1.2rem' }}>🎟️</span>
+          <Icon name="ticket" size={20} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>View Booking History</div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>Upcoming & Past classes</div>
           </div>
-          <span style={{ color: 'var(--text-tertiary)' }}>→</span>
+          <Icon name="chevron-right" size={16} className="text-tertiary" style={{ color: 'var(--text-tertiary)' }} />
         </div>
       </div>
 
@@ -195,7 +244,7 @@ export default function ProfileScreen() {
             onClick={toggleHealthApp}
             id="health-app-toggle"
           >
-            {healthConnected ? '✓ Connected' : 'Connect Health App'}
+            {healthConnected ? <><Icon name="check" size={16} strokeWidth={2.5} /> Connected</> : 'Connect Health App'}
           </button>
 
           {healthConnected && (
@@ -232,7 +281,7 @@ export default function ProfileScreen() {
             onClick={() => navigate('/provider-dashboard')}
             id="provider-dashboard-link"
           >
-            📊 Provider Dashboard
+            <Icon name="chart" size={18} /> Provider Dashboard
           </button>
         </div>
       )}
@@ -251,7 +300,7 @@ export default function ProfileScreen() {
                   className={`sheet-option ${user.location_neighborhood === n ? 'selected' : ''}`}
                   onClick={() => handleNeighbourhoodSelect(n)}
                 >
-                  📍 {n}
+                  <span className="inline-icon-text"><Icon name="map-pin" size={14} /> {n}</span>
                 </button>
               ))}
             </div>

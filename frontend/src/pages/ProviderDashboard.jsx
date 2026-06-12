@@ -195,33 +195,93 @@ export default function ProviderDashboard() {
           </div>
           <div className="admin-card-list mb-24">
             {events.map(e => {
-              const fillPct = e.capacity ? Math.round(((e.capacity - e.spots_remaining) / e.capacity) * 100) : 0;
-              return (
-                <div key={e.id} className="card">
-                  <div className="card-body">
-                    <h3 className="card-title text-sm">{e.service_name}</h3>
-                    <p className="text-xs text-secondary">{new Date(e.starts_at).toLocaleString()} | {e.price_etb} ETB</p>
-                    <p className="text-xs text-secondary mb-8">Spots: {e.spots_remaining}/{e.capacity}</p>
-                    <div className="admin-bar-track mb-8" style={{ height: 6, background: 'var(--bg-tertiary)', borderRadius: 4 }}>
-                      <div className="admin-bar-fill" style={{ width: `${fillPct}%`, height: '100%', borderRadius: 4 }} />
-                    </div>
-                    <div className="flex gap-8">
-                      {!e.is_cancelled && (
-                        <button className="btn btn-secondary btn-sm" onClick={async () => {
-                          try {
-                            await updateProviderEvent(e.id, { is_cancelled: true });
-                            showToast('Event cancelled', '✅');
-                            const ev = await getProviderEvents(providerId);
-                            setEvents(ev.events || []);
-                          } catch (err) { showToast(err.message, '❌'); }
-                        }}>Cancel</button>
-                      )}
-                      <span className={`badge ${e.is_cancelled ? 'badge-muted' : 'badge-success'}`}>{e.is_cancelled ? 'Cancelled' : 'Active'}</span>
+              const EditableEventItem = ({ event }) => {
+                const [isEditing, setIsEditing] = useState(false);
+                const [spots, setSpots] = useState(event.spots_remaining);
+                const fillPct = event.capacity ? Math.round(((event.capacity - event.spots_remaining) / event.capacity) * 100) : 0;
+                
+                const handleSave = async () => {
+                  try {
+                    await updateProviderEvent(event.id, { spots_remaining: parseInt(spots) });
+                    showToast('Inventory updated', '✅');
+                    setIsEditing(false);
+                    const ev = await getProviderEvents(providerId);
+                    setEvents(ev.events || []);
+                  } catch (err) { showToast(err.message, '❌'); }
+                };
+
+                return (
+                  <div className="card mb-8">
+                    <div className="card-body">
+                      <h3 className="card-title text-sm">{event.service_name}</h3>
+                      <p className="text-xs text-secondary">{new Date(event.starts_at).toLocaleString()} | {event.price_etb} ETB</p>
+                      
+                      <div className="flex justify-between items-center my-8">
+                        {isEditing ? (
+                          <div className="flex gap-2">
+                            <input type="number" value={spots} onChange={e => setSpots(e.target.value)} className="input" style={{ width: '60px', padding: '4px' }} />
+                            <button onClick={handleSave} className="btn btn-sm btn-primary">Save</button>
+                            <button onClick={() => setIsEditing(false)} className="btn btn-sm btn-secondary">Cancel</button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-4 items-center">
+                            <span className="text-sm">Spots: {spots}/{event.capacity}</span>
+                            <button onClick={() => setIsEditing(true)} className="text-accent underline text-sm" style={{ background: 'none', border: 'none' }}>Edit</button>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="admin-bar-track mb-8" style={{ height: 6, background: 'var(--bg-tertiary)', borderRadius: 4 }}>
+                        <div className="admin-bar-fill" style={{ width: `${fillPct}%`, height: '100%', borderRadius: 4 }} />
+                      </div>
+                      
+                      <div className="flex gap-8 items-center mt-4">
+                        {!event.is_cancelled && (
+                          <button className="btn btn-secondary btn-sm" onClick={async () => {
+                            try {
+                              await updateProviderEvent(event.id, { is_cancelled: true });
+                              showToast('Event cancelled', '✅');
+                              const ev = await getProviderEvents(providerId);
+                              setEvents(ev.events || []);
+                            } catch (err) { showToast(err.message, '❌'); }
+                          }}>Cancel Session</button>
+                        )}
+                        <span className={`badge ${event.is_cancelled ? 'badge-muted' : 'badge-success'}`}>{event.is_cancelled ? 'Cancelled' : 'Active'}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
+                );
+              };
+              return <EditableEventItem key={e.id} event={e} />;
             })}
+          </div>
+
+          <div className="p-16 border rounded-xl bg-accent-light mt-16 mb-24" style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', borderWidth: '1px', borderStyle: 'solid' }}>
+            <h3 className="font-bold text-lg mb-8" style={{ color: '#166534' }}>🚀 Boost Your Event</h3>
+            <p className="text-sm mb-16" style={{ color: '#15803d' }}>Pay 50 ETB via Telebirr to pin your wellness event to the Featured carousel for 48 hours.</p>
+            
+            <select className="input mb-12" id="boost-event-select" style={{ width: '100%' }}>
+              <option value="">Select an upcoming event...</option>
+              {events.filter(e => !e.is_cancelled).map(ev => <option key={ev.id} value={ev.id}>{ev.service_name}</option>)}
+            </select>
+            
+            <button 
+              className="btn btn-primary w-full"
+              onClick={async () => {
+                const sel = document.getElementById('boost-event-select');
+                if (!sel.value) return;
+                try {
+                  // Mock payment simulation targeting provider_promotions
+                  showToast('Processing Telebirr...', '⏳');
+                  await new Promise(r => setTimeout(r, 1000));
+                  showToast('Payment Successful! Event pinned to consumer Explore feed.', '🚀');
+                } catch (e) {
+                  showToast('Error boosting event', '❌');
+                }
+              }}
+            >
+              Pay 50 ETB & Boost
+            </button>
           </div>
           {showCreateEvent && (
             <div className="modal-overlay" onClick={() => setShowCreateEvent(false)}>

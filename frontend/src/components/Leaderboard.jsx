@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getLeaderboard } from '../api/client';
+import { getLeaderboard, createInteraction } from '../api/client';
 
 const Leaderboard = ({ communityId }) => {
   const [leaderboard, setLeaderboard] = useState([]);
@@ -19,6 +19,16 @@ const Leaderboard = ({ communityId }) => {
     fetchLeaderboard();
   }, [communityId]);
 
+  const handleInteraction = async (targetUserId, actionType) => {
+    try {
+      await createInteraction(communityId, targetUserId, actionType);
+      alert(`Sent a ${actionType}!`);
+    } catch (err) {
+      console.error(err);
+      alert(`Failed to send ${actionType}`);
+    }
+  };
+
   if (loading) return null;
   if (leaderboard.length === 0) return null;
 
@@ -37,7 +47,11 @@ const Leaderboard = ({ communityId }) => {
               style={{ width: '32px', height: '32px', borderRadius: '50%', margin: '0 12px' }}
             />
             <div style={{ flex: 1, fontWeight: 600, fontSize: '0.9rem' }}>{u.name}</div>
-            <div style={{ fontWeight: 700, color: 'var(--brand-primary)' }}>{u.checkins_last_30_days}</div>
+            <div style={{ fontWeight: 700, color: 'var(--brand-primary)', marginRight: '16px' }}>{u.checkins_last_30_days}</div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button className="btn btn-sm btn-outline" style={{ padding: '4px 8px', fontSize: '0.75rem' }} onClick={() => handleInteraction(u.user_id, 'nudge')}>👉</button>
+              <button className="btn btn-sm btn-outline" style={{ padding: '4px 8px', fontSize: '0.75rem' }} onClick={() => handleInteraction(u.user_id, 'high-five')}>🙌</button>
+            </div>
           </div>
         ))}
       </div>

@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation, useSearchParams } from 'react-rout
 import { getProvider, createBooking, initiateTelebirr, initiateMpesa, getPaymentStatus } from '../api/client';
 import { MOCK_TIME_SLOTS, getNextDays } from '../data/mock';
 import { showToast } from '../components/Toast';
+import Icon from '../components/Icon';
 
 const STEP_LABELS = ['Service', 'Date & Time', 'Payment'];
 
@@ -133,7 +134,7 @@ export default function BookingFlow() {
     return (
       <div className="page" id="booking-confirmation-screen">
         <div className="booking-confirmation">
-          <div className="confirmation-check">✓</div>
+          <div className="confirmation-check"><Icon name="check" size={28} strokeWidth={2.5} /></div>
           <h2 className="confirmation-title">Booking Confirmed!</h2>
           <p className="confirmation-ref">
             Ref: {booking?.reference_number || booking?.id?.slice(0, 12)}
@@ -166,7 +167,7 @@ export default function BookingFlow() {
           </div>
 
           <div className="points-chip" style={{ margin: '0 auto 24px', display: 'inline-flex' }}>
-            <span>🏆</span>
+            <Icon name="trophy" size={16} />
             <span>+50 Legacy Points (Phase 2)</span>
           </div>
 
@@ -202,8 +203,8 @@ export default function BookingFlow() {
     <div className="page" id="booking-flow-screen">
       {/* Header */}
       <div className="flex items-center gap-12 mb-20">
-        <button className="btn btn-icon btn-secondary" onClick={() => step > 0 ? setStep(s => s - 1) : navigate(-1)}>
-          ←
+        <button className="btn btn-icon btn-secondary" onClick={() => step > 0 ? setStep(s => s - 1) : navigate(-1)} aria-label="Go back">
+          <Icon name="chevron-left" size={20} />
         </button>
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Book at {provider.name}</h1>
@@ -215,7 +216,9 @@ export default function BookingFlow() {
         {STEP_LABELS.map((label, i) => (
           <div key={i} style={{ display: 'contents' }}>
             <div className={`booking-step-dot ${i === step ? 'active' : i < step ? 'done' : ''}`}>
-              <span className="booking-step-num">{i < step ? '✓' : i + 1}</span>
+              <span className="booking-step-num">
+                {i < step ? <Icon name="check" size={12} strokeWidth={2.5} /> : i + 1}
+              </span>
               <span>{label}</span>
             </div>
             {i < STEP_LABELS.length - 1 && <div className="booking-line" />}
@@ -254,12 +257,10 @@ export default function BookingFlow() {
             {days.map(day => (
               <button
                 key={day.date}
-                className={`chip ${selectedDate === day.date ? 'active' : ''}`}
+                className={`chip date-chip ${selectedDate === day.date ? 'active' : ''}`}
                 onClick={() => setSelectedDate(day.date)}
-                style={{ minWidth: 80, flexDirection: 'column', padding: '10px 14px' }}
               >
-                <span style={{ fontSize: '0.7rem' }}>{day.dayName}</span>
-                <span style={{ fontWeight: 700 }}>{day.label}</span>
+                {day.dayName}
               </button>
             ))}
           </div>
@@ -310,7 +311,7 @@ export default function BookingFlow() {
               onClick={() => setPaymentMethod('telebirr')}
               id="payment-telebirr"
             >
-              <span className="payment-method-icon">📱</span>
+              <span className="payment-method-icon"><Icon name="smartphone" size={22} /></span>
               <div>
                 <div className="payment-method-name">Pay with Telebirr</div>
                 <div className="payment-method-desc">Ethio Telecom mobile money</div>
@@ -321,7 +322,7 @@ export default function BookingFlow() {
               onClick={() => setPaymentMethod('mpesa')}
               id="payment-mpesa"
             >
-              <span className="payment-method-icon">💳</span>
+              <span className="payment-method-icon"><Icon name="credit-card" size={22} /></span>
               <div>
                 <div className="payment-method-name">Pay with M-Pesa</div>
                 <div className="payment-method-desc">Safaricom Daraja STK Push</div>
@@ -356,7 +357,7 @@ export default function BookingFlow() {
             disabled={!canNext()}
             id="booking-next-btn"
           >
-            Next →
+            Next <Icon name="chevron-right" size={18} />
           </button>
         ) : (
           <button
@@ -365,7 +366,7 @@ export default function BookingFlow() {
             disabled={!canNext()}
             id="pay-btn"
           >
-            💰 Pay ETB {selectedService?.price?.toLocaleString()}
+            <Icon name="coins" size={18} /> Pay ETB {selectedService?.price?.toLocaleString()}
           </button>
         )}
       </div>

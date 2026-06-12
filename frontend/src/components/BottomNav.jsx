@@ -1,17 +1,17 @@
 import { useLocation, useNavigate } from 'react-router-dom';
+import Icon from './Icon';
 
 const TABS = [
-  { path: '/home', icon: '🏠', label: 'Home' },
-  { path: '/explore', icon: '🔍', label: 'Explore' },
-  { path: '/community', icon: '👥', label: 'Community' },
-  { path: '/profile', icon: '👤', label: 'Profile' }
+  { path: '/home', icon: 'home', label: 'Home' },
+  { path: '/explore', icon: 'search', label: 'Explore' },
+  { path: '/community', icon: 'users', label: 'Community' },
+  { path: '/profile', icon: 'user', label: 'Profile' },
 ];
 
 export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Hide nav on splash, onboarding, admin, and full-screen flows
   const hiddenPaths = ['/', '/onboarding', '/provider-onboard'];
   const hidden = hiddenPaths.includes(location.pathname) || location.pathname.startsWith('/admin');
   if (hidden) return null;
@@ -27,7 +27,7 @@ export default function BottomNav() {
           onClick={() => navigate(tab.path)}
           id={`nav-${tab.label.toLowerCase()}`}
         >
-          <span className="nav-icon">{tab.icon}</span>
+          <span className="nav-icon"><Icon name={tab.icon} size={22} /></span>
           <span className="nav-label">{tab.label}</span>
         </button>
       ))}

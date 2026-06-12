@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getProvider, joinCommunity, getProviderEvents } from '../api/client';
 import EventCard from '../components/EventCard';
 import { showToast } from '../components/Toast';
+import Icon from '../components/Icon';
 
 export default function ProviderDetail() {
   const { id } = useParams();
@@ -54,7 +55,9 @@ export default function ProviderDetail() {
       {/* Header with cover photo */}
       <div className="detail-header">
         <img className="detail-cover" src={provider.photos?.[activePhoto] || provider.cover_photo_url} alt={provider.name} />
-        <button className="detail-back" onClick={() => navigate(-1)} id="detail-back-btn">←</button>
+        <button className="detail-back" onClick={() => navigate(-1)} id="detail-back-btn" aria-label="Go back">
+          <Icon name="chevron-left" size={20} />
+        </button>
       </div>
 
       {/* Photo gallery */}
@@ -77,11 +80,11 @@ export default function ProviderDetail() {
         <h1 className="detail-name">{provider.name}</h1>
         <div className="detail-meta">
           <span className={`category-badge ${provider.category}`}>{provider.category}</span>
-          <span>⭐ {provider.rating}</span>
-          <span>💰 {provider.price_range}</span>
+          <span className="inline-icon-text"><Icon name="star" size={14} /> {provider.rating}</span>
+          <span className="inline-icon-text"><Icon name="coins" size={14} /> {provider.price_range}</span>
         </div>
         <div className="detail-meta" style={{ marginBottom: 16 }}>
-          <span>📍 {provider.location_text}</span>
+          <span className="inline-icon-text"><Icon name="map-pin" size={14} /> {provider.location_text}</span>
         </div>
         <p className="detail-desc">{provider.description}</p>
       </div>
@@ -128,7 +131,7 @@ export default function ProviderDetail() {
             <div className="card-body">
               <div className="community-card-header">
                 <span className="community-card-name">{provider.community.name}</span>
-                <span className="community-card-members">👥 {provider.community.member_count}</span>
+                <span className="community-card-members inline-icon-text"><Icon name="users" size={14} /> {provider.community.member_count}</span>
               </div>
               <div className="community-card-footer" style={{ marginTop: 10 }}>
                 <button
@@ -138,8 +141,8 @@ export default function ProviderDetail() {
                   View Feed
                 </button>
                 {provider.community.user_joined ? (
-                  <span className="category-badge" style={{ background: 'rgba(16,185,129,0.12)', color: '#34D399' }}>
-                    ✓ Joined
+                  <span className="category-badge badge-success-soft inline-icon-text">
+                    <Icon name="check" size={12} strokeWidth={2.5} /> Joined
                   </span>
                 ) : (
                   <button className="btn btn-sm btn-primary" onClick={handleJoinCommunity} id="join-community-btn">
@@ -159,7 +162,7 @@ export default function ProviderDetail() {
         id="book-now-btn"
         style={{ marginBottom: 16 }}
       >
-        📅 Book Now
+        <Icon name="calendar" size={18} /> Book Now
       </button>
     </div>
   );

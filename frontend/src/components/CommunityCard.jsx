@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import Icon from './Icon';
 
 export default function CommunityCard({ community, onJoin }) {
   const navigate = useNavigate();
@@ -12,8 +13,8 @@ export default function CommunityCard({ community, onJoin }) {
       <div className="card-body">
         <div className="community-card-header">
           <span className="community-card-name">{community.name}</span>
-          <span className="community-card-members">
-            👥 {community.member_count}
+          <span className="community-card-members inline-icon-text">
+            <Icon name="users" size={14} /> {community.member_count}
           </span>
         </div>
         <div className="community-card-provider">
@@ -24,8 +25,8 @@ export default function CommunityCard({ community, onJoin }) {
             {community.category}
           </span>
           {community.user_joined ? (
-            <span className="category-badge" style={{ background: 'rgba(16,185,129,0.12)', color: '#34D399' }}>
-              ✓ Joined
+            <span className="category-badge badge-success-soft inline-icon-text">
+              <Icon name="check" size={12} strokeWidth={2.5} /> Joined
             </span>
           ) : (
             <button

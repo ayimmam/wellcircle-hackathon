@@ -138,7 +138,7 @@ export default function ProviderDetail() {
                   View Feed
                 </button>
                 {provider.community.user_joined ? (
-                  <span className="category-badge" style={{ background: 'rgba(16,185,129,0.12)', color: '#34D399' }}>
+                  <span className="category-badge badge-success-soft">
                     ✓ Joined
                   </span>
                 ) : (

@@ -50,7 +50,7 @@ export default function Header({ onMenuOpen }) {
           {unreadCount > 0 && (
             <span style={{
               position: 'absolute', top: 0, right: 0,
-              background: 'var(--danger, #ef4444)', color: 'white',
+              background: 'var(--danger)', color: 'var(--text-inverse)',
               fontSize: '0.65rem', fontWeight: 700, minWidth: 16, height: 16,
               borderRadius: 99, display: 'flex', alignItems: 'center', justifyContent: 'center',
               padding: '0 4px',

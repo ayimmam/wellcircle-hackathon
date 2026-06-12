@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import BurgerMenu from './components/BurgerMenu';
@@ -37,6 +38,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ThemeProvider>
       <AuthProvider>
         <div className="app-shell">
           <ToastContainer />
@@ -89,6 +91,7 @@ export default function App() {
           <BottomNav />
         </div>
       </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

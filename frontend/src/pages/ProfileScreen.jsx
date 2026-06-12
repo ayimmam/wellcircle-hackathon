@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { getPointsHistory } from '../api/client';
 import { getTier, NEIGHBOURHOODS, MOCK_HEALTH_METRICS, MOCK_COMMUNITIES } from '../data/mock';
 import { showToast } from '../components/Toast';
 
 export default function ProfileScreen() {
   const { user, updateProfile } = useAuth();
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [pointsHistory, setPointsHistory] = useState(null);
   const [showNeighbourhoodSheet, setShowNeighbourhoodSheet] = useState(false);
@@ -122,6 +124,31 @@ export default function ProfileScreen() {
           </div>
         </div>
       )}
+
+      {/* Appearance */}
+      <div className="profile-section">
+        <div className="profile-section-title">Appearance</div>
+        <div className="profile-card">
+          <div className="theme-toggle" role="group" aria-label="Theme">
+            <button
+              type="button"
+              className={`theme-toggle-btn ${theme === 'light' ? 'active' : ''}`}
+              onClick={() => setTheme('light')}
+              id="theme-light-btn"
+            >
+              ☀️ Light
+            </button>
+            <button
+              type="button"
+              className={`theme-toggle-btn ${theme === 'dark' ? 'active' : ''}`}
+              onClick={() => setTheme('dark')}
+              id="theme-dark-btn"
+            >
+              🌙 Dark
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Neighbourhood Opt-in */}
       <div className="profile-section">

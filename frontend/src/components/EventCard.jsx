@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 export default function EventCard({ event, variant = 'list' }) {
   const navigate = useNavigate();
 
-  let urgencyStyle = { background: '#dcfce7', color: '#166534' };
-  if (event.urgency === 'high') urgencyStyle = { background: '#fee2e2', color: '#991b1b' };
-  else if (event.urgency === 'medium') urgencyStyle = { background: '#fef3c7', color: '#92400e' };
+  const urgencyClass =
+    event.urgency === 'high' ? 'urgency-high'
+    : event.urgency === 'medium' ? 'urgency-medium'
+    : 'urgency-low';
 
   const fillPct = event.capacity
     ? Math.round(((event.capacity - event.spots_remaining) / event.capacity) * 100)
@@ -27,9 +28,9 @@ export default function EventCard({ event, variant = 'list' }) {
       <div className="card" style={{ minWidth: '280px', padding: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
           {event.is_boosted && (
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '4px 8px', background: 'var(--primary)', color: 'white', borderRadius: '99px' }}>Boosted</span>
+            <span className="badge-on-accent" style={{ fontSize: '0.75rem', fontWeight: 600, padding: '4px 8px', borderRadius: '99px' }}>Boosted</span>
           )}
-          <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '4px 8px', borderRadius: '99px', ...urgencyStyle }}>
+          <span className={urgencyClass} style={{ fontSize: '0.75rem', fontWeight: 600, padding: '4px 8px', borderRadius: '99px' }}>
             {event.spots_remaining} spots left
           </span>
         </div>
@@ -51,7 +52,7 @@ export default function EventCard({ event, variant = 'list' }) {
             <h3 className="card-title text-sm">{event.service_name}</h3>
             <p className="text-xs text-secondary">{event.provider_name || event.provider_category}</p>
           </div>
-          <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '4px 8px', borderRadius: '99px', ...urgencyStyle }}>
+          <span className={urgencyClass} style={{ fontSize: '0.72rem', fontWeight: 600, padding: '4px 8px', borderRadius: '99px' }}>
             {event.spots_remaining} left
           </span>
         </div>

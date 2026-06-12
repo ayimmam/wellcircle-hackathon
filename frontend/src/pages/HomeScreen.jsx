@@ -91,11 +91,12 @@ export default function HomeScreen() {
               style={{ height: 180, filter: 'brightness(0.55)' }}
             />
             {/* Overlay content on image */}
-            <div style={{
+            <div
+              className="image-card-overlay"
+              style={{
               position: 'absolute', inset: 0,
               padding: 18,
               display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-              background: 'linear-gradient(transparent 30%, rgba(0,0,0,0.7) 100%)'
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

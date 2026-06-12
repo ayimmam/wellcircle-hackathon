@@ -172,9 +172,9 @@ export default function ProviderOnboard() {
           </select>
           <input className="input" placeholder="Account Number or Phone *" value={form.payment_account} onChange={e => update('payment_account', e.target.value)} />
           
-          <div className="card mt-16" style={{ background: '#fef3c7', border: '1px solid #f59e0b' }}>
+          <div className="card card-warning mt-16">
             <div className="card-body">
-              <h4 className="font-bold mb-4 text-sm" style={{ color: '#92400e' }}>Boost your visibility! 🚀</h4>
+              <h4 className="font-bold mb-4 text-sm card-warning-title">Boost your visibility! 🚀</h4>
               <p className="text-xs text-secondary mb-8">Subscribe to a premium plan to be featured on the Explore page and boost your upcoming events.</p>
               <select className="input" value={form.subscription_plan} onChange={e => update('subscription_plan', e.target.value)}>
                 <option value="starter">Starter — 500 ETB/mo</option>

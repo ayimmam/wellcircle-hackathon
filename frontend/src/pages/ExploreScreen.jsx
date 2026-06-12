@@ -93,9 +93,11 @@ export default function ExploreScreen() {
                   <span className="category-badge" style={{ position: 'absolute', top: 10, left: 10, background: 'var(--accent)' }}>Featured</span>
                 )}
                 <span className={`category-badge ${p.category}`} style={{ position: 'absolute', top: 10, right: 10 }}>{p.category}</span>
-                <div style={{
+                <div
+                  className="image-card-overlay"
+                  style={{
                   position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-                  padding: 14, background: 'linear-gradient(transparent 20%, rgba(0,0,0,0.75) 100%)',
+                  padding: 14,
                 }}>
                   <div style={{ fontSize: '1.05rem', fontWeight: 700 }}>{p.name}</div>
                   {p.active_promotion && (

@@ -1,6 +1,6 @@
 /* ======================================================
    WELL CIRCLE — Design System v2
-   Dark Premium + Gold Accent (Nhatty-inspired)
+   Light default + Dark mode toggle | Gold Accent
    Telegram Mini App | Mobile-first 320–430px
    ====================================================== */
 
@@ -25,22 +25,100 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
 /* ---------- Theme Variables ---------- */
 :root {
-  /* Accent: gold/amber like the reference */
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Layout */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --nav-height: 60px;
+  --header-height: 60px;
+}
+
+/* Light theme (default) — WCAG AA contrast on surfaces */
+:root,
+[data-theme="light"] {
+  --accent: #F5A623;
+  --accent-light: #FFD166;
+  --accent-dark: #B45309;
+  --accent-glow: rgba(245, 166, 35, 0.22);
+  --accent-text: #92400E;
+  --text-on-accent: #1A1A1F;
+
+  --secondary: #059669;
+  --secondary-light: #10B981;
+
+  --danger: #DC2626;
+  --info: #2563EB;
+  --success: #059669;
+
+  --brand-primary: var(--accent-text);
+  --primary: var(--accent);
+
+  --bg-primary: #F5F6FA;
+  --bg-secondary: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F0F1F5;
+  --bg-elevated: #E8EBF0;
+  --bg-glass: rgba(255, 255, 255, 0.92);
+  --bg-card-border: #E2E5EC;
+
+  --text-primary: #111118;
+  --text-secondary: #4B5563;
+  --text-tertiary: #6B7280;
+  --text-inverse: #FFFFFF;
+
+  --border-subtle: rgba(0, 0, 0, 0.06);
+  --border-card: rgba(0, 0, 0, 0.08);
+  --border-active: rgba(180, 83, 9, 0.35);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.12);
+  --shadow-glow: 0 0 24px var(--accent-glow);
+
+  --overlay-scrim: rgba(0, 0, 0, 0.45);
+  --overlay-on-image: rgba(0, 0, 0, 0.55);
+  --overlay-text: #FFFFFF;
+
+  --notification-unread-bg: #EFF6FF;
+  --warning-bg: #FFFBEB;
+  --warning-border: #F59E0B;
+  --warning-text: #92400E;
+
+  --urgency-low-bg: #DCFCE7;
+  --urgency-low-text: #166534;
+  --urgency-medium-bg: #FEF3C7;
+  --urgency-medium-text: #92400E;
+  --urgency-high-bg: #FEE2E2;
+  --urgency-high-text: #991B1B;
+
+  --success-soft-bg: rgba(5, 150, 105, 0.12);
+  --success-soft-text: #047857;
+}
+
+/* Dark theme — previous default UI */
+[data-theme="dark"] {
   --accent: #F5A623;
   --accent-light: #FFD166;
   --accent-dark: #D48E10;
   --accent-glow: rgba(245, 166, 35, 0.25);
+  --accent-text: #FFD166;
+  --text-on-accent: #0A0A0F;
 
-  /* Secondary: emerald green for wellness */
   --secondary: #10B981;
   --secondary-light: #34D399;
 
-  /* Status colors */
   --danger: #EF4444;
-  --info: #3B82F6;
+  --info: #60A5FA;
   --success: #10B981;
 
-  /* Surfaces (pure dark) */
+  --brand-primary: var(--accent-light);
+  --primary: var(--accent);
+
   --bg-primary: #0A0A0F;
   --bg-secondary: #111118;
   --bg-card: #18181F;
@@ -49,34 +127,38 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   --bg-glass: rgba(18, 18, 26, 0.92);
   --bg-card-border: #2A2A35;
 
-  /* Text */
   --text-primary: #F5F5F7;
   --text-secondary: #9CA3AF;
-  --text-tertiary: #6B7280;
+  --text-tertiary: #A8B0BD;
   --text-inverse: #0A0A0F;
 
-  /* Borders */
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-card: rgba(255, 255, 255, 0.08);
   --border-active: rgba(245, 166, 35, 0.4);
 
-  /* Radius */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
-  --radius-full: 9999px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
-  --shadow-md: 0 4px 16px rgba(0,0,0,0.5);
-  --shadow-lg: 0 8px 40px rgba(0,0,0,0.6);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.6);
   --shadow-glow: 0 0 24px var(--accent-glow);
 
-  /* Layout */
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --nav-height: 60px;
-  --header-height: 60px;
+  --overlay-scrim: rgba(0, 0, 0, 0.7);
+  --overlay-on-image: rgba(0, 0, 0, 0.75);
+  --overlay-text: #FFFFFF;
+
+  --notification-unread-bg: rgba(59, 130, 246, 0.15);
+  --warning-bg: rgba(245, 158, 11, 0.12);
+  --warning-border: rgba(245, 158, 11, 0.45);
+  --warning-text: #FCD34D;
+
+  --urgency-low-bg: rgba(16, 185, 129, 0.15);
+  --urgency-low-text: #6EE7B7;
+  --urgency-medium-bg: rgba(245, 158, 11, 0.15);
+  --urgency-medium-text: #FCD34D;
+  --urgency-high-bg: rgba(239, 68, 68, 0.15);
+  --urgency-high-text: #FCA5A5;
+
+  --success-soft-bg: rgba(16, 185, 129, 0.12);
+  --success-soft-text: #34D399;
 }
 
 /* ---------- Scrollbar ---------- */
@@ -207,7 +289,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .burger-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--overlay-scrim);
   z-index: 200;
   animation: fadeIn 0.25s ease;
 }
@@ -628,7 +710,7 @@ select.input option {
 
 .btn-primary {
   background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-  color: var(--text-inverse);
+  color: var(--text-on-accent);
   box-shadow: var(--shadow-glow);
 }
 
@@ -643,15 +725,15 @@ select.input option {
 
 .btn-outline {
   background: transparent;
-  color: var(--accent);
-  border: 1.5px solid var(--accent);
+  color: var(--accent-text);
+  border: 1.5px solid var(--accent-dark);
 }
 
-.btn-outline:hover { background: rgba(245, 166, 35, 0.08); }
+.btn-outline:hover { background: var(--accent-glow); }
 
 .btn-danger {
   background: var(--danger);
-  color: #fff;
+  color: var(--text-inverse);
 }
 
 .btn-sm { padding: 8px 16px; font-size: 0.8rem; border-radius: var(--radius-sm); }
@@ -1021,12 +1103,12 @@ select.input option {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(0,0,0,0.5);
+  background: var(--overlay-on-image);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--overlay-text);
   font-size: 1.2rem;
   z-index: 5;
 }
@@ -1446,7 +1528,7 @@ select.input option {
 .sheet-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.6);
+  background: var(--overlay-scrim);
   z-index: 200;
   animation: fadeIn 0.2s ease;
 }
@@ -1658,7 +1740,7 @@ select.input option {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.7);
+  background: var(--overlay-scrim);
   z-index: 200;
   display: flex;
   align-items: flex-end;
@@ -1772,3 +1854,72 @@ select.input option {
 }
 
 textarea.input { resize: vertical; min-height: 80px; }
+
+/* ================================================================
+   THEME TOGGLE
+   ================================================================ */
+.theme-toggle {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  border: 1px solid var(--border-card);
+}
+
+.theme-toggle-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.theme-toggle-btn.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-warning {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+}
+
+.card-warning-title {
+  color: var(--warning-text);
+}
+
+.notification-unread {
+  background: var(--notification-unread-bg) !important;
+  border-left: 4px solid var(--info) !important;
+}
+
+.notification-unread-title {
+  color: var(--brand-primary);
+}
+
+.image-card-overlay {
+  background: linear-gradient(transparent 25%, var(--overlay-on-image) 100%);
+  color: var(--overlay-text);
+}
+
+.urgency-low { background: var(--urgency-low-bg); color: var(--urgency-low-text); }
+.urgency-medium { background: var(--urgency-medium-bg); color: var(--urgency-medium-text); }
+.urgency-high { background: var(--urgency-high-bg); color: var(--urgency-high-text); }
+
+.badge-on-accent {
+  background: var(--primary);
+  color: var(--text-on-accent);
+}
+
+.badge-success-soft {
+  background: var(--success-soft-bg);
+  color: var(--success-soft-text);
+}

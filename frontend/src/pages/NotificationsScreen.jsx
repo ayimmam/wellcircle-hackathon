@@ -78,17 +78,18 @@ export default function NotificationsScreen() {
           notifications.map(n => (
             <div 
               key={n.id} 
-              className="card" 
+              className={`card ${!n.is_read ? 'notification-unread' : ''}`}
               style={{ 
-                padding: '16px', 
-                background: n.is_read ? 'var(--bg-card)' : '#e0f2fe',
+                padding: '16px',
                 cursor: n.action_url ? 'pointer' : 'default',
-                borderLeft: n.is_read ? 'none' : '4px solid var(--brand-primary)'
               }}
               onClick={() => handleMarkRead(n.id, n.action_url)}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                <h3 style={{ fontWeight: 700, fontSize: '1rem', color: n.is_read ? 'var(--text-primary)' : 'var(--brand-primary)' }}>
+                <h3
+                  className={!n.is_read ? 'notification-unread-title' : ''}
+                  style={{ fontWeight: 700, fontSize: '1rem', color: n.is_read ? 'var(--text-primary)' : undefined }}
+                >
                   {n.title}
                 </h3>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>

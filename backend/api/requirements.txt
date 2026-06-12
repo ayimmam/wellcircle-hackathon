@@ -1,27 +1,14 @@
-# FastAPI & async web framework
+# Vercel installs deps from api/ when using api/index.py as entrypoint
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
-# Database & ORM
 sqlalchemy==2.0.23
 psycopg2-binary==2.9.9
 alembic==1.12.1
-
-# Authentication & Security
 python-jose[cryptography]==3.3.0
 python-multipart==0.0.6
-
-# HTTP client (payment APIs)
 httpx==0.25.2
-
-# Task scheduling
 apscheduler==3.10.4
-
-# Utilities
 python-dotenv==1.0.0
-
-# Development & Testing
-pytest==7.4.3
-pytest-asyncio==0.21.1
 mangum==0.17.0

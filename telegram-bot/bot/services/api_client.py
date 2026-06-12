@@ -17,7 +17,7 @@ async def register_user(
     photo_url: Optional[str] = None,
 ) -> dict:
     """Register a user via POST /api/bot/register."""
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
         response = await client.post(
             f"{BACKEND_URL}/api/bot/register",
             json={
@@ -33,7 +33,7 @@ async def register_user(
 
 async def check_admin_access(telegram_id: int) -> dict:
     """Check if user has super-admin access via GET /api/bot/users/{id}/admin-access."""
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
         response = await client.get(
             f"{BACKEND_URL}/api/bot/users/{telegram_id}/admin-access",
             headers=HEADERS,
@@ -44,7 +44,7 @@ async def check_admin_access(telegram_id: int) -> dict:
 
 async def get_inactive_users(days: int = 7) -> dict:
     """Get inactive users via GET /api/bot/inactive-users."""
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
         response = await client.get(
             f"{BACKEND_URL}/api/bot/inactive-users",
             params={"days": days},
@@ -56,7 +56,7 @@ async def get_inactive_users(days: int = 7) -> dict:
 
 async def mark_reengagement_sent(telegram_id: int) -> dict:
     """Mark re-engagement message sent via POST /api/bot/users/{id}/reengagement-sent."""
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
         response = await client.post(
             f"{BACKEND_URL}/api/bot/users/{telegram_id}/reengagement-sent",
             headers=HEADERS,

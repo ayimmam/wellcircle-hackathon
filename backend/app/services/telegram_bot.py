@@ -1,7 +1,8 @@
 import os
-import requests
 import logging
 from threading import Thread
+
+import httpx
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "mock_token")
 
@@ -19,7 +20,7 @@ def _send_message_sync(chat_id: int, text: str):
         "parse_mode": "HTML"
     }
     try:
-        response = requests.post(url, json=payload, timeout=5)
+        response = httpx.post(url, json=payload, timeout=5.0)
         response.raise_for_status()
     except Exception as e:
         logger.error(f"Failed to send Telegram notification to {chat_id}: {str(e)}")

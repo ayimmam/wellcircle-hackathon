@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 
 from telegram import Update, BotCommand
+from telegram.error import Conflict
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from bot.handlers.start import start_handler
@@ -17,6 +18,18 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log polling errors; Conflict means another bot instance is running."""
+    err = context.error
+    if isinstance(err, Conflict):
+        logger.warning(
+            "Telegram polling conflict — another getUpdates instance is active. "
+            "Stop duplicate bot processes and keep Railway at 1 replica."
+        )
+        return
+    logger.error("Unhandled bot error: %s", err, exc_info=err)
 
 
 async def post_init(application: Application) -> None:
@@ -35,6 +48,7 @@ def main():
     # Register handlers
     app.add_handler(CommandHandler("start", start_handler))
     app.add_handler(CommandHandler("admin", admin_handler))
+    app.add_error_handler(error_handler)
 
     # Schedule re-engagement check (weekly)
     job_queue = app.job_queue
@@ -49,7 +63,7 @@ def main():
 
     # Start polling
     logger.info("🤖 Bot polling started...")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 
 if __name__ == "__main__":

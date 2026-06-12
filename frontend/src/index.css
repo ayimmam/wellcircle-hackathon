@@ -228,13 +228,11 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.2rem;
-  box-shadow: 0 0 12px var(--accent-glow);
-  border: 2px solid var(--accent);
 }
 
 .header-text {

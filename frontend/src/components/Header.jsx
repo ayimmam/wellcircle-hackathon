@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getNotificationUnreadCount } from '../api/client';
 import Icon from './Icon';
+import newLogo from '../new_logo.png';
 
 export default function Header({ onMenuOpen }) {
   const navigate = useNavigate();
@@ -35,7 +36,7 @@ export default function Header({ onMenuOpen }) {
   return (
     <header className="top-header" id="top-header">
       <div className="header-brand" onClick={() => navigate('/home')}>
-        <img src="/well.png" className="header-logo" alt="Well Circle Logo" />
+        <img src={newLogo} className="header-logo" alt="Well Circle Logo" />
         <div className="header-text">
           <span className="header-name">WELL CIRCLE</span>
           <span className="header-sub">YOUR WELLNESS TRIBE</span>

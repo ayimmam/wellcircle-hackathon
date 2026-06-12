@@ -64,7 +64,7 @@ export default function HomeScreen() {
             Your wellness journey awaits
           </p>
         </div>
-        {user && <PointsBadge points={user.points_balance || 0} />}
+        {user && <PointsBadge points={user.points_balance || 0} onClick={() => navigate('/products')} />}
       </div>
 
       {/* Neighbourhood Alert */}

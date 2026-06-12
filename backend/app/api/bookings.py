@@ -13,27 +13,37 @@ from app.schemas.booking import BookingCreate, BookingResponse
 router = APIRouter()
 
 
-from sqlalchemy import update
+from sqlalchemy import select, update
+from fastapi import BackgroundTasks
 from app.models.provider_event import ProviderEvent
 from app.models.event_inventory_log import EventInventoryLog
+from app.models.user_notification import UserNotification
+
+def trigger_booking_notification(db_session: Session, user_id: UUID, service_name: str, datetime_str: str):
+    msg = f"Your booking for {service_name} on {datetime_str} is confirmed!"
+    db_session.add(UserNotification(user_id=user_id, message=msg, is_read=False))
+    db_session.commit()
 
 @router.post("", response_model=BookingResponse, status_code=201)
 async def create_new_booking(
     request: BookingCreate,
+    background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     if request.event_id:
         event_uuid = UUID(request.event_id)
-        stmt = (
-            update(ProviderEvent)
-            .where(ProviderEvent.id == event_uuid, ProviderEvent.spots_remaining > 0, ProviderEvent.is_cancelled == False)
-            .values(spots_remaining=ProviderEvent.spots_remaining - 1)
-            .returning(ProviderEvent.id)
-        )
-        result = db.execute(stmt).scalar()
-        if not result:
+        
+        # 1. Lock the row explicitly for this transaction
+        stmt = select(ProviderEvent).where(ProviderEvent.id == event_uuid).with_for_update()
+        event = db.execute(stmt).scalar_one_or_none()
+        
+        if not event or event.is_cancelled or event.spots_remaining <= 0:
+            db.rollback()
             raise HTTPException(status_code=409, detail="No spots remaining or event cancelled")
+
+        # 2. Safely decrement
+        event.spots_remaining -= 1
 
         booking = create_booking(
             db, user_id=user.id,
@@ -62,6 +72,15 @@ async def create_new_booking(
             payment_method=request.payment_method,
             phone_number=request.phone_number,
         )
+
+    # 4. Trigger Instant Notification
+    background_tasks.add_task(
+        trigger_booking_notification, 
+        db, 
+        user.id, 
+        request.service_name, 
+        str(request.slot_datetime)
+    )
         
     return BookingResponse(
         id=str(booking.id), provider_id=str(booking.provider_id),

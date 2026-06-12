@@ -82,6 +82,15 @@ For Phase 3 detail and LLM continuation notes, see also **`PHASE3_HANDOFF.md`**.
 - **Provider Dashboard tabs added:** Events, Subscriptions (alongside Analytics + Products from Phase 2)
 - **API client:** `frontend/src/api/client.js` extended for all Phase 3 endpoints
 
+#### Hackathon Reviewer Critiques Addressed
+- **Live Inventory & Locking**: Added real-time spot capacity ratio to `EventCard.jsx` (`"3 spots left out of 15"`) and implemented row-level transaction locking (`with_for_update`) in `POST /api/bookings` with direct `event_inventory_log` logging.
+- **Deepened Interactions**: Added "Nudge" and "High-Five" actions on `Leaderboard.jsx` that push live events directly into the community feed (`POST /api/communities/:id/interactions`).
+- **Logged Experiences**: Split `/my-bookings` into Upcoming and Past History views; added digital reference codes and inline `.ics` calendar generation for upcoming sessions.
+- **Instant Notifications**: Integrated FastAPI `BackgroundTasks` to dynamically log booking confirmation notifications into `user_notifications` immediately.
+- **Provider Inventory Editing**: Built inline, instantaneous event capacity and cancellation editing within the Provider Dashboard (`PATCH /api/providers/me/events/:id`).
+- **Legacy Points Utility**: Added an explanatory `PointsTooltip` to `ProfileScreen` and `ProductRedeem` views detailing specific monetary values/tier discounts.
+- **Provider Event Boosting**: Seamlessly connected `/provider-onboard` to subscriptions, and added a "Boost Event / Ad Space" panel in the Provider Dashboard with mock Telebirr integration targeting `provider_promotions`.
+
 ---
 
 ## Infrastructure & Deployment
@@ -184,11 +193,12 @@ frontend/src/pages/ProviderDashboard.jsx
 - [ ] Existing MVP flows (explore, communities, bookings) still work
 
 ### Phase 3
-- [ ] `FeaturedEventsCarousel` renders on Home and Explore
-- [ ] `ChallengesList` shows on Community detail; check-in updates challenge progress
-- [ ] `/notifications` inbox loads and mark-read works
-- [ ] Provider Dashboard Events tab: create/list events
-- [ ] Provider Dashboard Subscriptions tab: view plans and initiate payment (demo mode)
+- [x] `FeaturedEventsCarousel` renders on Home and Explore
+- [x] `ChallengesList` shows on Community detail; check-in updates challenge progress
+- [x] `/notifications` inbox loads and mark-read works
+- [x] Provider Dashboard Events tab: create/list events
+- [x] Provider Dashboard Subscriptions tab: view plans and initiate payment (demo mode)
+- [x] **Hackathon Critiques addressed**: Live Inventory locking, Deep interactions, `.ics` generation, Instant notifications, Inline event editing, Points Utility tooltip, Event Boosting.
 
 ---
 

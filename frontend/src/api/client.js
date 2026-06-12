@@ -263,6 +263,17 @@ export async function getCommunityFeed(id, since = null) {
   return request('GET', `/communities/${id}/feed?${params}`);
 }
 
+export async function createInteraction(communityId, targetUserId, actionType) {
+  if (USE_MOCK) {
+    await delay(300);
+    return { status: "Interaction logged and pushed to feed" };
+  }
+  return request('POST', `/communities/${communityId}/interactions`, {
+    target_user_id: targetUserId,
+    action_type: actionType
+  });
+}
+
 // ─── Bookings & Payments ────────────────────────────
 export async function createBooking(data) {
   if (USE_MOCK) {

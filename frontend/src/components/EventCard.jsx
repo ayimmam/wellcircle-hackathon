@@ -32,7 +32,7 @@ export default function EventCard({ event, variant = 'list' }) {
             <span className="badge-on-accent" style={{ fontSize: '0.75rem', fontWeight: 600, padding: '4px 8px', borderRadius: '99px' }}>Boosted</span>
           )}
           <span className={urgencyClass} style={{ fontSize: '0.75rem', fontWeight: 600, padding: '4px 8px', borderRadius: '99px' }}>
-            {event.spots_remaining} spots left
+            {event.spots_remaining} spots left out of {event.capacity}
           </span>
         </div>
         <h3 style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: 4 }}>{event.service_name}</h3>
@@ -55,7 +55,7 @@ export default function EventCard({ event, variant = 'list' }) {
             <p className="text-xs text-secondary">{event.provider_name || event.provider_category}</p>
           </div>
           <span className={urgencyClass} style={{ fontSize: '0.72rem', fontWeight: 600, padding: '4px 8px', borderRadius: '99px' }}>
-            {event.spots_remaining} left
+            {event.spots_remaining} left out of {event.capacity}
           </span>
         </div>
         <p className="text-xs text-secondary mb-8">

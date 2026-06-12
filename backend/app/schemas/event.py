@@ -17,6 +17,7 @@ class EventCreate(BaseModel):
 class EventUpdate(BaseModel):
     description: Optional[str] = None
     capacity: Optional[int] = None
+    spots_remaining: Optional[int] = None
     is_cancelled: Optional[bool] = None
 
 

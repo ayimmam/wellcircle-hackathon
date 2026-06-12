@@ -7,6 +7,25 @@ import { getPointsHistory } from '../api/client';
 import { getTier, NEIGHBOURHOODS, MOCK_HEALTH_METRICS, MOCK_COMMUNITIES } from '../data/mock';
 import { showToast } from '../components/Toast';
 
+const PointsTooltip = () => {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative inline-block ml-2 align-middle">
+      <button onClick={() => setShow(!show)} className="w-5 h-5 rounded-full bg-secondary text-white text-xs font-bold" style={{ border: 'none', background: 'var(--text-secondary)', color: 'white', width: '20px', height: '20px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>?</button>
+      {show && (
+        <div style={{ position: 'absolute', top: '24px', left: 0, width: '250px', padding: '12px', background: 'var(--bg-surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', borderRadius: '12px', border: '1px solid var(--border)', zIndex: 50, fontSize: '0.85rem' }}>
+          <h4 style={{ fontWeight: 'bold', marginBottom: '8px' }}>Legacy Points Dynamics</h4>
+          <ul style={{ paddingLeft: '16px', margin: 0, listStyleType: 'disc', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <li>🌱 <b>Seed Tier (100 pts):</b> 10% off specific events</li>
+            <li>🌿 <b>Sprout Tier (500 pts):</b> 20% off + free merch</li>
+            <li>🌳 <b>Tree Tier (1000 pts):</b> 1 Free month at partner gyms</li>
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function ProfileScreen() {
   const { user, updateProfile } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -69,7 +88,9 @@ export default function ProfileScreen() {
 
       {/* Points Stats */}
       <div className="profile-section">
-        <div className="profile-section-title">Legacy Points</div>
+        <div className="profile-section-title" style={{ display: 'flex', alignItems: 'center' }}>
+          Legacy Points <PointsTooltip />
+        </div>
         <div className="profile-card">
           <div className="profile-stat-row">
             <div>

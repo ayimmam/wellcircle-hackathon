@@ -145,3 +145,34 @@ async def community_leaderboard(
         })
         
     return {"leaderboard": leaderboard}
+
+from pydantic import BaseModel
+from app.models.post import Post
+
+class InteractionCreate(BaseModel):
+    target_user_id: str
+    action_type: str # "high-five" or "nudge"
+
+@router.post("/{community_id}/interactions", status_code=201)
+async def create_interaction(
+    community_id: UUID,
+    interaction: InteractionCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    target_user = db.query(User).filter(User.id == interaction.target_user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Target user not found")
+        
+    emoji = "🙌" if interaction.action_type == "high-five" else "👉"
+    action_verb = "high-fived" if interaction.action_type == "high-five" else "nudged"
+    
+    feed_post = Post(
+        community_id=community_id,
+        author_id=user.id,
+        content=f"{emoji} {user.name or user.telegram_handle} just {action_verb} {target_user.name or target_user.telegram_handle} to stay accountable!",
+        post_type="system_event"
+    )
+    db.add(feed_post)
+    db.commit()
+    return {"status": "Interaction logged and pushed to feed"}

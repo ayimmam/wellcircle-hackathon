@@ -497,65 +497,75 @@ export const MOCK_TIME_SLOTS = [
 
 // ─── Phase 2: Products Store ────────────────────────
 export const MOCK_PRODUCTS = [
+  // 1. Lifestyle Fitness Center
   {
-    id: 'prod-001',
-    name: 'Private Yoga Session',
-    description: '90-minute personalized yoga session with certified instructor.',
-    type: 'digital',
-    price_etb: 2000,
-    image_url: 'https://images.unsplash.com/photo-1545205597-3b2a3a0b0b0b?w=400',
-    provider_id: '11111111-0000-0000-0000-000000000003',
-    provider_name: 'Shanti Yoga Addis',
-    max_redemptions_per_user: 1,
-    expiry_date: '2026-12-31T23:59:59Z',
-    is_in_stock: true,
-    is_recommended: true,
-    quantity_in_stock: 15,
-    images: ['https://images.unsplash.com/photo-1545205597-3b2a3a0b0b0b?w=800'],
-    provider: { id: '11111111-0000-0000-0000-000000000003', name: 'Shanti Yoga Addis', category: 'yoga', location_text: 'Bole, Addis Ababa', rating: 4.8 },
-    provider_instructions: 'Valid for 90 days. Book online or call studio.',
-    shipping_required: false,
-    redemption_count: 8
+    id: 'prod-01-1', name: '1-Day Gym Pass', description: 'Access to all cardio and weights equipment for one day.', type: 'digital', price_etb: 50, image_url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400', provider_id: '11111111-0000-0000-0000-000000000001', provider_name: 'Lifestyle Fitness Center', max_redemptions_per_user: 3, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: true, quantity_in_stock: 50, images: ['https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800'], provider: { id: '11111111-0000-0000-0000-000000000001', name: 'Lifestyle Fitness Center', category: 'gym', location_text: 'Bole', rating: 4.7 }, provider_instructions: 'Show digital voucher at reception.', shipping_required: false, redemption_count: 12
   },
   {
-    id: 'prod-002',
-    name: 'Wellness Nutrition Kit',
-    description: 'Curated organic supplements and meal plan guide.',
-    type: 'physical',
-    price_etb: 1500,
-    image_url: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400',
-    provider_id: '11111111-0000-0000-0000-000000000001',
-    provider_name: 'Lifestyle Fitness Center',
-    max_redemptions_per_user: 2,
-    expiry_date: '2026-12-31T23:59:59Z',
-    is_in_stock: true,
-    is_recommended: false,
-    quantity_in_stock: 5,
-    images: ['https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800'],
-    provider: { id: '11111111-0000-0000-0000-000000000001', name: 'Lifestyle Fitness Center', category: 'nutrition', location_text: 'Bole', rating: 4.7 },
-    provider_instructions: 'Delivered within 5 business days in Addis Ababa.',
-    shipping_required: true,
-    redemption_count: 3
+    id: 'prod-01-2', name: 'Fitness Merch T-Shirt', description: 'Branded moisture-wicking t-shirt.', type: 'physical', price_etb: 150, image_url: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400', provider_id: '11111111-0000-0000-0000-000000000001', provider_name: 'Lifestyle Fitness Center', max_redemptions_per_user: 1, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: false, quantity_in_stock: 20, images: ['https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800'], provider: { id: '11111111-0000-0000-0000-000000000001', name: 'Lifestyle Fitness Center', category: 'gym', location_text: 'Bole', rating: 4.7 }, provider_instructions: 'Will be shipped to your address.', shipping_required: true, redemption_count: 5
+  },
+  // 2. Iron & Soul Gym
+  {
+    id: 'prod-02-1', name: 'Powerlifting Class', description: 'A single guided powerlifting class with a coach.', type: 'digital', price_etb: 80, image_url: 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=400', provider_id: '11111111-0000-0000-0000-000000000002', provider_name: 'Iron & Soul Gym', max_redemptions_per_user: 2, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: true, quantity_in_stock: 15, images: ['https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=800'], provider: { id: '11111111-0000-0000-0000-000000000002', name: 'Iron & Soul Gym', category: 'gym', location_text: 'Kazanchis', rating: 4.5 }, provider_instructions: 'Redeem at the front desk.', shipping_required: false, redemption_count: 8
   },
   {
-    id: 'prod-003',
-    name: 'Gym Day Pass Voucher',
-    description: 'Full-day access to premium gym facilities.',
-    type: 'digital',
-    price_etb: 800,
-    image_url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400',
-    provider_id: '11111111-0000-0000-0000-000000000002',
-    provider_name: 'Iron & Soul Gym',
-    max_redemptions_per_user: 3,
-    expiry_date: '2026-09-30T23:59:59Z',
-    is_in_stock: true,
-    is_recommended: true,
-    quantity_in_stock: 20,
-    images: ['https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800'],
-    provider: { id: '11111111-0000-0000-0000-000000000002', name: 'Iron & Soul Gym', category: 'gym', location_text: 'Kazanchis', rating: 4.5 },
-    provider_instructions: 'Present voucher code at reception.',
-    shipping_required: false,
-    redemption_count: 12
+    id: 'prod-02-2', name: 'Iron Supplements Pack', description: 'A pack of pre-workout supplements.', type: 'physical', price_etb: 120, image_url: 'https://images.unsplash.com/photo-1579722820308-d74e571900a9?w=400', provider_id: '11111111-0000-0000-0000-000000000002', provider_name: 'Iron & Soul Gym', max_redemptions_per_user: 1, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: false, quantity_in_stock: 10, images: ['https://images.unsplash.com/photo-1579722820308-d74e571900a9?w=800'], provider: { id: '11111111-0000-0000-0000-000000000002', name: 'Iron & Soul Gym', category: 'gym', location_text: 'Kazanchis', rating: 4.5 }, provider_instructions: 'Ships in 2-3 business days.', shipping_required: true, redemption_count: 3
+  },
+  // 3. Shanti Yoga Addis
+  {
+    id: 'prod-03-1', name: 'Free Yoga Class', description: 'Join any 60-min group session.', type: 'digital', price_etb: 60, image_url: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400', provider_id: '11111111-0000-0000-0000-000000000003', provider_name: 'Shanti Yoga Addis', max_redemptions_per_user: 2, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: true, quantity_in_stock: 30, images: ['https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800'], provider: { id: '11111111-0000-0000-0000-000000000003', name: 'Shanti Yoga Addis', category: 'yoga', location_text: 'Bole', rating: 4.9 }, provider_instructions: 'Show voucher to instructor.', shipping_required: false, redemption_count: 22
+  },
+  {
+    id: 'prod-03-2', name: 'Yoga Mat', description: 'High-quality non-slip yoga mat.', type: 'physical', price_etb: 140, image_url: 'https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=400', provider_id: '11111111-0000-0000-0000-000000000003', provider_name: 'Shanti Yoga Addis', max_redemptions_per_user: 1, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: false, quantity_in_stock: 5, images: ['https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=800'], provider: { id: '11111111-0000-0000-0000-000000000003', name: 'Shanti Yoga Addis', category: 'yoga', location_text: 'Bole', rating: 4.9 }, provider_instructions: 'Delivery to your address.', shipping_required: true, redemption_count: 6
+  },
+  // 4. Zen Flow Studio
+  {
+    id: 'prod-04-1', name: 'Hot Yoga Intro Class', description: 'One entry to the infrared heated yoga room.', type: 'digital', price_etb: 70, image_url: 'https://images.unsplash.com/photo-1593810451137-5dc55105dace?w=400', provider_id: '11111111-0000-0000-0000-000000000004', provider_name: 'Zen Flow Studio', max_redemptions_per_user: 2, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: true, quantity_in_stock: 20, images: ['https://images.unsplash.com/photo-1593810451137-5dc55105dace?w=800'], provider: { id: '11111111-0000-0000-0000-000000000004', name: 'Zen Flow Studio', category: 'yoga', location_text: 'CMC', rating: 4.6 }, provider_instructions: 'Bring a towel! Show voucher.', shipping_required: false, redemption_count: 10
+  },
+  {
+    id: 'prod-04-2', name: 'Aromatherapy Candle', description: 'Relaxing lavender scented candle.', type: 'physical', price_etb: 90, image_url: 'https://images.unsplash.com/photo-1602928321679-560bb453f190?w=400', provider_id: '11111111-0000-0000-0000-000000000004', provider_name: 'Zen Flow Studio', max_redemptions_per_user: 1, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: false, quantity_in_stock: 12, images: ['https://images.unsplash.com/photo-1602928321679-560bb453f190?w=800'], provider: { id: '11111111-0000-0000-0000-000000000004', name: 'Zen Flow Studio', category: 'yoga', location_text: 'CMC', rating: 4.6 }, provider_instructions: 'Ships in 2-3 business days.', shipping_required: true, redemption_count: 2
+  },
+  // 5. Nourish Ethiopia
+  {
+    id: 'prod-05-1', name: 'Quick Diet Review', description: 'A 20-min online diet consultation.', type: 'digital', price_etb: 100, image_url: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400', provider_id: '11111111-0000-0000-0000-000000000005', provider_name: 'Nourish Ethiopia', max_redemptions_per_user: 1, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: true, quantity_in_stock: 10, images: ['https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800'], provider: { id: '11111111-0000-0000-0000-000000000005', name: 'Nourish Ethiopia', category: 'nutrition', location_text: 'Sarbet', rating: 4.8 }, provider_instructions: 'We will email you a meeting link.', shipping_required: false, redemption_count: 4
+  },
+  {
+    id: 'prod-05-2', name: 'Healthy Ethiopian Recipes Book', description: 'Digital PDF of healthy local recipes.', type: 'digital', price_etb: 50, image_url: 'https://images.unsplash.com/photo-1589310371424-34062fb0da98?w=400', provider_id: '11111111-0000-0000-0000-000000000005', provider_name: 'Nourish Ethiopia', max_redemptions_per_user: 1, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: false, quantity_in_stock: 999, images: ['https://images.unsplash.com/photo-1589310371424-34062fb0da98?w=800'], provider: { id: '11111111-0000-0000-0000-000000000005', name: 'Nourish Ethiopia', category: 'nutrition', location_text: 'Sarbet', rating: 4.8 }, provider_instructions: 'Download link will be emailed.', shipping_required: false, redemption_count: 15
+  },
+  // 6. Green Plate Kitchen
+  {
+    id: 'prod-06-1', name: '1-Day Detox Meal Box', description: '3 healthy meals delivered to you.', type: 'physical', price_etb: 150, image_url: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=400', provider_id: '11111111-0000-0000-0000-000000000006', provider_name: 'Green Plate Kitchen', max_redemptions_per_user: 2, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: true, quantity_in_stock: 20, images: ['https://images.unsplash.com/photo-1547592180-85f173990554?w=800'], provider: { id: '11111111-0000-0000-0000-000000000006', name: 'Green Plate Kitchen', category: 'nutrition', location_text: 'Megenagna', rating: 4.4 }, provider_instructions: 'Delivered to your address next morning.', shipping_required: true, redemption_count: 5
+  },
+  {
+    id: 'prod-06-2', name: 'Healthy Snack Pack', description: 'Assorted healthy nuts and bars.', type: 'physical', price_etb: 80, image_url: 'https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=400', provider_id: '11111111-0000-0000-0000-000000000006', provider_name: 'Green Plate Kitchen', max_redemptions_per_user: 3, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: false, quantity_in_stock: 30, images: ['https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=800'], provider: { id: '11111111-0000-0000-0000-000000000006', name: 'Green Plate Kitchen', category: 'nutrition', location_text: 'Megenagna', rating: 4.4 }, provider_instructions: 'Ships in 2-3 business days.', shipping_required: true, redemption_count: 11
+  },
+  // 7. Haile Spa & Wellness
+  {
+    id: 'prod-07-1', name: '30-Min Head & Shoulder Massage', description: 'Relieve stress with a quick massage.', type: 'digital', price_etb: 120, image_url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400', provider_id: '11111111-0000-0000-0000-000000000007', provider_name: 'Haile Spa & Wellness', max_redemptions_per_user: 1, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: true, quantity_in_stock: 15, images: ['https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800'], provider: { id: '11111111-0000-0000-0000-000000000007', name: 'Haile Spa & Wellness', category: 'spa', location_text: 'Bole Atlas', rating: 4.8 }, provider_instructions: 'Show voucher at spa reception.', shipping_required: false, redemption_count: 19
+  },
+  {
+    id: 'prod-07-2', name: 'Ethiopian Coffee Scrub (Product)', description: 'Take-home jar of our signature scrub.', type: 'physical', price_etb: 90, image_url: 'https://images.unsplash.com/photo-1615397323755-8cb962ea400e?w=400', provider_id: '11111111-0000-0000-0000-000000000007', provider_name: 'Haile Spa & Wellness', max_redemptions_per_user: 2, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: false, quantity_in_stock: 25, images: ['https://images.unsplash.com/photo-1615397323755-8cb962ea400e?w=800'], provider: { id: '11111111-0000-0000-0000-000000000007', name: 'Haile Spa & Wellness', category: 'spa', location_text: 'Bole Atlas', rating: 4.8 }, provider_instructions: 'Ships in 2-3 business days.', shipping_required: true, redemption_count: 7
+  },
+  // 8. Piassa Heritage Hammam
+  {
+    id: 'prod-08-1', name: 'Herbal Steam Session', description: '45 minutes in our authentic steam room.', type: 'digital', price_etb: 60, image_url: 'https://images.unsplash.com/photo-1517430816045-df4b7de11d1d?w=400', provider_id: '11111111-0000-0000-0000-000000000008', provider_name: 'Piassa Heritage Hammam', max_redemptions_per_user: 2, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: true, quantity_in_stock: 20, images: ['https://images.unsplash.com/photo-1517430816045-df4b7de11d1d?w=800'], provider: { id: '11111111-0000-0000-0000-000000000008', name: 'Piassa Heritage Hammam', category: 'spa', location_text: 'Piassa', rating: 4.5 }, provider_instructions: 'Show voucher at reception.', shipping_required: false, redemption_count: 4
+  },
+  {
+    id: 'prod-08-2', name: 'Hammam Towel', description: 'Traditional cotton hammam towel.', type: 'physical', price_etb: 110, image_url: 'https://images.unsplash.com/photo-1616628203875-c9e5cd3db3ac?w=400', provider_id: '11111111-0000-0000-0000-000000000008', provider_name: 'Piassa Heritage Hammam', max_redemptions_per_user: 1, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: false, quantity_in_stock: 15, images: ['https://images.unsplash.com/photo-1616628203875-c9e5cd3db3ac?w=800'], provider: { id: '11111111-0000-0000-0000-000000000008', name: 'Piassa Heritage Hammam', category: 'spa', location_text: 'Piassa', rating: 4.5 }, provider_instructions: 'Ships in 2-3 business days.', shipping_required: true, redemption_count: 2
+  },
+  // 9. Biruh Mind Wellness
+  {
+    id: 'prod-09-1', name: 'Intro Therapy Session', description: 'A 30-min introductory video call.', type: 'digital', price_etb: 130, image_url: 'https://images.unsplash.com/photo-1573497620053-ea5300f94f21?w=400', provider_id: '11111111-0000-0000-0000-000000000009', provider_name: 'Biruh Mind Wellness', max_redemptions_per_user: 1, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: true, quantity_in_stock: 10, images: ['https://images.unsplash.com/photo-1573497620053-ea5300f94f21?w=800'], provider: { id: '11111111-0000-0000-0000-000000000009', name: 'Biruh Mind Wellness', category: 'therapy', location_text: 'Kazanchis', rating: 4.9 }, provider_instructions: 'Link to book a time slot will be sent.', shipping_required: false, redemption_count: 14
+  },
+  {
+    id: 'prod-09-2', name: 'Mindfulness Journal', description: 'Guided journal for daily mindfulness.', type: 'physical', price_etb: 80, image_url: 'https://images.unsplash.com/photo-1517842645767-c639042777db?w=400', provider_id: '11111111-0000-0000-0000-000000000009', provider_name: 'Biruh Mind Wellness', max_redemptions_per_user: 2, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: false, quantity_in_stock: 30, images: ['https://images.unsplash.com/photo-1517842645767-c639042777db?w=800'], provider: { id: '11111111-0000-0000-0000-000000000009', name: 'Biruh Mind Wellness', category: 'therapy', location_text: 'Kazanchis', rating: 4.9 }, provider_instructions: 'Ships in 2-3 business days.', shipping_required: true, redemption_count: 5
+  },
+  // 10. MoveMind Running Club
+  {
+    id: 'prod-10-1', name: 'Group Run Entry', description: 'Join one of our weekly guided runs.', type: 'digital', price_etb: 50, image_url: 'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=400', provider_id: '11111111-0000-0000-0000-000000000010', provider_name: 'MoveMind Running Club', max_redemptions_per_user: 3, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: true, quantity_in_stock: 50, images: ['https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800'], provider: { id: '11111111-0000-0000-0000-000000000010', name: 'MoveMind Running Club', category: 'gym', location_text: 'Addis Ababa Stadium', rating: 4.7 }, provider_instructions: 'Show voucher to run leader.', shipping_required: false, redemption_count: 31
+  },
+  {
+    id: 'prod-10-2', name: 'Running Water Bottle', description: 'BPA-free branded sports bottle.', type: 'physical', price_etb: 70, image_url: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=400', provider_id: '11111111-0000-0000-0000-000000000010', provider_name: 'MoveMind Running Club', max_redemptions_per_user: 1, expiry_date: '2026-12-31T23:59:59Z', is_in_stock: true, is_recommended: false, quantity_in_stock: 25, images: ['https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=800'], provider: { id: '11111111-0000-0000-0000-000000000010', name: 'MoveMind Running Club', category: 'gym', location_text: 'Addis Ababa Stadium', rating: 4.7 }, provider_instructions: 'Ships in 2-3 business days.', shipping_required: true, redemption_count: 9
   }
 ];
 

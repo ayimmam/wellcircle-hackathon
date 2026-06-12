@@ -364,7 +364,9 @@ export async function getCircleLeaderboard(id) {
 export async function getPosts(communityId = null, circleId = null) {
   if (USE_MOCK) {
     await delay();
-    return { posts: [...MOCK_POSTS] };
+    let posts = [...MOCK_POSTS];
+    if (circleId) posts = posts.filter(p => p.circle_id === circleId);
+    return { posts };
   }
   const params = new URLSearchParams();
   if (communityId) params.set('community_id', communityId);

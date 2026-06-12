@@ -199,6 +199,26 @@ frontend/src/pages/ProviderDashboard.jsx
 - [x] Provider Dashboard Events tab: create/list events
 - [x] Provider Dashboard Subscriptions tab: view plans and initiate payment (demo mode)
 - [x] **Hackathon Critiques addressed**: Live Inventory locking, Deep interactions, `.ics` generation, Instant notifications, Inline event editing, Points Utility tooltip, Event Boosting.
+### Phase 3.1 — Content & UX Polish (This Session)
+- [x] **Legacy Points → Redeem Flow**: Tapping the points badge on Home now navigates to `/products`
+- [x] **Products Store populated**: 20 products (2 per provider, 50–150 Legacy Points each) seeded via `backend/seed_products_db.py`
+- [x] **Circle Chat & Social Feed**: 7 sample posts across 2 circles (user messages, check-ins, challenge completions, high-fives, joins)
+- [x] **Circle Detail Overhaul**: Redesigned `CircleDetailScreen` with Chat / Leaderboard / Members tabs
+- [x] **PostFeed Enhanced**: System events styled distinctly (left border + "activity" badge), relative timestamps, reaction badges
+- [x] **Mock Data Enriched**: Expanded `MOCK_LEADERBOARD` (6 members), added "Zen Seekers" circle, posts filtered by `circleId`
+- [x] **`PointsBadge` clickable**: Accepts `onClick` prop with pointer cursor
+
+### Files Changed (Phase 3.1)
+```
+frontend/src/components/PointsBadge.jsx
+frontend/src/components/PostFeed.jsx
+frontend/src/pages/HomeScreen.jsx
+frontend/src/pages/CircleDetailScreen.jsx
+frontend/src/api/client.js
+frontend/src/data/mock.js
+backend/seed_products_db.py (new — DB seed script for products)
+HANDOFF.md
+```
 
 ---
 

@@ -377,13 +377,17 @@ export const MOCK_POINTS_HISTORY = {
 
 // ─── Circles & Leaderboards ─────────────────────────
 export const MOCK_CIRCLES = [
-  { id: '33333333-0000-0000-0000-000000000001', name: 'Addis Morning Runners', description: 'We run every morning at 6 AM around Meskel Square.', member_count: 24 }
+  { id: '33333333-0000-0000-0000-000000000001', name: 'Addis Morning Runners', description: 'We run every morning at 6 AM around Meskel Square.', member_count: 24 },
+  { id: '33333333-0000-0000-0000-000000000002', name: 'Zen Seekers', description: 'Mindfulness, yoga, and finding peace in the chaotic city.', member_count: 56 }
 ];
 
 export const MOCK_LEADERBOARD = [
   { user_id: '001', name: 'Dawit', photo_url: 'https://i.pravatar.cc/150?u=dawit', weekly_points: 120, total_points: 720 },
-  { user_id: '002', name: 'Meron Tadesse', photo_url: 'https://i.pravatar.cc/150?u=meron', weekly_points: 85, total_points: 120 },
-  { user_id: '003', name: 'Sara', photo_url: 'https://i.pravatar.cc/150?u=sara', weekly_points: 40, total_points: 110 }
+  { user_id: '002', name: 'Meron Tadesse', photo_url: 'https://i.pravatar.cc/150?u=meron', weekly_points: 85, total_points: 420 },
+  { user_id: '003', name: 'Sara', photo_url: 'https://i.pravatar.cc/150?u=sara', weekly_points: 70, total_points: 310 },
+  { user_id: '004', name: 'Abel', photo_url: 'https://i.pravatar.cc/150?u=abel', weekly_points: 55, total_points: 280 },
+  { user_id: '005', name: 'Hana', photo_url: 'https://i.pravatar.cc/150?u=hana', weekly_points: 40, total_points: 190 },
+  { user_id: '006', name: 'Yonas', photo_url: 'https://i.pravatar.cc/150?u=yonas', weekly_points: 30, total_points: 150 }
 ];
 
 // ─── Posts & Reactions ──────────────────────────────
@@ -394,15 +398,66 @@ export const MOCK_POSTS = [
     user: { id: '002', name: 'Meron Tadesse', photo_url: 'https://i.pravatar.cc/150?u=meron' },
     created_at: new Date(now - 1 * 3600000).toISOString(),
     reactions: { '🔥': 2, '👏': 1 },
-    total_points_gifted: 5
+    total_points_gifted: 5,
+    circle_id: '33333333-0000-0000-0000-000000000001'
+  },
+  {
+    id: '44444444-0000-0000-0000-000000000003',
+    content: "Dawit checked in for their workout today! 💪 Earned 10 Legacy Points.",
+    user: { id: '001', name: 'Dawit', photo_url: 'https://i.pravatar.cc/150?u=dawit' },
+    created_at: new Date(now - 2 * 3600000).toISOString(),
+    reactions: { '🔥': 4, '🙌': 2 },
+    total_points_gifted: 10,
+    circle_id: '33333333-0000-0000-0000-000000000001',
+    is_system_event: true
   },
   {
     id: '44444444-0000-0000-0000-000000000002',
     content: "Anyone up for a group yoga session tomorrow at 7 AM?",
     user: { id: '001', name: 'Dawit', photo_url: 'https://i.pravatar.cc/150?u=dawit' },
     created_at: new Date(now - 4 * 3600000).toISOString(),
-    reactions: { '🔥': 5 },
-    total_points_gifted: 0
+    reactions: { '🔥': 5, '✋': 3 },
+    total_points_gifted: 0,
+    circle_id: '33333333-0000-0000-0000-000000000002'
+  },
+  {
+    id: '44444444-0000-0000-0000-000000000004',
+    content: "Sara completed the '30-Day Step Challenge'! 🏆 Phenomenal effort!",
+    user: { id: '003', name: 'Sara', photo_url: 'https://i.pravatar.cc/150?u=sara' },
+    created_at: new Date(now - 12 * 3600000).toISOString(),
+    reactions: { '🎉': 8, '👏': 5 },
+    total_points_gifted: 50,
+    circle_id: '33333333-0000-0000-0000-000000000001',
+    is_system_event: true
+  },
+  {
+    id: '44444444-0000-0000-0000-000000000005',
+    content: "Abel high-fived Meron! 🙌 Keep up the momentum!",
+    user: { id: '004', name: 'Abel', photo_url: 'https://i.pravatar.cc/150?u=abel' },
+    created_at: new Date(now - 18 * 3600000).toISOString(),
+    reactions: { '❤️': 3 },
+    total_points_gifted: 0,
+    circle_id: '33333333-0000-0000-0000-000000000002',
+    is_system_event: true
+  },
+  {
+    id: '44444444-0000-0000-0000-000000000006',
+    content: "I finally managed to hold a handstand for 10 seconds today! So happy with the progress.",
+    user: { id: '005', name: 'Hana', photo_url: 'https://i.pravatar.cc/150?u=hana' },
+    created_at: new Date(now - 24 * 3600000).toISOString(),
+    reactions: { '🔥': 10, '👏': 7, '🧘‍♀️': 4 },
+    total_points_gifted: 15,
+    circle_id: '33333333-0000-0000-0000-000000000002'
+  },
+  {
+    id: '44444444-0000-0000-0000-000000000007',
+    content: "Yonas just joined the circle! Say hello! 👋",
+    user: { id: '006', name: 'Yonas', photo_url: 'https://i.pravatar.cc/150?u=yonas' },
+    created_at: new Date(now - 48 * 3600000).toISOString(),
+    reactions: { '👋': 12 },
+    total_points_gifted: 0,
+    circle_id: '33333333-0000-0000-0000-000000000001',
+    is_system_event: true
   }
 ];
 

@@ -18,41 +18,38 @@ def seed():
     try:
         # Using db.merge to append/upsert without deleting existing data
 
-        users = []
-        if db.query(User).count() == 0:
-            print("🌱 Seeding Users...")
-            users = [
-                User(
-                    id=uuid.uuid4(),
-                    telegram_id=100000001,
-                    telegram_handle="meron_fitness",
-                    name="Meron Tadesse",
-                    goal="Lose weight and stay consistent",
-                    interest_category="yoga",
-                    exercise_frequency="sometimes",
-                    points_balance=120,
-                    is_onboarded=True,
-                    last_activity_at=datetime.now(timezone.utc) - timedelta(hours=2),
-                ),
-                User(
-                    id=uuid.uuid4(),
-                    telegram_id=100000004,
-                    telegram_handle="dawit_gym",
-                    name="Dawit Hailu",
-                    goal="Build muscle mass",
-                    interest_category="gym",
-                    exercise_frequency="daily",
-                    points_balance=720,
-                    is_onboarded=True,
-                    is_provider=True,
-                    last_activity_at=datetime.now(timezone.utc),
-                )
-            ]
-            for user in users:
-                db.merge(user)
-            db.commit()
-        else:
-            users = db.query(User).all()
+        print("🌱 Seeding Users...")
+        
+        existing_handles = {u.telegram_handle: u for u in db.query(User).all() if u.telegram_handle}
+        existing_tids = {u.telegram_id: u for u in db.query(User).all() if u.telegram_id}
+        
+        def get_or_new(handle, default_id, default_tid):
+            if handle in existing_handles:
+                return existing_handles[handle].id, existing_handles[handle].telegram_id
+            if default_tid in existing_tids:
+                return existing_tids[default_tid].id, default_tid
+            return default_id, default_tid
+
+        u1_id, t1 = get_or_new("meron_fitness", uuid.UUID('00000000-0000-0000-0000-000000000001'), 100000001)
+        u2_id, t2 = get_or_new("dawit_gym", uuid.UUID('00000000-0000-0000-0000-000000000002'), 100000004) # Preserving the old 100000004
+        u3_id, t3 = get_or_new("sara_runner", uuid.UUID('00000000-0000-0000-0000-000000000003'), 100000003)
+        u4_id, t4 = get_or_new("abel_strong", uuid.UUID('00000000-0000-0000-0000-000000000004'), 100000005)
+        u5_id, t5 = get_or_new("hana_zen", uuid.UUID('00000000-0000-0000-0000-000000000005'), 100000006)
+        u6_id, t6 = get_or_new("yonas_fit", uuid.UUID('00000000-0000-0000-0000-000000000006'), 100000007)
+        
+        users_to_seed = [
+            User(id=u1_id, telegram_id=t1, telegram_handle="meron_fitness", name="Meron Tadesse", goal="Lose weight and stay consistent", interest_category="yoga", exercise_frequency="sometimes", points_balance=120, is_onboarded=True, last_activity_at=datetime.now(timezone.utc) - timedelta(hours=2)),
+            User(id=u2_id, telegram_id=t2, telegram_handle="dawit_gym", name="Dawit", goal="Build muscle mass", interest_category="gym", exercise_frequency="daily", points_balance=720, is_onboarded=True, is_provider=True, last_activity_at=datetime.now(timezone.utc)),
+            User(id=u3_id, telegram_id=t3, telegram_handle="sara_runner", name="Sara", goal="Run a marathon", interest_category="running", exercise_frequency="regular", points_balance=310, is_onboarded=True, last_activity_at=datetime.now(timezone.utc)),
+            User(id=u4_id, telegram_id=t4, telegram_handle="abel_strong", name="Abel", goal="Get stronger", interest_category="gym", exercise_frequency="regular", points_balance=280, is_onboarded=True, last_activity_at=datetime.now(timezone.utc)),
+            User(id=u5_id, telegram_id=t5, telegram_handle="hana_zen", name="Hana", goal="Flexibility and mindfulness", interest_category="yoga", exercise_frequency="daily", points_balance=190, is_onboarded=True, last_activity_at=datetime.now(timezone.utc)),
+            User(id=u6_id, telegram_id=t6, telegram_handle="yonas_fit", name="Yonas", goal="General fitness", interest_category="gym", exercise_frequency="sometimes", points_balance=150, is_onboarded=True, last_activity_at=datetime.now(timezone.utc)),
+        ]
+        for user in users_to_seed:
+            db.merge(user)
+        db.commit()
+        
+        users = [db.query(User).get(u1_id), db.query(User).get(u2_id)]
 
         print("🌱 Seeding Providers...")
         p1_id = uuid.UUID('11111111-0000-0000-0000-000000000001')
@@ -296,48 +293,103 @@ def seed():
         db.flush()
 
         print("🌱 Seeding Circles & Leaderboards...")
-        circle_id = uuid.UUID('33333333-0000-0000-0000-000000000001')
-        circle = Circle(
-            id=circle_id,
+        circle1_id = uuid.UUID('33333333-0000-0000-0000-000000000001')
+        circle1 = Circle(
+            id=circle1_id,
             name="Addis Morning Runners",
             description="We run every morning at 6 AM around Meskel Square.",
-            owner_id=users[0].id
+            owner_id=u2_id
         )
-        db.merge(circle)
+        circle2_id = uuid.UUID('33333333-0000-0000-0000-000000000002')
+        circle2 = Circle(
+            id=circle2_id,
+            name="Zen Seekers",
+            description="Mindfulness, yoga, and finding peace in the chaotic city.",
+            owner_id=u1_id
+        )
+        db.merge(circle1)
+        db.merge(circle2)
         db.flush()
 
         circle_members = [
-            CircleMember(circle_id=circle_id, user_id=users[0].id, weekly_points=120),
-            CircleMember(circle_id=circle_id, user_id=users[1].id, weekly_points=85)
+            CircleMember(circle_id=circle1_id, user_id=u2_id, weekly_points=120),
+            CircleMember(circle_id=circle1_id, user_id=u1_id, weekly_points=85),
+            CircleMember(circle_id=circle1_id, user_id=u3_id, weekly_points=70),
+            CircleMember(circle_id=circle1_id, user_id=u4_id, weekly_points=55),
+            CircleMember(circle_id=circle2_id, user_id=u5_id, weekly_points=40),
+            CircleMember(circle_id=circle1_id, user_id=u6_id, weekly_points=30),
         ]
         for member in circle_members:
             db.merge(member)
         db.flush()
 
         print("🌱 Seeding Posts & Reactions...")
-        post_id = uuid.UUID('44444444-0000-0000-0000-000000000001')
-        post = Post(
-            id=post_id,
-            circle_id=circle_id,
-            user_id=users[0].id,
-            content="Just finished a 5K run! Feeling great! 🏃‍♀️"
-        )
-        db.merge(post)
+        posts = [
+            Post(
+                id=uuid.UUID('44444444-0000-0000-0000-000000000001'),
+                circle_id=circle1_id,
+                user_id=u1_id,
+                content="Just finished a 5K run! Feeling great! 🏃‍♀️",
+                created_at=datetime.now(timezone.utc) - timedelta(hours=1)
+            ),
+            Post(
+                id=uuid.UUID('44444444-0000-0000-0000-000000000003'),
+                circle_id=circle1_id,
+                user_id=u2_id,
+                content="Dawit checked in for their workout today! 💪 Earned 10 Legacy Points.",
+                created_at=datetime.now(timezone.utc) - timedelta(hours=2)
+            ),
+            Post(
+                id=uuid.UUID('44444444-0000-0000-0000-000000000002'),
+                circle_id=circle2_id,
+                user_id=u2_id,
+                content="Anyone up for a group yoga session tomorrow at 7 AM?",
+                created_at=datetime.now(timezone.utc) - timedelta(hours=4)
+            ),
+            Post(
+                id=uuid.UUID('44444444-0000-0000-0000-000000000004'),
+                circle_id=circle1_id,
+                user_id=u3_id,
+                content="Sara completed the '30-Day Step Challenge'! 🏆 Phenomenal effort!",
+                created_at=datetime.now(timezone.utc) - timedelta(hours=12)
+            ),
+            Post(
+                id=uuid.UUID('44444444-0000-0000-0000-000000000005'),
+                circle_id=circle2_id,
+                user_id=u4_id,
+                content="Abel high-fived Meron! 🙌 Keep up the momentum!",
+                created_at=datetime.now(timezone.utc) - timedelta(hours=18)
+            ),
+            Post(
+                id=uuid.UUID('44444444-0000-0000-0000-000000000006'),
+                circle_id=circle2_id,
+                user_id=u5_id,
+                content="I finally managed to hold a handstand for 10 seconds today! So happy with the progress.",
+                created_at=datetime.now(timezone.utc) - timedelta(hours=24)
+            ),
+            Post(
+                id=uuid.UUID('44444444-0000-0000-0000-000000000007'),
+                circle_id=circle1_id,
+                user_id=u6_id,
+                content="Yonas just joined the circle! Say hello! 👋",
+                created_at=datetime.now(timezone.utc) - timedelta(hours=48)
+            )
+        ]
+        for post in posts:
+            db.merge(post)
         db.flush()
 
-        reaction = Reaction(
-            post_id=post_id,
-            user_id=users[1].id,
-            emoji="🔥",
-            points_gifted=0
-        )
-        reaction2 = Reaction(
-            post_id=post_id,
-            user_id=users[1].id,
-            emoji="👏",
-            points_gifted=5
-        )
-        for reaction in [reaction, reaction2]:
+        reactions = [
+            Reaction(post_id=uuid.UUID('44444444-0000-0000-0000-000000000001'), user_id=u2_id, emoji="🔥", points_gifted=0),
+            Reaction(post_id=uuid.UUID('44444444-0000-0000-0000-000000000001'), user_id=u2_id, emoji="🔥", points_gifted=0),
+            Reaction(post_id=uuid.UUID('44444444-0000-0000-0000-000000000001'), user_id=u3_id, emoji="👏", points_gifted=5),
+            Reaction(post_id=uuid.UUID('44444444-0000-0000-0000-000000000003'), user_id=u1_id, emoji="🔥", points_gifted=0),
+            Reaction(post_id=uuid.UUID('44444444-0000-0000-0000-000000000003'), user_id=u4_id, emoji="🙌", points_gifted=10),
+            Reaction(post_id=uuid.UUID('44444444-0000-0000-0000-000000000002'), user_id=u1_id, emoji="🔥", points_gifted=0),
+            Reaction(post_id=uuid.UUID('44444444-0000-0000-0000-000000000004'), user_id=u2_id, emoji="🎉", points_gifted=50),
+            Reaction(post_id=uuid.UUID('44444444-0000-0000-0000-000000000006'), user_id=u1_id, emoji="🔥", points_gifted=15),
+        ]
+        for reaction in reactions:
             db.merge(reaction)
 
         db.commit()

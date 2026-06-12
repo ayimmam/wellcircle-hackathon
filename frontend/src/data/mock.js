@@ -667,8 +667,7 @@ export function getNextDays(count = 7) {
     d.setDate(d.getDate() + i);
     days.push({
       date: d.toISOString().split('T')[0],
-      label: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' }),
-      dayName: d.toLocaleDateString('en', { weekday: 'short' })
+      dayName: d.toLocaleDateString('en', { weekday: 'short' }),
     });
   }
   return days;

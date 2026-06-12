@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getNotificationUnreadCount } from '../api/client';
+import Icon from './Icon';
 
 export default function Header({ onMenuOpen }) {
   const navigate = useNavigate();
@@ -40,29 +41,22 @@ export default function Header({ onMenuOpen }) {
           <span className="header-sub">YOUR WELLNESS TRIBE</span>
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div className="header-actions">
         <button
+          className="header-icon-btn"
           onClick={() => navigate('/notifications')}
-          style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', padding: '4px', position: 'relative' }}
           id="header-notif-btn"
+          aria-label="Notifications"
         >
-          🔔
+          <Icon name="bell" size={20} />
           {unreadCount > 0 && (
-            <span style={{
-              position: 'absolute', top: 0, right: 0,
-              background: 'var(--danger)', color: 'var(--text-inverse)',
-              fontSize: '0.65rem', fontWeight: 700, minWidth: 16, height: 16,
-              borderRadius: 99, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: '0 4px',
-            }}>
+            <span className="header-badge">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
         </button>
-        <button className="header-menu-btn" onClick={onMenuOpen} id="header-menu-btn">
-          <span className="hamburger-line" />
-          <span className="hamburger-line" />
-          <span className="hamburger-line" />
+        <button className="header-menu-btn" onClick={onMenuOpen} id="header-menu-btn" aria-label="Open menu">
+          <Icon name="menu" size={20} />
         </button>
       </div>
     </header>

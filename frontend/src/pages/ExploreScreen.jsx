@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getProviders, getEvents } from '../api/client';
 import { CATEGORIES } from '../data/mock';
 import EventCard from '../components/EventCard';
+import Icon from '../components/Icon';
 
 export default function ExploreScreen() {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ export default function ExploreScreen() {
       </div>
 
       <div className="search-bar">
-        <span className="search-bar-icon">🔍</span>
+        <span className="search-bar-icon"><Icon name="search" size={18} /></span>
         <input
           placeholder={view === 'studios' ? 'Search providers...' : 'Search events...'}
           value={search}
@@ -55,7 +56,7 @@ export default function ExploreScreen() {
             onClick={() => setCategory(cat.value)}
             id={`filter-${cat.value}`}
           >
-            {cat.emoji} {cat.label}
+            {cat.label}
           </button>
         ))}
       </div>
@@ -73,7 +74,7 @@ export default function ExploreScreen() {
           </div>
         ) : (
           <div className="empty-state">
-            <div className="empty-state-icon">📅</div>
+            <div className="empty-state-icon"><Icon name="calendar" size={40} strokeWidth={1.5} /></div>
             <div className="empty-state-text">No upcoming events in this category.</div>
           </div>
         )
@@ -110,7 +111,7 @@ export default function ExploreScreen() {
               <div className="card-body">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.78rem', color: 'var(--accent)' }}>{p.location_text?.split(',')[0]}</span>
-                  <span style={{ fontWeight: 700 }}>⭐ {p.rating}</span>
+                  <span className="inline-icon-text" style={{ fontWeight: 700 }}><Icon name="star" size={14} /> {p.rating}</span>
                 </div>
                 <button
                   className="btn btn-primary btn-block mt-12"
@@ -127,7 +128,7 @@ export default function ExploreScreen() {
         </div>
       ) : (
         <div className="empty-state">
-          <div className="empty-state-icon">🔍</div>
+          <div className="empty-state-icon"><Icon name="search" size={40} strokeWidth={1.5} /></div>
           <div className="empty-state-text">No providers found. Try a different category.</div>
         </div>
       )}

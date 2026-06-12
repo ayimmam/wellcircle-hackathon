@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMyBookings } from '../api/client';
+import Icon from '../components/Icon';
 
 export default function MyBookings() {
   const navigate = useNavigate();
@@ -27,14 +28,16 @@ export default function MyBookings() {
   return (
     <div className="page" id="my-bookings-screen">
       <div className="flex items-center gap-12 mb-20">
-        <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)}>←</button>
+        <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} aria-label="Go back">
+          <Icon name="chevron-left" size={20} />
+        </button>
         <h1 style={{ fontSize: '1.3rem', fontWeight: 800 }}>My Bookings</h1>
       </div>
 
       <div className="flex-col gap-12">
         {bookings.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">🎟️</div>
+            <div className="empty-state-icon"><Icon name="ticket" size={40} strokeWidth={1.5} /></div>
             <div className="empty-state-text">No bookings found.</div>
             <button className="btn btn-primary" onClick={() => navigate('/explore')} style={{ marginTop: '16px' }}>
               Explore Providers

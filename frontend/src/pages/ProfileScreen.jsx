@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import Icon from '../components/Icon';
 import { getPointsHistory } from '../api/client';
 import { getTier, NEIGHBOURHOODS, MOCK_HEALTH_METRICS, MOCK_COMMUNITIES } from '../data/mock';
 import { showToast } from '../components/Toast';
@@ -54,7 +55,7 @@ export default function ProfileScreen() {
           {user.photo_url ? (
             <img src={user.photo_url} alt={user.name} />
           ) : (
-            <span style={{ fontSize: '2rem' }}>👤</span>
+            <Icon name="user" size={36} strokeWidth={1.5} />
           )}
         </div>
         <h1 className="profile-name">{user.name}</h1>
@@ -136,7 +137,7 @@ export default function ProfileScreen() {
               onClick={() => setTheme('light')}
               id="theme-light-btn"
             >
-              ☀️ Light
+              <Icon name="sun" size={16} /> Light
             </button>
             <button
               type="button"
@@ -144,7 +145,7 @@ export default function ProfileScreen() {
               onClick={() => setTheme('dark')}
               id="theme-dark-btn"
             >
-              🌙 Dark
+              <Icon name="moon" size={16} /> Dark
             </button>
           </div>
         </div>
@@ -158,11 +159,11 @@ export default function ProfileScreen() {
           onClick={() => setShowNeighbourhoodSheet(true)}
           id="neighbourhood-optin"
         >
-          <span className="neighbourhood-icon">📍</span>
+          <span className="neighbourhood-icon"><Icon name="map-pin" size={20} /></span>
           <div className="neighbourhood-text">
             {user.location_neighborhood ? (
               <>
-                <div className="neighbourhood-title">✓ Showing alerts for {user.location_neighborhood}</div>
+                <div className="neighbourhood-title inline-icon-text"><Icon name="check" size={14} strokeWidth={2.5} /> Showing alerts for {user.location_neighborhood}</div>
                 <div className="neighbourhood-desc">Tap to change your neighbourhood</div>
               </>
             ) : (
@@ -172,7 +173,7 @@ export default function ProfileScreen() {
               </>
             )}
           </div>
-          <span style={{ color: 'var(--text-tertiary)' }}>→</span>
+          <Icon name="chevron-right" size={16} className="text-tertiary" style={{ color: 'var(--text-tertiary)' }} />
         </div>
       </div>
 
@@ -188,12 +189,12 @@ export default function ProfileScreen() {
                 style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
                 onClick={() => navigate(`/community/${c.id}`)}
               >
-                <span style={{ fontSize: '1.2rem' }}>🌿</span>
+                <Icon name="leaf" size={20} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>{c.name}</div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>👥 {c.member_count}</div>
+                  <div className="inline-icon-text" style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}><Icon name="users" size={12} /> {c.member_count}</div>
                 </div>
-                <span style={{ color: 'var(--text-tertiary)' }}>→</span>
+                <Icon name="chevron-right" size={16} className="text-tertiary" style={{ color: 'var(--text-tertiary)' }} />
               </div>
             ))}
           </div>
@@ -204,12 +205,12 @@ export default function ProfileScreen() {
       <div className="profile-section">
         <div className="profile-section-title">My Bookings</div>
         <div className="profile-card" onClick={() => navigate('/my-bookings')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: '1.2rem' }}>🎟️</span>
+          <Icon name="ticket" size={20} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>View Booking History</div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>Upcoming & Past classes</div>
           </div>
-          <span style={{ color: 'var(--text-tertiary)' }}>→</span>
+          <Icon name="chevron-right" size={16} className="text-tertiary" style={{ color: 'var(--text-tertiary)' }} />
         </div>
       </div>
 
@@ -222,7 +223,7 @@ export default function ProfileScreen() {
             onClick={toggleHealthApp}
             id="health-app-toggle"
           >
-            {healthConnected ? '✓ Connected' : 'Connect Health App'}
+            {healthConnected ? <><Icon name="check" size={16} strokeWidth={2.5} /> Connected</> : 'Connect Health App'}
           </button>
 
           {healthConnected && (
@@ -259,7 +260,7 @@ export default function ProfileScreen() {
             onClick={() => navigate('/provider-dashboard')}
             id="provider-dashboard-link"
           >
-            📊 Provider Dashboard
+            <Icon name="chart" size={18} /> Provider Dashboard
           </button>
         </div>
       )}
@@ -278,7 +279,7 @@ export default function ProfileScreen() {
                   className={`sheet-option ${user.location_neighborhood === n ? 'selected' : ''}`}
                   onClick={() => handleNeighbourhoodSelect(n)}
                 >
-                  📍 {n}
+                  <span className="inline-icon-text"><Icon name="map-pin" size={14} /> {n}</span>
                 </button>
               ))}
             </div>

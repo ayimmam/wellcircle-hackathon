@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import Icon from './Icon';
 
 export default function EventCard({ event, variant = 'list' }) {
   const navigate = useNavigate();
@@ -36,8 +37,9 @@ export default function EventCard({ event, variant = 'list' }) {
         </div>
         <h3 style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: 4 }}>{event.service_name}</h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 8 }}>{event.provider_name}</p>
-        <p style={{ fontSize: '0.85rem', marginBottom: 16 }}>
-          📅 {new Date(event.starts_at).toLocaleString()} · 💰 {event.price_etb} ETB
+        <p className="inline-icon-text" style={{ fontSize: '0.85rem', marginBottom: 16, gap: 8, flexWrap: 'wrap' }}>
+          <span className="inline-icon-text"><Icon name="calendar" size={14} /> {new Date(event.starts_at).toLocaleString()}</span>
+          <span className="inline-icon-text"><Icon name="coins" size={14} /> {event.price_etb} ETB</span>
         </p>
         <button className="btn btn-primary btn-block" onClick={book}>Book This Session</button>
       </div>

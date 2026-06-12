@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../api/client';
+import Icon from '../components/Icon';
 
 export default function NotificationsScreen() {
   const navigate = useNavigate();
@@ -55,7 +56,9 @@ export default function NotificationsScreen() {
     <div className="page" id="notifications-screen">
       <div className="flex items-center gap-12 mb-20" style={{ justifyContent: 'space-between' }}>
         <div className="flex items-center gap-12">
-          <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)}>←</button>
+          <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} aria-label="Go back">
+          <Icon name="chevron-left" size={20} />
+        </button>
           <h1 style={{ fontSize: '1.3rem', fontWeight: 800 }}>Notifications</h1>
         </div>
         {hasUnread && (
@@ -71,7 +74,7 @@ export default function NotificationsScreen() {
       <div className="flex-col gap-12">
         {notifications.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">🔔</div>
+            <div className="empty-state-icon"><Icon name="bell" size={40} strokeWidth={1.5} /></div>
             <div className="empty-state-text">No notifications yet.</div>
           </div>
         ) : (

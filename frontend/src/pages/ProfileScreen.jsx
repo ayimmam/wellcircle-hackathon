@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 import { getPointsHistory } from '../api/client';
 import { getTier, NEIGHBOURHOODS, MOCK_HEALTH_METRICS, MOCK_COMMUNITIES } from '../data/mock';
@@ -33,6 +34,7 @@ export default function ProfileScreen() {
   const [pointsHistory, setPointsHistory] = useState(null);
   const [showNeighbourhoodSheet, setShowNeighbourhoodSheet] = useState(false);
   const [healthConnected, setHealthConnected] = useState(user?.health_app_connected || false);
+  const { t, i18n } = useTranslation();
 
   const tier = getTier(user?.points_balance || 0);
   const joinedCommunities = MOCK_COMMUNITIES.filter(
@@ -116,7 +118,7 @@ export default function ProfileScreen() {
       {/* Points History */}
       {pointsHistory?.items?.length > 0 && (
         <div className="profile-section">
-          <div className="profile-section-title">Recent Activity</div>
+          <div className="profile-section-title">{t('Recent Activity')}</div>
           <div className="profile-card">
             {pointsHistory.items.slice(0, 5).map((item, i) => (
               <div
@@ -149,7 +151,7 @@ export default function ProfileScreen() {
 
       {/* Appearance */}
       <div className="profile-section">
-        <div className="profile-section-title">Appearance</div>
+        <div className="profile-section-title">{t('Appearance')}</div>
         <div className="profile-card">
           <div className="theme-toggle" role="group" aria-label="Theme">
             <button
@@ -158,7 +160,7 @@ export default function ProfileScreen() {
               onClick={() => setTheme('light')}
               id="theme-light-btn"
             >
-              <Icon name="sun" size={16} /> Light
+              <Icon name="sun" size={16} /> {t('Light')}
             </button>
             <button
               type="button"
@@ -166,15 +168,32 @@ export default function ProfileScreen() {
               onClick={() => setTheme('dark')}
               id="theme-dark-btn"
             >
-              <Icon name="moon" size={16} /> Dark
+              <Icon name="moon" size={16} /> {t('Dark')}
             </button>
           </div>
         </div>
       </div>
 
+      {/* Language Selection */}
+      <div className="profile-section">
+        <div className="profile-section-title">{t('Language')}</div>
+        <div className="profile-card">
+          <select 
+            value={i18n.language} 
+            onChange={(e) => i18n.changeLanguage(e.target.value)}
+            style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)', fontSize: '0.95rem', cursor: 'pointer', outline: 'none' }}
+          >
+            <option value="en">English</option>
+            <option value="am">አማርኛ (Amharic)</option>
+            <option value="fr">Français (French)</option>
+            <option value="it">Italiano (Italian)</option>
+          </select>
+        </div>
+      </div>
+
       {/* Neighbourhood Opt-in */}
       <div className="profile-section">
-        <div className="profile-section-title">Local Alerts</div>
+        <div className="profile-section-title">{t('Local Alerts')}</div>
         <div
           className="neighbourhood-card"
           onClick={() => setShowNeighbourhoodSheet(true)}
@@ -201,7 +220,7 @@ export default function ProfileScreen() {
       {/* Joined Communities */}
       {joinedCommunities.length > 0 && (
         <div className="profile-section">
-          <div className="profile-section-title">Joined Circles</div>
+          <div className="profile-section-title">{t('Joined Circles')}</div>
           <div className="flex-col gap-8">
             {joinedCommunities.map(c => (
               <div
@@ -224,7 +243,7 @@ export default function ProfileScreen() {
 
       {/* Bookings & History */}
       <div className="profile-section">
-        <div className="profile-section-title">My Bookings</div>
+        <div className="profile-section-title">{t('My Bookings')}</div>
         <div className="profile-card" onClick={() => navigate('/my-bookings')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
           <Icon name="ticket" size={20} />
           <div style={{ flex: 1 }}>
@@ -237,14 +256,14 @@ export default function ProfileScreen() {
 
       {/* Health & Activity */}
       <div className="profile-section">
-        <div className="profile-section-title">Health & Activity</div>
+        <div className="profile-section-title">{t('Health & Activity')}</div>
         <div className="profile-card">
           <button
             className={`btn btn-block ${healthConnected ? 'btn-primary' : 'btn-outline'}`}
             onClick={toggleHealthApp}
             id="health-app-toggle"
           >
-            {healthConnected ? <><Icon name="check" size={16} strokeWidth={2.5} /> Connected</> : 'Connect Health App'}
+            {healthConnected ? <><Icon name="check" size={16} strokeWidth={2.5} /> {t('Connected')}</> : t('Connect Health App')}
           </button>
 
           {healthConnected && (

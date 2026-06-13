@@ -8,7 +8,13 @@ Telegram Mini App | Ethiopia | Wellness Marketplace + Community
 
 | **Version**          | **Status** | **Date**  | **Market** |
 | -------------------- | ---------- | --------- | ---------- |
-| v1.1 (Patch Applied) | DRAFT      | June 2026 | Ethiopia   |
+| **Version**          | **Status** | **Date**  | **Market** |
+| -------------------- | ---------- | --------- | ---------- |
+| v1.2 (Phase 3 Sync)  | DRAFT      | June 2026 | Ethiopia   |
+
+**What's new in v1.2 (Phase 3 Sync)**
+
+This document has been updated to reflect that Month 3 Roadmap features including the wellness product store, provider self-onboarding, circles, events, challenges, in-app notifications, and subscriptions were completed during the hackathon build.
 
 **What's new in v1.1 (Patch)**
 
@@ -578,27 +584,21 @@ Fallback Plan: If Telebirr sandbox is not provisioned in time: build the full Te
 
 # **15\. Appendix**
 
-## **15.1 Out of Scope for Hackathon**
+## **15.1 Out of Scope for Hackathon (Deferred to Phase 4+)**
 
 - Tribe Vault / group wallet / auto-split payments.
-- Full Legacy Points redemption marketplace.
 - Corporate Benefits Portal.
 - Rotating Wellness Savings Pool.
 - Targeted ad network.
-- Push notifications (Telegram bot messages can substitute for MVP).
-- Provider self-onboarding flow (manual seed for hackathon).
-- Real health data integration - Apple Health / Google Fit / Garmin API (Phase 2).
-- Dynamic push notification infrastructure (Phase 2 - placeholder hardcoded in MVP).
-- Circles user-created groups + weekly leaderboards (Month 3 roadmap).
-- Wellness products store (Month 3 roadmap).
-- Community posts with reaction-based Legacy Points gifting (Month 3 roadmap).
+- Real health data integration - Apple Health / Google Fit / Garmin API.
+- Live Telebirr/M-Pesa production endpoints (mocked for demo).
 
-## **15.2 Phase Roadmap (from Pitch Deck)**
+## **15.2 Phase Roadmap (from Pitch Deck, Updated)**
 
 | **Phase**     | **Timeline**        | **Key Deliverables**                                                                                                                                                                 |
 | ------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Hackathon MVP | Day 1               | Marketplace + booking · Community Spaces + live feed · Telebirr + M-Pesa · Legacy Points (earn & display) · Provider dashboard · Personalized Engagement teaser (SHIP IF TIME)       |
-| Month 3       | Circles & Community | Circles - user-created groups · Weekly leaderboards · Smart notifications (opt-in infrastructure) · Wellness products store · Community posts + reactions with Legacy Points gifting |
+| Hackathon MVP | Day 1               | Marketplace + booking · Community Spaces + live feed · Telebirr + M-Pesa · Legacy Points (earn & display) · Provider dashboard · Personalized Engagement teaser                      |
+| Phase 2 & 3   | Day 2               | Provider self-onboarding · Circles · Products store · Events · Challenges · Subscriptions · In-app notifications · Posts + reactions                                                 |
 | Month 6       | Scale               | Corporate wellness portal (B2B) · Group savings pools + auto-split · Full Legacy Points redemption · National provider expansion · Cross-border (Diaspora wellness)                  |
 
 ## **15.3 Naming Notes**
@@ -624,4 +624,4 @@ Fallback Plan: If Telebirr sandbox is not provisioned in time: build the full Te
 | MPESA_CALLBACK_URL     | Daraja callback             | Your Railway URL + /payments/mpesa/callback    |
 | JWT_SECRET             | Session tokens              | Generate locally: openssl rand -hex 32         |
 
-_Well Circle PRD v1.1 | Personalized Engagement integrated | Hackathon Build | Confidential | June 2026_
+_Well Circle PRD v1.2 | Phase 3 Integrated | Hackathon Build | Confidential | June 2026_

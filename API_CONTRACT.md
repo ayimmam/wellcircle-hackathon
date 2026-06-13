@@ -38,6 +38,16 @@
 | Admin | POST | `/admin/providers` | JWT (admin) | Frontend |
 | Admin | PUT | `/admin/providers/:id` | JWT (admin) | Frontend |
 | Admin | DELETE | `/admin/providers/:id` | JWT (admin) | Frontend |
+| Events | GET | `/events` | JWT | Frontend |
+| Events | GET | `/providers/me/events` | JWT (provider) | Frontend |
+| Events | POST | `/providers/me/events` | JWT (provider) | Frontend |
+| Challenges | GET | `/communities/:id/challenges` | JWT | Frontend |
+| Challenges | POST | `/providers/me/communities/:id/challenges` | JWT (provider) | Frontend |
+| Notifications | GET | `/users/me/notifications` | JWT | Frontend |
+| Subscriptions | GET | `/subscriptions/plans` | JWT | Frontend |
+| Subscriptions | POST | `/subscriptions/initiate` | JWT | Frontend |
+| Products | GET | `/products` | JWT | Frontend |
+| Products | POST | `/products/:id/redeem` | JWT | Frontend |
 
 ---
 
@@ -817,7 +827,41 @@ Bole | Kazanchis | Piassa | CMC | Sarbet | Megenagna | Other
 
 ---
 
-## 9. Error Responses
+## 9. Phase 2 & 3 Endpoints (Overview)
+
+### Events & Booking
+- `GET /api/events` — Discover events
+- `GET /api/events/{id}` — Event details
+- `GET /api/providers/me/events` — Provider dashboard events
+- `POST /api/providers/me/events` — Provider create event
+- `PATCH /api/providers/me/events/{id}` — Update event (capacity/etc)
+- `POST /api/providers/me/events/{id}/cancel` — Cancel event
+- `POST /api/providers/me/events/{id}/boost` — Boost event
+
+### Challenges
+- `GET /api/communities/{id}/challenges` — List community challenges
+- `POST /api/providers/me/communities/{id}/challenges` — Create challenge
+
+### Notifications
+- `GET /api/users/me/notifications` — Inbox
+- `PATCH /api/users/me/notifications/read` — Mark read
+- `POST /api/users/me/notifications/read-all` — Mark all read
+
+### Subscriptions
+- `GET /api/subscriptions/plans` — View plans
+- `GET /api/subscriptions/status/{id}` — Check sub status
+- `POST /api/subscriptions/initiate` — Pay subscription
+- `POST /api/providers/me/subscriptions/initiate` — Provider initiated pay
+
+### Products & Store
+- `GET /api/products` — Browse store
+- `GET /api/products/{id}` — Product details
+- `POST /api/products/{id}/redeem` — Redeem with points
+- `GET /api/users/me/redemptions` — My redemptions
+
+---
+
+## 10. Error Responses
 
 All errors follow this shape:
 

@@ -24,13 +24,25 @@ backend/
 │   │   ├── bookings.py        # POST /api/bookings
 │   │   ├── payments.py        # Telebirr + M-Pesa initiate/callback/status
 │   │   ├── admin.py           # Super admin CRUD + analytics
-│   │   └── bot.py             # Bot registration + re-engagement
+│   │   ├── bot.py             # Bot registration + re-engagement
+│   │   ├── products.py        # Wellness products store
+│   │   ├── events.py          # Provider events & boosting
+│   │   ├── challenges.py      # Community challenges
+│   │   ├── notifications.py   # User notifications
+│   │   ├── subscriptions.py   # Provider subscriptions
+│   │   ├── circles.py         # Circle management
+│   │   └── posts.py           # Community feed posts
 │   │
 │   ├── models/                # SQLAlchemy ORM (database tables)
 │   │   ├── user.py            # users table
 │   │   ├── provider.py        # providers table
 │   │   ├── community.py       # communities + community_members + community_feed_events
-│   │   └── booking.py         # bookings table
+│   │   ├── booking.py         # bookings table
+│   │   ├── product.py         # products table
+│   │   ├── provider_event.py  # provider_events table
+│   │   ├── community_challenge.py # community_challenges table
+│   │   ├── user_notification.py # user_notifications table
+│   │   └── provider_subscription.py # provider_subscriptions table
 │   │
 │   ├── schemas/               # Pydantic validation (request/response shapes)
 │   │   ├── user.py            # Auth, onboarding, profile, points
@@ -149,6 +161,61 @@ backend/
 | `mpesa_checkout_id` | String(255) | ✅ | |
 | `phone_number` | String(20) | ✅ | |
 | `created_at` | DateTime | ❌ | Auto |
+
+### `products`
+| Column | Type | Nullable | Notes |
+|--------|------|----------|-------|
+| `id` | UUID | PK | Auto-generated |
+| `provider_id` | UUID FK→providers | ❌ | |
+| `name` | String(255) | ❌ | |
+| `type` | String(50) | ❌ | `digital` \| `physical` |
+| `price_etb` | Integer | ❌ | |
+| `quantity_in_stock` | Integer | ❌ | Default: 0 |
+| `is_active` | Boolean | ❌ | Default: true |
+
+### `provider_events`
+| Column | Type | Nullable | Notes |
+|--------|------|----------|-------|
+| `id` | UUID | PK | Auto-generated |
+| `provider_id` | UUID FK→providers | ❌ | |
+| `service_name` | String(255) | ❌ | |
+| `starts_at` | DateTime | ❌ | |
+| `ends_at` | DateTime | ❌ | |
+| `capacity` | Integer | ❌ | Default: 10 |
+| `spots_remaining` | Integer | ❌ | Check constraint (>= 0) |
+| `price_etb` | Integer | ❌ | |
+| `is_cancelled` | Boolean | ❌ | Default: false |
+| `is_boosted` | Boolean | ❌ | Default: false |
+
+### `community_challenges`
+| Column | Type | Nullable | Notes |
+|--------|------|----------|-------|
+| `id` | UUID | PK | Auto-generated |
+| `community_id` | UUID FK→communities | ❌ | |
+| `title` | String(255) | ❌ | |
+| `target_checkins` | Integer | ❌ | |
+| `reward_points` | Integer | ❌ | |
+| `starts_at` | DateTime | ❌ | |
+| `ends_at` | DateTime | ❌ | |
+| `is_active` | Boolean | ❌ | Default: true |
+
+### `user_notifications`
+| Column | Type | Nullable | Notes |
+|--------|------|----------|-------|
+| `id` | UUID | PK | Auto-generated |
+| `user_id` | UUID FK→users | ❌ | |
+| `type` | String(50) | ❌ | |
+| `title` | String(255) | ❌ | |
+| `is_read` | Boolean | ❌ | Default: false |
+
+### `provider_subscriptions`
+| Column | Type | Nullable | Notes |
+|--------|------|----------|-------|
+| `id` | UUID | PK | Auto-generated |
+| `provider_id` | UUID FK→providers | ❌ | |
+| `plan` | String(50) | ❌ | |
+| `amount_etb` | Integer | ❌ | |
+| `status` | String(50) | ❌ | `pending` \| `success` |
 
 ---
 
@@ -522,6 +589,50 @@ POST /api/bot/register          → Register user from /start
 GET  /api/bot/inactive-users    → Users inactive 7+ days
 ```
 > Frontend team does NOT need these — they're bot-to-backend only.
+
+---
+
+### 8. Phase 2 & 3 Features
+
+#### Events & Booking
+```
+GET    /api/events                                    → Discover events
+GET    /api/events/{id}                               → Event details
+GET    /api/providers/me/events                       → Provider dashboard events
+POST   /api/providers/me/events                       → Provider create event
+PATCH  /api/providers/me/events/{id}                  → Update event (capacity/etc)
+POST   /api/providers/me/events/{id}/cancel           → Cancel event
+POST   /api/providers/me/events/{id}/boost            → Boost event
+```
+
+#### Challenges
+```
+GET    /api/communities/{id}/challenges               → List community challenges
+POST   /api/providers/me/communities/{id}/challenges  → Create challenge
+```
+
+#### Notifications
+```
+GET    /api/users/me/notifications                    → Inbox
+PATCH  /api/users/me/notifications/read               → Mark read
+POST   /api/users/me/notifications/read-all           → Mark all read
+```
+
+#### Subscriptions
+```
+GET    /api/subscriptions/plans                       → View plans
+GET    /api/subscriptions/status/{id}                 → Check sub status
+POST   /api/subscriptions/initiate                    → Pay subscription
+POST   /api/providers/me/subscriptions/initiate       → Provider initiated pay
+```
+
+#### Products & Store
+```
+GET    /api/products                                  → Browse store
+GET    /api/products/{id}                             → Product details
+POST   /api/products/{id}/redeem                      → Redeem with points
+GET    /api/users/me/redemptions                      → My redemptions
+```
 
 ---
 

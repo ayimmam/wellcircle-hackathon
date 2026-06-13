@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import Icon from './Icon';
+import { useTranslation } from 'react-i18next';
 
 const TABS = [
   { path: '/home', icon: 'home', label: 'Home' },
@@ -11,6 +12,7 @@ const TABS = [
 export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const hiddenPaths = ['/', '/onboarding', '/provider-onboard'];
   const hidden = hiddenPaths.includes(location.pathname) || location.pathname.startsWith('/admin');
@@ -28,7 +30,7 @@ export default function BottomNav() {
           id={`nav-${tab.label.toLowerCase()}`}
         >
           <span className="nav-icon"><Icon name={tab.icon} size={22} /></span>
-          <span className="nav-label">{tab.label}</span>
+          <span className="nav-label">{t(tab.label)}</span>
         </button>
       ))}
     </nav>

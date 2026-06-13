@@ -220,6 +220,24 @@ backend/seed_products_db.py (new — DB seed script for products)
 HANDOFF.md
 ```
 
+### Phase 3.2 — Internationalization (This Session)
+- [x] **Language Support**: Added `i18next` and `react-i18next` for Amharic, French, Italian, and English support.
+- [x] **Language Selection**: Added a dropdown on the Profile Screen allowing users to switch application language instantly.
+- [x] **Global Translations**: Integrated the `useTranslation` hook into global layout components (`BottomNav`, `Header`) and main user screens (`HomeScreen`, `SplashScreen`).
+- [x] **Dictionary Setup**: Created `frontend/src/i18n.js` with structured language resources.
+
+### Files Changed (Phase 3.2)
+```
+frontend/src/i18n.js
+frontend/src/main.jsx
+frontend/src/pages/ProfileScreen.jsx
+frontend/src/components/BottomNav.jsx
+frontend/src/components/Header.jsx
+frontend/src/pages/SplashScreen.jsx
+frontend/src/pages/HomeScreen.jsx
+HANDOFF.md
+```
+
 ---
 
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*

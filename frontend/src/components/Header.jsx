@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { getNotificationUnreadCount } from '../api/client';
 import Icon from './Icon';
 import newLogo from '../new_logo.png';
@@ -8,6 +9,7 @@ export default function Header({ onMenuOpen }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
+  const { t } = useTranslation();
 
   const hidden = ['/', '/onboarding', '/provider-onboard'].includes(location.pathname)
     || location.pathname.startsWith('/admin');
@@ -39,7 +41,7 @@ export default function Header({ onMenuOpen }) {
         <img src={newLogo} className="header-logo" alt="Well Circle Logo" />
         <div className="header-text">
           <span className="header-name">WELL CIRCLE</span>
-          <span className="header-sub">YOUR WELLNESS TRIBE</span>
+          <span className="header-sub">{t('YOUR WELLNESS TRIBE')}</span>
         </div>
       </div>
       <div className="header-actions">

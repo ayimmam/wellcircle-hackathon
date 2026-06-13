@@ -9,10 +9,12 @@ import PointsBadge from '../components/PointsBadge';
 import { showToast } from '../components/Toast';
 import FeaturedEventsCarousel from '../components/FeaturedEventsCarousel';
 import Icon from '../components/Icon';
+import { useTranslation } from 'react-i18next';
 
 export default function HomeScreen() {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [providers, setProviders] = useState([]);
   const [communities, setCommunities] = useState([]);
   const [alertDismissed, setAlertDismissed] = useState(false);
@@ -61,7 +63,7 @@ export default function HomeScreen() {
             Hey, {user?.name?.split(' ')[0] || 'there'}
           </h1>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: 2 }}>
-            Your wellness journey awaits
+            {t('Your wellness journey awaits')}
           </p>
         </div>
         {user && <PointsBadge points={user.points_balance || 0} onClick={() => navigate('/products')} />}
@@ -128,18 +130,18 @@ export default function HomeScreen() {
               onClick={(e) => { e.stopPropagation(); navigate(`/booking/${topProvider.id}`, { state: { provider: topProvider } }); }}
               id="hero-book-btn"
             >
-              Book Now
+              {t('Book Now')}
             </button>
           </div>
         </div>
       )}
 
-      <FeaturedEventsCarousel title="Happening Soon" />
+      <FeaturedEventsCarousel title={t('Happening Soon')} />
 
       {/* Featured Providers */}
       <div className="section-header">
-        <h2 className="section-title">Featured Providers</h2>
-        <button className="section-action inline-icon-text" onClick={() => navigate('/explore')}>See all <Icon name="chevron-right" size={14} /></button>
+        <h2 className="section-title">{t('Featured Providers')}</h2>
+        <button className="section-action inline-icon-text" onClick={() => navigate('/explore')}>{t('See all')} <Icon name="chevron-right" size={14} /></button>
       </div>
       <div className="h-scroll mb-24">
         {featured.slice(1).map(p => (
@@ -151,8 +153,8 @@ export default function HomeScreen() {
       {communities.length > 0 && (
         <>
           <div className="section-header">
-            <h2 className="section-title">Join a Circle</h2>
-            <button className="section-action inline-icon-text" onClick={() => navigate('/community')}>Browse <Icon name="chevron-right" size={14} /></button>
+            <h2 className="section-title">{t('Join a Circle')}</h2>
+            <button className="section-action inline-icon-text" onClick={() => navigate('/community')}>{t('Browse')} <Icon name="chevron-right" size={14} /></button>
           </div>
           <div className="flex-col gap-12">
             {communities.slice(0, 3).map(c => (

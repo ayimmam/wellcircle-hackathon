@@ -1,11 +1,13 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from 'react-i18next';
 import newLogo from '../new_logo.png';
 
 export default function SplashScreen() {
   const { user, loading, error, login } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (loading) return;
@@ -23,7 +25,7 @@ export default function SplashScreen() {
       <img src={newLogo} className="splash-logo" alt="Well Circle Logo" />
       <h1 className="splash-title">Well Circle</h1>
       <p className="splash-tagline">
-        Your tribe, your wellness.<br />Right where you chat.
+        {t('Your tribe, your wellness.')}<br />{t('Right where you chat.')}
       </p>
       {error ? (
         <div style={{ textAlign: 'center', marginTop: 24, padding: '0 24px' }}>
@@ -31,7 +33,7 @@ export default function SplashScreen() {
             {error}
           </p>
           <button className="btn btn-primary" onClick={() => login()}>
-            Retry
+            {t('Retry')}
           </button>
         </div>
       ) : (

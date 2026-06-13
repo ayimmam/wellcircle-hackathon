@@ -4,6 +4,7 @@ import { getProvider, createBooking, initiateTelebirr, initiateMpesa, getPayment
 import { MOCK_TIME_SLOTS, getNextDays } from '../data/mock';
 import { showToast } from '../components/Toast';
 import Icon from '../components/Icon';
+import { useTranslation } from 'react-i18next';
 
 const STEP_LABELS = ['Service', 'Date & Time', 'Payment'];
 
@@ -12,6 +13,7 @@ export default function BookingFlow() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const { t } = useTranslation();
   const eventId = searchParams.get('event_id') || location.state?.eventId || null;
   const [step, setStep] = useState(0);
   const [provider, setProvider] = useState(location.state?.provider || null);
@@ -135,7 +137,7 @@ export default function BookingFlow() {
       <div className="page" id="booking-confirmation-screen">
         <div className="booking-confirmation">
           <div className="confirmation-check"><Icon name="check" size={28} strokeWidth={2.5} /></div>
-          <h2 className="confirmation-title">Booking Confirmed!</h2>
+          <h2 className="confirmation-title">{t('Booking Confirmed!')}</h2>
           <p className="confirmation-ref">
             Ref: {booking?.reference_number || booking?.id?.slice(0, 12)}
           </p>
@@ -172,7 +174,7 @@ export default function BookingFlow() {
           </div>
 
           <button className="btn btn-primary btn-block" onClick={() => navigate('/home')} id="go-home-btn">
-            Back to Home
+            {t('Back to Home')}
           </button>
         </div>
       </div>
@@ -185,7 +187,7 @@ export default function BookingFlow() {
       <div className="page" id="payment-processing-screen">
         <div style={{ textAlign: 'center', paddingTop: 80 }}>
           <div className="splash-spinner" style={{ margin: '0 auto 24px' }} />
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: 8 }}>Processing Payment...</h2>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: 8 }}>{t('Processing Payment...')}</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
             {paymentMethod === 'telebirr'
               ? 'Complete the payment on your Telebirr app'
@@ -219,7 +221,7 @@ export default function BookingFlow() {
               <span className="booking-step-num">
                 {i < step ? <Icon name="check" size={12} strokeWidth={2.5} /> : i + 1}
               </span>
-              <span>{label}</span>
+              <span>{t(label)}</span>
             </div>
             {i < STEP_LABELS.length - 1 && <div className="booking-line" />}
           </div>
@@ -229,7 +231,7 @@ export default function BookingFlow() {
       {/* Step 0: Service Selection */}
       {step === 0 && (
         <div>
-          <h2 className="section-title mb-12">Select a Service</h2>
+          <h2 className="section-title mb-12">{t('Select a Service')}</h2>
           <div className="services-list">
             {provider.services?.map((service, i) => (
               <div
@@ -252,7 +254,7 @@ export default function BookingFlow() {
       {/* Step 1: Date & Time */}
       {step === 1 && (
         <div>
-          <h2 className="section-title mb-12">Pick a Date</h2>
+          <h2 className="section-title mb-12">{t('Pick a Date')}</h2>
           <div className="h-scroll mb-20" style={{ margin: '0 0 20px' }}>
             {days.map(day => (
               <button
@@ -265,7 +267,7 @@ export default function BookingFlow() {
             ))}
           </div>
 
-          <h2 className="section-title mb-12">Pick a Time</h2>
+          <h2 className="section-title mb-12">{t('Pick a Time')}</h2>
           <div className="time-slots">
             {MOCK_TIME_SLOTS.map(slot => (
               <button
@@ -283,7 +285,7 @@ export default function BookingFlow() {
       {/* Step 2: Payment */}
       {step === 2 && (
         <div>
-          <h2 className="section-title mb-12">Payment Method</h2>
+          <h2 className="section-title mb-12">{t('Payment Method')}</h2>
 
           {/* Order summary */}
           <div className="card mb-20">
@@ -297,7 +299,7 @@ export default function BookingFlow() {
                 <span className="confirmation-value">{selectedDate} at {selectedTime}</span>
               </div>
               <div className="confirmation-row" style={{ borderBottom: 'none' }}>
-                <span className="confirmation-label" style={{ fontWeight: 700 }}>Total</span>
+                <span className="confirmation-label" style={{ fontWeight: 700 }}>{t('Total')}</span>
                 <span className="confirmation-value" style={{ color: 'var(--accent)', fontSize: '1.1rem' }}>
                   ETB {selectedService?.price?.toLocaleString()}
                 </span>
@@ -313,7 +315,7 @@ export default function BookingFlow() {
             >
               <span className="payment-method-icon"><Icon name="smartphone" size={22} /></span>
               <div>
-                <div className="payment-method-name">Pay with Telebirr</div>
+                <div className="payment-method-name">{t('Pay with Telebirr')}</div>
                 <div className="payment-method-desc">Ethio Telecom mobile money</div>
               </div>
             </button>
@@ -324,7 +326,7 @@ export default function BookingFlow() {
             >
               <span className="payment-method-icon"><Icon name="credit-card" size={22} /></span>
               <div>
-                <div className="payment-method-name">Pay with M-Pesa</div>
+                <div className="payment-method-name">{t('Pay with M-Pesa')}</div>
                 <div className="payment-method-desc">Safaricom Daraja STK Push</div>
               </div>
             </button>
@@ -357,7 +359,7 @@ export default function BookingFlow() {
             disabled={!canNext()}
             id="booking-next-btn"
           >
-            Next <Icon name="chevron-right" size={18} />
+            {t('Next')} <Icon name="chevron-right" size={18} />
           </button>
         ) : (
           <button

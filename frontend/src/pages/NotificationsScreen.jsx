@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../api/client';
 import Icon from '../components/Icon';
+import { useTranslation } from 'react-i18next';
 
 export default function NotificationsScreen() {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
 
   useEffect(() => {
     fetchNotifications();
@@ -59,14 +61,14 @@ export default function NotificationsScreen() {
           <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} aria-label="Go back">
           <Icon name="chevron-left" size={20} />
         </button>
-          <h1 style={{ fontSize: '1.3rem', fontWeight: 800 }}>Notifications</h1>
+          <h1 style={{ fontSize: '1.3rem', fontWeight: 800 }}>{t('Notifications')}</h1>
         </div>
         {hasUnread && (
           <button 
             onClick={handleMarkAllRead} 
             style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--brand-primary)', background: 'none', border: 'none', cursor: 'pointer' }}
           >
-            Mark all read
+            {t('Mark all read')}
           </button>
         )}
       </div>
@@ -75,7 +77,7 @@ export default function NotificationsScreen() {
         {notifications.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon"><Icon name="bell" size={40} strokeWidth={1.5} /></div>
-            <div className="empty-state-text">No notifications yet.</div>
+            <div className="empty-state-text">{t('No notifications yet.')}</div>
           </div>
         ) : (
           notifications.map(n => (

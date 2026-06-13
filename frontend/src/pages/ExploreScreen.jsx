@@ -4,6 +4,7 @@ import { getProviders, getEvents } from '../api/client';
 import { CATEGORIES } from '../data/mock';
 import EventCard from '../components/EventCard';
 import Icon from '../components/Icon';
+import { useTranslation } from 'react-i18next';
 
 export default function ExploreScreen() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export default function ExploreScreen() {
   const [category, setCategory] = useState('all');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
 
   useEffect(() => {
     setLoading(true);
@@ -31,17 +33,17 @@ export default function ExploreScreen() {
 
   return (
     <div className="page" id="explore-screen">
-      <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: 16 }}>Explore</h1>
+      <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: 16 }}>{t('Explore')}</h1>
 
       <div className="admin-subtabs mb-16" style={{ display: 'flex', gap: 8 }}>
-        <button className={`admin-subtab ${view === 'studios' ? 'active' : ''}`} onClick={() => setView('studios')}>Studios</button>
-        <button className={`admin-subtab ${view === 'events' ? 'active' : ''}`} onClick={() => setView('events')}>Events</button>
+        <button className={`admin-subtab ${view === 'studios' ? 'active' : ''}`} onClick={() => setView('studios')}>{t('Studios')}</button>
+        <button className={`admin-subtab ${view === 'events' ? 'active' : ''}`} onClick={() => setView('events')}>{t('Events')}</button>
       </div>
 
       <div className="search-bar">
         <span className="search-bar-icon"><Icon name="search" size={18} /></span>
         <input
-          placeholder={view === 'studios' ? 'Search providers...' : 'Search events...'}
+          placeholder={view === 'studios' ? t('Search providers...') : t('Search events...')}
           value={search}
           onChange={e => setSearch(e.target.value)}
           id="explore-search-input"
@@ -75,7 +77,7 @@ export default function ExploreScreen() {
         ) : (
           <div className="empty-state">
             <div className="empty-state-icon"><Icon name="calendar" size={40} strokeWidth={1.5} /></div>
-            <div className="empty-state-text">No upcoming events in this category.</div>
+            <div className="empty-state-text">{t('No upcoming events in this category.')}</div>
           </div>
         )
       ) : providers.length > 0 ? (
@@ -120,7 +122,7 @@ export default function ExploreScreen() {
                     navigate(`/booking/${p.id}`, { state: { provider: p } });
                   }}
                 >
-                  Book Now
+                  {t('Book Now')}
                 </button>
               </div>
             </div>
@@ -129,7 +131,7 @@ export default function ExploreScreen() {
       ) : (
         <div className="empty-state">
           <div className="empty-state-icon"><Icon name="search" size={40} strokeWidth={1.5} /></div>
-          <div className="empty-state-text">No providers found. Try a different category.</div>
+          <div className="empty-state-text">{t('No providers found. Try a different category.')}</div>
         </div>
       )}
     </div>

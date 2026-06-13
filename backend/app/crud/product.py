@@ -162,6 +162,7 @@ def browse_products(
             "image_url": product.image_url,
             "provider_id": str(provider.id),
             "provider_name": provider.name,
+            "provider_cover_photo_url": provider.cover_photo_url,
             "max_redemptions_per_user": product.max_redemptions_per_user,
             "expiry_date": product.expiry_date,
             "is_in_stock": product.quantity_in_stock > 0,

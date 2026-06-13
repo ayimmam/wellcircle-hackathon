@@ -4,10 +4,12 @@ import { getProvider, joinCommunity, getProviderEvents } from '../api/client';
 import EventCard from '../components/EventCard';
 import { showToast } from '../components/Toast';
 import Icon from '../components/Icon';
+import { useTranslation } from 'react-i18next';
 
 export default function ProviderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [provider, setProvider] = useState(null);
   const [activePhoto, setActivePhoto] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -92,7 +94,7 @@ export default function ProviderDetail() {
       {events.length > 0 && (
         <>
           <div className="section-header">
-            <h2 className="section-title">Upcoming Sessions</h2>
+            <h2 className="section-title">{t('Upcoming Sessions')}</h2>
           </div>
           <div className="mb-24">
             {events.slice(0, 5).map(e => <EventCard key={e.id} event={e} />)}
@@ -102,7 +104,7 @@ export default function ProviderDetail() {
 
       {/* Services */}
       <div className="section-header">
-        <h2 className="section-title">Services</h2>
+        <h2 className="section-title">{t('Services')}</h2>
       </div>
       <div className="services-list">
         {provider.services?.map((service, i) => (
@@ -125,7 +127,7 @@ export default function ProviderDetail() {
       {provider.community && (
         <>
           <div className="section-header" style={{ marginTop: 8 }}>
-            <h2 className="section-title">Community</h2>
+            <h2 className="section-title">{t('Community')}</h2>
           </div>
           <div className="card" style={{ marginBottom: 20 }}>
             <div className="card-body">
@@ -138,7 +140,7 @@ export default function ProviderDetail() {
                   className="btn btn-sm btn-outline"
                   onClick={() => navigate(`/community/${provider.community.id}`)}
                 >
-                  View Feed
+                  {t('View Feed')}
                 </button>
                 {provider.community.user_joined ? (
                   <span className="category-badge badge-success-soft inline-icon-text">
@@ -146,7 +148,7 @@ export default function ProviderDetail() {
                   </span>
                 ) : (
                   <button className="btn btn-sm btn-primary" onClick={handleJoinCommunity} id="join-community-btn">
-                    Join Circle
+                    {t('Join Circle')}
                   </button>
                 )}
               </div>
@@ -162,7 +164,7 @@ export default function ProviderDetail() {
         id="book-now-btn"
         style={{ marginBottom: 16 }}
       >
-        <Icon name="calendar" size={18} /> Book Now
+        <Icon name="calendar" size={18} /> {t('Book Now')}
       </button>
     </div>
   );

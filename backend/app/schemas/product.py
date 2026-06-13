@@ -19,6 +19,7 @@ class ProductListItem(BaseModel):
     image_url: Optional[str] = None
     provider_id: str
     provider_name: str
+    provider_cover_photo_url: Optional[str] = None
     max_redemptions_per_user: int = 1
     expiry_date: Optional[datetime] = None
     is_in_stock: bool = True

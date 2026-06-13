@@ -285,10 +285,14 @@ export default function ProfileScreen() {
         </div>
       </div>
 
-      {/* Redeem (greyed out) */}
+      {/* Redeem Points */}
       <div className="profile-section">
-        <button className="btn btn-secondary btn-block" disabled style={{ opacity: 0.5 }} id="redeem-btn">
-          🎁 Redeem Points — Coming Soon
+        <button 
+          className="btn btn-secondary btn-block" 
+          onClick={() => navigate('/products')} 
+          id="redeem-btn"
+        >
+          🎁 {t('Redeem Points')}
         </button>
       </div>
 

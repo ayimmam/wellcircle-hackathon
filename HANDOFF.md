@@ -225,8 +225,14 @@ HANDOFF.md
 - [x] **Language Selection**: Added a dropdown on the Profile Screen allowing users to switch application language instantly.
 - [x] **Global Translations**: Integrated the `useTranslation` hook into global layout components (`BottomNav`, `Header`) and main user screens (`HomeScreen`, `SplashScreen`).
 - [x] **Dictionary Setup**: Created `frontend/src/i18n.js` with structured language resources.
+- [x] **Extended Translations**: Applied localized text to Explore page, Provider Detail, Booking Flow, Product Redeem, Notifications, and Products Store screens.
 
-### Files Changed (Phase 3.2)
+### Phase 3.3 — UX Enhancements (This Session)
+- [x] **Redeem Flow Activation**: Activated the "Redeem Points" button in the Profile screen to redirect to the Legacy Points Store.
+- [x] **Provider Images in Store**: Updated `ProductListItem` backend schema and CRUD logic to expose `provider_cover_photo_url`, rendering the provider's cover photo natively in the Redeem list.
+- [x] **Simplified Bookings**: Removed the "+ Add to Calendar" button and `.ics` generation from `MyBookings.jsx` to clean up the booking card view.
+
+### Files Changed (Phase 3.2 & 3.3)
 ```
 frontend/src/i18n.js
 frontend/src/main.jsx
@@ -235,6 +241,15 @@ frontend/src/components/BottomNav.jsx
 frontend/src/components/Header.jsx
 frontend/src/pages/SplashScreen.jsx
 frontend/src/pages/HomeScreen.jsx
+frontend/src/pages/ExploreScreen.jsx
+frontend/src/pages/ProviderDetail.jsx
+frontend/src/pages/BookingFlow.jsx
+frontend/src/pages/ProductRedeem.jsx
+frontend/src/pages/ProductsStore.jsx
+frontend/src/pages/NotificationsScreen.jsx
+frontend/src/pages/MyBookings.jsx
+backend/app/schemas/product.py
+backend/app/crud/product.py
 HANDOFF.md
 ```
 

@@ -28,26 +28,7 @@ export default function MyBookings() {
     }
   };
 
-  const generateICS = (booking) => {
-    const slot = booking.slot_datetime || booking.created_at;
-    const startDate = new Date(slot).toISOString().replace(/-|:|\.\d+/g, '');
-    const endDate = new Date(new Date(slot).getTime() + 60*60*1000).toISOString().replace(/-|:|\.\d+/g, '');
-    const icsContent = `BEGIN:VCALENDAR
-VERSION:2.0
-BEGIN:VEVENT
-DTSTART:${startDate}
-DTEND:${endDate}
-SUMMARY:${booking.service_name || booking.provider_name}
-DESCRIPTION:Booking Ref: ${booking.id.split('-')[0].toUpperCase()}
-END:VEVENT
-END:VCALENDAR`;
-    
-    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-    const link = document.createElement('a');
-    link.href = window.URL.createObjectURL(blob);
-    link.download = `${(booking.service_name || 'Session').replace(/\s+/g, '_')}_Session.ics`;
-    link.click();
-  };
+
 
   const BookingItem = ({ b, isUpcoming }) => {
     let statusColor = 'var(--text-secondary)';
@@ -73,11 +54,7 @@ END:VCALENDAR`;
           {new Date(b.slot_datetime || b.created_at).toLocaleString()}
         </div>
 
-        {isUpcoming && (
-          <button className="btn btn-sm btn-outline mt-3" onClick={() => generateICS(b)} style={{ alignSelf: 'flex-start' }}>
-            + Add to Calendar
-          </button>
-        )}
+
       </div>
     );
   };

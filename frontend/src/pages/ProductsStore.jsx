@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getProducts } from '../api/client';
+import { useTranslation } from 'react-i18next';
 
 export default function ProductsStore() {
   const { user } = useAuth();
@@ -11,6 +12,7 @@ export default function ProductsStore() {
   const [type, setType] = useState('');
   const [inStock, setInStock] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
 
   useEffect(() => {
     setLoading(true);
@@ -24,19 +26,19 @@ export default function ProductsStore() {
 
   return (
     <div className="page">
-      <h1 className="section-title mb-8">Legacy Points Store</h1>
-      <p className="text-secondary mb-16">Your Balance: <strong style={{ color: 'var(--secondary)' }}>{user?.points_balance ?? 0} 🌿 Points</strong></p>
+      <h1 className="section-title mb-8">{t('Legacy Points Store')}</h1>
+      <p className="text-secondary mb-16">{t('Your Balance:')} <strong style={{ color: 'var(--secondary)' }}>{user?.points_balance ?? 0} 🌿 {t('pts')}</strong></p>
 
-      <input className="input mb-12" placeholder="Search products..." value={search} onChange={e => setSearch(e.target.value)} />
+      <input className="input mb-12" placeholder={t("Search products...")} value={search} onChange={e => setSearch(e.target.value)} />
       <div className="flex gap-8 mb-16 flex-wrap">
         <select className="input" style={{ flex: 1 }} value={type} onChange={e => setType(e.target.value)}>
-          <option value="">All Types</option>
-          <option value="digital">Digital</option>
-          <option value="physical">Physical</option>
+          <option value="">{t('All Types')}</option>
+          <option value="digital">{t('Digital')}</option>
+          <option value="physical">{t('Physical')}</option>
         </select>
         <label className="checkbox-row">
           <input type="checkbox" checked={inStock} onChange={e => setInStock(e.target.checked)} />
-          <span>In Stock</span>
+          <span>{t('In Stock')}</span>
         </label>
       </div>
 
@@ -48,17 +50,17 @@ export default function ProductsStore() {
         <>
           {recommended.length > 0 && (
             <>
-              <h3 className="section-subtitle mb-12">Recommended For You</h3>
+              <h3 className="section-subtitle mb-12">{t('Recommended For You')}</h3>
               <div className="product-grid mb-24">
                 {recommended.map(p => <ProductCard key={p.id} product={p} onClick={() => navigate(`/products/${p.id}`)} />)}
               </div>
             </>
           )}
-          <h3 className="section-subtitle mb-12">More Products</h3>
+          <h3 className="section-subtitle mb-12">{t('More Products')}</h3>
           <div className="product-grid">
             {(others.length ? others : products).length === 0 ? (
               <p className="text-secondary text-center" style={{ gridColumn: '1 / -1', padding: '24px 0' }}>
-                No products found. Try adjusting your filters.
+                {t('No products found. Try adjusting your filters.')}
               </p>
             ) : (
               (others.length ? others : products).map(p => (
@@ -70,22 +72,23 @@ export default function ProductsStore() {
       )}
 
       <button className="btn btn-secondary btn-block mt-16" onClick={() => navigate('/users/me/redemptions')}>
-        My Redemptions
+        {t('My Redemptions')}
       </button>
     </div>
   );
 }
 
 function ProductCard({ product, onClick }) {
+  const { t } = useTranslation();
   return (
     <div className="product-card" onClick={onClick}>
-      {product.image_url && <img src={product.image_url} alt={product.name} className="product-card-img" />}
+      {(product.provider_cover_photo_url || product.image_url) && <img src={product.provider_cover_photo_url || product.image_url} alt={product.name} className="product-card-img" />}
       <div className="product-card-body">
         <h4 className="product-card-title">{product.name}</h4>
         <p className="text-sm text-secondary">{product.provider_name}</p>
-        <p className="product-card-price">{product.price_etb} pts</p>
+        <p className="product-card-price">{product.price_etb} {t('pts')}</p>
         <p className="text-xs text-secondary">
-          {product.type} | {product.is_in_stock ? '✓ In Stock' : 'Out of Stock'}
+          {product.type === 'digital' ? t('Digital') : t('Physical')} | {product.is_in_stock ? `✓ ${t('In Stock')}` : t('Out of Stock')}
         </p>
       </div>
     </div>

@@ -10,6 +10,7 @@ import { showToast } from '../components/Toast';
 import FeaturedEventsCarousel from '../components/FeaturedEventsCarousel';
 import Icon from '../components/Icon';
 import { useTranslation } from 'react-i18next';
+import AskWellCircle from '../components/AskWellCircle';
 
 export default function HomeScreen() {
   const { user, setUser } = useAuth();
@@ -163,6 +164,8 @@ export default function HomeScreen() {
           </div>
         </>
       )}
+
+      <AskWellCircle />
     </div>
   );
 }

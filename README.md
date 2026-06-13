@@ -63,6 +63,7 @@ wellcircle/
 | **You** | Backend API | `backend/` | Render |
 | **Teammate 1** | Frontend Mini App | `frontend/` | Vercel |
 | **Teammate 2** | Telegram Bot | `telegram-bot/` | Railway |
+| **AI Team** | Concierge Microservice | External Repo | Render (`well-circle-concierge`) |
 
 **Key contract:** [API_CONTRACT.md](./API_CONTRACT.md) — every endpoint, request/response shape, and flow diagram.
 

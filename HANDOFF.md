@@ -232,7 +232,13 @@ HANDOFF.md
 - [x] **Provider Images in Store**: Updated `ProductListItem` backend schema and CRUD logic to expose `provider_cover_photo_url`, rendering the provider's cover photo natively in the Redeem list.
 - [x] **Simplified Bookings**: Removed the "+ Add to Calendar" button and `.ics` generation from `MyBookings.jsx` to clean up the booking card view.
 
-### Files Changed (Phase 3.2 & 3.3)
+### Phase 3.4 — AI Concierge Integration (This Session)
+- [x] **Native Chat Component**: Created `AskWellCircle.jsx` chat interface, perfectly matched to the app's native CSS (`max-width: 430px` shell, `var(--bg-glass)` blurs, standard input classes).
+- [x] **Microservice API Wiring**: Connected frontend to the live external Groq/FastAPI microservice at `https://well-circle-concierge.onrender.com/ai/concierge`.
+- [x] **Interactive Bot UI**: Designed the AI chatbot overlay as a Floating Action Button on the `HomeScreen`.
+- [x] **Deep Linking**: Implemented conditional rendering for AI provider recommendations — resolving `live` data IDs directly to `/provider/:id` booking routes while safely displaying `fallback` data as offline location pills.
+
+### Files Changed (Phase 3.2, 3.3 & 3.4)
 ```
 frontend/src/i18n.js
 frontend/src/main.jsx
@@ -250,6 +256,8 @@ frontend/src/pages/NotificationsScreen.jsx
 frontend/src/pages/MyBookings.jsx
 backend/app/schemas/product.py
 backend/app/crud/product.py
+frontend/src/components/AskWellCircle.jsx
+frontend/src/components/Icon.jsx
 HANDOFF.md
 ```
 

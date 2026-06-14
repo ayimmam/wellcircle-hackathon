@@ -1,6 +1,6 @@
 """Post ORM models - community posts and reactions."""
 
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime, timezone

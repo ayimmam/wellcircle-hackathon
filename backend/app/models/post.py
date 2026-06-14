@@ -15,6 +15,7 @@ class Post(Base):
     circle_id = Column(UUID(as_uuid=True), ForeignKey("circles.id"), nullable=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     content = Column(Text, nullable=False)
+    is_system_event = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 class Reaction(Base):

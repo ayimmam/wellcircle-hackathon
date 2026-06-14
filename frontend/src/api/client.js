@@ -344,12 +344,12 @@ export async function createCircle(data) {
   return request('POST', '/circles', data);
 }
 
-export async function joinCircle(id) {
+export async function joinCircle(id, joinCode = null) {
   if (USE_MOCK) {
     await delay();
     return { message: "Joined successfully" };
   }
-  return request('POST', `/circles/${id}/join`);
+  return request('POST', `/circles/${id}/join`, { join_code: joinCode });
 }
 
 export async function getCircleLeaderboard(id) {

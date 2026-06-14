@@ -3,6 +3,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional, List
+from uuid import UUID
 
 
 class CategoryCount(BaseModel):
@@ -26,7 +27,7 @@ class PlatformAnalytics(BaseModel):
 
 class AdminUserItem(BaseModel):
     """User item in admin list view."""
-    id: str
+    id: UUID
     telegram_id: int
     telegram_handle: Optional[str] = None
     name: Optional[str] = None

@@ -6,8 +6,8 @@ from sqlalchemy import desc
 from app.models.circle import Circle, CircleMember
 from app.models.user import User
 
-def create_circle(db: Session, name: str, description: str, owner_id: UUID) -> Circle:
-    circle = Circle(name=name, description=description, owner_id=owner_id)
+def create_circle(db: Session, name: str, description: str, owner_id: UUID, is_private: bool = False, join_code: str = None) -> Circle:
+    circle = Circle(name=name, description=description, owner_id=owner_id, is_private=is_private, join_code=join_code)
     db.add(circle)
     db.flush()
     # Add owner as member
@@ -17,10 +17,16 @@ def create_circle(db: Session, name: str, description: str, owner_id: UUID) -> C
     db.refresh(circle)
     return circle
 
-def join_circle(db: Session, circle_id: UUID, user_id: UUID) -> Optional[Circle]:
+def join_circle(db: Session, circle_id: UUID, user_id: UUID, join_code: str = None) -> Optional[Circle]:
     circle = db.query(Circle).filter(Circle.id == circle_id).first()
     if not circle:
         return None
+        
+    if getattr(circle, 'is_private', False):
+        if not join_code or getattr(circle, 'join_code', None) != join_code:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=403, detail="Invalid or missing join code for private circle")
+
     
     member = db.query(CircleMember).filter(
         CircleMember.circle_id == circle_id,
@@ -50,6 +56,7 @@ def get_circles(db: Session, user_id: Optional[UUID] = None) -> List[dict]:
             "owner_id": c.owner_id,
             "member_count": member_count,
             "is_joined": is_joined,
+            "is_private": getattr(c, "is_private", False),
             "created_at": c.created_at
         })
     return result

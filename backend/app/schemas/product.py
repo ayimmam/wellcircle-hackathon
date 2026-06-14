@@ -103,7 +103,7 @@ class AdminProductItem(BaseModel):
     quantity_in_stock: int
     redemption_count: int = 0
     is_active: bool
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
 
 class AdminProductListResponse(BaseModel):

@@ -44,6 +44,7 @@ def get_posts(db: Session, community_id: Optional[UUID] = None, circle_id: Optio
         result.append({
             "id": p.id,
             "content": p.content,
+            "is_system_event": getattr(p, "is_system_event", False),
             "user": {
                 "id": u.id,
                 "name": u.name,

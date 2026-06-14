@@ -52,11 +52,20 @@ export default function CommunityList() {
       showToast('Already a member', '👥');
     }
   };
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
+
   const handleCreateCircle = async () => {
     if (!newCircleName.trim()) return;
+    if (isPrivate && !joinCode.trim()) {
+      showToast('Please enter a join code for the private circle', '⚠️');
+      return;
+    }
     try {
-      await createCircle({ name: newCircleName, description: '' });
+      await createCircle({ name: newCircleName, description: '', is_private: isPrivate, join_code: isPrivate ? joinCode : null });
       setNewCircleName('');
+      setJoinCode('');
+      setIsPrivate(false);
       showToast('Circle created!', '✨');
       getCircles().then(res => setCircles(res.circles || []));
     } catch (err) {
@@ -122,22 +131,43 @@ export default function CommunityList() {
       ) : tab === 'circles' ? (
         <div className="flex-col gap-12">
           <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-body flex gap-8">
-              <input 
-                type="text" 
-                placeholder="New Circle Name..." 
-                className="input" 
-                value={newCircleName}
-                onChange={e => setNewCircleName(e.target.value)}
-                style={{ flex: 1 }}
-              />
-              <button className="btn btn-primary" onClick={handleCreateCircle} disabled={!newCircleName.trim()}>Create</button>
+            <div className="card-body">
+              <div className="flex gap-8 mb-8">
+                <input 
+                  type="text" 
+                  placeholder="New Circle Name..." 
+                  className="input" 
+                  value={newCircleName}
+                  onChange={e => setNewCircleName(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <button className="btn btn-primary" onClick={handleCreateCircle} disabled={!newCircleName.trim()}>Create</button>
+              </div>
+              <div className="flex items-center gap-8">
+                <label className="checkbox-row" style={{ margin: 0 }}>
+                  <input type="checkbox" checked={isPrivate} onChange={e => setIsPrivate(e.target.checked)} />
+                  <span style={{ fontSize: '0.85rem' }}>Private Circle</span>
+                </label>
+                {isPrivate && (
+                  <input 
+                    type="text" 
+                    placeholder="Join Code (e.g. VIP2024)" 
+                    className="input" 
+                    style={{ flex: 1, padding: '4px 8px' }}
+                    value={joinCode}
+                    onChange={e => setJoinCode(e.target.value)}
+                  />
+                )}
+              </div>
             </div>
           </div>
           {circles.map(c => (
             <div key={c.id} className="card" onClick={() => navigate(`/circle/${c.id}`)}>
               <div className="card-body">
-                <h3 style={{ fontSize: '1.1rem', marginBottom: 4 }}>{c.name}</h3>
+                <h3 style={{ fontSize: '1.1rem', marginBottom: 4 }}>
+                  {c.is_private && '🔒 '}
+                  {c.name}
+                </h3>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                   👥 {c.member_count} members
                 </div>
@@ -148,16 +178,19 @@ export default function CommunityList() {
         </div>
       ) : tab === 'explore' ? (
         <div className="flex-col gap-12">
-          {communities.map(c => (
+          {communities.filter(c => !c.user_joined).map(c => (
             <CommunityCard key={c.id} community={c} onJoin={handleJoin} />
           ))}
-          {circles.length > 0 && (
+          {circles.filter(c => !c.user_joined).length > 0 && (
             <>
               <h2 style={{ fontSize: '1.1rem', fontWeight: 800, marginTop: 16 }}>Community User Circles</h2>
-              {circles.map(c => (
+              {circles.filter(c => !c.user_joined).map(c => (
                 <div key={c.id} className="card" onClick={() => navigate(`/circle/${c.id}`)}>
                   <div className="card-body">
-                    <h3 style={{ fontSize: '1.1rem', marginBottom: 4 }}>⭕ {c.name}</h3>
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: 4 }}>
+                      {c.is_private && '🔒 '}
+                      ⭕ {c.name}
+                    </h3>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                       👥 {c.member_count} members
                     </div>
@@ -166,7 +199,7 @@ export default function CommunityList() {
               ))}
             </>
           )}
-          {communities.length === 0 && circles.length === 0 && (
+          {communities.filter(c => !c.user_joined).length === 0 && circles.filter(c => !c.user_joined).length === 0 && (
             <div className="empty-state">
               <div className="empty-state-icon">🔍</div>
               <div className="empty-state-text">No circles found.</div>

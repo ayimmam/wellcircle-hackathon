@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getLeaderboard, createInteraction } from '../api/client';
+import { showToast } from './Toast';
 
 const Leaderboard = ({ communityId }) => {
   const [leaderboard, setLeaderboard] = useState([]);
@@ -22,10 +23,10 @@ const Leaderboard = ({ communityId }) => {
   const handleInteraction = async (targetUserId, actionType) => {
     try {
       await createInteraction(communityId, targetUserId, actionType);
-      alert(`Sent a ${actionType}!`);
+      showToast(`Sent a ${actionType}!`, '🎉');
     } catch (err) {
       console.error(err);
-      alert(`Failed to send ${actionType}`);
+      showToast(`Failed to send ${actionType}`, '❌');
     }
   };
 

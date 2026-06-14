@@ -39,8 +39,13 @@ export default function CircleDetailScreen() {
   };
 
   const handleJoin = async () => {
+    let joinCode = null;
+    if (circle?.is_private) {
+      joinCode = prompt('This circle is private. Please enter the invitation code:');
+      if (!joinCode) return;
+    }
     try {
-      await joinCircle(id);
+      await joinCircle(id, joinCode);
       setJoined(true);
       showToast('You joined the circle!', '🎉');
       if (circle) setCircle(prev => ({ ...prev, member_count: (prev.member_count || 0) + 1 }));
@@ -75,7 +80,10 @@ export default function CircleDetailScreen() {
           <Icon name="chevron-left" size={18} />
         </button>
         <div style={{ flex: 1 }}>
-          <h1 style={{ fontSize: '1.2rem', fontWeight: 800 }}>{circle.name}</h1>
+          <h1 style={{ fontSize: '1.2rem', fontWeight: 800 }}>
+            {circle.is_private && '🔒 '}
+            {circle.name}
+          </h1>
           <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 2 }}>
             {circle.description}
           </p>
@@ -114,7 +122,15 @@ export default function CircleDetailScreen() {
 
       {/* Tab Content */}
       {activeTab === 'chat' && (
-        <PostFeed circleId={id} />
+        joined ? <PostFeed circleId={id} /> : (
+          <div className="card">
+            <div className="card-body text-center" style={{ padding: '32px 16px' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🔒</div>
+              <h3 className="card-title mb-8">Join to participate</h3>
+              <p className="text-secondary text-sm">You need to join this circle to view and participate in the chat.</p>
+            </div>
+          </div>
+        )
       )}
 
       {activeTab === 'leaderboard' && (

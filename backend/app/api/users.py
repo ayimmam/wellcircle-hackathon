@@ -195,3 +195,79 @@ async def get_points_history(
         tier=tier,
         tier_emoji=emoji,
     )
+
+
+@router.get("/me/notifications")
+async def get_user_notifications(
+    unread: bool = False,
+    limit: int = 50,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.models.user_notification import UserNotification
+    query = db.query(UserNotification).filter(UserNotification.user_id == user.id)
+    if unread:
+        query = query.filter(UserNotification.is_read == False)
+        
+    unread_count = db.query(UserNotification).filter(
+        UserNotification.user_id == user.id,
+        UserNotification.is_read == False
+    ).count()
+    
+    notifications = query.order_by(UserNotification.created_at.desc()).limit(limit).all()
+    
+    return {
+        "notifications": [
+            {
+                "id": str(n.id),
+                "type": n.type,
+                "title": n.title,
+                "body": n.body,
+                "action_url": n.action_url,
+                "is_read": n.is_read,
+                "created_at": n.created_at
+            }
+            for n in notifications
+        ],
+        "unread_count": unread_count
+    }
+
+
+@router.post("/me/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.models.user_notification import UserNotification
+    n = db.query(UserNotification).filter(
+        UserNotification.id == notification_id,
+        UserNotification.user_id == user.id
+    ).first()
+    
+    if not n:
+        raise HTTPException(status_code=404, detail="Notification not found")
+        
+    n.is_read = True
+    db.commit()
+    return {"is_read": True}
+
+
+@router.post("/me/notifications/read-all")
+async def mark_all_notifications_read(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.models.user_notification import UserNotification
+    
+    unread = db.query(UserNotification).filter(
+        UserNotification.user_id == user.id,
+        UserNotification.is_read == False
+    ).all()
+    
+    count = len(unread)
+    for n in unread:
+        n.is_read = True
+        
+    db.commit()
+    return {"marked_read": count}

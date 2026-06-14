@@ -169,9 +169,9 @@ async def create_interaction(
     
     feed_post = Post(
         community_id=community_id,
-        author_id=user.id,
+        user_id=user.id,
         content=f"{emoji} {user.name or user.telegram_handle} just {action_verb} {target_user.name or target_user.telegram_handle} to stay accountable!",
-        post_type="system_event"
+        is_system_event=True
     )
     db.add(feed_post)
     db.commit()

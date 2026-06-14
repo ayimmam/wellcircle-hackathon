@@ -46,6 +46,11 @@ export default function ProfileScreen() {
   }, []);
 
   const handleNeighbourhoodSelect = async (neighbourhood) => {
+    if (user?.location_neighborhood === neighbourhood) {
+      showToast('Already changed', 'ℹ️');
+      setShowNeighbourhoodSheet(false);
+      return;
+    }
     try {
       await updateProfile({ location_neighborhood: neighbourhood });
       showToast(`Location set to ${neighbourhood}! 📍`, '✅');

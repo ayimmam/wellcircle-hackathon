@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { showToast } from './Toast';
 
 export default function PostFeed({ communityId, circleId }) {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [posts, setPosts] = useState([]);
   const [newPostContent, setNewPostContent] = useState('');
   const [loading, setLoading] = useState(true);
@@ -41,6 +41,7 @@ export default function PostFeed({ communityId, circleId }) {
       await reactToPost(postId, { emoji, points_gifted: points });
       showToast(`Reacted with ${emoji}${points ? ' and gifted ' + points + ' points' : ''}`, '🎉');
       loadPosts();
+      if (points > 0 && refreshUser) refreshUser();
     } catch (err) {
       showToast('Error reacting. Not enough points?', '❌');
     }
@@ -131,7 +132,7 @@ export default function PostFeed({ communityId, circleId }) {
                 {/* Quick add reactions */}
                 <button
                   className="btn btn-secondary"
-                  style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: 20, opacity: 0.6 }}
+                  style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: 20, opacity: 0.8, border: '1px solid var(--border)' }}
                   onClick={() => handleReact(post.id, '🔥', 0)}
                   title="React with fire"
                 >
@@ -139,11 +140,27 @@ export default function PostFeed({ communityId, circleId }) {
                 </button>
                 <button
                   className="btn btn-secondary"
-                  style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: 20, opacity: 0.6 }}
+                  style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: 20, opacity: 0.8, border: '1px solid var(--border)' }}
                   onClick={() => handleReact(post.id, '👏', 5)}
                   title="Clap and gift 5 Legacy Points"
                 >
                   👏 Gift 5pts
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: 20, opacity: 0.8, border: '1px solid var(--border)', background: 'rgba(245, 158, 11, 0.1)', color: '#D97706' }}
+                  onClick={() => handleReact(post.id, '🌟', 10)}
+                  title="Star and gift 10 Legacy Points"
+                >
+                  🌟 Gift 10pts
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: 20, opacity: 0.8, border: '1px solid var(--border)', background: 'rgba(59, 130, 246, 0.1)', color: '#2563EB' }}
+                  onClick={() => handleReact(post.id, '💎', 50)}
+                  title="Diamond and gift 50 Legacy Points"
+                >
+                  💎 Gift 50pts
                 </button>
               </div>
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { getProviders, getEvents } from '../api/client';
 import { CATEGORIES } from '../data/mock';
 import EventCard from '../components/EventCard';
@@ -12,7 +12,8 @@ export default function ExploreScreen() {
   const [providers, setProviders] = useState([]);
   const [events, setEvents] = useState([]);
   const [category, setCategory] = useState('all');
-  const [search, setSearch] = useState('');
+  const location = useLocation();
+  const [search, setSearch] = useState(location.state?.search || '');
   const [loading, setLoading] = useState(true);
   const { t } = useTranslation();
 

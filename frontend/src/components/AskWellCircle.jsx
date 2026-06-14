@@ -49,7 +49,7 @@ export default function AskWellCircle() {
         id: Date.now() + 2,
         text: data.reply || "Let's find the best wellness option for you.",
         sender: 'assistant',
-        provider: data.provider_id ? { id: data.provider_id, name: data.provider_name, data_source: data.data_source } : null
+        provider: data.provider_name ? { id: data.provider_id, name: data.provider_name, data_source: data.data_source } : null
       }]);
 
       setIsFirstMessage(false);
@@ -181,22 +181,20 @@ export default function AskWellCircle() {
                   
                   {msg.provider && (
                     <div style={{ alignSelf: 'flex-start', marginTop: '4px' }}>
-                      {msg.provider.data_source === 'live' ? (
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => {
-                            setIsOpen(false);
+                      <button
+                        className="chip"
+                        onClick={() => {
+                          setIsOpen(false);
+                          if (msg.provider.id && msg.provider.data_source === 'live') {
                             navigate(`/provider/${msg.provider.id}`);
-                          }}
-                          style={{ borderRadius: 'var(--radius-full)', display: 'inline-flex' }}
-                        >
-                          View {msg.provider.name} <Icon name="chevron-right" size={14} />
-                        </button>
-                      ) : (
-                        <span className="chip" style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
-                          📍 {msg.provider.name}
-                        </span>
-                      )}
+                          } else {
+                            navigate('/explore', { state: { search: msg.provider.name } });
+                          }
+                        }}
+                        style={{ fontSize: '0.8rem', padding: '6px 12px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        📍 {msg.provider.name}
+                      </button>
                     </div>
                   )}
                 </div>

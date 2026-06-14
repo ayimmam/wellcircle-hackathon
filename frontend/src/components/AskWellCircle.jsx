@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from './Icon';
+import { getApiBase } from '../api/client';
 
 export default function AskWellCircle() {
   const navigate = useNavigate();
@@ -47,7 +48,7 @@ export default function AskWellCircle() {
     setIsLoading(true);
 
     try {
-      const res = await fetch("https://well-circle-concierge.onrender.com/ai/concierge", {
+      const res = await fetch(`${getApiBase()}/ai/circler`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg, is_first_message: isFirstMessage }),
@@ -147,7 +148,7 @@ export default function AskWellCircle() {
                   ✨
                 </div>
                 <div>
-                  <div className="burger-brand-name">AI CONCIERGE</div>
+                  <div className="burger-brand-name">CIRCLER</div>
                   <div className="burger-brand-sub">POWERED BY WELL CIRCLE</div>
                 </div>
               </div>

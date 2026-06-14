@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI(title="Well Circle Concierge - Production")
+app = FastAPI(title="Well Circle Circler - Production")
 
 app.add_middleware(
     CORSMiddleware,
@@ -141,7 +141,7 @@ def fetch_providers():
 def get_onboarding_intro() -> str:
     return (
         "Welcome to Well Circle — Addis Ababa's wellness ecosystem.\n\n"
-        "• AI Concierge: Tell me your goal, budget, or neighbourhood and I'll match you instantly.\n"
+        "• Circler: Tell me your goal, budget, or neighbourhood and I'll match you instantly.\n"
         "• Circles: Join accountability groups, post daily wins, and track your squad's streaks.\n"
         "• Pay Direct: Book and pay via Telebirr or M-Pesa — no redirects.\n\n"
         "Try: \"Affordable gym near Bole\" · \"Stress relief under 800 ETB\" · \"Nutritionist in CMC\""
@@ -166,7 +166,7 @@ def ai_concierge(req: ConciergeRequest):
 
     # 3. System prompt — Advice-First, Concierge Logic
     system_prompt = (
-        "You are Well Circle's wellness concierge for Addis Ababa. "
+        "You are Well Circle's wellness assistant, named Circler, for Addis Ababa. "
         "Your task is to provide expert, empathetic advice first, and helpful service recommendations second.\n\n"
         "INTENT-BASED LOGIC:\n"
         "1. ADVISORY INTENT (Weight, Pain, Stress): Provide a scientifically-backed, actionable tip first. "
@@ -232,4 +232,4 @@ def ai_concierge(req: ConciergeRequest):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=port)

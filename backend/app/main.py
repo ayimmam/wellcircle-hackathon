@@ -82,6 +82,10 @@ app.include_router(posts.router, prefix="/api/posts", tags=["Posts"])
 app.include_router(admin_router, prefix="/api/admin", tags=["Admin"])
 app.include_router(bot_router, prefix="/api/bot", tags=["Bot"])
 
+# Circler (AI Concierge)
+from app.api.circler import router as circler_router
+app.include_router(circler_router, prefix="/api/ai/circler", tags=["Circler"])
+
 # Phase 3
 app.include_router(events.router, prefix="/api", tags=["Events"])
 app.include_router(challenges.router, prefix="/api", tags=["Challenges"])

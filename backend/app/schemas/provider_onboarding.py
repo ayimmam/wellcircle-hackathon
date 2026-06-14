@@ -10,7 +10,7 @@ from app.schemas.provider import ServiceItem
 
 class SelfOnboardRequest(BaseModel):
     name: str = Field(..., max_length=255)
-    category: str = Field(..., pattern="^(gym|yoga|nutrition|spa|therapy|running)$")
+    category: str = Field(..., pattern="^(gym|yoga|nutrition|spa|therapy|running|other)$")
     description: Optional[str] = None
     location_text: Optional[str] = None
     lat: Optional[float] = None
@@ -121,7 +121,7 @@ class ProviderRejectResponse(BaseModel):
 
 class PromoteProviderData(BaseModel):
     name: str = Field(..., max_length=255)
-    category: str = Field(..., pattern="^(gym|yoga|nutrition|spa|therapy|running)$")
+    category: str = Field(..., pattern="^(gym|yoga|nutrition|spa|therapy|running|other)$")
     location_text: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None

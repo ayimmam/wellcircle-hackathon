@@ -76,7 +76,11 @@ async function request(method, path, body = null, extraOptions = {}) {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Request failed' }));
-      throw new Error(err.detail || 'Request failed');
+      let msg = err.detail || 'Request failed';
+      if (Array.isArray(msg)) {
+        msg = msg.map(e => `${e.loc ? e.loc.slice(-1) : 'Field'}: ${e.msg}`).join(', ');
+      }
+      throw new Error(msg);
     }
     return res.json();
   } catch (err) {

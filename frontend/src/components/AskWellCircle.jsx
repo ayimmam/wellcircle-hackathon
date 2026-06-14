@@ -6,16 +6,34 @@ export default function AskWellCircle() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
-  const [isFirstMessage, setIsFirstMessage] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isFirstMessage, setIsFirstMessage] = useState(() => {
+    const saved = localStorage.getItem('concierge_is_first');
+    return saved ? JSON.parse(saved) : true;
+  });
   
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      text: "🌿 Hi! Welcome to Well Circle. Tell me what wellness service you need, your neighborhood in Addis Ababa, or your budget range, and I will find your perfect match!",
-      sender: 'assistant'
+  const [messages, setMessages] = useState(() => {
+    const saved = localStorage.getItem('concierge_messages');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
     }
-  ]);
+    return [
+      {
+        id: 1,
+        text: "🌿 Hi! Welcome to Well Circle. Tell me what wellness service you need, your neighborhood in Addis Ababa, or your budget range, and I will find your perfect match!",
+        sender: 'assistant'
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('concierge_messages', JSON.stringify(messages));
+  }, [messages]);
+
+  useEffect(() => {
+    localStorage.setItem('concierge_is_first', JSON.stringify(isFirstMessage));
+  }, [isFirstMessage]);
 
   const messagesEndRef = useRef(null);
 
@@ -138,9 +156,31 @@ export default function AskWellCircle() {
                   <div className="burger-brand-sub">POWERED BY WELL CIRCLE</div>
                 </div>
               </div>
-              <button className="burger-close" onClick={() => setIsOpen(false)} aria-label="Close chat">
-                <Icon name="x" size={18} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  className="burger-close"
+                  style={{ width: 'auto', padding: '0 8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}
+                  onClick={() => {
+                    if (window.confirm("Clear chat history?")) {
+                      const initialMsg = {
+                        id: 1,
+                        text: "🌿 Hi! Welcome to Well Circle. Tell me what wellness service you need, your neighborhood in Addis Ababa, or your budget range, and I will find your perfect match!",
+                        sender: 'assistant'
+                      };
+                      setMessages([initialMsg]);
+                      setIsFirstMessage(true);
+                      localStorage.removeItem('concierge_messages');
+                      localStorage.removeItem('concierge_is_first');
+                    }
+                  }}
+                  title="Clear Chat"
+                >
+                  Clear
+                </button>
+                <button className="burger-close" onClick={() => setIsOpen(false)} aria-label="Close chat">
+                  <Icon name="x" size={18} />
+                </button>
+              </div>
             </div>
 
             {/* Messages Area */}

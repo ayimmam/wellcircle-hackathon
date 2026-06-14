@@ -58,6 +58,10 @@ export default function BookingFlow() {
     }
   }, [eventId, provider, selectedService, location.state]);
 
+  const basePrice = selectedService?.price || 0;
+  const platformFee = Math.round(basePrice * 0.02);
+  const totalPrice = basePrice + platformFee;
+
   const canNext = () => {
     if (step === 0) return selectedService !== null;
     if (step === 1) return selectedDate !== null && selectedTime !== null;
@@ -73,7 +77,7 @@ export default function BookingFlow() {
         provider_id: providerId,
         service_name: selectedService.name,
         slot_datetime: `${selectedDate}T${selectedTime}:00Z`,
-        amount_etb: selectedService.price,
+        amount_etb: totalPrice,
         payment_method: paymentMethod,
         phone_number: phoneNumber,
         ...(eventId ? { event_id: eventId } : {}),
@@ -160,7 +164,15 @@ export default function BookingFlow() {
             </div>
             <div className="confirmation-row">
               <span className="confirmation-label">Amount</span>
-              <span className="confirmation-value">ETB {selectedService?.price?.toLocaleString()}</span>
+              <span className="confirmation-value">ETB {basePrice.toLocaleString()}</span>
+            </div>
+            <div className="confirmation-row">
+              <span className="confirmation-label">Platform Fee (2%)</span>
+              <span className="confirmation-value">ETB {platformFee.toLocaleString()}</span>
+            </div>
+            <div className="confirmation-row">
+              <span className="confirmation-label" style={{ fontWeight: 700 }}>Total Paid</span>
+              <span className="confirmation-value" style={{ fontWeight: 700 }}>ETB {totalPrice.toLocaleString()}</span>
             </div>
             <div className="confirmation-row">
               <span className="confirmation-label">Payment</span>
@@ -298,10 +310,18 @@ export default function BookingFlow() {
                 <span className="confirmation-label">Date & Time</span>
                 <span className="confirmation-value">{selectedDate} at {selectedTime}</span>
               </div>
+              <div className="confirmation-row">
+                <span className="confirmation-label">Service Amount</span>
+                <span className="confirmation-value">ETB {basePrice.toLocaleString()}</span>
+              </div>
+              <div className="confirmation-row" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <span className="confirmation-label">Platform Fee (2%)</span>
+                <span className="confirmation-value">ETB {platformFee.toLocaleString()}</span>
+              </div>
               <div className="confirmation-row" style={{ borderBottom: 'none' }}>
                 <span className="confirmation-label" style={{ fontWeight: 700 }}>{t('Total')}</span>
                 <span className="confirmation-value" style={{ color: 'var(--accent)', fontSize: '1.1rem' }}>
-                  ETB {selectedService?.price?.toLocaleString()}
+                  ETB {totalPrice.toLocaleString()}
                 </span>
               </div>
             </div>
@@ -368,7 +388,7 @@ export default function BookingFlow() {
             disabled={!canNext()}
             id="pay-btn"
           >
-            <Icon name="coins" size={18} /> Pay ETB {selectedService?.price?.toLocaleString()}
+            <Icon name="coins" size={18} /> Pay ETB {totalPrice.toLocaleString()}
           </button>
         )}
       </div>

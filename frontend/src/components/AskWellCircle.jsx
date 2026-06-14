@@ -70,6 +70,12 @@ export default function AskWellCircle() {
               const replyLower = (data.reply || '').toLowerCase() + ' ' + userMsg.toLowerCase();
               let matched = provData.providers.find(p => replyLower.includes(p.category.toLowerCase()));
               if (!matched) matched = provData.providers[Math.floor(Math.random() * provData.providers.length)];
+              
+              // Update the reply text to mention the matched provider instead of the fallback
+              if (data.reply && data.provider_name) {
+                data.reply = data.reply.replace(new RegExp(data.provider_name, 'gi'), matched.name);
+              }
+              
               data.provider_id = matched.id;
               data.provider_name = matched.name;
               data.data_source = 'live';

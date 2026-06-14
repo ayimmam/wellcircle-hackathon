@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 
 from app.database import SessionLocal, engine, Base
-from app.models import User, Provider, Community, Circle, CircleMember, Post, Reaction
+from app.models import User, Provider, Community, Circle, CircleMember, Post, Reaction, ProviderEvent
 
 
 def seed():
@@ -391,6 +391,126 @@ def seed():
         ]
         for reaction in reactions:
             db.merge(reaction)
+
+        print("🌱 Seeding Events...")
+        now = datetime.now(timezone.utc)
+        
+        events = [
+            ProviderEvent(
+                id=uuid.UUID('55555555-0000-0000-0000-000000000001'),
+                provider_id=p1_id,
+                service_name="Wellness Hackathon at Kuriftu",
+                description="Join the largest wellness technology hackathon happening today at Kuriftu Resort! Network, code, and innovate.",
+                starts_at=now,
+                ends_at=now + timedelta(hours=12),
+                capacity=100,
+                spots_remaining=25,
+                price_etb=0,
+                is_boosted=True
+            ),
+            ProviderEvent(
+                id=uuid.UUID('55555555-0000-0000-0000-000000000002'),
+                provider_id=p1_id,
+                service_name="Sunset Pilates Flow",
+                description="Unwind with a 60-minute sunset Pilates flow focusing on core strength and flexibility.",
+                starts_at=now + timedelta(days=1, hours=18),
+                ends_at=now + timedelta(days=1, hours=19),
+                capacity=20,
+                spots_remaining=15,
+                price_etb=1200
+            ),
+            ProviderEvent(
+                id=uuid.UUID('55555555-0000-0000-0000-000000000003'),
+                provider_id=p2_id,
+                service_name="HIIT Bootcamp",
+                description="High-intensity interval training designed to push your limits and burn maximum calories.",
+                starts_at=now + timedelta(days=2, hours=8),
+                ends_at=now + timedelta(days=2, hours=9),
+                capacity=30,
+                spots_remaining=5,
+                price_etb=800
+            ),
+            ProviderEvent(
+                id=uuid.UUID('55555555-0000-0000-0000-000000000004'),
+                provider_id=p3_id,
+                service_name="Aromatherapy Workshop",
+                description="Learn the basics of essential oils and create your own custom aromatherapy blend.",
+                starts_at=now + timedelta(days=3, hours=14),
+                ends_at=now + timedelta(days=3, hours=16),
+                capacity=15,
+                spots_remaining=8,
+                price_etb=2500
+            ),
+            ProviderEvent(
+                id=uuid.UUID('55555555-0000-0000-0000-000000000005'),
+                provider_id=p4_id,
+                service_name="Mindfulness & Meditation",
+                description="Guided group meditation to reduce stress and improve mental clarity.",
+                starts_at=now + timedelta(days=4, hours=10),
+                ends_at=now + timedelta(days=4, hours=11),
+                capacity=25,
+                spots_remaining=25,
+                price_etb=1000
+            ),
+            ProviderEvent(
+                id=uuid.UUID('55555555-0000-0000-0000-000000000006'),
+                provider_id=p5_id,
+                service_name="Ethiopian Nutrition Masterclass",
+                description="Discover how to balance traditional Ethiopian meals with modern sports nutrition principles.",
+                starts_at=now + timedelta(days=5, hours=16),
+                ends_at=now + timedelta(days=5, hours=18),
+                capacity=50,
+                spots_remaining=42,
+                price_etb=1500
+            ),
+            ProviderEvent(
+                id=uuid.UUID('55555555-0000-0000-0000-000000000007'),
+                provider_id=p7_id,
+                service_name="Couples Spa Day",
+                description="Exclusive couples retreat featuring full-body massages and traditional coffee scrubs.",
+                starts_at=now + timedelta(days=6, hours=12),
+                ends_at=now + timedelta(days=6, hours=15),
+                capacity=5,
+                spots_remaining=2,
+                price_etb=6500
+            ),
+            ProviderEvent(
+                id=uuid.UUID('55555555-0000-0000-0000-000000000008'),
+                provider_id=p8_id,
+                service_name="Hammam Detox Session",
+                description="Group steam and detox session using ancient North African bathing rituals.",
+                starts_at=now + timedelta(days=7, hours=19),
+                ends_at=now + timedelta(days=7, hours=20),
+                capacity=12,
+                spots_remaining=10,
+                price_etb=3000
+            ),
+            ProviderEvent(
+                id=uuid.UUID('55555555-0000-0000-0000-000000000009'),
+                provider_id=p9_id,
+                service_name="Anxiety Support Group",
+                description="Safe space for individuals dealing with anxiety, led by licensed psychotherapists.",
+                starts_at=now + timedelta(days=8, hours=18),
+                ends_at=now + timedelta(days=8, hours=19),
+                capacity=15,
+                spots_remaining=15,
+                price_etb=1500
+            ),
+            ProviderEvent(
+                id=uuid.UUID('55555555-0000-0000-0000-000000000010'),
+                provider_id=p10_id,
+                service_name="Entoto Altitude Run",
+                description="Join us for a challenging 10K group run at altitude, starting from Entoto Park.",
+                starts_at=now + timedelta(days=9, hours=6),
+                ends_at=now + timedelta(days=9, hours=8),
+                capacity=100,
+                spots_remaining=85,
+                price_etb=300
+            )
+        ]
+        
+        for event in events:
+            db.merge(event)
 
         db.commit()
         print(f"✅ Seeded successfully!")

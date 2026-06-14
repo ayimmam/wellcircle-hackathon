@@ -19,13 +19,7 @@ export default function AskWellCircle() {
         return JSON.parse(saved);
       } catch (e) {}
     }
-    return [
-      {
-        id: 1,
-        text: "🌿 Hi! Welcome to Well Circle. Tell me what wellness service you need, your neighborhood in Addis Ababa, or your budget range, and I will find your perfect match!",
-        sender: 'assistant'
-      }
-    ];
+    return [];
   });
 
   useEffect(() => {
@@ -66,7 +60,7 @@ export default function AskWellCircle() {
       
       setMessages(prev => [...prev, {
         id: Date.now() + 2,
-        text: data.reply || "Let's find the best wellness option for you.",
+        text: data.reply || "",
         sender: 'assistant',
         provider: data.provider_name ? { id: data.provider_id, name: data.provider_name, data_source: data.data_source } : null
       }]);
@@ -163,12 +157,7 @@ export default function AskWellCircle() {
                   style={{ width: 'auto', padding: '0 8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}
                   onClick={() => {
                     if (window.confirm("Clear chat history?")) {
-                      const initialMsg = {
-                        id: 1,
-                        text: "🌿 Hi! Welcome to Well Circle. Tell me what wellness service you need, your neighborhood in Addis Ababa, or your budget range, and I will find your perfect match!",
-                        sender: 'assistant'
-                      };
-                      setMessages([initialMsg]);
+                      setMessages([]);
                       setIsFirstMessage(true);
                       localStorage.removeItem('concierge_messages');
                       localStorage.removeItem('concierge_is_first');

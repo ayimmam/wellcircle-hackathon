@@ -15,6 +15,8 @@ QUERIES = [
     "ALTER TABLE providers ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(50)",
     # Re-engagement (003)
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_reengagement_at TIMESTAMPTZ",
+    # Comments
+    "CREATE TABLE IF NOT EXISTS post_comments (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), post_id UUID REFERENCES posts(id) NOT NULL, user_id UUID REFERENCES users(id) NOT NULL, content TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)",
 ]
 
 

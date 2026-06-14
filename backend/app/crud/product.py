@@ -233,16 +233,17 @@ def redeem_product(
             f"You have already redeemed this product maximum times (limit: {product.max_redemptions_per_user})"
         )
 
-    if user.points_balance < product.price_etb:
+    user_balance = user.points_balance or 0
+    if user_balance < product.price_etb:
         raise ValueError(
-            f"Insufficient Legacy Points. You have {user.points_balance} points; need {product.price_etb}."
+            f"Insufficient Legacy Points. You have {user_balance} points; need {product.price_etb}."
         )
 
     redemption_code = None
     if product.type == "digital":
         redemption_code = _generate_redemption_code(product.digital_code_template)
 
-    user.points_balance -= product.price_etb
+    user.points_balance = user_balance - product.price_etb
     product.quantity_in_stock -= 1
     if product.quantity_in_stock == 0:
         product.is_active = False

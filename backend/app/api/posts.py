@@ -56,3 +56,13 @@ def api_get_posts(
 def api_react_to_post(post_id: str, reaction_in: ReactionCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     reaction = react_to_post(db, UUID(post_id), user_id=user.id, emoji=reaction_in.emoji, points_to_gift=reaction_in.points_gifted)
     return {"message": "Reaction added successfully", "points_gifted": reaction.points_gifted}
+
+class CommentCreate(BaseModel):
+    content: str
+
+@router.post("/{post_id}/comments")
+def api_create_comment(post_id: str, comment_in: CommentCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.crud.post import create_comment
+    comment = create_comment(db, UUID(post_id), user_id=user.id, content=comment_in.content)
+    return {"id": comment.id, "message": "Comment added successfully"}
+

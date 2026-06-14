@@ -176,7 +176,7 @@ def checkin_community(db: Session, community_id: UUID, user: User):
         return "already_checked_in"
 
     points_earned = 10
-    user.points_balance += points_earned
+    user.points_balance = (user.points_balance or 0) + points_earned
     user.last_checkin_at = datetime.now(timezone.utc)
     event = CommunityFeedEvent(community_id=community_id, user_id=user.id, event_type="checkin")
     db.add(event)
@@ -210,7 +210,7 @@ def checkin_community(db: Session, community_id: UUID, user: User):
                 ChallengeAward.user_id == user.id
             ).first()
             if not already_awarded:
-                user.points_balance += challenge.reward_points
+                user.points_balance = (user.points_balance or 0) + challenge.reward_points
                 db.add(ChallengeAward(
                     challenge_id=challenge.id,
                     user_id=user.id,

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from fastapi import HTTPException
 
-from app.models.post import Post, Reaction
+from app.models.post import Post, Reaction, PostComment
 from app.models.user import User
 
 def create_post(db: Session, user_id: UUID, content: str, community_id: Optional[UUID] = None, circle_id: Optional[UUID] = None) -> Post:
@@ -41,6 +41,19 @@ def get_posts(db: Session, community_id: Optional[UUID] = None, circle_id: Optio
             reaction_summary[r.emoji] = reaction_summary.get(r.emoji, 0) + 1
             total_points_gifted += r.points_gifted
             
+        # Get comments
+        comments = db.query(PostComment, User).join(User, PostComment.user_id == User.id).filter(PostComment.post_id == p.id).order_by(PostComment.created_at.asc()).all()
+        comments_data = [{
+            "id": c.id,
+            "content": c.content,
+            "created_at": c.created_at,
+            "user": {
+                "id": cu.id,
+                "name": cu.name,
+                "photo_url": cu.photo_url
+            }
+        } for c, cu in comments]
+        
         result.append({
             "id": p.id,
             "content": p.content,
@@ -52,7 +65,8 @@ def get_posts(db: Session, community_id: Optional[UUID] = None, circle_id: Optio
             },
             "created_at": p.created_at,
             "reactions": reaction_summary,
-            "total_points_gifted": total_points_gifted
+            "total_points_gifted": total_points_gifted,
+            "comments": comments_data
         })
     return result
 
@@ -65,12 +79,15 @@ def react_to_post(db: Session, post_id: UUID, user_id: UUID, emoji: str, points_
     receiver = db.query(User).filter(User.id == post.user_id).first()
     
     if points_to_gift > 0:
-        if giver.points_balance < points_to_gift:
+        giver_balance = giver.points_balance or 0
+        receiver_balance = receiver.points_balance or 0
+        
+        if giver_balance < points_to_gift:
             raise HTTPException(status_code=400, detail="Not enough points to gift")
         
         # Transfer points
-        giver.points_balance -= points_to_gift
-        receiver.points_balance += points_to_gift
+        giver.points_balance = giver_balance - points_to_gift
+        receiver.points_balance = receiver_balance + points_to_gift
         
     reaction = Reaction(
         post_id=post_id,
@@ -82,3 +99,19 @@ def react_to_post(db: Session, post_id: UUID, user_id: UUID, emoji: str, points_
     db.commit()
     db.refresh(reaction)
     return reaction
+
+def create_comment(db: Session, post_id: UUID, user_id: UUID, content: str) -> PostComment:
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+        
+    comment = PostComment(
+        post_id=post_id,
+        user_id=user_id,
+        content=content
+    )
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    return comment
+

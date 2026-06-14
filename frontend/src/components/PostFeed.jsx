@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getPosts, createPost, reactToPost } from '../api/client';
+import { getPosts, createPost, reactToPost, commentOnPost } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { showToast } from './Toast';
 
@@ -8,6 +8,8 @@ export default function PostFeed({ communityId, circleId }) {
   const [posts, setPosts] = useState([]);
   const [newPostContent, setNewPostContent] = useState('');
   const [loading, setLoading] = useState(true);
+  const [commentingOnId, setCommentingOnId] = useState(null);
+  const [commentContent, setCommentContent] = useState('');
 
   useEffect(() => {
     loadPosts();
@@ -33,6 +35,19 @@ export default function PostFeed({ communityId, circleId }) {
       showToast('Posted successfully!', '📝');
     } catch (err) {
       showToast('Error posting', '❌');
+    }
+  };
+
+  const handleComment = async (postId) => {
+    if (!commentContent.trim()) return;
+    try {
+      await commentOnPost(postId, commentContent);
+      setCommentContent('');
+      setCommentingOnId(null);
+      loadPosts();
+      showToast('Comment added!', '💬');
+    } catch (err) {
+      showToast('Error commenting', '❌');
     }
   };
 
@@ -169,6 +184,46 @@ export default function PostFeed({ communityId, circleId }) {
                   🌿 +{post.total_points_gifted} Legacy Points gifted
                 </div>
               )}
+
+              {/* Comments Section */}
+              <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                {(post.comments || []).length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    {(post.comments || []).map(comment => (
+                      <div key={comment.id} style={{ display: 'flex', gap: 8, marginBottom: 8, background: 'rgba(0,0,0,0.02)', padding: 8, borderRadius: 8 }}>
+                        <div style={{ width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', background: '#ddd', flexShrink: 0 }}>
+                          {comment.user.photo_url ? <img src={comment.user.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>👤</span>}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.8rem' }}>{comment.user.name} <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>• {timeAgo(comment.created_at)}</span></div>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{comment.content}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {commentingOnId === post.id ? (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input 
+                      type="text" 
+                      className="input" 
+                      style={{ flex: 1, padding: '6px 12px', minHeight: 'unset', fontSize: '0.85rem' }}
+                      placeholder="Write a comment..." 
+                      value={commentContent}
+                      onChange={e => setCommentContent(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleComment(post.id)}
+                      autoFocus
+                    />
+                    <button className="btn btn-primary" style={{ padding: '4px 12px', fontSize: '0.8rem' }} onClick={() => handleComment(post.id)} disabled={!commentContent.trim()}>Send</button>
+                    <button className="btn btn-secondary" style={{ padding: '4px 12px', fontSize: '0.8rem' }} onClick={() => setCommentingOnId(null)}>Cancel</button>
+                  </div>
+                ) : (
+                  <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: 20 }} onClick={() => setCommentingOnId(post.id)}>
+                    💬 Comment {post.comments?.length > 0 ? `(${post.comments.length})` : ''}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         ))}

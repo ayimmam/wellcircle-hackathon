@@ -390,6 +390,15 @@ export async function reactToPost(postId, data) {
   return request('POST', `/posts/${postId}/react`, data);
 }
 
+export async function commentOnPost(postId, content) {
+  if (USE_MOCK) {
+    await delay();
+    return { id: 'mock-comment', message: "Success" };
+  }
+  return request('POST', `/posts/${postId}/comments`, { content });
+}
+
+
 // ─── Provider Self-Onboarding ───────────────────────
 export async function selfOnboardProvider(data) {
   if (USE_MOCK) {

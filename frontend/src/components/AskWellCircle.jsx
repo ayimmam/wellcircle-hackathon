@@ -6,6 +6,7 @@ export default function AskWellCircle() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [isFirstMessage, setIsFirstMessage] = useState(() => {
     const saved = localStorage.getItem('concierge_is_first');
     return saved ? JSON.parse(saved) : true;

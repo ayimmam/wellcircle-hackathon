@@ -47,7 +47,7 @@ async def self_onboard(
         provider_id=str(provider.id),
         name=provider.name,
         status=provider.status,
-        message="Application submitted. Admin will review within 24 hours.",
+        message="Application submitted and automatically approved!",
     )
 
 

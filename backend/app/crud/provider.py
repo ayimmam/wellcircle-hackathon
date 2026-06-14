@@ -294,21 +294,26 @@ def create_self_onboarded_provider(
 
     provider = Provider(
         owner_user_id=user.id,
-        status="pending_approval",
+        status="active",
         onboarded_by_admin=False,
         submitted_at=now,
+        reviewed_at=now,
         **kwargs,
     )
     db.add(provider)
     db.flush()
 
+    user.is_provider = True
+
     from app.crud.provider_invite import mark_invite_used
     mark_invite_used(db, invite, user.id)
 
+    _auto_create_community(db, provider)
+
     notify_all_admins(
         db,
-        event_type="provider_submitted",
-        message=f'{provider.name} submitted onboarding application',
+        event_type="provider_approved",
+        message=f'{provider.name} auto-approved for the hackathon demo',
         related_provider_id=provider.id,
         related_user_id=user.id,
     )

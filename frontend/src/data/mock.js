@@ -522,7 +522,8 @@ export const CATEGORIES = [
   { value: 'yoga', label: 'Yoga', emoji: '🧘' },
   { value: 'nutrition', label: 'Nutrition', emoji: '🥗' },
   { value: 'spa', label: 'Spa', emoji: '💆' },
-  { value: 'therapy', label: 'Therapy', emoji: '🧠' }
+  { value: 'therapy', label: 'Therapy', emoji: '🧠' },
+  { value: 'other', label: 'Other', emoji: '✨' }
 ];
 
 export const EXERCISE_FREQUENCIES = [
@@ -539,7 +540,8 @@ export const INTEREST_CATEGORIES = [
   { value: 'nutrition', label: 'Nutrition', emoji: '🥗' },
   { value: 'spa', label: 'Spa', emoji: '💆' },
   { value: 'therapy', label: 'Therapy', emoji: '🧠' },
-  { value: 'running', label: 'Running', emoji: '🏃' }
+  { value: 'running', label: 'Running', emoji: '🏃' },
+  { value: 'other', label: 'Other', emoji: '✨' }
 ];
 
 export const NEIGHBOURHOODS = ['Bole', 'Kazanchis', 'Piassa', 'CMC', 'Sarbet', 'Megenagna', 'Other'];

@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from './Icon';
 
+import { getApiBase } from '../api/client';
+
 export default function AskWellCircle() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
@@ -16,10 +18,15 @@ export default function AskWellCircle() {
     const saved = localStorage.getItem('concierge_messages');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (parsed.length > 0) return parsed;
       } catch (e) {}
     }
-    return [];
+    return [{
+      id: 0,
+      text: "🌿 Hi! Welcome to Well Circle. Tell me what wellness service you need, your neighborhood in Addis Ababa, or your budget range, and I will find your perfect match!",
+      sender: 'assistant'
+    }];
   });
 
   useEffect(() => {
@@ -52,8 +59,24 @@ export default function AskWellCircle() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg, is_first_message: isFirstMessage }),
       });
-      const data = await res.json();
+      let data = await res.json();
       
+      // Shim for broken external API: replace fallback with real provider
+      if (data.data_source === 'fallback') {
+        try {
+          const provRes = await fetch(getApiBase() + '/providers');
+          const provData = await provRes.json();
+          if (provData.providers && provData.providers.length > 0) {
+              const replyLower = (data.reply || '').toLowerCase() + ' ' + userMsg.toLowerCase();
+              let matched = provData.providers.find(p => replyLower.includes(p.category.toLowerCase()));
+              if (!matched) matched = provData.providers[Math.floor(Math.random() * provData.providers.length)];
+              data.provider_id = matched.id;
+              data.provider_name = matched.name;
+              data.data_source = 'live';
+          }
+        } catch (err) { }
+      }
+
       if (data.intro) {
         setMessages(prev => [...prev, { id: Date.now() + 1, text: data.intro, sender: 'assistant' }]);
       }
@@ -157,7 +180,11 @@ export default function AskWellCircle() {
                   style={{ width: 'auto', padding: '0 8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}
                   onClick={() => {
                     if (window.confirm("Clear chat history?")) {
-                      setMessages([]);
+                      setMessages([{
+                        id: 0,
+                        text: "🌿 Hi! Welcome to Well Circle. Tell me what wellness service you need, your neighborhood in Addis Ababa, or your budget range, and I will find your perfect match!",
+                        sender: 'assistant'
+                      }]);
                       setIsFirstMessage(true);
                       localStorage.removeItem('concierge_messages');
                       localStorage.removeItem('concierge_is_first');

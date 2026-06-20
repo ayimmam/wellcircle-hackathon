@@ -7,6 +7,7 @@ import {
 } from '../api/client';
 import FeedEvent from '../components/FeedEvent';
 import { showToast } from '../components/Toast';
+import usePolling from '../hooks/usePolling';
 
 export default function ProviderDashboard() {
   const navigate = useNavigate();
@@ -63,19 +64,15 @@ export default function ProviderDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Poll stats every 10 seconds for live updates
-  useEffect(() => {
-    if (!stats || !providerId) return;
-    const interval = setInterval(async () => {
-      try {
-        const newStats = await getProviderStats(providerId);
-        setStats(newStats);
-      } catch (err) {
-        // Silently fail
-      }
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [stats, providerId]);
+  // Poll stats every 10 seconds for live updates (paused while backgrounded)
+  usePolling(async () => {
+    try {
+      const newStats = await getProviderStats(providerId);
+      setStats(newStats);
+    } catch (err) {
+      // Silently fail — transient polling errors shouldn't disrupt the dashboard
+    }
+  }, 10000, Boolean(stats && providerId));
 
   if (loading) {
     return (

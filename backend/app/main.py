@@ -2,6 +2,7 @@
 Well Circle — FastAPI application entry point.
 Telegram Mini App for wellness providers and communities in Ethiopia.
 """
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,20 +12,32 @@ from app.api import auth, providers, communities, bookings, payments, users, cir
 from app.api.admin import router as admin_router
 from app.api.bot import router as bot_router
 from app.config import settings
+from app.utils.logger import get_logger
+from app.utils.error_handlers import register_error_handling
+
+logger = get_logger("wellcircle.app")
+
+# Vercel freezes serverless functions between requests, so a background
+# scheduler thread can't run reliably there and just slows cold starts.
+# Run it only on long-lived hosts (Render/local).
+IS_SERVERLESS = bool(os.getenv("VERCEL"))
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
-    print("🟢 Well Circle API starting...")
+    logger.info("Well Circle API starting (env=%s, serverless=%s)", settings.ENVIRONMENT, IS_SERVERLESS)
 
-    # Start background scheduler (points decay)
+    # Start background scheduler (points decay) — skip on serverless.
     scheduler = None
-    try:
-        from app.services.scheduler import start_scheduler
-        scheduler = start_scheduler()
-    except Exception as e:
-        print(f"⚠️  Scheduler failed to start: {e}")
+    if not IS_SERVERLESS:
+        try:
+            from app.services.scheduler import start_scheduler
+            scheduler = start_scheduler()
+        except Exception:
+            logger.exception("Scheduler failed to start")
+    else:
+        logger.info("Scheduler disabled on serverless host; run decay via cron/Render instead")
 
     # Create tables if they don't exist (dev convenience)
     if settings.ENVIRONMENT == "development":
@@ -35,16 +48,16 @@ async def lifespan(app: FastAPI):
                 AdminNotification, Community, Booking, Circle, Post,
             )
             Base.metadata.create_all(bind=engine)
-            print("📦 Database tables ensured")
-        except Exception as e:
-            print(f"⚠️  DB table creation skipped: {e}")
+            logger.info("Database tables ensured")
+        except Exception:
+            logger.exception("DB table creation skipped")
 
     yield
 
     # Shutdown
     if scheduler:
         scheduler.shutdown(wait=False)
-    print("🔴 Well Circle API shutting down...")
+    logger.info("Well Circle API shutting down")
 
 
 app = FastAPI(
@@ -68,6 +81,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Graceful error responses + request timing/logging
+register_error_handling(app)
 
 # --- API Routers ---
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])

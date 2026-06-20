@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m py_compile app/main.py app/utils/error_handlers.py app/utils/logger.py)",
+      "Bash(DATABASE_URL=\"sqlite:///./test.db\" TELEGRAM_BOT_TOKEN=x JWT_SECRET=x ENVIRONMENT=test python -c \"from app.main import app; print\\('IMPORT OK', len\\(app.routes\\), 'routes'\\)\")",
+      "Bash(python3 -m py_compile app/main.py app/utils/error_handlers.py app/utils/logger.py)",
+      "Bash(DATABASE_URL=\"sqlite:///./test.db\" TELEGRAM_BOT_TOKEN=x JWT_SECRET=x ENVIRONMENT=development .venv/bin/python -c \"from app.main import app; print\\('IMPORT OK', len\\(app.routes\\), 'routes'\\)\")",
+      "Bash(DATABASE_URL=sqlite:///./test.db TELEGRAM_BOT_TOKEN=x JWT_SECRET=x ENVIRONMENT=development .venv/bin/python -c ' *)",
+      "Bash(grep -vE \"INFO|WARNING|ERROR|Traceback|File |  |secret internal detail xyz\\\\$|RuntimeError\")",
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "Bash(cd *)",
+      "Bash(npx vitest *)",
+      "Bash(npm uninstall *)",
+      "Bash(node --input-type=module -e ' *)",
+      "Bash(grep -vE \"Future Flag|reactrouter.com|startTransition|relativeSplatPath|^⚠️|^$\")",
+      "Bash(grep -vE \"Future Flag|reactrouter.com|startTransition|relativeSplatPath|^⚠️|^$|stderr\")",
+      "Bash(npx eslint *)",
+      "Bash(DATABASE_URL=\"sqlite:///./test.db\" TELEGRAM_BOT_TOKEN=x JWT_SECRET=x ENVIRONMENT=development .venv/bin/python -m app.tests.test_integration)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(grep -iE \"\\\\.env$|\\\\.env\\\\.|\\\\.db$|secret|credential|\\\\.pyc$|__pycache__|\\\\.docx$|\\\\.pdf$|pytest_output|test\\\\.db\")",
+      "Bash(git rm *)",
+      "Bash(git mv *)",
+      "Bash(npm test *)"
+    ]
+  }
+}

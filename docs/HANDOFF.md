@@ -263,4 +263,93 @@ HANDOFF.md
 
 ---
 
+### Phase 4 — Production Readiness / Beta Hardening (This Session)
+
+Focus: make the app safe for real beta users — resilient navigation, free-tier
+responsiveness, and errors that read plainly for users while staying fully
+diagnosable from the server side. **Launch posture:** polished beta — payments
+remain in demo/auto-approve mode; this pass is reliability, speed, and tests.
+
+#### Graceful Error Handling (users see simple language; ops get full detail)
+- **Backend** `backend/app/utils/error_handlers.py` (new) — registers global handlers:
+  - Unhandled exceptions: full traceback + correlation id logged; client gets a
+    calm generic message (`"Something went wrong on our side…"`) tagged with the
+    same `request_id`. **No stack traces or internal messages leak to clients.**
+  - Validation errors: specifics logged; client gets a short, friendly summary.
+  - Intentional `HTTPException`s (401/403/404/409) pass through their existing
+    user-facing `detail` strings; 5xx-class ones are logged.
+  - **Request middleware** logs every call as `METHOD path -> status in Xms [req:id]`,
+    escalating to WARN/ERROR on 4xx/5xx or slow (>1.5s) responses.
+- **Backend** `backend/app/utils/logger.py` — now configures a real stdout
+  handler/formatter once (captured by Vercel/Render), quiets noisy libs in prod;
+  `main.py` `print()`s replaced with structured logging.
+- **Frontend** `frontend/src/components/ErrorBoundary.jsx` (new) — wraps all
+  routes; a crashing screen shows a friendly reload card instead of a white page,
+  while the technical error goes to the console.
+- **Frontend** `frontend/src/api/client.js` — network/timeout errors now read in
+  plain language (internal URLs moved to `console.error`); server error
+  correlation ids are logged for support.
+
+#### Free-Tier Performance
+- **Route-based code splitting** — `frontend/src/App.jsx` lazy-loads every screen
+  via `React.lazy` + `Suspense` (admin bundle fully isolated). Initial JS bundle
+  ≈ 292 kB / 91 kB gzip; screens load on demand for faster first paint over slow
+  Telegram networks.
+- **Visibility-aware polling** — `frontend/src/hooks/usePolling.js` (new) pauses
+  notification (30s), provider-stats (10s), and community-feed (5s) polling while
+  the app is backgrounded and refreshes on return, so cold serverless functions
+  aren't woken needlessly.
+- **Scheduler gated off serverless** — `main.py` skips the APScheduler background
+  job on Vercel (`VERCEL` env), where frozen threads make it unreliable and only
+  add cold-start cost; it still runs on long-lived hosts (Render/local).
+
+#### Automated Testing (Vitest + React Testing Library)
+- Test infra added: `vitest` + `@testing-library/react` on `happy-dom`, config in
+  `vite.config.js`, setup in `src/test/setup.js`. Scripts: `npm test`,
+  `npm run test:watch`. Tests run the API client in mock mode (deterministic, no
+  network).
+- **42 passing tests**, including:
+  - Navigation chrome: `BottomNav`, `Header`, `BurgerMenu` (role-based items),
+    `AdminGuard` (loading / error+retry / non-admin redirect / admin allow).
+  - `ErrorBoundary` (friendly fallback, no raw error leak, reload works).
+  - **Route smoke suite** (`src/test/routes.smoke.test.jsx`) — mounts all 23
+    reachable routes (every user + admin screen, detail pages, 404 fallback) and
+    fails if any trips the ErrorBoundary.
+
+#### Verification
+- `npm run build` ✅ · `npm test` → 42/42 ✅ · backend exception handler manually
+  verified to return generic message + `request_id` with no leaked internals ✅
+
+#### Known Gap (pre-existing, unrelated)
+- `backend/app/tests/test_integration.py` has one pre-existing failure at
+  `get_valid_invite` — a SQLite UUID `TypeDecorator` (`cache_ok`) harness issue,
+  not caused by this work (the test imports none of the changed modules).
+
+#### Files Changed / Added (Phase 4)
+```
+backend/app/utils/error_handlers.py   (new)
+backend/app/utils/logger.py
+backend/app/main.py
+frontend/src/App.jsx
+frontend/src/components/ErrorBoundary.jsx   (new)
+frontend/src/components/Header.jsx
+frontend/src/api/client.js
+frontend/src/hooks/usePolling.js   (new)
+frontend/src/pages/ProviderDashboard.jsx
+frontend/src/pages/CommunityDetail.jsx
+frontend/vite.config.js
+frontend/package.json
+frontend/src/test/setup.js   (new)
+frontend/src/test/renderWithProviders.jsx   (new)
+frontend/src/test/ErrorBoundary.test.jsx   (new)
+frontend/src/test/BottomNav.test.jsx   (new)
+frontend/src/test/Header.test.jsx   (new)
+frontend/src/test/BurgerMenu.test.jsx   (new)
+frontend/src/test/AdminGuard.test.jsx   (new)
+frontend/src/test/routes.smoke.test.jsx   (new)
+HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*

@@ -53,4 +53,4 @@ backend/
 
 ## API Contract
 
-See [API_CONTRACT.md](../API_CONTRACT.md) for the full endpoint specification.
+See [API_CONTRACT.md](../docs/API_CONTRACT.md) for the full endpoint specification.

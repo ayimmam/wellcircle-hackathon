@@ -7,6 +7,7 @@ import PostFeed from '../components/PostFeed';
 import ChallengesList from '../components/ChallengesList';
 import Leaderboard from '../components/Leaderboard';
 import { showToast } from '../components/Toast';
+import usePolling from '../hooks/usePolling';
 
 export default function CommunityDetail() {
   const { id } = useParams();
@@ -37,22 +38,18 @@ export default function CommunityDetail() {
       .finally(() => setLoading(false));
   }, [id, navigate]);
 
-  // Poll feed every 5 seconds
-  useEffect(() => {
-    if (!community) return;
-    const interval = setInterval(async () => {
-      try {
-        const res = await getCommunityFeed(id, lastTimestamp.current);
-        if (res.events.length > 0) {
-          setEvents(prev => [...res.events, ...prev]);
-          lastTimestamp.current = res.events[0].created_at;
-        }
-      } catch (err) {
-        // Silently fail polling
+  // Poll feed every 5 seconds (paused while the app is backgrounded)
+  usePolling(async () => {
+    try {
+      const res = await getCommunityFeed(id, lastTimestamp.current);
+      if (res.events.length > 0) {
+        setEvents(prev => [...res.events, ...prev]);
+        lastTimestamp.current = res.events[0].created_at;
       }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [id, community]);
+    } catch (err) {
+      // Silently fail polling
+    }
+  }, 5000, Boolean(community));
 
   const handleJoin = async () => {
     setJoining(true);

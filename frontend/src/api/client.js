@@ -49,11 +49,14 @@ function isNetworkError(err) {
 }
 
 function wrapNetworkError(err) {
+  // Keep technical detail in the console for debugging; show users plain language.
   if (err.name === 'AbortError') {
-    return new Error(`Request timed out — is the backend running at ${API_BASE}?`);
+    console.error(`[WellCircle] Request timed out (API_BASE=${API_BASE})`, err);
+    return new Error('This is taking longer than usual. Please check your connection and try again.');
   }
   if (err instanceof TypeError || err?.message === 'Failed to fetch') {
-    return new Error(`Cannot reach API at ${API_BASE}. Check your connection and try again.`);
+    console.error(`[WellCircle] Network error reaching ${API_BASE}`, err);
+    return new Error("We couldn't connect right now. Please check your connection and try again.");
   }
   return err;
 }
@@ -79,6 +82,11 @@ async function request(method, path, body = null, extraOptions = {}) {
       let msg = err.detail || 'Request failed';
       if (Array.isArray(msg)) {
         msg = msg.map(e => `${e.loc ? e.loc.slice(-1) : 'Field'}: ${e.msg}`).join(', ');
+      }
+      // Server attaches a correlation id on errors — log it so support can trace.
+      const reqId = err.request_id || res.headers.get('X-Request-ID');
+      if (res.status >= 500) {
+        console.error(`[WellCircle] Server error ${res.status} on ${method} ${path} (request_id=${reqId || 'n/a'})`);
       }
       throw new Error(msg);
     }

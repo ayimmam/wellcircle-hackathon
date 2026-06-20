@@ -83,16 +83,22 @@ export default function AskWellCircle() {
         } catch (err) { }
       }
 
-      if (data.intro) {
+      // Only append the intro bubble if it has real content
+      if (data.intro && data.intro.trim().length > 0) {
         setMessages(prev => [...prev, { id: Date.now() + 1, text: data.intro, sender: 'assistant' }]);
       }
-      
-      setMessages(prev => [...prev, {
-        id: Date.now() + 2,
-        text: data.reply || "",
-        sender: 'assistant',
-        provider: data.provider_name ? { id: data.provider_id, name: data.provider_name, data_source: data.data_source } : null
-      }]);
+
+      // Only append the reply bubble if it has real content - prevents
+      // empty/blank message bubbles (e.g. on the is_first_message turn,
+      // where the backend intentionally returns an empty reply).
+      if (data.reply && data.reply.trim().length > 0) {
+        setMessages(prev => [...prev, {
+          id: Date.now() + 2,
+          text: data.reply,
+          sender: 'assistant',
+          provider: data.provider_name ? { id: data.provider_id, name: data.provider_name, data_source: data.data_source } : null
+        }]);
+      }
 
       setIsFirstMessage(false);
     } catch (e) {
@@ -216,7 +222,9 @@ export default function AskWellCircle() {
               gap: '16px',
               paddingBottom: '20px'
             }}>
-              {messages.map((msg) => (
+              {messages
+                .filter(msg => msg.text && msg.text.trim().length > 0)
+                .map((msg) => (
                 <div key={msg.id} style={{
                   alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
                   maxWidth: '85%',

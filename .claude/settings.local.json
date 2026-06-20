@@ -23,7 +23,15 @@
       "Bash(grep -iE \"\\\\.env$|\\\\.env\\\\.|\\\\.db$|secret|credential|\\\\.pyc$|__pycache__|\\\\.docx$|\\\\.pdf$|pytest_output|test\\\\.db\")",
       "Bash(git rm *)",
       "Bash(git mv *)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Bash(.venv/bin/python -c \"import groq, supabase, fastapi, pytest, httpx; print\\('deps OK'\\)\")",
+      "Bash(.venv/bin/pip install *)",
+      "Bash(echo \"EXIT $?\")",
+      "Bash(.venv/bin/python -m pytest test_main.py -q)",
+      "Bash(.venv/bin/python -c \"import main; print\\('import OK — model:', main.GROQ_MODEL, '| max_tokens:', main.GROQ_MAX_TOKENS, '| cache_ttl:', main.PROVIDER_CACHE_TTL_SECONDS\\)\")",
+      "Bash(git symbolic-ref *)",
+      "Bash(grep -rliE \"concierge|askwellcircle|ai/concierge\" frontend/src)",
+      "Bash(ls -la frontend/src/components/AskWellCircle.jsx)"
     ]
   }
 }

@@ -52,4 +52,4 @@ telegram-bot/
 
 ## API Contract
 
-See [API_CONTRACT.md](../API_CONTRACT.md) — Bot section (Section 2).
+See [API_CONTRACT.md](../docs/API_CONTRACT.md) — Bot section (Section 2).

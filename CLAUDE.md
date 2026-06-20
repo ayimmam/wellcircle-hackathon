@@ -10,7 +10,7 @@ Well Circle is a Telegram Mini App for wellness providers and communities in Eth
 - `frontend/` — React 18 + Vite + react-router. The Mini App + super-admin UI. Deployed to **Vercel**.
 - `telegram-bot/` — python-telegram-bot worker (polling). Deployed to **Railway** (1 replica only — duplicates cause `getUpdates` Conflict errors).
 
-The `API_CONTRACT.md` at the repo root is the source-of-truth interface between all three teams. When changing request/response shapes, update it. `PRD.md`, `BACKEND_REFERENCE.md`, and the `*_HANDOFF.md` files are design docs.
+`docs/API_CONTRACT.md` is the source-of-truth interface between all three services. When changing request/response shapes, update it. `docs/PRD.md`, `docs/BACKEND_REFERENCE.md`, and the `docs/*_HANDOFF.md` files are design/status docs.
 
 ## Commands
 

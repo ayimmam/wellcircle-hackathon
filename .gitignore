@@ -26,3 +26,10 @@ Thumbs.db
 *.log
 opencode.json
 WellaTribe_PRD_Hackathon.docx
+
+# Local databases & test artifacts
+*.db
+*.sqlite3
+pytest_output.txt
+coverage/
+.coverage

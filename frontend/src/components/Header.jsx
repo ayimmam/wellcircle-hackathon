@@ -18,6 +18,9 @@ export default function Header({ onMenuOpen }) {
     if (hidden) return undefined;
     let cancelled = false;
     const poll = async () => {
+      // Don't hit the backend while the app is backgrounded — saves free-tier
+      // quota and avoids waking cold serverless functions for nothing.
+      if (typeof document !== 'undefined' && document.hidden) return;
       try {
         const count = await getNotificationUnreadCount();
         if (!cancelled) setUnreadCount(count);
@@ -27,9 +30,13 @@ export default function Header({ onMenuOpen }) {
     };
     poll();
     const interval = setInterval(poll, 30000);
+    // Refresh immediately when the user returns to the app.
+    const onVisible = () => { if (!document.hidden) poll(); };
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [location.pathname, hidden]);
 

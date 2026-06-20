@@ -126,6 +126,7 @@ cd frontend
 npm install
 cp .env.example .env    # Set VITE_API_URL
 npm run dev
+npm test                # Vitest + RTL — navigation + route smoke tests
 ```
 
 ---

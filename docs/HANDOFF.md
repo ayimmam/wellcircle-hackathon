@@ -1,7 +1,7 @@
 # Well Circle — Project Handoff
 
 This document tracks implementation status against `PRD.md`, `IMPLEMENTATION_PROMPT.md`, and `PHASE3_IMPLEMENTATION_PLAN.md`.  
-**Last updated:** June 2026 — after Phase 3 (events, challenges, in-app notifications, subscriptions).
+**Last updated:** July 2026 — after Phase 5 (Points Economy, Provider Tools & Social Growth — see `POINTS_ECONOMY_PLAN.md`).
 
 For Phase 3 detail and LLM continuation notes, see also **`PHASE3_HANDOFF.md`**.
 
@@ -347,6 +347,102 @@ frontend/src/test/Header.test.jsx   (new)
 frontend/src/test/BurgerMenu.test.jsx   (new)
 frontend/src/test/AdminGuard.test.jsx   (new)
 frontend/src/test/routes.smoke.test.jsx   (new)
+HANDOFF.md
+```
+
+---
+
+### Phase 5 — Points Economy, Provider Tools & Social Growth (This Session)
+
+Full implementation of `docs/POINTS_ECONOMY_PLAN.md` (architecture/prioritization doc — read that first for the "why" behind each decision). Landed across two sessions: backend data layer + points service first, then bot handlers, remaining frontend UI, and the migration/docs in this session.
+
+#### B — Redundancy & maintainability remediation
+- **B1 — Transaction ledger.** New `point_transactions` table (`backend/app/models/point_transaction.py`) is now the single source of truth for every points mutation. `app/services/points.py: apply_transaction()` is the *only* function allowed to touch `User.points_balance` — it writes a ledger row and updates the cached balance atomically. All 12+ prior call sites (`crud/community.py`, `crud/booking.py`, `crud/product.py`, `crud/post.py`, `services/scheduler.py`) migrated onto it. `GET /users/me/points-history` now reads the ledger instead of `CommunityFeedEvent` (previously blind to booking bonuses, gifts, and decay).
+- **B2 — Engine consolidation.** Tier calculation and earn/decay constants unified in `app/services/points.py`; `points_engine.py` kept only as a deprecated import shim (its `points_engine` decay constants were still referenced by the scheduler, and a clean deletion risked breaking any external script importing it — verified with `git grep` there were no other callers of note, but kept the shim as a zero-cost safety net rather than a hard break).
+- **B3 — `price_etb` naming collision fixed.** `Product.price_etb` (points) renamed to `points_cost` at the ORM level; the underlying DB column stays `price_etb` (`Column("price_etb", ...)`) so no migration/deploy-order coupling across the three services, and a `price_etb` property alias keeps old callers working for one release. `ProviderEvent.price_etb` (real ETB) is untouched — it was never ambiguous.
+- **B4 — Polling standardized onto `usePolling`.** `Header.jsx`'s persistent 30s notification poll, plus the short-lived payment/subscription-status polls in `BookingFlow.jsx`, `ProviderDashboard.jsx`, and `ProviderOnboard.jsx`, all converted from raw `setInterval` to `usePolling` — pauses while backgrounded, cleans up on unmount, no more waking cold serverless functions for nothing.
+
+#### C — Engagement & provider trust features
+- **C1 — Provider customer list (mini-CRM).** `GET /providers/me/customers` — distinct users with a successful booking or check-in at that provider, last-visit date, lifetime points redeemed. New "Customers" tab in `ProviderDashboard.jsx`.
+- **C2 — Streak + streak freeze.** `User.current_streak`/`freeze_count`; check-in awards a streak freeze every 7-day streak. Surfaced as a badge next to the points chip on Home, plus a toast on streak milestones.
+- **C3 — Weekly circle digest.** `GET /api/bot/circle-digests` (ledger-derived weekly top scorer per circle) + a bot `JobQueue` job (`telegram-bot/bot/services/weekly_digest.py`) DMing every circle member each Sunday 18:00 UTC.
+- **C4 — First-reward onboarding goal.** `FirstRewardCard.jsx` on Home — picks the cheapest product the backend already flags `is_recommended` for the user's interest category and shows a progress bar / "check in N more times" nudge.
+- **C5 — Provider payout-predictability card.** `GET /providers/me/analytics/points` — 4-week trend of points redeemed + unique visits at that provider, rendered as bars in the dashboard's Analytics tab.
+
+#### D — Point valuation & new earning mechanisms
+- **D1 — Price suggestions.** `GET /providers/me/products/price-suggestion?category=…` — median/P25–P75 of `points_cost` across active in-category products (falls back to an ETB-anchor heuristic under 3 comparables). Surfaced as a hint chip on the product-creation form that fills the price field on tap.
+- **D2 — Evidence-based event participation.** `ProviderEvent.staff_user_id` (provider-designated per event, no new role system needed) + new `evidence_submissions` table. Bot `/evidence` conversation handler (`telegram-bot/bot/handlers/evidence.py`) lists a staff member's ended events, captures a photo, and queues it. Admin review (`GET/POST /admin/evidence...`, with a backend photo proxy that keeps the bot token server-side) mints `event_participation` points to every attendee with a successful booking on approval.
+- **D3 — Provider-initiated point awards.** `POST /providers/me/customers/{id}/award` — gated on a verified booking or check-in, capped at 1 award/customer/day, 50 pts/award, 300 pts/provider/day. One-tap "🎁 +25 pts" button on the new Customers tab.
+- **Decay rewrite.** Eligibility changed from `last_checkin_at` to "days since last positive-amount ledger transaction" — a user earning via bookings/events/awards but skipping check-ins no longer bleeds points for being active in other ways. Decay is now itself a ledger row (`type=decay`), visible in points history for the first time.
+
+#### E — Social growth loops
+- **E1 — Circle invite links + referral credit.** `?startapp=circle_{join_code}` deep link parsed in `AuthContext` (Telegram `initDataUnsafe.start_param`) → `POST /circles/join-by-code` → auto-join + redirect. "Invite friends" button on `CircleDetailScreen` (`switchInlineQuery`, falling back to clipboard copy). Referral credit (+30 pts each side, capped at 10/referrer/month) fires on the invitee's **first-ever check-in**, not signup, to resist farming.
+- **E2 — Social proof.** `GET /circles/social-proof/today` → "🔥 N circle-mates checked in today" banner on Home, reusing existing circle-membership + check-in data.
+
+#### Bugs found and fixed while building on top of existing code
+- `CircleMember.weekly_points` was dead — only ever populated by seed data, never written on check-in, so the leaderboard always read 0 for real users. C3's digest and E2 both needed a real number, so weekly points are now computed on-demand from the ledger (trailing 7 days of positive transactions) instead of that unfed column.
+- While reshaping the circles list response to carry `join_code` (needed for the invite button), caught that returning it to every browsing user would leak a private circle's access gate — scoped it to circles the caller has already joined.
+
+#### Verification
+- Backend: `python -m app.tests.test_points_economy` → **65/65 passing** (in-memory SQLite integration test covering every item above). `app.main` imports cleanly with 99 routes.
+- Frontend: `npm run build` ✅ · `npm test` → **42/42 passing** (mock-mode route smoke suite catches any render-time crash in the new UI).
+- Bot: all new/changed files pass `python -m py_compile`.
+- No headless-browser tooling was available in the build sandbox, so the new UI (streak badge, social proof banner, first-reward card, Customers tab, price hint chip, analytics trend bars) was verified via build + the automated route-smoke tests + code review, not a live screenshot — worth a manual pass with `npm run dev` before shipping to real users.
+
+#### Known simplifications (flagged for a fast-follow, not blocking)
+- D2's staff picker (event create/edit in `ProviderDashboard.jsx`) sources candidates from the provider's own Customers list rather than a general user lookup, since no user-directory/search UI exists yet — fine for "pick someone who's already interacted with you," not for staff who've never booked or checked in.
+- E1's "Invite friends" button uses `switchInlineQuery` rather than a bot-prepared `shareMessage` card — the latter needs a `savePreparedInlineMessage` bot-backend round trip that wasn't built this session; `switchInlineQuery` is the plan's own documented fallback tier.
+- The five open questions in `POINTS_ECONOMY_PLAN.md` (valuation anchor, D2 minting fan-out, free-event participant source, referral/cap tuning, legal posture) were resolved by following the plan's own stated recommendations where no user input overrode them — worth a final confirm before scaling point values.
+
+#### Files Changed / Added (Phase 5)
+```
+backend/alembic/versions/004_points_economy.py   (new)
+backend/app/services/points.py   (new)
+backend/app/services/telegram_bot.py
+backend/app/services/scheduler.py
+backend/app/models/point_transaction.py   (new)
+backend/app/models/evidence_submission.py   (new)
+backend/app/models/__init__.py
+backend/app/models/product.py
+backend/app/models/provider_event.py
+backend/app/models/user.py
+backend/app/schemas/evidence.py   (new)
+backend/app/schemas/event.py
+backend/app/crud/evidence.py   (new)
+backend/app/crud/provider.py
+backend/app/crud/circle.py
+backend/app/crud/community.py
+backend/app/crud/booking.py
+backend/app/crud/post.py
+backend/app/crud/product.py
+backend/app/api/providers.py
+backend/app/api/bot.py
+backend/app/api/admin.py
+backend/app/api/circles.py
+backend/app/api/events.py
+backend/app/api/auth.py
+backend/app/api/users.py
+backend/app/tests/test_points_economy.py   (new)
+telegram-bot/bot/handlers/evidence.py   (new)
+telegram-bot/bot/services/weekly_digest.py   (new)
+telegram-bot/bot/services/api_client.py
+telegram-bot/bot/utils/messages.py
+telegram-bot/bot/main.py
+frontend/src/components/StreakBadge.jsx   (new)
+frontend/src/components/FirstRewardCard.jsx   (new)
+frontend/src/components/SocialProofBanner.jsx   (new)
+frontend/src/pages/HomeScreen.jsx
+frontend/src/pages/ProviderDashboard.jsx
+frontend/src/pages/CommunityDetail.jsx
+frontend/src/pages/CircleDetailScreen.jsx
+frontend/src/pages/BookingFlow.jsx
+frontend/src/pages/ProviderOnboard.jsx
+frontend/src/context/AuthContext.jsx
+frontend/src/components/Header.jsx
+frontend/src/api/client.js
+frontend/src/data/mock.js
+frontend/.env.example
+docs/API_CONTRACT.md
 HANDOFF.md
 ```
 

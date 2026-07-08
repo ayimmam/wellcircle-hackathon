@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { selfOnboardProvider, initiateSubscription, getSubscriptionStatus } from '../api/client';
 import { INTEREST_CATEGORIES } from '../data/mock';
 import { showToast } from '../components/Toast';
+import usePolling from '../hooks/usePolling';
 
 const STEPS = ['Invite Code', 'Basic Info', 'Services & Photos', 'Payment Setup', 'Review'];
 
@@ -30,8 +31,27 @@ export default function ProviderOnboard() {
     subscription_plan: 'starter',
   });
   const [serviceDraft, setServiceDraft] = useState({ name: '', price: '', duration: '' });
+  const [subPollId, setSubPollId] = useState(null);
+  const [subPollStartedAt, setSubPollStartedAt] = useState(null);
 
   const update = (key, val) => setForm(f => ({ ...f, [key]: val }));
+
+  // B4: was a raw setInterval + setTimeout pair; usePolling standardizes the
+  // hidden-tab pause and unmount cleanup. Fire-and-forget by design (matches
+  // prior behavior) — it just stops polling once active or after 120s.
+  usePolling(async () => {
+    if (!subPollId) return;
+    try {
+      const st = await getSubscriptionStatus(subPollId);
+      if (st.status === 'active' || st.status === 'success') {
+        setSubPollId(null);
+        return;
+      }
+    } catch { /* ignore */ }
+    if (subPollStartedAt && Date.now() - subPollStartedAt > 120000) {
+      setSubPollId(null);
+    }
+  }, 3000, Boolean(subPollId));
 
   const addService = () => {
     if (!serviceDraft.name || !serviceDraft.price) return;
@@ -79,13 +99,8 @@ export default function ProviderOnboard() {
           window.Telegram.WebApp.openLink(sub.to_pay_url);
         }
         if (sub.subscription_id) {
-          const poll = setInterval(async () => {
-            try {
-              const st = await getSubscriptionStatus(sub.subscription_id);
-              if (st.status === 'active' || st.status === 'success') clearInterval(poll);
-            } catch { /* ignore */ }
-          }, 3000);
-          setTimeout(() => clearInterval(poll), 120000);
+          setSubPollId(sub.subscription_id);
+          setSubPollStartedAt(Date.now());
         }
       }
       setDone(true);

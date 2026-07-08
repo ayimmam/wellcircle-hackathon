@@ -13,6 +13,8 @@ from app.crud.provider import (
     get_all_providers, get_provider_detail, get_provider_stats,
     user_has_active_provider, create_self_onboarded_provider,
     get_provider_me, update_provider_me, get_provider_by_owner,
+    get_provider_customers, award_customer_points,
+    get_price_suggestion, get_provider_points_analytics,
 )
 from app.crud.provider_invite import get_valid_invite, create_invite
 from app.crud.product import get_provider_products, create_product, update_product, get_provider_redemptions
@@ -221,3 +223,69 @@ async def provider_dashboard_stats(
     if not stats:
         raise HTTPException(status_code=404, detail="Provider not found")
     return stats
+
+
+# ── C1: Provider Customer List ────────────────────────────────────────────
+
+@router.get("/me/customers")
+async def list_my_customers(
+    user: User = Depends(get_current_provider),
+    db: Session = Depends(get_db),
+):
+    """Get distinct customers who booked or checked in at this provider."""
+    provider = get_provider_by_owner(db, user.id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    customers = get_provider_customers(db, provider.id)
+    return {"customers": customers, "count": len(customers)}
+
+
+# ── D3: Provider-Initiated Point Awards ───────────────────────────────────
+
+@router.post("/me/customers/{customer_user_id}/award")
+async def award_points_to_customer(
+    customer_user_id: str,
+    points: int = Query(..., gt=0, le=50),
+    note: Optional[str] = Query(None),
+    user: User = Depends(get_current_provider),
+    db: Session = Depends(get_db),
+):
+    """Award points to a customer (max 50/award, 1/day/customer, 300/day total)."""
+    provider = get_provider_by_owner(db, user.id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    try:
+        result = award_customer_points(db, provider.id, UUID(customer_user_id), points, note)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── D1: Price Suggestion ─────────────────────────────────────────────────
+
+@router.get("/me/products/price-suggestion")
+async def get_product_price_suggestion(
+    category: Optional[str] = Query(None),
+    user: User = Depends(get_current_provider),
+    db: Session = Depends(get_db),
+):
+    """Get recommended point costs for products based on category peers."""
+    provider = get_provider_by_owner(db, user.id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    cat = category or provider.category
+    return get_price_suggestion(db, cat)
+
+
+# ── C5: Provider Points Analytics ────────────────────────────────────────
+
+@router.get("/me/analytics/points")
+async def get_my_points_analytics(
+    user: User = Depends(get_current_provider),
+    db: Session = Depends(get_db),
+):
+    """Points redeemed at your business — weekly trend for the analytics tab."""
+    provider = get_provider_by_owner(db, user.id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    return get_provider_points_analytics(db, provider.id)

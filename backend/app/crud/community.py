@@ -151,6 +151,11 @@ def leave_community(db: Session, community_id: UUID, user_id: UUID) -> Optional[
 
 def checkin_community(db: Session, community_id: UUID, user: User):
     """Daily check-in. Returns dict, or string sentinel for errors."""
+    from app.services.points import (
+        apply_transaction, get_points_tier, POINTS_CHECKIN,
+        TXN_CHECKIN, TXN_CHALLENGE,
+    )
+
     community = db.query(Community).filter(Community.id == community_id).first()
     if not community:
         return None
@@ -175,9 +180,52 @@ def checkin_community(db: Session, community_id: UUID, user: User):
     if existing:
         return "already_checked_in"
 
-    points_earned = 10
-    user.points_balance = (user.points_balance or 0) + points_earned
-    user.last_checkin_at = datetime.now(timezone.utc)
+    points_earned = POINTS_CHECKIN
+    apply_transaction(db, user, points_earned, TXN_CHECKIN,
+                      reference_id=community.id,
+                      note=f"Check-in: {community.name}")
+
+    # E1: Referral credit — fires once, on the invitee's first-ever check-in
+    # (not mere signup), to resist farming. last_checkin_at is still None here.
+    is_first_checkin_ever = user.last_checkin_at is None
+    if is_first_checkin_ever and user.referred_by:
+        from app.services.points import (
+            count_referrals_this_month, REFERRAL_MAX_PER_MONTH,
+            POINTS_REFERRAL, TXN_REFERRAL,
+        )
+        referrer = db.query(User).filter(User.id == user.referred_by).first()
+        if referrer and count_referrals_this_month(db, referrer.id) < REFERRAL_MAX_PER_MONTH:
+            apply_transaction(db, referrer, POINTS_REFERRAL, TXN_REFERRAL,
+                              reference_id=user.id,
+                              note=f"Referral: {user.name or user.telegram_handle or 'new member'} joined")
+            apply_transaction(db, user, POINTS_REFERRAL, TXN_REFERRAL,
+                              reference_id=referrer.id,
+                              note="Referral bonus: welcome!")
+            from app.services.notification_service import create_notification
+            create_notification(
+                db, user_id=referrer.id, type="referral_credited",
+                title="Referral bonus! 🎉",
+                body=f"{user.name or user.telegram_handle or 'Your invite'} checked in for the first time — you earned {POINTS_REFERRAL} pts.",
+                action_url="/points-history",
+            )
+
+    # C2: Streak tracking
+    now = datetime.now(timezone.utc)
+    if user.last_checkin_at:
+        days_since = (now.date() - user.last_checkin_at.date()).days
+        if days_since == 1:
+            user.current_streak = (user.current_streak or 0) + 1
+        elif days_since > 1:
+            user.current_streak = 1
+        # same day = no change (shouldn't reach here due to duplicate check)
+    else:
+        user.current_streak = 1
+
+    # C2: Award streak freeze every 7-day streak
+    if user.current_streak and user.current_streak % 7 == 0:
+        user.freeze_count = (user.freeze_count or 0) + 1
+
+    user.last_checkin_at = now
     event = CommunityFeedEvent(community_id=community_id, user_id=user.id, event_type="checkin")
     db.add(event)
     db.commit()
@@ -210,7 +258,9 @@ def checkin_community(db: Session, community_id: UUID, user: User):
                 ChallengeAward.user_id == user.id
             ).first()
             if not already_awarded:
-                user.points_balance = (user.points_balance or 0) + challenge.reward_points
+                apply_transaction(db, user, challenge.reward_points, TXN_CHALLENGE,
+                                  reference_id=challenge.id,
+                                  note=f"Challenge: {challenge.title}")
                 db.add(ChallengeAward(
                     challenge_id=challenge.id,
                     user_id=user.id,
@@ -227,11 +277,12 @@ def checkin_community(db: Session, community_id: UUID, user: User):
     db.commit()
     # -------------------------------------------
 
-    from app.crud.user import get_points_tier
     tier, tier_emoji = get_points_tier(user.points_balance)
     return {
         "points_earned": points_earned,
         "new_balance": user.points_balance,
+        "current_streak": user.current_streak or 0,
+        "freeze_count": user.freeze_count or 0,
         "tier": tier,
         "tier_emoji": tier_emoji,
         "feed_event": {

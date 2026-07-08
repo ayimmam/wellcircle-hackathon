@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { getProvider, createBooking, initiateTelebirr, initiateMpesa, getPaymentStatus } from '../api/client';
 import { MOCK_TIME_SLOTS, getNextDays } from '../data/mock';
 import { showToast } from '../components/Toast';
 import Icon from '../components/Icon';
+import usePolling from '../hooks/usePolling';
 import { useTranslation } from 'react-i18next';
 
 const STEP_LABELS = ['Service', 'Date & Time', 'Payment'];
@@ -27,6 +28,7 @@ export default function BookingFlow() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [booking, setBooking] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null); // null | 'processing' | 'success' | 'failed'
+  const pollAttemptsRef = useRef(0);
 
   const days = getNextDays(7);
 
@@ -71,6 +73,7 @@ export default function BookingFlow() {
 
   const handlePay = async () => {
     setPaymentStatus('processing');
+    pollAttemptsRef.current = 0;
     try {
       // 1. Create booking
       const bk = await createBooking({
@@ -90,39 +93,39 @@ export default function BookingFlow() {
       } else {
         await initiateMpesa(bk.id, phoneNumber);
       }
-
-      // 3. Poll payment status
-      let attempts = 0;
-      const poll = setInterval(async () => {
-        attempts++;
-        try {
-          const status = await getPaymentStatus(bk.id);
-          if (status.payment_status === 'success') {
-            clearInterval(poll);
-            setPaymentStatus('success');
-            setBooking(prev => ({ ...prev, ...status }));
-            showToast('Payment confirmed! 🎉', '✅');
-          } else if (status.payment_status === 'failed') {
-            clearInterval(poll);
-            setPaymentStatus('failed');
-            showToast('Payment failed. Try again.', '❌');
-          } else if (attempts > 20) {
-            // 60 seconds timeout
-            clearInterval(poll);
-            setPaymentStatus('failed');
-            showToast('Payment confirmation timed out.', '⏳');
-          }
-        } catch (err) {
-          clearInterval(poll);
-          setPaymentStatus('failed');
-          showToast('Error checking payment status.', '❌');
-        }
-      }, 3000);
+      // 3. usePolling below picks up payment-status polling now that
+      // paymentStatus === 'processing' and booking.id is set.
     } catch (err) {
       setPaymentStatus('failed');
       showToast(err.message || 'Payment initiation failed. Try again.', '❌');
     }
   };
+
+  // B4: was a raw setInterval that kept polling even if the tab was
+  // backgrounded or the component unmounted mid-payment; usePolling pauses
+  // in the background and cleans up on unmount automatically.
+  usePolling(async () => {
+    if (!booking?.id) return;
+    pollAttemptsRef.current += 1;
+    try {
+      const status = await getPaymentStatus(booking.id);
+      if (status.payment_status === 'success') {
+        setPaymentStatus('success');
+        setBooking(prev => ({ ...prev, ...status }));
+        showToast('Payment confirmed! 🎉', '✅');
+      } else if (status.payment_status === 'failed') {
+        setPaymentStatus('failed');
+        showToast('Payment failed. Try again.', '❌');
+      } else if (pollAttemptsRef.current > 20) {
+        // 60 seconds timeout
+        setPaymentStatus('failed');
+        showToast('Payment confirmation timed out.', '⏳');
+      }
+    } catch (err) {
+      setPaymentStatus('failed');
+      showToast('Error checking payment status.', '❌');
+    }
+  }, 3000, paymentStatus === 'processing');
 
   if (loading || !provider) {
     return (

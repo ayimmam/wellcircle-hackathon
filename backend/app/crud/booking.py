@@ -64,11 +64,14 @@ def update_booking_payment(
             )
             db.add(event)
 
-        # 1. Award +50 points to user
+        # 1. Award +50 points to user via ledger
         user = db.query(User).filter(User.id == booking.user_id).first()
         if user:
-            user.points_balance = (user.points_balance or 0) + 50
-            
+            from app.services.points import apply_transaction, POINTS_BOOKING_BONUS, TXN_BOOKING_BONUS
+            apply_transaction(db, user, POINTS_BOOKING_BONUS, TXN_BOOKING_BONUS,
+                              provider_id=booking.provider_id,
+                              reference_id=booking.id,
+                              note=f"Booking: {booking.service_name}")
         # Notify User
         from app.services.notification_service import create_notification
         create_notification(

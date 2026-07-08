@@ -12,6 +12,7 @@ class EventCreate(BaseModel):
     ends_at: datetime
     capacity: int
     price_etb: int
+    staff_user_id: Optional[str] = None  # D2: designated evidence submitter
 
 
 class EventUpdate(BaseModel):
@@ -19,6 +20,7 @@ class EventUpdate(BaseModel):
     capacity: Optional[int] = None
     spots_remaining: Optional[int] = None
     is_cancelled: Optional[bool] = None
+    staff_user_id: Optional[str] = None  # D2: designated evidence submitter
 
 
 class EventResponse(BaseModel):
@@ -33,6 +35,7 @@ class EventResponse(BaseModel):
     price_etb: int
     is_cancelled: bool
     is_boosted: bool
+    staff_user_id: Optional[str] = None
     created_at: datetime
     
     # Computed fields for ListResponse (joined from Provider)

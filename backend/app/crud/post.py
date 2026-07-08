@@ -85,9 +85,14 @@ def react_to_post(db: Session, post_id: UUID, user_id: UUID, emoji: str, points_
         if giver_balance < points_to_gift:
             raise HTTPException(status_code=400, detail="Not enough points to gift")
         
-        # Transfer points
-        giver.points_balance = giver_balance - points_to_gift
-        receiver.points_balance = receiver_balance + points_to_gift
+        # Transfer points via ledger
+        from app.services.points import apply_transaction, TXN_GIFT_SENT, TXN_GIFT_RECEIVED
+        apply_transaction(db, giver, -points_to_gift, TXN_GIFT_SENT,
+                          reference_id=post.id,
+                          note=f"Gift to {receiver.name or 'user'}")
+        apply_transaction(db, receiver, points_to_gift, TXN_GIFT_RECEIVED,
+                          reference_id=post.id,
+                          note=f"Gift from {giver.name or 'user'}")
         
     reaction = Reaction(
         post_id=post_id,

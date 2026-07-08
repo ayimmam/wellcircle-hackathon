@@ -604,3 +604,280 @@ def delete_provider(db: Session, provider_id: UUID) -> bool:
     db.delete(provider)
     db.commit()
     return True
+
+
+# ── C1: Provider Customer List (mini-CRM) ─────────────────────────────────
+
+def get_provider_customers(db: Session, provider_id: UUID) -> List[dict]:
+    """Get distinct users who interacted with this provider
+    (via booking or community check-in), with last-visit and lifetime points."""
+    from app.models.point_transaction import PointTransaction
+
+    # Users with successful bookings at this provider
+    booking_users = (
+        db.query(Booking.user_id)
+        .filter(
+            Booking.provider_id == provider_id,
+            Booking.payment_status == "success",
+        )
+        .distinct()
+    )
+
+    # Users who checked in at this provider's community
+    community = db.query(Community).filter(Community.provider_id == provider_id).first()
+    checkin_users_q = db.query(CommunityFeedEvent.user_id).filter(False)  # empty if no community
+    if community:
+        checkin_users_q = (
+            db.query(CommunityFeedEvent.user_id)
+            .filter(
+                CommunityFeedEvent.community_id == community.id,
+                CommunityFeedEvent.event_type == "checkin",
+            )
+            .distinct()
+        )
+
+    # Union of both sets
+    all_customer_ids = set()
+    for row in booking_users.all():
+        all_customer_ids.add(row[0])
+    for row in checkin_users_q.all():
+        all_customer_ids.add(row[0])
+
+    customers = []
+    for uid in all_customer_ids:
+        user = db.query(User).filter(User.id == uid).first()
+        if not user:
+            continue
+
+        # Last visit (most recent booking or check-in)
+        last_booking = (
+            db.query(func.max(Booking.created_at))
+            .filter(Booking.user_id == uid, Booking.provider_id == provider_id, Booking.payment_status == "success")
+            .scalar()
+        )
+        last_checkin = None
+        if community:
+            last_checkin = (
+                db.query(func.max(CommunityFeedEvent.created_at))
+                .filter(
+                    CommunityFeedEvent.user_id == uid,
+                    CommunityFeedEvent.community_id == community.id,
+                    CommunityFeedEvent.event_type == "checkin",
+                )
+                .scalar()
+            )
+        last_visit = max(filter(None, [last_booking, last_checkin]), default=None)
+
+        # Lifetime points redeemed at this provider
+        lifetime_redeemed = (
+            db.query(func.coalesce(func.sum(PointTransaction.amount), 0))
+            .filter(
+                PointTransaction.user_id == uid,
+                PointTransaction.provider_id == provider_id,
+                PointTransaction.type == "redemption",
+                PointTransaction.reversed_by.is_(None),
+            )
+            .scalar()
+        )
+
+        customers.append({
+            "user_id": str(uid),
+            "name": user.name or user.telegram_handle or "User",
+            "photo_url": user.photo_url,
+            "last_visit": last_visit.isoformat() if last_visit else None,
+            "lifetime_points_redeemed": abs(int(lifetime_redeemed)),
+            "points_balance": user.points_balance or 0,
+        })
+
+    # Sort by most recent visit
+    customers.sort(key=lambda c: c["last_visit"] or "", reverse=True)
+    return customers
+
+
+# ── D3: Provider-Initiated Point Awards ───────────────────────────────────
+
+def award_customer_points(
+    db: Session,
+    provider_id: UUID,
+    customer_user_id: UUID,
+    points: int,
+    note: Optional[str] = None,
+) -> dict:
+    """Award points to a customer who has interacted with this provider.
+
+    Enforces caps:
+    - Max 1 award per customer per day
+    - Max 50 points per award
+    - Max 300 points per provider per day
+    """
+    from app.services.points import (
+        apply_transaction, TXN_PROVIDER_AWARD,
+        count_provider_awards_to_customer_today,
+        sum_provider_awards_today,
+        PROVIDER_AWARD_MAX_PER_CUSTOMER_PER_DAY,
+        PROVIDER_AWARD_MAX_POINTS_PER_AWARD,
+        PROVIDER_AWARD_MAX_POINTS_PER_DAY,
+    )
+
+    # Validate points amount
+    if points <= 0:
+        raise ValueError("Points must be positive")
+    if points > PROVIDER_AWARD_MAX_POINTS_PER_AWARD:
+        raise ValueError(f"Maximum {PROVIDER_AWARD_MAX_POINTS_PER_AWARD} points per award")
+
+    # Check customer has interacted with this provider
+    customer = db.query(User).filter(User.id == customer_user_id).first()
+    if not customer:
+        raise ValueError("Customer not found")
+
+    has_booking = (
+        db.query(Booking)
+        .filter(
+            Booking.user_id == customer_user_id,
+            Booking.provider_id == provider_id,
+            Booking.payment_status == "success",
+        )
+        .first()
+    )
+    has_checkin = False
+    community = db.query(Community).filter(Community.provider_id == provider_id).first()
+    if community:
+        has_checkin = (
+            db.query(CommunityFeedEvent)
+            .filter(
+                CommunityFeedEvent.user_id == customer_user_id,
+                CommunityFeedEvent.community_id == community.id,
+                CommunityFeedEvent.event_type == "checkin",
+            )
+            .first()
+        ) is not None
+
+    if not has_booking and not has_checkin:
+        raise ValueError("Customer has no verified interaction with this provider")
+
+    # Cap checks
+    awards_today = count_provider_awards_to_customer_today(db, provider_id, customer_user_id)
+    if awards_today >= PROVIDER_AWARD_MAX_PER_CUSTOMER_PER_DAY:
+        raise ValueError("Already awarded this customer today (max 1/day)")
+
+    total_today = sum_provider_awards_today(db, provider_id)
+    if total_today + points > PROVIDER_AWARD_MAX_POINTS_PER_DAY:
+        remaining = PROVIDER_AWARD_MAX_POINTS_PER_DAY - total_today
+        raise ValueError(f"Daily provider limit reached. Remaining allowance: {max(0, remaining)} pts")
+
+    # Apply the award
+    txn = apply_transaction(
+        db, customer, points, TXN_PROVIDER_AWARD,
+        provider_id=provider_id,
+        note=note or "Provider award",
+    )
+    db.commit()
+
+    return {
+        "transaction_id": str(txn.id),
+        "customer_user_id": str(customer_user_id),
+        "points_awarded": points,
+        "customer_new_balance": customer.points_balance,
+        "provider_daily_remaining": PROVIDER_AWARD_MAX_POINTS_PER_DAY - (total_today + points),
+    }
+
+
+# ── D1: Price Suggestion for Products ────────────────────────────────────
+
+def get_price_suggestion(db: Session, category: str) -> dict:
+    """Compute recommended point costs for products in a given wellness category.
+
+    Returns median and P25–P75 range of points_cost across active in-category
+    products. Falls back to ETB anchor heuristic when < 3 comparables exist.
+    """
+    # Get all active product costs in this category
+    costs = (
+        db.query(Product.points_cost)
+        .join(Provider, Product.provider_id == Provider.id)
+        .filter(
+            Product.is_active == True,
+            Provider.category == category,
+            or_(Provider.status == "active", Provider.status.is_(None)),
+        )
+        .all()
+    )
+    values = sorted([c[0] for c in costs if c[0] and c[0] > 0])
+
+    if len(values) < 3:
+        # Fallback: ETB anchor heuristic (1 point ≈ 1 ETB)
+        return {
+            "category": category,
+            "has_comparables": False,
+            "suggestion_text": "Not enough data for category comparison. Suggested: set points equal to the ETB value of the service.",
+            "median": None,
+            "p25": None,
+            "p75": None,
+            "sample_size": len(values),
+        }
+
+    import statistics
+    median = int(statistics.median(values))
+    q = statistics.quantiles(values, n=4)
+    p25 = int(q[0])
+    p75 = int(q[2])
+
+    return {
+        "category": category,
+        "has_comparables": True,
+        "suggestion_text": f"Similar {category} providers charge {p25}–{p75} pts (median {median})",
+        "median": median,
+        "p25": p25,
+        "p75": p75,
+        "sample_size": len(values),
+    }
+
+
+# ── C5: Provider Payout Predictability ────────────────────────────────────
+
+def get_provider_points_analytics(db: Session, provider_id: UUID) -> dict:
+    """Points redeemed at this provider — trend data for the analytics tab."""
+    from app.models.point_transaction import PointTransaction
+    from datetime import timedelta
+
+    now = datetime.now(timezone.utc)
+
+    # Last 30 days, grouped by week
+    weeks = []
+    for i in range(4):
+        week_end = now - timedelta(days=i * 7)
+        week_start = week_end - timedelta(days=7)
+        redeemed = (
+            db.query(func.coalesce(func.sum(func.abs(PointTransaction.amount)), 0))
+            .filter(
+                PointTransaction.provider_id == provider_id,
+                PointTransaction.type.in_(["redemption", "provider_award"]),
+                PointTransaction.created_at >= week_start,
+                PointTransaction.created_at < week_end,
+                PointTransaction.reversed_by.is_(None),
+            )
+            .scalar()
+        )
+        visit_count = (
+            db.query(PointTransaction.user_id)
+            .filter(
+                PointTransaction.provider_id == provider_id,
+                PointTransaction.type.in_(["redemption", "provider_award"]),
+                PointTransaction.created_at >= week_start,
+                PointTransaction.created_at < week_end,
+                PointTransaction.reversed_by.is_(None),
+            )
+            .distinct()
+            .count()
+        )
+        weeks.append({
+            "week_label": f"Week {4 - i}",
+            "points_redeemed": int(redeemed),
+            "unique_visits": visit_count,
+        })
+
+    weeks.reverse()
+    return {
+        "provider_id": str(provider_id),
+        "weekly_trend": weeks,
+    }
+

@@ -4,7 +4,7 @@ import math
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timezone, timedelta
@@ -24,9 +24,12 @@ from app.crud.provider import (
 from app.crud.product import admin_list_products, update_product_stock, update_redemption_status, admin_list_redemptions
 from app.crud.booking import admin_list_bookings
 from app.crud.admin_notification import get_admin_notifications
+from app.crud.evidence import get_pending_evidence, get_evidence_photo_file_id, review_evidence
 from app.services.telegram_notify import (
     send_telegram_message, build_approval_message, build_rejection_message,
 )
+from app.services.telegram_bot import fetch_telegram_file
+from app.schemas.evidence import EvidenceReviewRequest
 from app.schemas.provider import ProviderCreate, ProviderUpdate
 from app.schemas.admin import PlatformAnalytics, AdminUserListResponse, AdminUserItem, AdminBookingListResponse, AdminBookingItem
 from app.schemas.provider_onboarding import (
@@ -365,3 +368,52 @@ async def update_redemption_delivery(
         delivery_status=redemption.delivery_status,
         provider_notes=redemption.provider_notes,
     )
+
+
+# ── D2: Evidence review queue ─────────────────────────────────────────────
+
+@router.get("/evidence")
+async def list_pending_evidence(
+    admin: User = Depends(get_super_admin),
+    db: Session = Depends(get_db),
+):
+    """Pending evidence submissions awaiting approve/reject."""
+    items = get_pending_evidence(db)
+    return {"submissions": items, "count": len(items)}
+
+
+@router.get("/evidence/{submission_id}/photo")
+async def get_evidence_photo(
+    submission_id: str,
+    admin: User = Depends(get_super_admin),
+    db: Session = Depends(get_db),
+):
+    """Streams the submitted photo through the backend — the bot token used
+    to resolve it from Telegram never reaches the browser."""
+    file_id = get_evidence_photo_file_id(db, UUID(submission_id))
+    if not file_id:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    try:
+        content, content_type = fetch_telegram_file(file_id)
+    except Exception:
+        raise HTTPException(status_code=502, detail="Could not fetch photo from Telegram")
+    return Response(content=content, media_type=content_type)
+
+
+@router.post("/evidence/{submission_id}/review")
+async def review_evidence_submission(
+    submission_id: str,
+    request: EvidenceReviewRequest,
+    admin: User = Depends(get_super_admin),
+    db: Session = Depends(get_db),
+):
+    """Approve mints event_participation points for every attendee with a
+    successful booking on the event; reject just closes the submission."""
+    try:
+        result = review_evidence(
+            db, UUID(submission_id), request.action, admin,
+            points_per_participant=request.points_per_participant,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

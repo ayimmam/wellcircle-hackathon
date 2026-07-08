@@ -30,7 +30,9 @@ import {
   MOCK_USER, MOCK_PROVIDERS, MOCK_COMMUNITIES, MOCK_FEED_EVENTS,
   MOCK_POINTS_HISTORY, MOCK_PROVIDER_STATS, MOCK_CIRCLES, MOCK_POSTS, MOCK_LEADERBOARD,
   MOCK_PRODUCTS, MOCK_REDEMPTIONS, MOCK_ADMIN_ANALYTICS, MOCK_PENDING_PROVIDERS,
-  MOCK_ADMIN_PROVIDERS, MOCK_ADMIN_PRODUCTS, MOCK_PROVIDER_PRODUCTS
+  MOCK_ADMIN_PROVIDERS, MOCK_ADMIN_PRODUCTS, MOCK_PROVIDER_PRODUCTS,
+  MOCK_PROVIDER_CUSTOMERS, MOCK_PRICE_SUGGESTION, MOCK_PROVIDER_POINTS_ANALYTICS,
+  MOCK_SOCIAL_PROOF,
 } from '../data/mock';
 
 // ─── Auth helpers ───────────────────────────────────
@@ -250,6 +252,8 @@ export async function checkinCommunity(id) {
     return {
       points_earned: 10,
       new_balance: MOCK_USER.points_balance + 10,
+      current_streak: (MOCK_USER.current_streak || 0) + 1,
+      freeze_count: MOCK_USER.freeze_count || 0,
       tier: 'sprout',
       tier_emoji: '🌿',
       feed_event: {
@@ -372,6 +376,24 @@ export async function getCircleLeaderboard(id) {
   return request('GET', `/circles/${id}/leaderboard`);
 }
 
+// E1: join a circle via a `?startapp=circle_{code}` deep link
+export async function joinCircleByCode(joinCode) {
+  if (USE_MOCK) {
+    await delay();
+    return { id: 'mock-circle-id', name: 'Mock Circle', message: 'Joined circle successfully' };
+  }
+  return request('POST', '/circles/join-by-code', { join_code: joinCode });
+}
+
+// E2: how many circle-mates checked in today, across all the user's circles
+export async function getCircleSocialProof() {
+  if (USE_MOCK) {
+    await delay();
+    return { ...MOCK_SOCIAL_PROOF };
+  }
+  return request('GET', '/circles/social-proof/today');
+}
+
 // ─── Posts & Reactions ────────────────────────────────
 export async function getPosts(communityId = null, circleId = null) {
   if (USE_MOCK) {
@@ -456,6 +478,51 @@ export async function getProviderMe() {
     };
   }
   return request('GET', '/providers/me');
+}
+
+// C1: distinct customers (booking or check-in) with last-visit + lifetime redeemed
+export async function getProviderCustomers() {
+  if (USE_MOCK) {
+    await delay();
+    return { customers: [...MOCK_PROVIDER_CUSTOMERS], count: MOCK_PROVIDER_CUSTOMERS.length };
+  }
+  return request('GET', '/providers/me/customers');
+}
+
+// D3: one-tap point award to a verified customer (max 50/award, 1/day/customer, 300/day total)
+export async function awardCustomerPoints(customerUserId, points, note = null) {
+  if (USE_MOCK) {
+    await delay(400);
+    return {
+      transaction_id: 'mock-txn-' + Date.now(),
+      customer_user_id: customerUserId,
+      points_awarded: points,
+      customer_new_balance: (MOCK_USER.points_balance || 0) + points,
+      provider_daily_remaining: 300 - points,
+    };
+  }
+  const qs = new URLSearchParams({ points: String(points) });
+  if (note) qs.set('note', note);
+  return request('POST', `/providers/me/customers/${customerUserId}/award?${qs}`);
+}
+
+// D1: recommended point cost for a new product, based on category peers
+export async function getPriceSuggestion(category) {
+  if (USE_MOCK) {
+    await delay();
+    return { ...MOCK_PRICE_SUGGESTION, category };
+  }
+  const qs = category ? `?category=${encodeURIComponent(category)}` : '';
+  return request('GET', `/providers/me/products/price-suggestion${qs}`);
+}
+
+// C5: points redeemed at this provider — weekly trend for the analytics tab
+export async function getProviderPointsAnalytics() {
+  if (USE_MOCK) {
+    await delay();
+    return { ...MOCK_PROVIDER_POINTS_ANALYTICS };
+  }
+  return request('GET', '/providers/me/analytics/points');
 }
 
 // ─── Products Store ─────────────────────────────────

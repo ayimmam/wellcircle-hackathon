@@ -234,16 +234,20 @@ def redeem_product(
         )
 
     user_balance = user.points_balance or 0
-    if user_balance < product.price_etb:
+    if user_balance < product.points_cost:
         raise ValueError(
-            f"Insufficient Legacy Points. You have {user_balance} points; need {product.price_etb}."
+            f"Insufficient Legacy Points. You have {user_balance} points; need {product.points_cost}."
         )
 
     redemption_code = None
     if product.type == "digital":
         redemption_code = _generate_redemption_code(product.digital_code_template)
 
-    user.points_balance = user_balance - product.price_etb
+    from app.services.points import apply_transaction, TXN_REDEMPTION
+    apply_transaction(db, user, -product.points_cost, TXN_REDEMPTION,
+                      provider_id=product.provider_id,
+                      reference_id=product.id,
+                      note=f"Redeemed: {product.name}")
     product.quantity_in_stock -= 1
     if product.quantity_in_stock == 0:
         product.is_active = False
@@ -251,7 +255,7 @@ def redeem_product(
     redemption = UserRedemption(
         user_id=user.id,
         product_id=product.id,
-        points_spent=product.price_etb,
+        points_spent=product.points_cost,
         redemption_code=redemption_code,
         delivery_address=delivery_address,
         delivery_status="pending",

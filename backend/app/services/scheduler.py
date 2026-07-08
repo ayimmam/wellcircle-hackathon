@@ -10,27 +10,40 @@ from app.models.user import User
 from app.models.booking import Booking
 from app.models.community_challenge import CommunityChallenge
 from app.models.community import Community, CommunityMember
-from app.services.points_engine import POINTS_DECAY_PER_DAY, DECAY_AFTER_DAYS
 from app.services.notification_service import create_notification
 
 
 def decay_points_job():
-    """Decay points for users inactive for 3+ consecutive days. Runs daily."""
+    """Decay points for users inactive for 3+ consecutive days.
+
+    Runs daily. Activity is now measured by the last positive-amount ledger
+    transaction (any type), NOT just last_checkin_at. This prevents punishing
+    users who earn through bookings/events/awards but skip community check-ins.
+    """
+    from app.services.points import (
+        apply_transaction, get_last_positive_transaction_at,
+        POINTS_DECAY_PER_DAY, DECAY_AFTER_DAYS, TXN_DECAY,
+    )
+
     db = SessionLocal()
     try:
         cutoff = datetime.now(timezone.utc) - timedelta(days=DECAY_AFTER_DAYS)
-        inactive_users = (
+        candidates = (
             db.query(User)
-            .filter(
-                User.points_balance > 0,
-                (User.last_checkin_at < cutoff) | (User.last_checkin_at.is_(None)),
-            )
+            .filter(User.points_balance > 0)
             .all()
         )
-        for user in inactive_users:
-            user.points_balance = max(0, user.points_balance - POINTS_DECAY_PER_DAY)
+        decayed_count = 0
+        for user in candidates:
+            last_positive = get_last_positive_transaction_at(db, user.id)
+            # Fall back to last_checkin_at for users who existed before the ledger
+            effective_last_active = last_positive or user.last_checkin_at
+            if effective_last_active is None or effective_last_active < cutoff:
+                apply_transaction(db, user, -POINTS_DECAY_PER_DAY, TXN_DECAY,
+                                  note="Daily inactivity decay")
+                decayed_count += 1
         db.commit()
-        print(f"[Scheduler] Decayed points for {len(inactive_users)} users")
+        print(f"[Scheduler] Decayed points for {decayed_count} users")
     except Exception as e:
         print(f"[Scheduler] Decay error: {e}")
         db.rollback()

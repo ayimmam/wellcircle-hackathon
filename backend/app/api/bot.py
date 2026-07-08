@@ -5,11 +5,16 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from uuid import UUID
+
 from app.config import settings
 from app.database import get_db
 from app.dependencies import verify_bot_api_key
 from app.crud.user import get_user_by_telegram_id, create_user_from_bot, get_inactive_users, mark_user_reengagement
+from app.crud.evidence import get_staff_events, create_evidence_submission
+from app.crud.circle import get_weekly_digest_circles
 from app.schemas.user import BotRegisterRequest
+from app.schemas.evidence import BotEvidenceSubmitRequest
 
 router = APIRouter()
 
@@ -114,3 +119,50 @@ async def bot_reengagement_sent(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return {"telegram_id": telegram_id, "marked": True}
+
+
+# ── D2: Evidence-based event participation ──────────────────────────────
+
+@router.get("/staff-events")
+async def bot_staff_events(
+    telegram_id: int,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_bot_api_key),
+):
+    """Ended events this Telegram user is designated staff for, awaiting evidence."""
+    events = get_staff_events(db, telegram_id)
+    return {"events": events, "count": len(events)}
+
+
+@router.post("/evidence")
+async def bot_submit_evidence(
+    request: BotEvidenceSubmitRequest,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_bot_api_key),
+):
+    """Staff submits photo evidence for an ended event via the bot's /evidence flow."""
+    submission = create_evidence_submission(
+        db,
+        telegram_id=request.telegram_id,
+        event_id=UUID(request.event_id),
+        telegram_file_id=request.telegram_file_id,
+    )
+    if not submission:
+        raise HTTPException(
+            status_code=400,
+            detail="Not the designated staff for this event, or event not found",
+        )
+    return {"id": str(submission.id), "status": submission.status}
+
+
+# ── C3: Weekly circle digest ─────────────────────────────────────────────
+
+@router.get("/circle-digests")
+async def bot_circle_digests(
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_bot_api_key),
+):
+    """Sunday digest data — per circle, the weekly top scorer and member
+    Telegram IDs, for the bot to DM each member."""
+    circles = get_weekly_digest_circles(db)
+    return {"circles": circles}

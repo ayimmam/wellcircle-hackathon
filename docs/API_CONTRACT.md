@@ -48,6 +48,18 @@
 | Subscriptions | POST | `/subscriptions/initiate` | JWT | Frontend |
 | Products | GET | `/products` | JWT | Frontend |
 | Products | POST | `/products/:id/redeem` | JWT | Frontend |
+| Providers | GET | `/providers/me/customers` | JWT (provider) | Frontend |
+| Providers | POST | `/providers/me/customers/:id/award` | JWT (provider) | Frontend |
+| Providers | GET | `/providers/me/products/price-suggestion` | JWT (provider) | Frontend |
+| Providers | GET | `/providers/me/analytics/points` | JWT (provider) | Frontend |
+| Bot | GET | `/bot/staff-events` | Bot API Key | Bot |
+| Bot | POST | `/bot/evidence` | Bot API Key | Bot |
+| Bot | GET | `/bot/circle-digests` | Bot API Key | Bot |
+| Admin | GET | `/admin/evidence` | JWT (admin) | Frontend |
+| Admin | GET | `/admin/evidence/:id/photo` | JWT (admin) | Frontend |
+| Admin | POST | `/admin/evidence/:id/review` | JWT (admin) | Frontend |
+| Circles | POST | `/circles/join-by-code` | JWT | Frontend |
+| Circles | GET | `/circles/social-proof/today` | JWT | Frontend |
 
 ---
 
@@ -861,6 +873,55 @@ Bole | Kazanchis | Piassa | CMC | Sarbet | Megenagna | Other
 
 ---
 
+## 9a. Points Economy (Part B/C/D/E)
+
+All points mutations now flow through a single ledger (`point_transactions`); `GET /users/me/points-history` reads from it. `Product.points_cost` replaced `Product.price_etb` — the API still accepts/emits `price_etb` as a deprecated alias for one release. `ProviderEvent.price_etb` is unaffected (that one was always real ETB).
+
+### Provider CRM & awards (C1 / D3)
+- `GET /api/providers/me/customers` — JWT (provider). Distinct users with a successful booking or community check-in at this provider.
+  ```json
+  { "customers": [
+    { "user_id": "uuid", "name": "Meron", "photo_url": "...", "last_visit": "2026-07-07T09:00:00Z", "lifetime_points_redeemed": 120, "points_balance": 120 }
+  ], "count": 1 }
+  ```
+- `POST /api/providers/me/customers/{customer_user_id}/award?points=25&note=...` — JWT (provider). Query params, not body. Caps: 1 award/customer/day, 50 pts/award, 300 pts/provider/day. 400 if the customer has no verified interaction or a cap is hit.
+  ```json
+  { "transaction_id": "uuid", "customer_user_id": "uuid", "points_awarded": 25, "customer_new_balance": 145, "provider_daily_remaining": 275 }
+  ```
+
+### Price suggestions (D1)
+- `GET /api/providers/me/products/price-suggestion?category=yoga` — JWT (provider). Median/P25–P75 of `points_cost` across active in-category products; falls back to a flag when fewer than 3 comparables exist.
+  ```json
+  { "category": "yoga", "has_comparables": true, "suggestion_text": "Similar yoga providers charge 300–500 pts (median 400)", "median": 400, "p25": 300, "p75": 500, "sample_size": 6 }
+  ```
+
+### Provider payout predictability (C5)
+- `GET /api/providers/me/analytics/points` — JWT (provider). Last 4 weeks of points redeemed + unique visits at this provider.
+  ```json
+  { "provider_id": "uuid", "weekly_trend": [ { "week_label": "Week 1", "points_redeemed": 220, "unique_visits": 5 } ] }
+  ```
+
+### Evidence-based event participation (D2)
+- `ProviderEvent.staff_user_id` (nullable) — set via `POST`/`PATCH /api/providers/me/events` — the one user allowed to submit evidence for that event.
+- `GET /api/bot/staff-events?telegram_id=...` — Bot API Key. Ended events this Telegram user is designated staff for, without a submission yet.
+- `POST /api/bot/evidence` — Bot API Key. `{ "telegram_id": 123, "event_id": "uuid", "telegram_file_id": "..." }` → `{ "id": "uuid", "status": "pending" }`.
+- `GET /api/admin/evidence` — JWT (admin). Pending submissions with event/provider/submitter/attendee-count context.
+- `GET /api/admin/evidence/{id}/photo` — JWT (admin). Streams the photo bytes through the backend (bot token never reaches the browser).
+- `POST /api/admin/evidence/{id}/review` — JWT (admin). `{ "action": "approve", "points_per_participant": 25 }` or `{ "action": "reject" }`. On approval, mints `event_participation` points for every user with a successful booking on the event.
+
+### Referrals & circle invites (E1)
+- `User.referred_by` (nullable) — set by the frontend when a new user completes onboarding after a `?startapp=circle_{code}` deep link (see Frontend Flow Summary).
+- `POST /api/circles/join-by-code` — JWT. `{ "join_code": "..." }` → joins the circle. Referral credit (+30 pts each, capped at 10/referrer/month) fires automatically on the invitee's **first-ever check-in**, not at join time.
+- `GET /api/circles` — now also returns `join_code` per circle, but **only for circles the caller has already joined** (it's the private-circle access gate, so it isn't exposed to browsers).
+- `GET /api/bot/circle-digests` — Bot API Key. Per-circle weekly top scorer + member Telegram IDs, for the bot's Sunday digest job.
+
+### Social proof & streaks (C2 / E2)
+- `POST /api/communities/{id}/checkin` response now also includes `current_streak` and `freeze_count`.
+- `GET /api/circles/social-proof/today` — JWT. `{ "checked_in_today": 3 }` — how many of the caller's circle-mates checked in today, across all their circles.
+- `GET /api/circles/{id}/leaderboard` — `weekly_points` is now computed from the ledger (trailing 7 days of positive transactions) instead of the previously-unfed `CircleMember.weekly_points` column; response shape is unchanged.
+
+---
+
 ## 10. Error Responses
 
 All errors follow this shape:
@@ -919,6 +980,19 @@ if user.is_onboarded === false:
 Home Screen (authenticated, onboarded)
     ↓
 Tab Navigation: Home | Explore | Community | Profile
+```
+
+### Circle Invite Deep Link (E1)
+```
+User shares https://t.me/{bot}?startapp=circle_{join_code} (CircleDetailScreen "Invite friends")
+    ↓
+Recipient taps link → Telegram opens the Mini App with initDataUnsafe.start_param = "circle_{join_code}"
+    ↓
+Mini App completes the normal auth flow above, then AuthContext parses start_param
+    ↓
+POST /api/circles/join-by-code { join_code } → navigate to /circle/{id}
+    ↓
+Referral credit (+30 pts to both sides) fires later, on the invitee's first check-in — not here
 ```
 
 ### Provider Dashboard Flow

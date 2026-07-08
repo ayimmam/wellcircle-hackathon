@@ -12,8 +12,8 @@ from app.crud.user import (
     get_user_by_telegram_id,
     create_user_from_telegram_auth,
     get_user_joined_community_ids,
-    get_points_tier,
 )
+from app.services.points import get_points_tier
 from app.schemas.user import TelegramAuthRequest, AuthResponse, UserResponse
 from app.services.telegram_auth import validate_init_data, validate_init_data_dev
 

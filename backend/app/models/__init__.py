@@ -17,6 +17,8 @@ from app.models.user_notification import UserNotification
 from app.models.provider_subscription import ProviderSubscription
 from app.models.provider_promotion import ProviderPromotion
 from app.models.event_inventory_log import EventInventoryLog
+from app.models.point_transaction import PointTransaction
+from app.models.evidence_submission import EvidenceSubmission
 
 __all__ = [
     "User",
@@ -40,4 +42,7 @@ __all__ = [
     "ProviderSubscription",
     "ProviderPromotion",
     "EventInventoryLog",
+    "PointTransaction",
+    "EvidenceSubmission",
 ]
+

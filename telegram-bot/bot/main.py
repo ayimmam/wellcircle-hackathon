@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, time
 
 from telegram import Update, BotCommand
 from telegram.error import Conflict
@@ -10,7 +10,9 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from bot.handlers.start import start_handler
 from bot.handlers.admin import admin_handler
+from bot.handlers.evidence import evidence_conversation
 from bot.services.reengagement import schedule_reengagement
+from bot.services.weekly_digest import send_weekly_digest
 from bot.config import BOT_TOKEN
 
 logging.basicConfig(
@@ -37,6 +39,7 @@ async def post_init(application: Application) -> None:
     commands = [BotCommand("start", "Open Well Circle")]
     # /admin is registered globally; visibility is enforced in the handler
     commands.append(BotCommand("admin", "Access admin dashboard"))
+    commands.append(BotCommand("evidence", "Submit event participation proof"))
     await application.bot.set_my_commands(commands)
     logger.info("🟢 Well Circle Bot started")
 
@@ -48,6 +51,7 @@ def main():
     # Register handlers
     app.add_handler(CommandHandler("start", start_handler))
     app.add_handler(CommandHandler("admin", admin_handler))
+    app.add_handler(evidence_conversation)
     app.add_error_handler(error_handler)
 
     # Schedule re-engagement check (weekly)
@@ -60,6 +64,15 @@ def main():
             name="reengagement",
         )
         logger.info("📅 Re-engagement job scheduled (every 7 days)")
+
+        # C3: weekly circle digest, Sundays at 18:00 UTC
+        job_queue.run_daily(
+            send_weekly_digest,
+            time=time(hour=18, minute=0),
+            days=(6,),  # 0=Monday ... 6=Sunday
+            name="weekly_digest",
+        )
+        logger.info("📊 Weekly digest job scheduled (Sundays 18:00 UTC)")
 
     # Start polling
     logger.info("🤖 Bot polling started...")

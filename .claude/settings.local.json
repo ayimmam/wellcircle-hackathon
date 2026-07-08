@@ -31,7 +31,8 @@
       "Bash(.venv/bin/python -c \"import main; print\\('import OK — model:', main.GROQ_MODEL, '| max_tokens:', main.GROQ_MAX_TOKENS, '| cache_ttl:', main.PROVIDER_CACHE_TTL_SECONDS\\)\")",
       "Bash(git symbolic-ref *)",
       "Bash(grep -rliE \"concierge|askwellcircle|ai/concierge\" frontend/src)",
-      "Bash(ls -la frontend/src/components/AskWellCircle.jsx)"
+      "Bash(ls -la frontend/src/components/AskWellCircle.jsx)",
+      "Bash(awk ' *)"
     ]
   }
 }

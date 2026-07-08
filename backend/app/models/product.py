@@ -16,7 +16,16 @@ class Product(Base):
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     type = Column(String(50), nullable=False, index=True)  # digital | physical
-    price_etb = Column(Integer, nullable=False)
+    points_cost = Column("price_etb", Integer, nullable=False)  # B3: renamed; DB column stays for migration
+
+    @property
+    def price_etb(self):
+        """Deprecated alias for points_cost — backwards compatibility."""
+        return self.points_cost
+
+    @price_etb.setter
+    def price_etb(self, value):
+        self.points_cost = value
     image_url = Column(String(500), nullable=True)
     images = Column(JSONB, nullable=True)
     quantity_in_stock = Column(Integer, default=0)

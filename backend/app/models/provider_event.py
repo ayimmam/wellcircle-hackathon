@@ -22,6 +22,9 @@ class ProviderEvent(Base):
     price_etb = Column(Integer, nullable=False)
     is_cancelled = Column(Boolean, nullable=False, default=False)
     is_boosted = Column(Boolean, nullable=False, default=False)
+
+    # D2: Provider-designated staff who can submit evidence for this event
+    staff_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

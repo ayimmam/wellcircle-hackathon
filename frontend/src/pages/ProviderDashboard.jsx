@@ -4,10 +4,13 @@ import {
   getProviderMe, getProviderStats, getProviderProducts, getProviderRedemptions, createProviderProduct,
   getProviderEvents, createProviderEvent, updateProviderEvent, getSubscriptionPlans,
   initiateSubscription, getSubscriptionStatus, createCommunityChallenge,
+  getProviderCustomers, awardCustomerPoints, getPriceSuggestion, getProviderPointsAnalytics,
 } from '../api/client';
 import FeedEvent from '../components/FeedEvent';
 import { showToast } from '../components/Toast';
 import usePolling from '../hooks/usePolling';
+
+const PROVIDER_DAILY_AWARD_CAP = 300; // mirrors backend PROVIDER_AWARD_MAX_POINTS_PER_DAY
 
 export default function ProviderDashboard() {
   const navigate = useNavigate();
@@ -22,7 +25,7 @@ export default function ProviderDashboard() {
   const [showCreateChallenge, setShowCreateChallenge] = useState(null);
   
   const [newProduct, setNewProduct] = useState({ name: '', type: 'digital', price_etb: '', quantity_in_stock: '10' });
-  const [newEvent, setNewEvent] = useState({ service_name: '', description: '', starts_at: '', ends_at: '', capacity: 10, price_etb: 0 });
+  const [newEvent, setNewEvent] = useState({ service_name: '', description: '', starts_at: '', ends_at: '', capacity: 10, price_etb: 0, staff_user_id: '' });
   const [newChallenge, setNewChallenge] = useState({ title: '', description: '', points_reward: 100, target_checkins: 5, starts_at: '', ends_at: '' });
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('telebirr');
@@ -30,7 +33,17 @@ export default function ProviderDashboard() {
   
   const [loading, setLoading] = useState(true);
   const [providerId, setProviderId] = useState(null);
+  const [providerCategory, setProviderCategory] = useState(null);
   const [error, setError] = useState(null);
+  const [subPollId, setSubPollId] = useState(null);
+  const [subPollStartedAt, setSubPollStartedAt] = useState(null);
+
+  // C1/D3/C5: customer list, one-tap awards, points-redeemed trend
+  const [customers, setCustomers] = useState([]);
+  const [pointsAnalytics, setPointsAnalytics] = useState(null);
+  const [awardingId, setAwardingId] = useState(null);
+  // D1: price suggestion hint chip on the product form
+  const [priceSuggestion, setPriceSuggestion] = useState(null);
 
   const loadDashboard = (pid) => Promise.all([
     getProviderStats(pid),
@@ -38,6 +51,8 @@ export default function ProviderDashboard() {
     getProviderRedemptions(),
     getProviderEvents(pid),
     getSubscriptionPlans(),
+    getProviderCustomers(),
+    getProviderPointsAnalytics(),
   ]);
 
   useEffect(() => {
@@ -48,14 +63,17 @@ export default function ProviderDashboard() {
         const pid = me?.id;
         if (!pid) throw new Error('No provider profile found');
         setProviderId(pid);
+        setProviderCategory(me?.category || null);
         return loadDashboard(pid);
       })
-      .then(([s, p, r, ev, pl]) => {
+      .then(([s, p, r, ev, pl, cu, pa]) => {
         setStats(s);
         setProducts(p.products || []);
         setRedemptions(r.redemptions || []);
         setEvents(ev.events || []);
         setPlans(pl.plans || []);
+        setCustomers(cu.customers || []);
+        setPointsAnalytics(pa);
       })
       .catch(err => {
         setError(err.message || 'Could not load provider dashboard');
@@ -63,6 +81,21 @@ export default function ProviderDashboard() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  const handleAward = async (customerId, points) => {
+    setAwardingId(customerId);
+    try {
+      const res = await awardCustomerPoints(customerId, points, 'Provider appreciation award');
+      showToast(`+${points} pts awarded! 🎉`, '✅');
+      setCustomers(prev => prev.map(c =>
+        c.user_id === customerId ? { ...c, points_balance: res.customer_new_balance } : c
+      ));
+    } catch (err) {
+      showToast(err.message, '❌');
+    } finally {
+      setAwardingId(null);
+    }
+  };
 
   // Poll stats every 10 seconds for live updates (paused while backgrounded)
   usePolling(async () => {
@@ -73,6 +106,24 @@ export default function ProviderDashboard() {
       // Silently fail — transient polling errors shouldn't disrupt the dashboard
     }
   }, 10000, Boolean(stats && providerId));
+
+  // B4: was a raw setInterval + setTimeout pair per subscribe click.
+  // usePolling standardizes the hidden-tab pause and unmount cleanup;
+  // termination (success or 120s timeout) just flips subPollId back to null.
+  usePolling(async () => {
+    if (!subPollId) return;
+    try {
+      const st = await getSubscriptionStatus(subPollId);
+      if (st.status === 'active' || st.status === 'success') {
+        showToast('Subscription active!', '✅');
+        setSubPollId(null);
+        return;
+      }
+    } catch { /* keep polling */ }
+    if (subPollStartedAt && Date.now() - subPollStartedAt > 120000) {
+      setSubPollId(null);
+    }
+  }, 3000, Boolean(subPollId));
 
   if (loading) {
     return (
@@ -117,6 +168,7 @@ export default function ProviderDashboard() {
         <button className={`admin-subtab ${tab === 'analytics' ? 'active' : ''}`} onClick={() => setTab('analytics')}>Analytics</button>
         <button className={`admin-subtab ${tab === 'events' ? 'active' : ''}`} onClick={() => setTab('events')}>Events</button>
         <button className={`admin-subtab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')}>Products</button>
+        <button className={`admin-subtab ${tab === 'customers' ? 'active' : ''}`} onClick={() => setTab('customers')}>Customers</button>
         <button className={`admin-subtab ${tab === 'subscriptions' ? 'active' : ''}`} onClick={() => setTab('subscriptions')}>Subscriptions</button>
       </div>
 
@@ -126,7 +178,7 @@ export default function ProviderDashboard() {
             <div>
               <p className="text-sm">Total: {products.length} | Active: {products.filter(p => p.is_active).length}</p>
             </div>
-            <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>+ Create Product</button>
+            <button className="btn btn-primary btn-sm" onClick={() => { setPriceSuggestion(null); setShowCreate(true); }}>+ Create Product</button>
           </div>
           <div className="admin-card-list mb-24">
             {products.map(p => (
@@ -161,7 +213,27 @@ export default function ProviderDashboard() {
                     <option value="digital">Digital</option>
                     <option value="physical">Physical</option>
                   </select>
-                  <input className="input" type="number" placeholder="Price (points)" value={newProduct.price_etb} onChange={e => setNewProduct(p => ({ ...p, price_etb: e.target.value }))} />
+                  <input
+                    className="input"
+                    type="number"
+                    placeholder="Price (points)"
+                    value={newProduct.price_etb}
+                    onChange={e => setNewProduct(p => ({ ...p, price_etb: e.target.value }))}
+                    onFocus={() => {
+                      if (priceSuggestion || !providerCategory) return;
+                      getPriceSuggestion(providerCategory).then(setPriceSuggestion).catch(() => {});
+                    }}
+                  />
+                  {priceSuggestion?.has_comparables && (
+                    <button
+                      type="button"
+                      className="chip"
+                      style={{ alignSelf: 'flex-start' }}
+                      onClick={() => setNewProduct(p => ({ ...p, price_etb: String(priceSuggestion.median) }))}
+                    >
+                      💡 {priceSuggestion.suggestion_text}
+                    </button>
+                  )}
                   <input className="input" type="number" placeholder="Stock" value={newProduct.quantity_in_stock} onChange={e => setNewProduct(p => ({ ...p, quantity_in_stock: e.target.value }))} />
                   <button className="btn btn-primary" onClick={async () => {
                     try {
@@ -195,11 +267,16 @@ export default function ProviderDashboard() {
               const EditableEventItem = ({ event }) => {
                 const [isEditing, setIsEditing] = useState(false);
                 const [spots, setSpots] = useState(event.spots_remaining);
+                const [staffId, setStaffId] = useState(event.staff_user_id || '');
                 const fillPct = event.capacity ? Math.round(((event.capacity - event.spots_remaining) / event.capacity) * 100) : 0;
-                
+                const staffName = customers.find(c => c.user_id === event.staff_user_id)?.name;
+
                 const handleSave = async () => {
                   try {
-                    await updateProviderEvent(event.id, { spots_remaining: parseInt(spots) });
+                    await updateProviderEvent(event.id, {
+                      spots_remaining: parseInt(spots),
+                      staff_user_id: staffId || null,
+                    });
                     showToast('Inventory updated', '✅');
                     setIsEditing(false);
                     const ev = await getProviderEvents(providerId);
@@ -215,14 +292,21 @@ export default function ProviderDashboard() {
                       
                       <div className="flex justify-between items-center my-8">
                         {isEditing ? (
-                          <div className="flex gap-2">
+                          <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
                             <input type="number" value={spots} onChange={e => setSpots(e.target.value)} className="input" style={{ width: '60px', padding: '4px' }} />
+                            <select className="input" style={{ padding: '4px' }} value={staffId} onChange={e => setStaffId(e.target.value)}>
+                              <option value="">No evidence staff</option>
+                              {customers.map(c => (
+                                <option key={c.user_id} value={c.user_id}>{c.name}</option>
+                              ))}
+                            </select>
                             <button onClick={handleSave} className="btn btn-sm btn-primary">Save</button>
                             <button onClick={() => setIsEditing(false)} className="btn btn-sm btn-secondary">Cancel</button>
                           </div>
                         ) : (
                           <div className="flex gap-4 items-center">
                             <span className="text-sm">Spots: {spots}/{event.capacity}</span>
+                            {staffName && <span className="text-xs text-secondary">· Staff: {staffName}</span>}
                             <button onClick={() => setIsEditing(true)} className="text-accent underline text-sm" style={{ background: 'none', border: 'none' }}>Edit</button>
                           </div>
                         )}
@@ -291,6 +375,15 @@ export default function ProviderDashboard() {
                   <input className="input" type="datetime-local" placeholder="Ends At" value={newEvent.ends_at} onChange={e => setNewEvent(p => ({ ...p, ends_at: e.target.value }))} />
                   <input className="input" type="number" placeholder="Capacity" value={newEvent.capacity} onChange={e => setNewEvent(p => ({ ...p, capacity: parseInt(e.target.value, 10) }))} />
                   <input className="input" type="number" placeholder="Price (ETB)" value={newEvent.price_etb} onChange={e => setNewEvent(p => ({ ...p, price_etb: parseInt(e.target.value, 10) }))} />
+                  <select className="input" value={newEvent.staff_user_id} onChange={e => setNewEvent(p => ({ ...p, staff_user_id: e.target.value }))}>
+                    <option value="">Designate evidence staff (optional)</option>
+                    {customers.map(c => (
+                      <option key={c.user_id} value={c.user_id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-secondary" style={{ marginTop: -8 }}>
+                    Staff can submit photo evidence via /evidence in the bot after this event ends, to award attendees points.
+                  </p>
                   <button className="btn btn-primary" onClick={async () => {
                     try {
                       await createProviderEvent({
@@ -300,6 +393,7 @@ export default function ProviderDashboard() {
                         ends_at: new Date(newEvent.ends_at).toISOString(),
                         capacity: newEvent.capacity,
                         price_etb: newEvent.price_etb,
+                        staff_user_id: newEvent.staff_user_id || null,
                       });
                       showToast('Event created', '✅');
                       setShowCreateEvent(false);
@@ -311,6 +405,45 @@ export default function ProviderDashboard() {
               </div>
             </div>
           )}
+        </>
+      ) : tab === 'customers' ? (
+        <>
+          <p className="text-sm mb-16">
+            {customers.length} customer{customers.length === 1 ? '' : 's'} with a booking or check-in at your business.
+            {' '}Award up to 50 pts, once per customer per day, {PROVIDER_DAILY_AWARD_CAP} pts/day total.
+          </p>
+          <div className="flex-col gap-8">
+            {customers.map(c => (
+              <div key={c.user_id} className="card">
+                <div className="card-body flex items-center gap-12">
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', background: '#ccc', flexShrink: 0 }}>
+                    {c.photo_url
+                      ? <img src={c.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>👤</span>}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{c.name}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                      Last visit: {c.last_visit ? new Date(c.last_visit).toLocaleDateString() : '—'} · {c.lifetime_points_redeemed} pts redeemed here
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    disabled={awardingId === c.user_id}
+                    onClick={() => handleAward(c.user_id, 25)}
+                  >
+                    {awardingId === c.user_id ? '…' : '🎁 +25 pts'}
+                  </button>
+                </div>
+              </div>
+            ))}
+            {customers.length === 0 && (
+              <div className="empty-state">
+                <div className="empty-state-icon">👥</div>
+                <div className="empty-state-text">No customers yet — bookings and community check-ins will show up here.</div>
+              </div>
+            )}
+          </div>
         </>
       ) : tab === 'subscriptions' ? (
         <>
@@ -356,18 +489,9 @@ export default function ProviderDashboard() {
                     } else if (res.to_pay_url) {
                       window.open(res.to_pay_url, '_blank');
                     }
-                    const subId = res.subscription_id;
-                    if (subId) {
-                      const poll = setInterval(async () => {
-                        try {
-                          const st = await getSubscriptionStatus(subId);
-                          if (st.status === 'active' || st.status === 'success') {
-                            clearInterval(poll);
-                            showToast('Subscription active!', '✅');
-                          }
-                        } catch { /* keep polling */ }
-                      }, 3000);
-                      setTimeout(() => clearInterval(poll), 120000);
+                    if (res.subscription_id) {
+                      setSubPollId(res.subscription_id);
+                      setSubPollStartedAt(Date.now());
                     }
                     if (!res.to_pay_url) showToast('Subscription successful', '✅');
                   } catch (err) { showToast(err.message, '❌'); }
@@ -419,6 +543,39 @@ export default function ProviderDashboard() {
           </div>
         </div>
       </div>
+
+      {/* C5: Points redeemed — payout predictability */}
+      {pointsAnalytics?.weekly_trend?.length > 0 && (
+        <>
+          <div className="section-header">
+            <h2 className="section-title">Points Redeemed at Your Business</h2>
+          </div>
+          <div className="card mb-24">
+            <div className="card-body">
+              <div className="flex-col gap-8">
+                {pointsAnalytics.weekly_trend.map(w => {
+                  const maxRedeemed = Math.max(1, ...pointsAnalytics.weekly_trend.map(x => x.points_redeemed));
+                  const pct = Math.round((w.points_redeemed / maxRedeemed) * 100);
+                  return (
+                    <div key={w.week_label}>
+                      <div className="flex justify-between items-center mb-4" style={{ fontSize: '0.75rem' }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>{w.week_label}</span>
+                        <span style={{ fontWeight: 600 }}>{w.points_redeemed} pts · {w.unique_visits} visits</span>
+                      </div>
+                      <div className="progress-bar">
+                        <div className="progress-fill" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-secondary mt-12">
+                Points redeemed here roughly track customer visits — a steady trend means members see this membership as worth keeping.
+              </p>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Community Performance */}
       {stats.communities?.length > 0 && (

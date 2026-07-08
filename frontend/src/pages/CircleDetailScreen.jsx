@@ -31,10 +31,44 @@ export default function CircleDetailScreen() {
 
       const res = await getCircleLeaderboard(id);
       setLeaderboard(res.leaderboard || []);
+
+      // E1: fetch join_code (only returned for circles the user is already in)
+      // for the invite link, without disturbing the name/description source above.
+      try {
+        const circlesRes = await getCircles();
+        const match = (circlesRes.circles || []).find(c => c.id === id);
+        if (match) {
+          setJoined(Boolean(match.is_joined));
+          if (match.join_code) {
+            setCircle(prev => ({ ...prev, join_code: match.join_code }));
+          }
+        }
+      } catch { /* invite link is a bonus, not required for the page to work */ }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // E1: invite via Telegram-native sharing, falling back gracefully by client
+  // capability — switchInlineQuery opens a chat picker with the link
+  // pre-filled; plain clipboard copy if the WebApp API isn't available at all.
+  const handleInvite = async () => {
+    const botUsername = import.meta.env.VITE_BOT_USERNAME || 'WellCircleBot';
+    const link = `https://t.me/${botUsername}?startapp=circle_${circle.join_code}`;
+    const text = `Join my "${circle.name}" circle on Well Circle! 💪 ${link}`;
+    const tg = window.Telegram?.WebApp;
+
+    if (tg?.switchInlineQuery) {
+      tg.switchInlineQuery(text, ['users', 'groups']);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      showToast('Invite link copied!', '📋');
+    } catch {
+      showToast(link, '🔗');
     }
   };
 
@@ -94,15 +128,20 @@ export default function CircleDetailScreen() {
         </div>
       </div>
 
-      {/* Join / Joined */}
+      {/* Join / Joined + Invite */}
       <div className="flex gap-8 mb-16">
         {joined ? (
-          <div className="btn btn-secondary btn-block" style={{ cursor: 'default', opacity: 0.7 }}>
+          <div className="btn btn-secondary" style={{ flex: 1, cursor: 'default', opacity: 0.7 }}>
             ✅ You're a member
           </div>
         ) : (
-          <button className="btn btn-primary btn-block" onClick={handleJoin}>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleJoin}>
             🤝 Join Circle
+          </button>
+        )}
+        {joined && circle.join_code && (
+          <button className="btn btn-secondary" style={{ flex: 1 }} onClick={handleInvite}>
+            📤 Invite friends
           </button>
         )}
       </div>

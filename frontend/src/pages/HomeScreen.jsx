@@ -6,6 +6,9 @@ import { NEIGHBOURHOOD_ALERTS } from '../data/mock';
 import ProviderCard from '../components/ProviderCard';
 import CommunityCard from '../components/CommunityCard';
 import PointsBadge from '../components/PointsBadge';
+import StreakBadge from '../components/StreakBadge';
+import FirstRewardCard from '../components/FirstRewardCard';
+import SocialProofBanner from '../components/SocialProofBanner';
 import { showToast } from '../components/Toast';
 import FeaturedEventsCarousel from '../components/FeaturedEventsCarousel';
 import Icon from '../components/Icon';
@@ -67,8 +70,17 @@ export default function HomeScreen() {
             {t('Your wellness journey awaits')}
           </p>
         </div>
-        {user && <PointsBadge points={user.points_balance || 0} onClick={() => navigate('/products')} />}
+        {user && (
+          <div className="flex items-center gap-8">
+            <StreakBadge streak={user.current_streak} freezeCount={user.freeze_count} />
+            <PointsBadge points={user.points_balance || 0} onClick={() => navigate('/products')} />
+          </div>
+        )}
       </div>
+
+      {user && <SocialProofBanner />}
+
+      {user && <FirstRewardCard pointsBalance={user.points_balance || 0} />}
 
       {/* Neighbourhood Alert */}
       {alertText && !alertDismissed && (

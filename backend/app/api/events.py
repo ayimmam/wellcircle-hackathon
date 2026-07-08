@@ -152,7 +152,8 @@ def create_event(
         ends_at=event_in.ends_at,
         capacity=event_in.capacity,
         spots_remaining=event_in.capacity,
-        price_etb=event_in.price_etb
+        price_etb=event_in.price_etb,
+        staff_user_id=event_in.staff_user_id or None,
     )
     db.add(new_event)
     db.commit()
@@ -203,6 +204,9 @@ def update_event(
 
     if event_in.description is not None:
         event.description = event_in.description
+
+    if event_in.staff_user_id is not None:
+        event.staff_user_id = event_in.staff_user_id or None
 
     if event_in.is_cancelled is not None and event_in.is_cancelled == True and not event.is_cancelled:
         event.is_cancelled = True

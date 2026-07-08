@@ -1,6 +1,6 @@
 """User ORM model - combines bot + Mini App onboarding fields."""
 
-from sqlalchemy import Column, String, Integer, BigInteger, Boolean, DateTime, Text
+from sqlalchemy import Column, String, Integer, BigInteger, Boolean, DateTime, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime, timezone
@@ -29,6 +29,11 @@ class User(Base):
     # --- Gamification ---
     points_balance = Column(Integer, default=0)
     last_checkin_at = Column(DateTime(timezone=True), nullable=True)
+    current_streak = Column(Integer, default=0)          # C2: consecutive check-in days
+    freeze_count = Column(Integer, default=0)             # C2: streak freezes earned (1 per 7-day streak)
+
+    # --- Referral (E1) ---
+    referred_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     # --- Engagement tracking ---
     last_activity_at = Column(DateTime(timezone=True), nullable=True)  # For re-engagement notifications

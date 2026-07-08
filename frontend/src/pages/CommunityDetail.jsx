@@ -95,9 +95,20 @@ export default function CommunityDetail() {
       const res = await checkinCommunity(id);
       setCheckedIn(true);
       showToast(`+${res.points_earned} Legacy Points earned!`, '🏆');
-      // Update user points
+      // Update user points + streak (C2)
       if (user) {
-        setUser(prev => ({ ...prev, points_balance: res.new_balance }));
+        setUser(prev => ({
+          ...prev,
+          points_balance: res.new_balance,
+          current_streak: res.current_streak ?? prev.current_streak,
+          freeze_count: res.freeze_count ?? prev.freeze_count,
+        }));
+      }
+      if (res.current_streak > 1) {
+        setTimeout(() => showToast(`🔥 ${res.current_streak}-day streak!`, '🔥'), 1200);
+      }
+      if (res.current_streak > 0 && res.current_streak % 7 === 0) {
+        setTimeout(() => showToast('Streak freeze earned! Miss a day without losing your streak.', '🧊'), 2400);
       }
       // Add checkin event to feed
       if (res.feed_event) {

@@ -9,7 +9,10 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.crud.circle import create_circle, join_circle, get_circles, get_circle_leaderboard
+from app.crud.circle import (
+    create_circle, join_circle, get_circles, get_circle_leaderboard,
+    join_circle_by_code, get_circle_social_proof,
+)
 
 router = APIRouter()
 
@@ -21,6 +24,9 @@ class CircleCreate(BaseModel):
 
 class CircleJoin(BaseModel):
     join_code: Optional[str] = None
+
+class CircleJoinByCode(BaseModel):
+    join_code: str
 
 @router.post("")
 def api_create_circle(circle_in: CircleCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -51,3 +57,22 @@ def api_join_circle(circle_id: str, join_data: CircleJoin = None, user: User = D
 def api_get_leaderboard(circle_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     leaderboard = get_circle_leaderboard(db, UUID(circle_id))
     return {"leaderboard": leaderboard}
+
+
+# ── E1: Invite deep-link join ─────────────────────────────────────────────
+
+@router.post("/join-by-code")
+def api_join_circle_by_code(body: CircleJoinByCode, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Resolve + join a circle from a `?startapp=circle_{code}` deep link."""
+    circle = join_circle_by_code(db, body.join_code, user.id)
+    if not circle:
+        raise HTTPException(status_code=404, detail="Invalid invite code")
+    return {"id": str(circle.id), "name": circle.name, "message": "Joined circle successfully"}
+
+
+# ── E2: Social proof ──────────────────────────────────────────────────────
+
+@router.get("/social-proof/today")
+def api_circle_social_proof(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """How many of the user's circle-mates checked in today, across all their circles."""
+    return get_circle_social_proof(db, user.id)

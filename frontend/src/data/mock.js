@@ -17,6 +17,8 @@ export const MOCK_USER = {
   points_balance: 120,
   tier: 'sprout',
   tier_emoji: '🌿',
+  current_streak: 3,
+  freeze_count: 0,
   is_onboarded: true,
   is_provider: false,
   is_super_admin: import.meta.env.VITE_MOCK_SUPER_ADMIN === 'true',
@@ -377,8 +379,8 @@ export const MOCK_POINTS_HISTORY = {
 
 // ─── Circles & Leaderboards ─────────────────────────
 export const MOCK_CIRCLES = [
-  { id: '33333333-0000-0000-0000-000000000001', name: 'Addis Morning Runners', description: 'We run every morning at 6 AM around Meskel Square.', member_count: 24 },
-  { id: '33333333-0000-0000-0000-000000000002', name: 'Zen Seekers', description: 'Mindfulness, yoga, and finding peace in the chaotic city.', member_count: 56 }
+  { id: '33333333-0000-0000-0000-000000000001', name: 'Addis Morning Runners', description: 'We run every morning at 6 AM around Meskel Square.', member_count: 24, join_code: 'RUN24AM' },
+  { id: '33333333-0000-0000-0000-000000000002', name: 'Zen Seekers', description: 'Mindfulness, yoga, and finding peace in the chaotic city.', member_count: 56, join_code: 'ZEN56' }
 ];
 
 export const MOCK_LEADERBOARD = [
@@ -724,6 +726,47 @@ export const MOCK_PROVIDER_PRODUCTS = MOCK_PRODUCTS.filter(
   quantity_in_stock: p.quantity_in_stock,
   is_active: true
 }));
+
+// ─── Points Economy: Provider CRM, price suggestions, analytics (C1/D1/C5) ──
+export const MOCK_PROVIDER_CUSTOMERS = [
+  {
+    user_id: '00000000-0000-0000-0000-000000000001',
+    name: 'Meron Tadesse',
+    photo_url: 'https://i.pravatar.cc/150?u=meron',
+    last_visit: '2026-07-07T09:00:00Z',
+    lifetime_points_redeemed: 120,
+    points_balance: 120,
+  },
+  {
+    user_id: '00000000-0000-0000-0000-000000000002',
+    name: 'Abel Girma',
+    photo_url: 'https://i.pravatar.cc/150?u=abel',
+    last_visit: '2026-07-05T14:30:00Z',
+    lifetime_points_redeemed: 60,
+    points_balance: 40,
+  },
+];
+
+export const MOCK_PRICE_SUGGESTION = {
+  has_comparables: true,
+  suggestion_text: 'Similar yoga providers charge 300–500 pts (median 400)',
+  median: 400,
+  p25: 300,
+  p75: 500,
+  sample_size: 6,
+};
+
+export const MOCK_PROVIDER_POINTS_ANALYTICS = {
+  weekly_trend: [
+    { week_label: 'Week 1', points_redeemed: 220, unique_visits: 5 },
+    { week_label: 'Week 2', points_redeemed: 340, unique_visits: 8 },
+    { week_label: 'Week 3', points_redeemed: 180, unique_visits: 4 },
+    { week_label: 'Week 4', points_redeemed: 410, unique_visits: 9 },
+  ],
+};
+
+// ─── Social growth (E1/E2) ───────────────────────────────────────────────
+export const MOCK_SOCIAL_PROOF = { checked_in_today: 3 };
 
 // Generate next 7 days for date picker
 export function getNextDays(count = 7) {

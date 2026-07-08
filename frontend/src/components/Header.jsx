@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getNotificationUnreadCount } from '../api/client';
+import usePolling from '../hooks/usePolling';
 import Icon from './Icon';
 import newLogo from '../new_logo.png';
 
@@ -14,31 +15,24 @@ export default function Header({ onMenuOpen }) {
   const hidden = ['/', '/onboarding', '/provider-onboard'].includes(location.pathname)
     || location.pathname.startsWith('/admin');
 
+  const refreshUnread = async () => {
+    try {
+      const count = await getNotificationUnreadCount();
+      setUnreadCount(count);
+    } catch {
+      setUnreadCount(0);
+    }
+  };
+
   useEffect(() => {
-    if (hidden) return undefined;
-    let cancelled = false;
-    const poll = async () => {
-      // Don't hit the backend while the app is backgrounded — saves free-tier
-      // quota and avoids waking cold serverless functions for nothing.
-      if (typeof document !== 'undefined' && document.hidden) return;
-      try {
-        const count = await getNotificationUnreadCount();
-        if (!cancelled) setUnreadCount(count);
-      } catch {
-        if (!cancelled) setUnreadCount(0);
-      }
-    };
-    poll();
-    const interval = setInterval(poll, 30000);
-    // Refresh immediately when the user returns to the app.
-    const onVisible = () => { if (!document.hidden) poll(); };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
+    if (hidden) return;
+    refreshUnread();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, hidden]);
+
+  // B4: was a raw 30s setInterval that kept waking cold serverless functions
+  // while the tab was hidden — usePolling pauses in the background instead.
+  usePolling(refreshUnread, 30000, !hidden);
 
   if (hidden) return null;
 

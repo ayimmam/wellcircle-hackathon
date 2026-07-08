@@ -63,3 +63,42 @@ async def mark_reengagement_sent(telegram_id: int) -> dict:
         )
         response.raise_for_status()
         return response.json()
+
+
+async def get_staff_events(telegram_id: int) -> dict:
+    """Ended events this user is designated staff for, via GET /api/bot/staff-events."""
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+        response = await client.get(
+            f"{BACKEND_URL}/api/bot/staff-events",
+            params={"telegram_id": telegram_id},
+            headers=HEADERS,
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+async def submit_evidence(telegram_id: int, event_id: str, telegram_file_id: str) -> dict:
+    """Submit photo evidence via POST /api/bot/evidence."""
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+        response = await client.post(
+            f"{BACKEND_URL}/api/bot/evidence",
+            json={
+                "telegram_id": telegram_id,
+                "event_id": event_id,
+                "telegram_file_id": telegram_file_id,
+            },
+            headers=HEADERS,
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+async def get_circle_digests() -> dict:
+    """Weekly digest data via GET /api/bot/circle-digests."""
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+        response = await client.get(
+            f"{BACKEND_URL}/api/bot/circle-digests",
+            headers=HEADERS,
+        )
+        response.raise_for_status()
+        return response.json()

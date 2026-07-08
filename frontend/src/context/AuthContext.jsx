@@ -1,5 +1,7 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { authTelegram, setToken, getMe, onboardUser as apiOnboard, updateProfile as apiUpdate } from '../api/client';
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { authTelegram, setToken, getMe, onboardUser as apiOnboard, updateProfile as apiUpdate, joinCircleByCode } from '../api/client';
+import { showToast } from '../components/Toast';
 
 const AuthContext = createContext(null);
 
@@ -7,6 +9,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
+  const handledStartParam = useRef(false);
 
   const login = useCallback(async () => {
     setLoading(true);
@@ -44,14 +48,31 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // E1: `https://t.me/{bot}?startapp=circle_{join_code}` deep links deliver
+  // start_param into the Mini App's initData — join the circle right after auth.
+  const handleStartParam = useCallback(async () => {
+    if (handledStartParam.current) return;
+    handledStartParam.current = true;
+    const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+    if (!startParam?.startsWith('circle_')) return;
+    const joinCode = startParam.slice('circle_'.length);
+    try {
+      const res = await joinCircleByCode(joinCode);
+      showToast(`Joined ${res.name || 'circle'}! 🎉`, '🤝');
+      navigate(`/circle/${res.id}`);
+    } catch {
+      showToast('Invalid or expired invite link', '❌');
+    }
+  }, [navigate]);
+
   // Auth must run on every entry route (e.g. /admin from Telegram WebApp), not only on /
   useEffect(() => {
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.expand();
       window.Telegram.WebApp.ready();
     }
-    login().catch(() => {});
-  }, [login]);
+    login().then(() => handleStartParam()).catch(() => {});
+  }, [login, handleStartParam]);
 
   const refreshUser = useCallback(async () => {
     try {

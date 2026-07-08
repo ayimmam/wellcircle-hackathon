@@ -9,8 +9,9 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.crud.user import (
     onboard_user, update_user_profile,
-    get_user_joined_community_ids, get_points_tier,
+    get_user_joined_community_ids,
 )
+from app.services.points import get_points_tier
 from app.crud.community import join_community, get_suggested_communities
 from app.schemas.user import (
     UserResponse, UserOnboardingRequest, UserProfileUpdate,
@@ -164,28 +165,18 @@ async def get_points_history(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get recent points transactions from feed events."""
-    from app.models.community import CommunityFeedEvent, Community
+    """Get recent points transactions from the ledger."""
+    from app.services.points import get_user_transactions, get_points_tier
 
-    events = (
-        db.query(CommunityFeedEvent)
-        .filter(
-            CommunityFeedEvent.user_id == user.id,
-            CommunityFeedEvent.event_type == "checkin",
-        )
-        .order_by(CommunityFeedEvent.created_at.desc())
-        .limit(20)
-        .all()
-    )
+    txns = get_user_transactions(db, user.id, limit=30)
 
     items = []
-    for e in events:
-        comm = db.query(Community).filter(Community.id == e.community_id).first()
+    for txn in txns:
         items.append({
-            "action": "checkin",
-            "points": 10,
-            "community_name": comm.name if comm else None,
-            "created_at": e.created_at,
+            "action": txn.type,
+            "points": txn.amount,
+            "community_name": txn.note,
+            "created_at": txn.created_at,
         })
 
     tier, emoji = get_points_tier(user.points_balance)

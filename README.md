@@ -123,20 +123,58 @@ See each service's `.env.example` for the full list. **Never commit real secrets
 ## Testing
 
 ```bash
-cd frontend && npm test     # navigation, error-boundary, and route smoke tests (Vitest + RTL)
+cd frontend && npm test                        # navigation, error-boundary, and route smoke tests (Vitest + RTL)
+cd backend && python -m app.tests.test_integration  # full integration test, in-memory SQLite — run as a script, not via pytest
 ```
 
-The frontend suite runs the API client in mock mode, so it needs no backend. The route smoke test mounts every reachable screen and fails if any crashes.
+The frontend suite runs the API client in mock mode, so it needs no backend. The route smoke test
+mounts every reachable screen and fails if any crashes. Backend `test_api.py`/`test_auth.py` at
+the repo root are manual scripts against a running server, not part of either suite — see
+"Repository Layout" below.
+
+---
+
+## Repository Layout
+
+Each service also has its own README with a fuller tour of its internals:
+[`backend/README.md`](./backend/README.md), [`frontend/README.md`](./frontend/README.md),
+[`telegram-bot/README.md`](./telegram-bot/README.md). This is the map of what lives where at the
+top level, including the parts that are easy to mistake for something they're not:
+
+```
+wellcirclev2/
+├── backend/
+│   ├── app/            # the actual application: api/ (routes) → crud/ (queries) → models/ (ORM),
+│   │                   # plus schemas/ (Pydantic) and services/ (auth, payments, scheduler)
+│   ├── api/index.py    # Vercel serverless entry point (wraps app/main.py via Mangum)
+│   ├── alembic/        # schema migrations — the canonical mechanism going forward
+│   ├── loadtest/       # Locust load test used to validate Supabase free-tier capacity for the pilot
+│   └── *.py            # one-off operational scripts at the backend root (seed_*, check_*, fix_*,
+│                       # patch_*, make_super_admin.py, cleanup_loadtest_data.py, apply_*_migration.py,
+│                       # test_api.py, test_auth.py) — run manually against a target DB/server,
+│                       # not imported by the app and not part of the test suite
+├── frontend/
+│   └── src/            # api/client.js (backend client + mock mode), context/, pages/, components/,
+│                       # hooks/, data/mock.js (mock data matching the API contract), test/
+├── telegram-bot/
+│   └── bot/             # handlers/ (commands), services/ (api_client, reengagement job), utils/
+├── docs/                # design, product, and status docs — see docs/README.md for the full index
+├── supabase/            # Supabase CLI config (config.toml) for local Supabase tooling
+└── CLAUDE.md            # conventions + architecture notes for anyone (human or AI agent) picking
+                          # up work in this repo without prior context — read this first
+```
 
 ---
 
 ## Documentation
 
-Detailed docs live in [`docs/`](./docs):
+Detailed docs live in [`docs/`](./docs) — see [`docs/README.md`](./docs/README.md) for the full,
+categorized index. The most load-bearing ones:
 
-- [API_CONTRACT.md](./docs/API_CONTRACT.md) — full endpoint specification and flow diagrams
+- [API_CONTRACT.md](./docs/API_CONTRACT.md) — full endpoint specification and flow diagrams (source of truth across all three services — update it when a request/response shape changes)
 - [BACKEND_REFERENCE.md](./docs/BACKEND_REFERENCE.md) — backend internals
 - [PRD.md](./docs/PRD.md) — product requirements
-- [HANDOFF.md](./docs/HANDOFF.md) — implementation status and change log
+- [HANDOFF.md](./docs/HANDOFF.md) — implementation status and change log, by phase
 
-Repository conventions for contributors (and AI assistants) are in [CLAUDE.md](./CLAUDE.md).
+Repository conventions for contributors (and AI coding agents) are in [CLAUDE.md](./CLAUDE.md) —
+start there if you're picking up work in this repo cold.

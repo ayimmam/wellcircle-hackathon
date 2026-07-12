@@ -46,6 +46,13 @@ export function AuthProvider({ children }) {
       track('app_open', { entry: initData === 'mock-init-data' ? 'browser' : 'telegram' });
       return res;
     } catch (err) {
+      // The page is restricted to load only inside Telegram (see
+      // authTelegram() in api/client.js) — track blocked attempts as their
+      // own event so they're visible in PostHog instead of going dark,
+      // rather than as a failed app_open (no session ever started).
+      if (err.code === 'TELEGRAM_INIT_DATA_MISSING') {
+        track('blocked_non_telegram_access');
+      }
       setError(err.message);
       throw err;
     } finally {

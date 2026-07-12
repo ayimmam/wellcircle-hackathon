@@ -82,11 +82,22 @@ export default function BookingFlow() {
     return false;
   };
 
+  // F2: a booking is created before payment is confirmed, so a failed/timed-out
+  // payment must NOT re-create the booking on retry — that produced duplicate
+  // bookings for one purchase. Retry re-initiates payment against the same
+  // booking.id instead of calling createBooking again.
+  const initiatePaymentFor = async (bookingId) => {
+    if (paymentMethod === 'telebirr') {
+      await initiateTelebirr(bookingId);
+    } else {
+      await initiateMpesa(bookingId, phoneNumber);
+    }
+  };
+
   const handlePay = async () => {
     setPaymentStatus('processing');
     pollAttemptsRef.current = 0;
     try {
-      // 1. Create booking
       const bk = await createBooking({
         provider_id: providerId,
         service_name: selectedService.name,
@@ -97,18 +108,24 @@ export default function BookingFlow() {
         ...(eventId ? { event_id: eventId } : {}),
       });
       setBooking(bk);
-
-      // 2. Initiate payment
-      if (paymentMethod === 'telebirr') {
-        await initiateTelebirr(bk.id);
-      } else {
-        await initiateMpesa(bk.id, phoneNumber);
-      }
-      // 3. usePolling below picks up payment-status polling now that
+      await initiatePaymentFor(bk.id);
+      // usePolling below picks up payment-status polling now that
       // paymentStatus === 'processing' and booking.id is set.
     } catch (err) {
       setPaymentStatus('failed');
       showToast(err.message || 'Payment initiation failed. Try again.', '❌');
+    }
+  };
+
+  const handleRetryPayment = async () => {
+    if (!booking?.id) return handlePay();
+    setPaymentStatus('processing');
+    pollAttemptsRef.current = 0;
+    try {
+      await initiatePaymentFor(booking.id);
+    } catch (err) {
+      setPaymentStatus('failed');
+      showToast(err.message || 'Payment retry failed. Try again.', '❌');
     }
   };
 
@@ -233,6 +250,36 @@ export default function BookingFlow() {
     );
   }
 
+  // ─── Failed / Timed-out Screen ───────────────────
+  // F2: previously a failed/timed-out payment just toasted and fell back to
+  // the step-2 form, where hitting Pay again called createBooking a second
+  // time (duplicate booking) instead of retrying the existing one.
+  if (paymentStatus === 'failed') {
+    return (
+      <div className="page" id="payment-failed-screen">
+        <div style={{ textAlign: 'center', paddingTop: 80 }}>
+          <div className="confirmation-check" style={{ background: 'var(--danger)' }}>
+            <Icon name="x" size={28} strokeWidth={2.5} />
+          </div>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginTop: 16, marginBottom: 8 }}>
+            {t('Payment Failed')}
+          </h2>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 24, padding: '0 16px' }}>
+            {booking
+              ? t('Your booking is saved. Retry the payment to confirm it, or check its status in My Bookings.')
+              : t('Something went wrong before your booking could be created. Please try again.')}
+          </p>
+          <button className="btn btn-primary btn-block" style={{ marginBottom: 12 }} onClick={handleRetryPayment} id="retry-payment-btn">
+            {t('Retry Payment')}
+          </button>
+          <button className="btn btn-outline btn-block" onClick={() => navigate('/my-bookings')} id="view-my-bookings-btn">
+            {t('View My Bookings')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page" id="booking-flow-screen">
       {/* Header */}
@@ -294,7 +341,7 @@ export default function BookingFlow() {
                 className={`chip date-chip ${selectedDate === day.date ? 'active' : ''}`}
                 onClick={() => setSelectedDate(day.date)}
               >
-                {day.dayName}
+                {day.dayName} {day.dayNumber}
               </button>
             ))}
           </div>

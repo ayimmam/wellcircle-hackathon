@@ -110,7 +110,10 @@ export async function authTelegram(initData) {
     return { token: 'mock-jwt-token', user: { ...MOCK_USER }, is_new_user: false };
   }
   if (!initData || initData === 'mock-init-data') {
-    throw new Error('Telegram initData is missing. Please open the app inside Telegram, or set VITE_USE_MOCK=true for testing.');
+    throw Object.assign(
+      new Error('Telegram initData is missing. Please open the app inside Telegram, or set VITE_USE_MOCK=true for testing.'),
+      { code: 'TELEGRAM_INIT_DATA_MISSING' }
+    );
   }
 
   try {

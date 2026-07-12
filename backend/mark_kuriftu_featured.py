@@ -26,8 +26,8 @@ for pid, name in providers:
 
 if providers:
     cur.execute(
-        "UPDATE provider_events SET is_boosted = TRUE WHERE provider_id = ANY(%s) RETURNING id, service_name",
-        ([pid for pid, _ in providers],),
+        "UPDATE provider_events SET is_boosted = TRUE WHERE provider_id = ANY(%s::uuid[]) RETURNING id, service_name",
+        ([str(pid) for pid, _ in providers],),
     )
     for eid, title in cur.fetchall():
         print(f"boosted event: {title} ({eid})")

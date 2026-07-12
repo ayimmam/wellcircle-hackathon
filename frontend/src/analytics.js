@@ -15,6 +15,11 @@ export function initAnalytics() {
     persistence: 'localStorage',
     capture_pageview: false, // we capture explicit events instead
     autocapture: false,
+    // Telegram can suspend/destroy the WebView the instant a user backgrounds
+    // or closes the Mini App, without reliably firing pagehide/unload — the
+    // default 3s batch flush loses events in that window, so flush at the
+    // SDK's minimum interval instead of trusting the unload handler.
+    flush_interval_ms: 250,
   });
   enabled = true;
 }

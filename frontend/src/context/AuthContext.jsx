@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef } f
 import { useNavigate } from 'react-router-dom';
 import { authTelegram, setToken, getMe, onboardUser as apiOnboard, updateProfile as apiUpdate, joinCircleByCode } from '../api/client';
 import { showToast } from '../components/Toast';
+import { initAnalytics, identifyUser, track } from '../analytics';
 
 const AuthContext = createContext(null);
 
@@ -26,6 +27,8 @@ export function AuthProvider({ children }) {
           try {
             const u = await getMe();
             setUser(u);
+            identifyUser(u);
+            track('app_open', { entry: 'saved_token' });
             return { token: savedToken, user: u };
           } catch {
             localStorage.removeItem('wc_token');
@@ -39,6 +42,8 @@ export function AuthProvider({ children }) {
       localStorage.setItem('wc_token', res.token);
       setToken(res.token);
       setUser(res.user);
+      identifyUser(res.user);
+      track('app_open', { entry: initData === 'mock-init-data' ? 'browser' : 'telegram' });
       return res;
     } catch (err) {
       setError(err.message);
@@ -67,6 +72,7 @@ export function AuthProvider({ children }) {
 
   // Auth must run on every entry route (e.g. /admin from Telegram WebApp), not only on /
   useEffect(() => {
+    initAnalytics();
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.expand();
       window.Telegram.WebApp.ready();

@@ -778,6 +778,7 @@ export function getNextDays(count = 7) {
     days.push({
       date: d.toISOString().split('T')[0],
       dayName: d.toLocaleDateString('en', { weekday: 'short' }),
+      dayNumber: d.getDate(),
     });
   }
   return days;

@@ -33,3 +33,7 @@ WellaTribe_PRD_Hackathon.docx
 pytest_output.txt
 coverage/
 .coverage
+
+# Load test run output
+backend/loadtest/results-*.csv
+backend/loadtest/*.html

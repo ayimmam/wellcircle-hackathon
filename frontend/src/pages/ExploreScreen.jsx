@@ -5,6 +5,7 @@ import { CATEGORIES } from '../data/mock';
 import EventCard from '../components/EventCard';
 import Icon from '../components/Icon';
 import { useTranslation } from 'react-i18next';
+import { track } from '../analytics';
 
 export default function ExploreScreen() {
   const navigate = useNavigate();
@@ -16,6 +17,10 @@ export default function ExploreScreen() {
   const [search, setSearch] = useState(location.state?.search || '');
   const [loading, setLoading] = useState(true);
   const { t } = useTranslation();
+
+  useEffect(() => {
+    track('explore_view', { view, category });
+  }, [view, category]);
 
   useEffect(() => {
     setLoading(true);

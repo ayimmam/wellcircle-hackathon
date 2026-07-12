@@ -55,7 +55,10 @@ export default function HomeScreen() {
     }
   };
 
-  const featured = [...providers].sort((a, b) => b.rating - a.rating).slice(0, 5);
+  // Pilot partner (is_featured, e.g. Kuriftu) always leads; rating breaks ties
+  const featured = [...providers]
+    .sort((a, b) => (Number(b.is_featured) - Number(a.is_featured)) || b.rating - a.rating)
+    .slice(0, 5);
   const topProvider = featured[0];
 
   return (

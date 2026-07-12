@@ -448,4 +448,73 @@ HANDOFF.md
 
 ---
 
+### Phase 6 — Pilot Launch Prep: Analytics, Kuriftu Priority, Friction Fixes & Scaling Validation (This Session)
+
+Anteneh's Mon–Wed workstream from `docs/WellCircle_Dev_Timeline.docx` (1-week sprint, Jul 13–19 2026, Kuriftu pilot focus), plus a scaling investigation that came out of it. Branch `migration/backend`; merged to `main` via PR #6 (`365fc1d`) up through the connection-pool fix — see **Known Gap** below for what's still unmerged. See `docs/USER_FLOW_AUDIT.md` for the full flow map and friction-point detail behind items A–C.
+
+#### A — Monday: user-flow audit + analytics decision
+- Walked Home → Explore → Provider Detail → Booking → Confirmation as a first-time guest against the actual code (not just the PRD), documented in `docs/USER_FLOW_AUDIT.md`.
+- **Analytics tool: PostHog Cloud** (over GA4 / in-house events table) — works inside the Telegram WebView, instant event verification (no 24h GA4 lag), funnels/retention map directly onto the sprint's success criteria.
+- Ranked friction points F1–F6; F1 (fake/unclear time slots) and F2 (payment failure has no recovery path) picked for Wednesday.
+
+#### B — Tuesday: analytics instrumentation + Kuriftu pilot-partner ordering
+- `frontend/src/analytics.js` — PostHog wrapper (`posthog-js`), Telegram-WebView-safe config (`localStorage` persistence, no cookies, no autocapture). Every call is a no-op when `VITE_POSTHOG_KEY` is unset, so dev/mock/tests are unaffected.
+- Events live: `app_open` (+ `identify` by Telegram ID, in `AuthContext`), `explore_view`, `booking_start` (tagged with a `source` — service row vs. Book-Now card vs. direct — to eventually answer whether skipping the provider-detail page hurts conversion), `booking_confirmed`.
+- **Kuriftu-first ordering**: `HomeScreen.jsx` was re-sorting providers purely by rating, defeating the backend's `is_featured`-first ordering — fixed so the pilot partner always leads the hero banner + featured carousel. `backend/mark_kuriftu_featured.py` (idempotent) sets `is_featured=TRUE` on the Kuriftu provider + boosts its events once seeded.
+- `backend/seed_kuriftu_placeholder.py` — since Bezi's real Kuriftu service-list seed (Tue's own deliverable) hadn't landed yet, inserted a stand-in "Kuriftu Resort & Spa" provider (`is_featured=TRUE`, 3 placeholder services, description explicitly tagged `[Placeholder — replace with Bezi's Tue Jul 14 service audit]`) so front-page ordering was demoable immediately. **Whoever lands the real Kuriftu data should edit this row in place (or delete + reseed), not create a second Kuriftu-named provider** — `mark_kuriftu_featured.py` matches by `name ILIKE '%kuriftu%'` and would then be ambiguous.
+
+#### C — Wednesday: top 2 friction-point fixes
+- **F1** — date chips showed only weekday name (`"Mon"`); `getNextDays()` now also returns `dayNumber`, chips render `"Mon 14"`. Scoped to display only per product decision — no real per-provider slot availability yet, so double-booking still isn't prevented server-side.
+- **F2** — a booking was created before payment confirmation, so a failed/timed-out payment fell back to the booking form; hitting Pay again called `createBooking` a second time (duplicate booking), with no way to check what happened. Added a dedicated failed-payment screen (`BookingFlow.jsx`) with **Retry Payment** (re-initiates against the *existing* `booking.id`, no duplicate) and **View My Bookings**.
+- Verified both in a real headless-Chrome session against the mock dev server (no project run-skill existed for this repo yet — used `puppeteer-core` against system Chrome directly; worth generating a proper run-skill via `/run-skill-generator` if this becomes a recurring need).
+
+#### D — Scaling investigation: Supabase vs. MongoDB, then load-testing what's actually there
+Prompted by a proposed MongoDB Atlas migration (motivated by $5k in startup credits + concern that Supabase free tier can't handle the pilot's 200 concurrent users + launch-day registration surge).
+
+- **Recommendation: stayed on Supabase.** The schema is deeply relational (13+ FK'd models, Postgres RLS for authz, Alembic + ad-hoc migrations) and MongoDB doesn't have an RLS equivalent — moving would trade a DB-enforced security guarantee for an app-enforced one built from scratch, plus a full ORM/schema rewrite, for a scaling problem that turned out to be fixable in the existing stack. Free tier's real ceiling (no uptime SLA, auto-pause on inactivity) is better addressed by Supabase Pro (~$25/mo) than a database migration, if it's addressed at all.
+- **`backend/loadtest/`** (Locust) — simulates ~200 concurrent Mini App sessions (10:5:1 weighted browse-home : view-provider : full-booking+payment, matching the flow-audit funnel) plus a registration-surge ramp shape. Signs real HMAC Telegram `initData` (verified it round-trips through the actual `validate_init_data()`), so it exercises production auth, not a dev bypass. See `backend/loadtest/README.md` for staged run instructions and how to read results.
+- **Bug found (run 1, unpatched):** `app/database.py` hardcoded a client-side SQLAlchemy pool (5 + 10 overflow) regardless of deployment target. On Vercel, each concurrent serverless instance held up to 15 of its own connections *on top of* Supabase's own pooler (Supavisor, already correctly configured on `:6543`) — under 200-concurrent load this produced **15.9% failure rate, 38s median / 174s worst-case latency**, independent of which database sits behind it. Fixed with `NullPool` when `VERCEL` is set (`d0c4d11`), pooled engine kept for Render/local dev.
+- **Bug found (run 2, pool fix live):** auth went to a clean 0/200 failures, but `/api/providers`, `/api/communities`, `/api/users/me/onboard` still failed at 14.5% aggregate with 50s+ median latency. Root cause: `get_all_providers` / `get_all_communities` (`app/crud/provider.py`, `app/crud/community.py`) each ran an N+1 query loop (community + promotion lookup per provider; provider + membership lookup per community) — with exactly one connection now held per request for its full duration, each request held that connection through a dozen-plus sequential round-trips instead of releasing it fast. Batched into two queries per request instead of one per row (`91c99a9`); output shape unchanged, verified against `test_integration.py`.
+- **Run 3 (both fixes) not yet executed** — `91c99a9` is still local-only, not pushed/merged. Re-run `backend/loadtest/` once it's deployed to get a clean capacity read.
+- `backend/cleanup_loadtest_data.py` — deletes synthetic `LoadTest*` users + dependents after a run; used twice this session (183, then 200 users removed from production).
+
+#### Verification
+- Frontend: `npm run build` ✅ · `npm test` → 42/42 ✅ (unchanged by this phase's edits).
+- Backend: `python -m app.tests.test_integration` — same pre-existing, unrelated failure at a provider-status default assertion (confirmed via `git stash` comparison, not touched by any Phase 6 change); all provider/community CRUD cases pass including the N+1 rewrite.
+- PostHog signing verified offline against the backend's real `validate_init_data()` (no network calls) before any load-test run.
+- Load test results are the closest thing to a production capacity number this app has — see the before/after table in section D above; full CSVs are gitignored (`backend/loadtest/results-*.csv`), not archived.
+
+#### Known Gaps / Next Steps
+- **`91c99a9` (N+1 query fix) needs a PR + merge + redeploy, then a third load-test run** — this is the actual open loop; "can Supabase free tier handle the pilot" is not yet conclusively answered.
+- Deploys from this sandbox aren't possible (no git push credentials, no `gh` CLI) — every push/PR/merge in this phase was handed off for a human to run.
+- F1's fix is display-only; real per-provider time-slot availability (and server-side double-booking prevention) is still open — flagged in `docs/USER_FLOW_AUDIT.md`.
+- No cancellation/reschedule endpoint exists on `bookings` yet (`app/api/bookings.py` only has create) — relevant if Yoni's Sheets-sync work (Thursday's timeline item, "status-update logic tested: cancellations, reschedules") assumes it does; see `docs/SPRINT_TEAM_HANDOFF.md`.
+
+#### Files Changed / Added (Phase 6)
+```
+backend/app/database.py
+backend/app/crud/provider.py
+backend/app/crud/community.py
+backend/mark_kuriftu_featured.py   (new)
+backend/seed_kuriftu_placeholder.py   (new)
+backend/cleanup_loadtest_data.py   (new)
+backend/loadtest/locustfile.py   (new)
+backend/loadtest/telegram_signing.py   (new)
+backend/loadtest/requirements.txt   (new)
+backend/loadtest/README.md   (new)
+frontend/src/analytics.js   (new)
+frontend/src/context/AuthContext.jsx
+frontend/src/pages/HomeScreen.jsx
+frontend/src/pages/ExploreScreen.jsx
+frontend/src/pages/BookingFlow.jsx
+frontend/src/data/mock.js
+frontend/.env.example
+docs/USER_FLOW_AUDIT.md   (new)
+docs/SPRINT_TEAM_HANDOFF.md   (new)
+.gitignore
+HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*

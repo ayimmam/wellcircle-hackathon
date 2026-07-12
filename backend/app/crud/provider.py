@@ -14,6 +14,7 @@ from app.models.booking import Booking
 from app.models.user import User
 from app.crud.admin_notification import notify_all_admins
 from app.services.promotion_service import get_active_promotion
+from app.models.provider_promotion import ProviderPromotion
 
 
 def get_all_providers(
@@ -40,9 +41,38 @@ def get_all_providers(
         Provider.rating.desc(),
         Provider.name,
     ).all()
+
+    # Batch what used to be two extra queries per provider (community +
+    # active promotion) into two queries total — under concurrent load, each
+    # request held its DB connection open through every row's round-trips.
+    provider_ids = [p.id for p in providers]
+    communities_by_provider = {}
+    if provider_ids:
+        for c in db.query(Community).filter(Community.provider_id.in_(provider_ids)).all():
+            communities_by_provider[c.provider_id] = c
+
+    promotions_by_provider = {}
+    if provider_ids:
+        now = datetime.now(timezone.utc)
+        active_promos = (
+            db.query(ProviderPromotion)
+            .filter(
+                ProviderPromotion.provider_id.in_(provider_ids),
+                ProviderPromotion.is_active == True,
+                ProviderPromotion.valid_until >= now,
+            )
+            .order_by(ProviderPromotion.valid_until.desc())
+            .all()
+        )
+        # order_by valid_until desc + first-seen-wins keeps the same "latest
+        # valid_until" pick per provider that get_active_promotion() made.
+        for promo in active_promos:
+            promotions_by_provider.setdefault(promo.provider_id, promo)
+
     result = []
     for p in providers:
-        community = db.query(Community).filter(Community.provider_id == p.id).first()
+        community = communities_by_provider.get(p.id)
+        promo = promotions_by_provider.get(p.id)
         result.append({
             "id": str(p.id),
             "name": p.name,
@@ -59,7 +89,11 @@ def get_all_providers(
             "community_id": str(community.id) if community else None,
             "is_featured": bool(p.is_featured),
             "subscription_plan": p.subscription_plan,
-            "active_promotion": get_active_promotion(db, p.id),
+            "active_promotion": {
+                "headline": promo.headline,
+                "discount_pct": promo.discount_pct,
+                "valid_until": promo.valid_until,
+            } if promo else None,
         })
     return result
 

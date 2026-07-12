@@ -30,17 +30,33 @@ def get_all_communities(
         query = query.filter(Community.id.in_(joined_ids))
 
     communities = query.order_by(Community.member_count.desc()).all()
+
+    # Batch the per-row lookups below into two queries instead of one per
+    # community (was N+1 — under concurrent load each request held its DB
+    # connection open through every row's round-trip, see load test results).
+    provider_ids = [c.provider_id for c in communities if c.provider_id]
+    providers_by_id = {}
+    if provider_ids:
+        for p in db.query(Provider).filter(Provider.id.in_(provider_ids)).all():
+            providers_by_id[p.id] = p
+
+    joined_community_ids = set()
+    if user_id:
+        community_ids = [c.id for c in communities]
+        if community_ids:
+            joined_community_ids = {
+                row.community_id
+                for row in db.query(CommunityMember.community_id)
+                .filter(
+                    CommunityMember.community_id.in_(community_ids),
+                    CommunityMember.user_id == user_id,
+                )
+                .all()
+            }
+
     result = []
     for c in communities:
-        provider = db.query(Provider).filter(Provider.id == c.provider_id).first()
-        user_joined = False
-        if user_id:
-            membership = (
-                db.query(CommunityMember)
-                .filter(CommunityMember.community_id == c.id, CommunityMember.user_id == user_id)
-                .first()
-            )
-            user_joined = membership is not None
+        provider = providers_by_id.get(c.provider_id)
         result.append({
             "id": str(c.id),
             "name": c.name,
@@ -49,7 +65,7 @@ def get_all_communities(
             "member_count": c.member_count,
             "provider_name": provider.name if provider else None,
             "provider_id": str(provider.id) if provider else None,
-            "user_joined": user_joined,
+            "user_joined": c.id in joined_community_ids,
         })
     return result
 

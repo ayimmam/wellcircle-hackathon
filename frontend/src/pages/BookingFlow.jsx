@@ -6,6 +6,7 @@ import { showToast } from '../components/Toast';
 import Icon from '../components/Icon';
 import usePolling from '../hooks/usePolling';
 import { useTranslation } from 'react-i18next';
+import { track } from '../analytics';
 
 const STEP_LABELS = ['Service', 'Date & Time', 'Payment'];
 
@@ -31,6 +32,16 @@ export default function BookingFlow() {
   const pollAttemptsRef = useRef(0);
 
   const days = getNextDays(7);
+
+  useEffect(() => {
+    track('booking_start', {
+      provider_id: providerId,
+      event_id: eventId || undefined,
+      // provider passed via state → user came from a card/detail; else deep link
+      source: location.state?.selectedService ? 'service_row' : location.state?.provider ? 'book_now_card' : 'direct',
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [providerId]);
 
   useEffect(() => {
     if (!provider) {
@@ -113,6 +124,12 @@ export default function BookingFlow() {
         setPaymentStatus('success');
         setBooking(prev => ({ ...prev, ...status }));
         showToast('Payment confirmed! 🎉', '✅');
+        track('booking_confirmed', {
+          provider_id: providerId,
+          service: selectedService?.name,
+          amount_etb: totalPrice,
+          payment_method: paymentMethod,
+        });
       } else if (status.payment_status === 'failed') {
         setPaymentStatus('failed');
         showToast('Payment failed. Try again.', '❌');

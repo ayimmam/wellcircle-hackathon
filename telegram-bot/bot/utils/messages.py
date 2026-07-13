@@ -23,6 +23,18 @@ Don't let your Legacy Points decay! 🌱
 Tap /start to jump back in. Your tribe is waiting. 💪
 """
 
+REENGAGEMENT_PROMO_MESSAGE = """
+👋 Hey {name}! We miss you at Well Circle.
+
+🏷 <b>{headline}</b>
+
+You still have <b>{discount_pct}% off</b> waiting at <b>{provider_name}</b> — come back and use your discount before it expires on {expires_on}.
+
+Your tribe is waiting. 💪
+"""
+
+REENGAGEMENT_PROMO_BUTTON = "🏷 Claim {discount_pct}% off"
+
 NO_STAFF_EVENTS_MESSAGE = """
 You're not the designated staff for any ended event awaiting evidence right now.
 

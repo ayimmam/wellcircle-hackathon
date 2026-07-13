@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getProviders, getEvents } from '../api/client';
 import { CATEGORIES } from '../data/mock';
@@ -17,6 +17,9 @@ export default function ExploreScreen() {
   const [search, setSearch] = useState(location.state?.search || '');
   const [loading, setLoading] = useState(true);
   const { t } = useTranslation();
+  // promo_view fires once per promo-bearing provider per Explore visit,
+  // not on every refetch (category/search changes re-list the same cards)
+  const promoViewsTracked = useRef(new Set());
 
   useEffect(() => {
     track('explore_view', { view, category });
@@ -26,7 +29,19 @@ export default function ExploreScreen() {
     setLoading(true);
     if (view === 'studios') {
       getProviders(category !== 'all' ? category : null, search || null)
-        .then(res => setProviders(res.providers))
+        .then(res => {
+          setProviders(res.providers);
+          res.providers.forEach(p => {
+            if (!p.active_promotion || promoViewsTracked.current.has(p.id)) return;
+            promoViewsTracked.current.add(p.id);
+            track('promo_view', {
+              provider_id: p.id,
+              surface: 'explore_card',
+              discount_pct: p.active_promotion.discount_pct ?? undefined,
+              audience: p.active_promotion.audience,
+            });
+          });
+        })
         .finally(() => setLoading(false));
     } else {
       const params = {};

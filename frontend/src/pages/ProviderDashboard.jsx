@@ -7,6 +7,7 @@ import {
   getProviderCustomers, awardCustomerPoints, getPriceSuggestion, getProviderPointsAnalytics,
 } from '../api/client';
 import FeedEvent from '../components/FeedEvent';
+import PromotionForm from '../components/PromotionForm';
 import { showToast } from '../components/Toast';
 import usePolling from '../hooks/usePolling';
 
@@ -169,6 +170,7 @@ export default function ProviderDashboard() {
         <button className={`admin-subtab ${tab === 'events' ? 'active' : ''}`} onClick={() => setTab('events')}>Events</button>
         <button className={`admin-subtab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')}>Products</button>
         <button className={`admin-subtab ${tab === 'customers' ? 'active' : ''}`} onClick={() => setTab('customers')}>Customers</button>
+        <button className={`admin-subtab ${tab === 'promotions' ? 'active' : ''}`} onClick={() => setTab('promotions')}>Promotions</button>
         <button className={`admin-subtab ${tab === 'subscriptions' ? 'active' : ''}`} onClick={() => setTab('subscriptions')}>Subscriptions</button>
       </div>
 
@@ -444,6 +446,17 @@ export default function ProviderDashboard() {
               </div>
             )}
           </div>
+        </>
+      ) : tab === 'promotions' ? (
+        <>
+          <div className="section-header">
+            <h2 className="section-title">Presale & Promotions</h2>
+          </div>
+          <p className="text-sm mb-12" style={{ color: 'var(--text-secondary)' }}>
+            Active promotions show on your Explore card and provider page. Presale
+            discounts are applied automatically when an eligible guest books.
+          </p>
+          <PromotionForm />
         </>
       ) : tab === 'subscriptions' ? (
         <>

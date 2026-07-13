@@ -52,6 +52,7 @@
 | Providers | POST | `/providers/me/customers/:id/award` | JWT (provider) | Frontend |
 | Providers | GET | `/providers/me/products/price-suggestion` | JWT (provider) | Frontend |
 | Providers | GET | `/providers/me/analytics/points` | JWT (provider) | Frontend |
+| Providers | POST | `/providers/me/promotions` | JWT (provider) | Frontend |
 | Bot | GET | `/bot/staff-events` | Bot API Key | Bot |
 | Bot | POST | `/bot/evidence` | Bot API Key | Bot |
 | Bot | GET | `/bot/circle-digests` | Bot API Key | Bot |
@@ -141,6 +142,11 @@ Returns users inactive for 7+ days (for re-engagement notifications).
 
 **Auth: `X-Bot-API-Key` header**
 
+Each user carries `promo` — the soonest-expiring active discount promotion
+they are still eligible for (`null` if none) — so the bot's re-entry nudge can
+reference it ("come back and use your discount before it expires") and
+deep-link into the Mini App with `?startapp=reentry_promo_{provider_id}`.
+
 ```json
 // RESPONSE 200
 {
@@ -150,7 +156,14 @@ Returns users inactive for 7+ days (for re-engagement notifications).
       "name": "Meron Tadesse",
       "telegram_handle": "meron_fitness",
       "last_activity_at": "2026-05-28T14:00:00Z",
-      "days_inactive": 9
+      "days_inactive": 9,
+      "promo": {
+        "provider_id": "uuid-provider",
+        "provider_name": "Kuriftu Resort & Spa",
+        "headline": "Presale: 20% off your first visit",
+        "discount_pct": 20,
+        "valid_until": "2026-07-26T23:59:59Z"
+      }
     }
   ],
   "count": 1
@@ -357,7 +370,46 @@ Full provider detail with services, photos, linked community.
     "user_joined": true
   },
   "theme_primary_color": "#10B981",
-  "theme_accent_color": "#F59E0B"
+  "theme_accent_color": "#F59E0B",
+  "active_promotion": {              // null when no active promotion
+    "id": "uuid-promo",
+    "headline": "Presale: 20% off your first visit",
+    "discount_pct": 20,
+    "valid_until": "2026-07-26T23:59:59Z",
+    "audience": "first_time",        // "all" | "first_time" (presale)
+    "user_eligible": true            // detail only — whether THIS user's booking will get the discount
+  }
+}
+```
+
+`GET /api/providers` list items carry the same `active_promotion` object minus
+`user_eligible` (the list has no per-user context — treat it as marketing copy).
+
+### `POST /api/providers/me/promotions`
+Create a promotion for your own provider. **Provider-only access.**
+
+`audience: "first_time"` makes it a **presale promo**: the discount is applied
+automatically (server-side) to bookings by users with no prior successful
+booking at this provider. Presale promos must carry a `discount_pct` (422
+otherwise).
+
+```json
+// REQUEST
+{
+  "headline": "Presale: 20% off your first visit",
+  "discount_pct": 20,               // optional for audience "all", required for "first_time"
+  "valid_until": "2026-07-26T23:59:59Z",
+  "audience": "first_time"          // optional, default "all"
+}
+
+// RESPONSE 201
+{
+  "id": "uuid-promo",
+  "headline": "Presale: 20% off your first visit",
+  "discount_pct": 20,
+  "valid_until": "2026-07-26T23:59:59Z",
+  "is_active": true,
+  "audience": "first_time"
 }
 ```
 
@@ -587,13 +639,20 @@ useEffect(() => {
 ### `POST /api/bookings`
 Create a booking (payment pending).
 
+**Promotions are applied server-side.** Clients always send the
+**undiscounted** amount; if the user is eligible for the provider's active
+promotion (see `active_promotion.user_eligible` on provider detail), the
+backend deducts the flat % and returns the final charged `amount_etb` plus a
+`promotion` object (`null` when nothing applied). Payment initiation uses the
+booking's stored (discounted) amount.
+
 ```json
 // REQUEST
 {
   "provider_id": "uuid-string",
   "service_name": "Morning Vinyasa Flow",
   "slot_datetime": "2026-06-07T07:00:00Z",
-  "amount_etb": 800,
+  "amount_etb": 800,               // undiscounted — backend applies any promo
   "payment_method": "telebirr",
   "phone_number": "0911234567"
 }
@@ -604,9 +663,15 @@ Create a booking (payment pending).
   "provider_id": "uuid-string",
   "service_name": "Morning Vinyasa Flow",
   "slot_datetime": "2026-06-07T07:00:00Z",
-  "amount_etb": 800,
+  "amount_etb": 640,               // final charged amount (800 − 20%)
   "payment_method": "telebirr",
   "payment_status": "pending",
+  "promotion": {                   // null when no promotion applied
+    "id": "uuid-promo",
+    "headline": "Presale: 20% off your first visit",
+    "discount_pct": 20,
+    "discount_etb": 160
+  },
   "created_at": "2026-06-06T10:30:00Z"
 }
 ```

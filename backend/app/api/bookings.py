@@ -8,7 +8,8 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.crud.booking import create_booking
-from app.schemas.booking import BookingCreate, BookingResponse
+from app.schemas.booking import BookingCreate, BookingResponse, AppliedPromotion
+from app.services.promotion_service import get_eligible_promotion, compute_discount_etb
 
 router = APIRouter()
 
@@ -31,6 +32,19 @@ async def create_new_booking(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Presale loop: the backend, not the client, decides whether a promotion
+    # applies — clients always send the undiscounted amount. Eligibility is
+    # checked before the booking row exists so this booking can't disqualify
+    # itself from a first-time promo.
+    promo = get_eligible_promotion(db, UUID(request.provider_id), user.id)
+    discount_etb = compute_discount_etb(request.amount_etb, promo["discount_pct"]) if promo else 0
+    charged_etb = request.amount_etb - discount_etb
+    promo_fields = (
+        {"promotion_id": UUID(promo["id"]), "discount_etb": discount_etb}
+        if discount_etb > 0
+        else {}
+    )
+
     if request.event_id:
         event_uuid = UUID(request.event_id)
         
@@ -50,10 +64,11 @@ async def create_new_booking(
             provider_id=UUID(request.provider_id),
             service_name=request.service_name,
             slot_datetime=request.slot_datetime,
-            amount_etb=request.amount_etb,
+            amount_etb=charged_etb,
             payment_method=request.payment_method,
             phone_number=request.phone_number,
             event_id=event_uuid,
+            **promo_fields,
         )
         db.add(EventInventoryLog(
             event_id=event_uuid,
@@ -68,9 +83,10 @@ async def create_new_booking(
             provider_id=UUID(request.provider_id),
             service_name=request.service_name,
             slot_datetime=request.slot_datetime,
-            amount_etb=request.amount_etb,
+            amount_etb=charged_etb,
             payment_method=request.payment_method,
             phone_number=request.phone_number,
+            **promo_fields,
         )
 
     # 4. Trigger Instant Notification
@@ -90,5 +106,11 @@ async def create_new_booking(
         payment_method=booking.payment_method,
         payment_status=booking.payment_status,
         event_id=str(booking.event_id) if booking.event_id else None,
+        promotion=AppliedPromotion(
+            id=promo["id"],
+            headline=promo["headline"],
+            discount_pct=promo["discount_pct"],
+            discount_etb=discount_etb,
+        ) if discount_etb > 0 else None,
         created_at=booking.created_at,
     )

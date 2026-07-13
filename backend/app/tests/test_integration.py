@@ -287,13 +287,18 @@ def test_all():
         new_provider = create_self_onboarded_provider(
             db, applicant, valid, name="Test Studio", category="yoga", location_text="Bole",
         )
-        assert new_provider.status == "pending_approval"
-        print("   ✅ self_onboard + approve flow")
+        # Hackathon flow: self-onboarding auto-approves (status active,
+        # is_provider set immediately) — no admin review step.
+        assert new_provider.status == "active"
+        assert applicant.is_provider
+        print("   ✅ self_onboard (auto-approved)")
 
-        approved = approve_provider(db, new_provider.id)
-        db.refresh(applicant)
-        assert approved.status == "active" and applicant.is_provider
-        print("   ✅ approve_provider")
+        # approve_provider only acts on pending applications — auto-approved
+        # providers are no longer pending, so it returns None untouched.
+        assert approve_provider(db, new_provider.id) is None
+        db.refresh(new_provider)
+        assert new_provider.status == "active"
+        print("   ✅ approve_provider (no-op on auto-approved)")
 
         product = create_product(
             db, provider.id, name="Voucher", type="digital",

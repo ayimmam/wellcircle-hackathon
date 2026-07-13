@@ -5,6 +5,8 @@ import EventCard from '../components/EventCard';
 import { showToast } from '../components/Toast';
 import Icon from '../components/Icon';
 import { useTranslation } from 'react-i18next';
+import { track } from '../analytics';
+import { promoApplies } from '../utils/promo';
 
 export default function ProviderDetail() {
   const { id } = useParams();
@@ -25,6 +27,20 @@ export default function ProviderDetail() {
       .then(res => setEvents((res.events || []).filter(e => !e.is_cancelled)))
       .catch(() => setEvents([]));
   }, [id, navigate]);
+
+  const promo = provider?.active_promotion;
+  useEffect(() => {
+    if (!promo) return;
+    track('promo_view', {
+      provider_id: id,
+      surface: 'provider_detail',
+      discount_pct: promo.discount_pct ?? undefined,
+      audience: promo.audience,
+      user_eligible: promo.user_eligible,
+    });
+    // one event per provider visit, not per re-render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, !!promo]);
 
   const handleJoinCommunity = async () => {
     if (!provider?.community) return;
@@ -90,6 +106,27 @@ export default function ProviderDetail() {
         </div>
         <p className="detail-desc">{provider.description}</p>
       </div>
+
+      {/* Active promotion (presale loop) */}
+      {provider.active_promotion && (
+        <div className="card" style={{ marginBottom: 16, border: '1px solid var(--accent)' }} id="promo-banner">
+          <div className="card-body" style={{ padding: '12px 14px' }}>
+            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+              🏷 {provider.active_promotion.headline}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 4 }}>
+              {provider.active_promotion.valid_until && (
+                <>Valid until {new Date(provider.active_promotion.valid_until).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · </>
+              )}
+              {promoApplies(provider.active_promotion)
+                ? t('Applied automatically at checkout')
+                : provider.active_promotion.audience === 'first_time'
+                  ? t('First-visit offer — you have already booked here')
+                  : null}
+            </div>
+          </div>
+        </div>
+      )}
 
       {events.length > 0 && (
         <>

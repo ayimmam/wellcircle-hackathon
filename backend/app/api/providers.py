@@ -158,12 +158,19 @@ async def create_my_promotion(
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
 
+    if request.audience == "first_time" and not request.discount_pct:
+        raise HTTPException(
+            status_code=422,
+            detail="A first-time visitor (presale) promotion needs a discount percentage",
+        )
+
     promo = ProviderPromotion(
         provider_id=provider.id,
         headline=request.headline,
         discount_pct=request.discount_pct,
         valid_until=request.valid_until,
         is_active=True,
+        audience=request.audience,
     )
     db.add(promo)
     db.commit()
@@ -174,6 +181,7 @@ async def create_my_promotion(
         discount_pct=promo.discount_pct,
         valid_until=promo.valid_until,
         is_active=promo.is_active,
+        audience=promo.audience,
     )
 
 

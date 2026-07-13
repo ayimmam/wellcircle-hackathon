@@ -7,6 +7,7 @@ import Icon from '../components/Icon';
 import usePolling from '../hooks/usePolling';
 import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
+import { promoApplies, computeDiscountEtb } from '../utils/promo';
 
 const STEP_LABELS = ['Service', 'Date & Time', 'Payment'];
 
@@ -44,13 +45,19 @@ export default function BookingFlow() {
   }, [providerId]);
 
   useEffect(() => {
-    if (!provider) {
-      getProvider(providerId)
-        .then(p => setProvider(p))
-        .catch(() => navigate('/explore', { replace: true }))
-        .finally(() => setLoading(false));
-    }
-  }, [providerId, provider, navigate]);
+    // Always fetch the detail response even when a provider came via route
+    // state: Explore cards carry the list shape, which lacks the per-user
+    // `active_promotion.user_eligible` flag the pricing below depends on.
+    getProvider(providerId)
+      .then(p => setProvider(p))
+      .catch(() => {
+        // keep the route-state copy if the refresh fails; bail out only when
+        // there is nothing at all to render
+        if (!location.state?.provider) navigate('/explore', { replace: true });
+      })
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [providerId, navigate]);
 
   // Pre-select if coming from provider detail or featured event
   useEffect(() => {
@@ -73,7 +80,16 @@ export default function BookingFlow() {
 
   const basePrice = selectedService?.price || 0;
   const platformFee = Math.round(basePrice * 0.02);
-  const totalPrice = basePrice + platformFee;
+  const subtotal = basePrice + platformFee;
+  // Presale promo: the client only *predicts* the discount for display — the
+  // backend re-derives eligibility and applies it to the booking; we always
+  // send the undiscounted amount (see handlePay).
+  const promo = promoApplies(provider?.active_promotion) ? provider.active_promotion : null;
+  const predictedDiscount = promo ? computeDiscountEtb(subtotal, promo.discount_pct) : 0;
+  const totalPrice = subtotal - predictedDiscount;
+  // After creation, the booking row carries the server-applied promotion
+  const appliedPromo = booking?.promotion || null;
+  const paidTotal = appliedPromo ? subtotal - appliedPromo.discount_etb : subtotal;
 
   const canNext = () => {
     if (step === 0) return selectedService !== null;
@@ -102,7 +118,7 @@ export default function BookingFlow() {
         provider_id: providerId,
         service_name: selectedService.name,
         slot_datetime: `${selectedDate}T${selectedTime}:00Z`,
-        amount_etb: totalPrice,
+        amount_etb: subtotal, // undiscounted — the backend applies any promo
         payment_method: paymentMethod,
         phone_number: phoneNumber,
         ...(eventId ? { event_id: eventId } : {}),
@@ -139,14 +155,22 @@ export default function BookingFlow() {
       const status = await getPaymentStatus(booking.id);
       if (status.payment_status === 'success') {
         setPaymentStatus('success');
-        setBooking(prev => ({ ...prev, ...status }));
+        setBooking(prev => ({ ...prev, ...status, promotion: prev?.promotion }));
         showToast('Payment confirmed! 🎉', '✅');
         track('booking_confirmed', {
           provider_id: providerId,
           service: selectedService?.name,
-          amount_etb: totalPrice,
+          amount_etb: booking?.amount_etb ?? totalPrice,
           payment_method: paymentMethod,
         });
+        if (booking?.promotion) {
+          track('promo_redeemed', {
+            provider_id: providerId,
+            promotion_id: booking.promotion.id,
+            discount_pct: booking.promotion.discount_pct,
+            discount_etb: booking.promotion.discount_etb,
+          });
+        }
       } else if (status.payment_status === 'failed') {
         setPaymentStatus('failed');
         showToast('Payment failed. Try again.', '❌');
@@ -207,9 +231,17 @@ export default function BookingFlow() {
               <span className="confirmation-label">Platform Fee (2%)</span>
               <span className="confirmation-value">ETB {platformFee.toLocaleString()}</span>
             </div>
+            {appliedPromo && (
+              <div className="confirmation-row">
+                <span className="confirmation-label">🏷 {appliedPromo.headline} ({appliedPromo.discount_pct}%)</span>
+                <span className="confirmation-value" style={{ color: 'var(--accent)' }}>
+                  −ETB {appliedPromo.discount_etb.toLocaleString()}
+                </span>
+              </div>
+            )}
             <div className="confirmation-row">
               <span className="confirmation-label" style={{ fontWeight: 700 }}>Total Paid</span>
-              <span className="confirmation-value" style={{ fontWeight: 700 }}>ETB {totalPrice.toLocaleString()}</span>
+              <span className="confirmation-value" style={{ fontWeight: 700 }}>ETB {paidTotal.toLocaleString()}</span>
             </div>
             <div className="confirmation-row">
               <span className="confirmation-label">Payment</span>
@@ -385,6 +417,14 @@ export default function BookingFlow() {
                 <span className="confirmation-label">Platform Fee (2%)</span>
                 <span className="confirmation-value">ETB {platformFee.toLocaleString()}</span>
               </div>
+              {promo && (
+                <div className="confirmation-row" id="promo-discount-row">
+                  <span className="confirmation-label">🏷 {promo.headline} ({promo.discount_pct}%)</span>
+                  <span className="confirmation-value" style={{ color: 'var(--accent)' }}>
+                    −ETB {predictedDiscount.toLocaleString()}
+                  </span>
+                </div>
+              )}
               <div className="confirmation-row" style={{ borderBottom: 'none' }}>
                 <span className="confirmation-label" style={{ fontWeight: 700 }}>{t('Total')}</span>
                 <span className="confirmation-value" style={{ color: 'var(--accent)', fontSize: '1.1rem' }}>

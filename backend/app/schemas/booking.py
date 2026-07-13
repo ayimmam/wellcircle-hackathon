@@ -15,16 +15,25 @@ class BookingCreate(BaseModel):
     phone_number: Optional[str] = None
     event_id: Optional[str] = None
 
+class AppliedPromotion(BaseModel):
+    """Promotion the backend auto-applied to a booking (presale loop)."""
+    id: str
+    headline: str
+    discount_pct: int
+    discount_etb: int
+
+
 class BookingResponse(BaseModel):
     """Booking detail."""
     id: str
     provider_id: str
     service_name: str
     slot_datetime: datetime
-    amount_etb: int
+    amount_etb: int  # final charged amount, after any promotion discount
     payment_method: str
     payment_status: str
     event_id: Optional[str] = None
+    promotion: Optional[AppliedPromotion] = None
     created_at: datetime
 
     class Config:

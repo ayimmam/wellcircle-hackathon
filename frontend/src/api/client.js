@@ -297,9 +297,24 @@ export async function createInteraction(communityId, targetUserId, actionType) {
 export async function createBooking(data) {
   if (USE_MOCK) {
     await delay(500);
+    // Mirror the backend's server-side promo application: clients send the
+    // undiscounted amount; an eligible promotion knocks off a flat %.
+    const provider = MOCK_PROVIDERS.find(p => p.id === data.provider_id);
+    const promo = provider?.active_promotion;
+    const eligible = promo && promo.discount_pct > 0 && promo.user_eligible !== false;
+    const discountEtb = eligible
+      ? Math.min(Math.round((data.amount_etb * promo.discount_pct) / 100), data.amount_etb)
+      : 0;
     return {
       id: 'bk-new-' + Date.now(),
       ...data,
+      amount_etb: data.amount_etb - discountEtb,
+      promotion: discountEtb > 0 ? {
+        id: promo.id,
+        headline: promo.headline,
+        discount_pct: promo.discount_pct,
+        discount_etb: discountEtb,
+      } : null,
       payment_status: 'pending',
       created_at: new Date().toISOString()
     };

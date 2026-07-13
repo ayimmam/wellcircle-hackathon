@@ -23,5 +23,8 @@ class Booking(Base):
     mpesa_checkout_id = Column(String(255), nullable=True)
     phone_number = Column(String(20), nullable=True)  # Payment phone number
     event_id = Column(UUID(as_uuid=True), ForeignKey("provider_events.id"), nullable=True)
+    # Presale promo applied at creation (server-side): promo row + ETB knocked off amount_etb
+    promotion_id = Column(UUID(as_uuid=True), ForeignKey("provider_promotions.id"), nullable=True)
+    discount_etb = Column(Integer, nullable=True)
     reminder_sent = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

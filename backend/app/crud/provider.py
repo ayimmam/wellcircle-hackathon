@@ -13,7 +13,7 @@ from app.models.community import Community, CommunityMember, CommunityFeedEvent
 from app.models.booking import Booking
 from app.models.user import User
 from app.crud.admin_notification import notify_all_admins
-from app.services.promotion_service import get_active_promotion
+from app.services.promotion_service import get_active_promotion, get_eligible_promotion
 from app.models.provider_promotion import ProviderPromotion
 
 
@@ -90,9 +90,11 @@ def get_all_providers(
             "is_featured": bool(p.is_featured),
             "subscription_plan": p.subscription_plan,
             "active_promotion": {
+                "id": str(promo.id),
                 "headline": promo.headline,
                 "discount_pct": promo.discount_pct,
                 "valid_until": promo.valid_until,
+                "audience": promo.audience or "all",
             } if promo else None,
         })
     return result
@@ -122,6 +124,16 @@ def get_provider_detail(db: Session, provider_id: UUID, user_id: Optional[UUID] 
         )
         user_joined = membership is not None
 
+    # Marketing copy shows to everyone; user_eligible tells this specific user
+    # whether the promo will actually apply to their booking (presale promos
+    # only apply to first-time visitors).
+    promotion = get_active_promotion(db, provider.id)
+    if promotion and user_id:
+        eligible = get_eligible_promotion(db, provider.id, user_id)
+        promotion["user_eligible"] = bool(eligible and eligible["id"] == promotion["id"])
+        if not promotion["user_eligible"] and eligible:
+            promotion = {**eligible, "user_eligible": True}
+
     return {
         "id": str(provider.id),
         "name": provider.name,
@@ -145,7 +157,7 @@ def get_provider_detail(db: Session, provider_id: UUID, user_id: Optional[UUID] 
         "theme_accent_color": provider.theme_accent_color,
         "is_featured": bool(provider.is_featured),
         "subscription_plan": provider.subscription_plan,
-        "active_promotion": get_active_promotion(db, provider.id),
+        "active_promotion": promotion,
     }
 
 

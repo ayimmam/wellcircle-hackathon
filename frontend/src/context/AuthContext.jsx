@@ -60,13 +60,29 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // E1: `https://t.me/{bot}?startapp=circle_{join_code}` deep links deliver
-  // start_param into the Mini App's initData — join the circle right after auth.
+  // Deep links deliver start_param into the Mini App's initData:
+  //  - E1: `?startapp=circle_{join_code}` → join the circle right after auth
+  //  - Presale loop: `?startapp=reentry_promo_{provider_id}` (bot re-entry
+  //    nudge) → track reentry_open and land on the promo's provider page
   const handleStartParam = useCallback(async () => {
     if (handledStartParam.current) return;
     handledStartParam.current = true;
     const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
-    if (!startParam?.startsWith('circle_')) return;
+    if (!startParam) return;
+
+    if (startParam.startsWith('reentry')) {
+      const providerId = startParam.startsWith('reentry_promo_')
+        ? startParam.slice('reentry_promo_'.length)
+        : null;
+      track('reentry_open', {
+        source: 'bot_nudge',
+        ...(providerId ? { provider_id: providerId } : {}),
+      });
+      if (providerId) navigate(`/provider/${providerId}`);
+      return;
+    }
+
+    if (!startParam.startsWith('circle_')) return;
     const joinCode = startParam.slice('circle_'.length);
     try {
       const res = await joinCircleByCode(joinCode);

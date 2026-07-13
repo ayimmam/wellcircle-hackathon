@@ -13,6 +13,7 @@ from app.dependencies import verify_bot_api_key
 from app.crud.user import get_user_by_telegram_id, create_user_from_bot, get_inactive_users, mark_user_reengagement
 from app.crud.evidence import get_staff_events, create_evidence_submission
 from app.crud.circle import get_weekly_digest_circles
+from app.services.promotion_service import get_reengagement_promos
 from app.schemas.user import BotRegisterRequest
 from app.schemas.evidence import BotEvidenceSubmitRequest
 
@@ -92,18 +93,28 @@ async def inactive_users(
     db: Session = Depends(get_db),
     _: bool = Depends(verify_bot_api_key),
 ):
-    """Returns users inactive for N+ days (for re-engagement notifications)."""
+    """Returns users inactive for N+ days (for re-engagement notifications).
+
+    Each user carries `promo` — the soonest-expiring active discount promotion
+    they are still eligible for (or null) — so the bot's nudge can reference it
+    ("come back and use your discount before it expires").
+    """
     users = get_inactive_users(db, days=days)
+    promos_by_telegram_id = get_reengagement_promos(db, users)
     now = datetime.now(timezone.utc)
     items = []
     for u in users:
-        days_inactive = (now - u.last_activity_at).days if u.last_activity_at else 999
+        last = u.last_activity_at
+        if last and last.tzinfo is None:  # SQLite (tests) returns naive datetimes
+            last = last.replace(tzinfo=timezone.utc)
+        days_inactive = (now - last).days if last else 999
         items.append({
             "telegram_id": u.telegram_id,
             "name": u.name or u.telegram_handle or "User",
             "telegram_handle": u.telegram_handle,
-            "last_activity_at": u.last_activity_at.isoformat() if u.last_activity_at else None,
+            "last_activity_at": last.isoformat() if last else None,
             "days_inactive": days_inactive,
+            "promo": promos_by_telegram_id.get(u.telegram_id),
         })
     return {"inactive_users": items, "count": len(items)}
 

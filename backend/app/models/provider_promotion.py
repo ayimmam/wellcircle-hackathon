@@ -17,4 +17,7 @@ class ProviderPromotion(Base):
     discount_pct = Column(Integer, nullable=True)
     valid_until = Column(DateTime(timezone=True), nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
+    # Who the promo applies to: 'all' (any visitor) or 'first_time'
+    # (presale — only users with no prior successful booking at this provider).
+    audience = Column(String(20), nullable=False, default="all")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

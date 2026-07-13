@@ -58,7 +58,16 @@ export const MOCK_PROVIDERS = [
     ],
     community: { id: '22222222-0000-0000-0000-000000000001', name: 'Lifestyle Fit Squad', member_count: 47, user_joined: false },
     member_count: 47,
-    community_id: '22222222-0000-0000-0000-000000000001'
+    community_id: '22222222-0000-0000-0000-000000000001',
+    // Presale loop (Biniyam sprint): mirrors backend shape incl. per-user eligibility
+    active_promotion: {
+      id: '33333333-0000-0000-0000-000000000001',
+      headline: 'Presale: 20% off your first visit',
+      discount_pct: 20,
+      valid_until: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      audience: 'first_time',
+      user_eligible: true,
+    },
   },
   {
     id: '11111111-0000-0000-0000-000000000002',

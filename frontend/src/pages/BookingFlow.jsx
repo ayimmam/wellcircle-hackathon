@@ -7,7 +7,7 @@ import Icon from '../components/Icon';
 import usePolling from '../hooks/usePolling';
 import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
-import { promoApplies, computeDiscountEtb } from '../utils/promo';
+import { promoApplies, computeDiscountEtb, expiryLabel } from '../utils/promo';
 
 const STEP_LABELS = ['Service', 'Date & Time', 'Payment'];
 
@@ -40,6 +40,7 @@ export default function BookingFlow() {
       event_id: eventId || undefined,
       // provider passed via state → user came from a card/detail; else deep link
       source: location.state?.selectedService ? 'service_row' : location.state?.provider ? 'book_now_card' : 'direct',
+      anchored: promoApplies(provider?.active_promotion) || undefined,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [providerId]);
@@ -419,7 +420,14 @@ export default function BookingFlow() {
               </div>
               {promo && (
                 <div className="confirmation-row" id="promo-discount-row">
-                  <span className="confirmation-label">🏷 {promo.headline} ({promo.discount_pct}%)</span>
+                  <span className="confirmation-label">
+                    🏷 {promo.headline} ({promo.discount_pct}%)
+                    {expiryLabel(promo.valid_until) && (
+                      <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-tertiary)' }}>
+                        {expiryLabel(promo.valid_until)}
+                      </span>
+                    )}
+                  </span>
                   <span className="confirmation-value" style={{ color: 'var(--accent)' }}>
                     −ETB {predictedDiscount.toLocaleString()}
                   </span>
@@ -428,6 +436,11 @@ export default function BookingFlow() {
               <div className="confirmation-row" style={{ borderBottom: 'none' }}>
                 <span className="confirmation-label" style={{ fontWeight: 700 }}>{t('Total')}</span>
                 <span className="confirmation-value" style={{ color: 'var(--accent)', fontSize: '1.1rem' }}>
+                  {promo && predictedDiscount > 0 && (
+                    <s style={{ color: 'var(--text-tertiary)', fontWeight: 400, fontSize: '0.85rem', marginRight: 8 }} id="anchor-price">
+                      ETB {subtotal.toLocaleString()}
+                    </s>
+                  )}
                   ETB {totalPrice.toLocaleString()}
                 </span>
               </div>

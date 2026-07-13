@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { getProduct, redeemProduct } from '../api/client';
 import { showToast } from '../components/Toast';
 import { useTranslation } from 'react-i18next';
+import { track } from '../analytics';
 
 export default function ProductRedeem() {
   const { id } = useParams();
@@ -36,6 +37,7 @@ export default function ProductRedeem() {
       }
     }
     setSubmitting(true);
+    track('redemption_start', { product_id: id, points_cost: product.price_etb });
     try {
       const delivery = product.shipping_required
         ? `${address.city}, ${address.neighborhood}, ${address.line1} (${address.fullName}, ${address.phone})`

@@ -312,6 +312,7 @@ export const MOCK_COMMUNITIES = MOCK_PROVIDERS.map(p => ({
   cover_photo_url: p.cover_photo_url,
   user_joined: p.community.user_joined,
   user_checked_in_today: false,
+  checked_in_today: false, // list-shape field (drives the Home check-in card)
   provider: {
     id: p.id,
     name: p.name,

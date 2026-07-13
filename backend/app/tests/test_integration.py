@@ -171,10 +171,11 @@ def test_all():
 
         checkin = checkin_community(db, community.id, user)
         assert checkin["points_earned"] == 10
-        assert checkin["new_balance"] == 10
+        # onboarding awarded POINTS_WELCOME (20), so first check-in lands at 30
+        assert checkin["new_balance"] == 30
         assert checkin["tier"] == "seed"
         assert checkin["feed_event"]["event_type"] == "checkin"
-        print("   ✅ checkin_community (+10 pts, seed tier)")
+        print("   ✅ checkin_community (+10 pts on top of welcome award, seed tier)")
 
         dup = checkin_community(db, community.id, user)
         assert dup == "already_checked_in"

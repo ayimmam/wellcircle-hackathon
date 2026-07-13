@@ -49,6 +49,11 @@ describe('BookingFlow presale pricing', () => {
     expect(screen.getByText(/−ETB 510/)).toBeInTheDocument();
     expect(screen.getAllByText(/ETB 2,040/).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /pay etb 2,040/i })).toBeInTheDocument();
+    // 4A anchoring: original price struck through next to the discounted total
+    const anchor = document.getElementById('anchor-price');
+    expect(anchor).toBeInTheDocument();
+    expect(anchor.tagName).toBe('S');
+    expect(anchor.textContent).toContain('2,550');
   }, 10000);
 
   it('shows no discount row for providers without a promo', async () => {
@@ -70,6 +75,7 @@ describe('BookingFlow presale pricing', () => {
     await screen.findByText(/payment method/i);
 
     expect(document.getElementById('promo-discount-row')).toBeNull();
+    expect(document.getElementById('anchor-price')).toBeNull();
     // base 1500 + 2% fee 30 = 1530, undiscounted
     expect(screen.getByRole('button', { name: /pay etb 1,530/i })).toBeInTheDocument();
   }, 10000);

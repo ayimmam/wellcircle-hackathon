@@ -13,6 +13,7 @@
 | Auth | POST | `/auth/telegram` | None | Frontend |
 | Bot | POST | `/bot/register` | Bot API Key | Bot |
 | Bot | GET | `/bot/inactive-users` | Bot API Key | Bot |
+| Bot | GET | `/bot/streaks-at-risk` | Bot API Key | Bot |
 | Users | GET | `/users/me` | JWT | Frontend |
 | Users | PATCH | `/users/me` | JWT | Frontend |
 | Users | POST | `/users/me/onboard` | JWT | Frontend |
@@ -170,6 +171,29 @@ deep-link into the Mini App with `?startapp=reentry_promo_{provider_id}`.
 }
 ```
 
+### `GET /api/bot/streaks-at-risk`
+Users whose streak is alive but who haven't checked in today (last check-in
+was exactly yesterday). The bot's daily 16:00 UTC job DMs each one a
+streak nudge with a `?startapp=reentry_checkin` deep link (the Mini App
+tracks it as `reentry_open` and lands on Home's check-in card).
+
+**Auth: `X-Bot-API-Key` header**
+
+```json
+// RESPONSE 200
+{
+  "users": [
+    {
+      "telegram_id": 123456789,
+      "name": "Meron Tadesse",
+      "current_streak": 6,
+      "freeze_count": 1
+    }
+  ],
+  "count": 1
+}
+```
+
 ---
 
 ## 3. Users
@@ -222,6 +246,8 @@ Complete Mini App onboarding. Sets `is_onboarded = true`.
   "interest_category": "yoga",
   "exercise_frequency": "sometimes",
   "is_onboarded": true,
+  "welcome_points": 20,        // one-time endowed-progress award
+  "points_balance": 20,        // balance after the award
   "auto_joined_communities": ["uuid-1"],
   "suggested_communities": [
     {
@@ -486,7 +512,8 @@ List communities. Supports filtering.
       "member_count": 32,
       "provider_name": "FitEthiopia Gym",
       "provider_id": "uuid-prov",
-      "user_joined": false
+      "user_joined": false,
+      "checked_in_today": false   // per-user; drives the HomeScreen check-in card
     }
   ],
   "count": 5
@@ -548,11 +575,18 @@ Leave a community.
 ### `POST /api/communities/:id/checkin`
 Daily check-in. **One per day per community.** Awards Legacy Points.
 
+Streak rules: consecutive days increment `current_streak`; every 7-day streak
+earns a freeze; **a freeze is consumed automatically to cover exactly one
+missed day** (`freeze_used: true`); a longer gap (or no freeze) resets to 1.
+
 ```json
 // RESPONSE 200
 {
   "points_earned": 10,
   "new_balance": 130,
+  "current_streak": 4,
+  "freeze_count": 1,
+  "freeze_used": false,  // true when a freeze just covered a one-day gap
   "tier": "sprout",
   "tier_emoji": "🌿",
   "feed_event": {

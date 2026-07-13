@@ -11,7 +11,7 @@ from app.crud.user import (
     onboard_user, update_user_profile,
     get_user_joined_community_ids,
 )
-from app.services.points import get_points_tier
+from app.services.points import get_points_tier, POINTS_WELCOME
 from app.crud.community import join_community, get_suggested_communities
 from app.schemas.user import (
     UserResponse, UserOnboardingRequest, UserProfileUpdate,
@@ -91,6 +91,10 @@ async def complete_onboarding(
         "is_onboarded": True,
         "auto_joined_communities": auto_joined,
         "suggested_communities": suggestions,
+        # Endowed progress: one-time welcome award, reflected in the returned
+        # balance so the client's first-reward bar starts part-filled
+        "welcome_points": POINTS_WELCOME,
+        "points_balance": user.points_balance,
     }
 
 

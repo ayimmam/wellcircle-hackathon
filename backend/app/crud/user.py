@@ -67,13 +67,30 @@ def onboard_user(
     exercise_frequency: str,
     goal: Optional[str] = None,
 ) -> User:
-    """Complete the Mini App onboarding."""
+    """Complete the Mini App onboarding. Awards one-time welcome points
+    (endowed progress — the first-reward bar shouldn't start at zero)."""
+    from app.models.point_transaction import PointTransaction
+    from app.services.points import apply_transaction, POINTS_WELCOME, TXN_WELCOME
+
     user.name = name
     user.interest_category = interest_category
     user.exercise_frequency = exercise_frequency
     user.goal = goal
+    was_onboarded = user.is_onboarded
     user.is_onboarded = True
     user.last_activity_at = datetime.now(timezone.utc)
+
+    # Idempotent: the API already rejects re-onboarding, but guard the ledger
+    # too so a retry can never double-award.
+    already_welcomed = (
+        db.query(PointTransaction.id)
+        .filter(PointTransaction.user_id == user.id, PointTransaction.type == TXN_WELCOME)
+        .first()
+    )
+    if not was_onboarded and not already_welcomed:
+        apply_transaction(db, user, POINTS_WELCOME, TXN_WELCOME,
+                          note="Welcome to Well Circle!")
+
     db.commit()
     db.refresh(user)
     return user
@@ -160,6 +177,28 @@ def get_inactive_users(db: Session, days: int = 7, reengagement_cooldown_days: i
             User.is_onboarded == True,
             (User.last_activity_at < cutoff) | (User.last_activity_at.is_(None)),
             (User.last_reengagement_at.is_(None)) | (User.last_reengagement_at < reengagement_cutoff),
+        )
+        .all()
+    )
+
+
+def get_streaks_at_risk(db: Session) -> List[User]:
+    """Users whose streak is alive but who haven't checked in today —
+    i.e. last check-in was exactly yesterday. Feeds the bot's evening
+    streak nudge (loss-aversion framing, ethically bounded: the streak is
+    genuinely one missed day from needing a freeze/resetting)."""
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday_start = today_start - timedelta(days=1)
+
+    return (
+        db.query(User)
+        .filter(
+            User.is_onboarded == True,
+            User.current_streak > 0,
+            User.last_checkin_at >= yesterday_start,
+            User.last_checkin_at < today_start,
         )
         .all()
     )

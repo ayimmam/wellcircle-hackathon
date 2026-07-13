@@ -139,7 +139,10 @@ export async function onboardUser(data) {
       ...data,
       is_onboarded: true,
       auto_joined_communities: data.suggested_circle_ids || [],
-      suggested_communities: MOCK_COMMUNITIES.filter(c => c.category === data.interest_category).slice(0, 3)
+      suggested_communities: MOCK_COMMUNITIES.filter(c => c.category === data.interest_category).slice(0, 3),
+      // mirrors backend endowed-progress welcome award
+      welcome_points: 20,
+      points_balance: (MOCK_USER.points_balance || 0) + 20,
     };
   }
   const payload = {
@@ -810,7 +813,17 @@ export async function updateProviderEvent(eventId, data) {
 }
 
 export async function getSubscriptionPlans() {
-  if (USE_MOCK) return { plans: [] };
+  if (USE_MOCK) {
+    // mirrors backend SUBSCRIPTION_PLANS (subscription_service.py)
+    return { plans: [
+      { plan_id: 'starter', name: 'Starter', amount_etb: 500, billing: 'monthly',
+        features: ['1 community space', 'Basic dashboard (members, check-ins)', 'Up to 5 events per month'] },
+      { plan_id: 'growth', name: 'Growth', amount_etb: 1500, billing: 'monthly',
+        features: ['3 community spaces', 'Full dashboard + analytics', 'Unlimited events', 'Products store access', 'Community challenges'] },
+      { plan_id: 'pro', name: 'Pro', amount_etb: 3000, billing: 'monthly',
+        features: ['Unlimited community spaces', 'Featured placement in Explore', 'Event boost credits (3/month)', 'All Growth features', 'Priority support'] },
+    ] };
+  }
   const res = await request('GET', '/subscriptions/plans');
   const plans = (res.plans || []).map(p => ({
     ...p,

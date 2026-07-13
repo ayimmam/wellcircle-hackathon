@@ -1,9 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { INTEREST_CATEGORIES, EXERCISE_FREQUENCIES, MOCK_COMMUNITIES } from '../data/mock';
+import { track } from '../analytics';
 
 const STEPS = ['name', 'goal', 'interest', 'frequency', 'circles'];
+// Smart default: most users land mid-scale, and a pre-selected card means the
+// Next button is never dead on this step. Interest is deliberately NOT
+// defaulted — it drives circle suggestions, so a wrong default poisons them.
+const DEFAULT_FREQUENCY = 'sometimes';
 
 export default function OnboardingFlow() {
   const { user, onboard } = useAuth();
@@ -14,9 +19,17 @@ export default function OnboardingFlow() {
     name: user?.name || '',
     goal: '',
     interest_category: '',
-    exercise_frequency: '',
+    exercise_frequency: DEFAULT_FREQUENCY,
     suggested_circle_ids: []
   });
+
+  useEffect(() => {
+    track('onboarding_step_view', {
+      step: STEPS[step],
+      step_index: step,
+      defaulted: STEPS[step] === 'frequency',
+    });
+  }, [step]);
 
   const currentStep = STEPS[step];
   const canNext = () => {
@@ -40,8 +53,15 @@ export default function OnboardingFlow() {
     // Final step — submit
     setLoading(true);
     try {
-      await onboard(formData);
-      navigate('/home', { replace: true });
+      const res = await onboard(formData);
+      track('onboarding_complete', {
+        circles_joined: formData.suggested_circle_ids.length,
+        has_goal: formData.goal.trim().length > 0,
+        frequency_changed_from_default: formData.exercise_frequency !== DEFAULT_FREQUENCY,
+        welcome_points: res?.welcome_points ?? 0,
+      });
+      // justOnboarded → HomeScreen shows the one-time completion banner
+      navigate('/home', { replace: true, state: { justOnboarded: true } });
     } catch (err) {
       console.error('Onboarding failed:', err);
       alert(err.message || 'Onboarding failed. Please try again.');
@@ -65,15 +85,21 @@ export default function OnboardingFlow() {
 
   return (
     <div className="onboarding" id="onboarding-screen">
-      {/* Progress dots */}
+      {/* Progress dots — the name step renders as already done (endowed
+          progress: Telegram gave us the name, so the journey starts at 1/5) */}
       <div className="onboarding-progress">
         {STEPS.map((s, i) => (
           <div
             key={s}
-            className={`progress-dot ${i === step ? 'active' : i < step ? 'done' : ''}`}
+            className={`progress-dot ${i === step ? 'active' : ''} ${(i < step || i === 0) ? 'done' : ''}`.trim()}
           />
         ))}
       </div>
+      {step === 0 && (
+        <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 6 }}>
+          1 of {STEPS.length} already done ✓
+        </p>
+      )}
 
       {/* Step content */}
       <div className="onboarding-step" key={currentStep}>
@@ -82,7 +108,9 @@ export default function OnboardingFlow() {
             <div className="onboarding-emoji">👋</div>
             <h2 className="onboarding-title">What's your name?</h2>
             <p className="onboarding-subtitle">
-              This is how others will see you in Well Circle communities.
+              {formData.name
+                ? 'We got this from Telegram — just confirm, or change how others see you.'
+                : 'This is how others will see you in Well Circle communities.'}
             </p>
             <input
               className="onboarding-input"
@@ -153,10 +181,19 @@ export default function OnboardingFlow() {
                   id={`frequency-${freq.value}`}
                 >
                   <span style={{ fontSize: '1.4rem' }}>{freq.emoji}</span>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <div className="option-card-label">{freq.label}</div>
                     <div className="option-card-desc">{freq.desc}</div>
                   </div>
+                  {freq.value === DEFAULT_FREQUENCY && (
+                    <span
+                      className="chip"
+                      style={{ padding: '3px 8px', fontSize: '0.65rem', fontWeight: 700 }}
+                      id="most-popular-chip"
+                    >
+                      Most popular
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

@@ -7,7 +7,7 @@ import sys
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-from bot.utils.nudges import build_reengagement_nudge, _format_expiry
+from bot.utils.nudges import build_reengagement_nudge, build_streak_nudge, _format_expiry
 
 
 PROMO_USER = {
@@ -76,6 +76,27 @@ def test_all():
     nudge = build_reengagement_nudge({"promo": None})
     assert "there" in nudge["text"]
     print("   ✅ missing name falls back to 'there'")
+
+    # 8. Streak nudge: loss-aversion copy with freezes surfaced
+    nudge = build_streak_nudge(
+        {"name": "Meron", "current_streak": 6, "freeze_count": 2},
+        bot_username="WellCircleBot",
+    )
+    assert "6-day streak" in nudge["text"]
+    assert "2 freezes" in nudge["text"]
+    assert "Progress over perfection" in nudge["text"]
+    assert nudge["button_text"] == "✨ Check in now"
+    assert nudge["deep_link"] == "https://t.me/WellCircleBot?startapp=reentry_checkin"
+    print("   ✅ streak nudge mentions streak, freezes, ethical copy, deep link")
+
+    # 9. Streak nudge without freezes omits the freeze line; singular freeze
+    nudge = build_streak_nudge({"name": "Meron", "current_streak": 3, "freeze_count": 0})
+    assert "freeze" not in nudge["text"].lower()
+    assert nudge["deep_link"] is None  # no bot username → text-only
+    nudge = build_streak_nudge({"name": "Meron", "current_streak": 3, "freeze_count": 1})
+    assert "1 freeze " in nudge["text"] or "1 freeze " in nudge["text"] or "1 freeze" in nudge["text"]
+    assert "1 freezes" not in nudge["text"]
+    print("   ✅ freeze line omitted at zero, singular at one")
 
     print("\n" + "=" * 50)
     print("  ALL NUDGE TESTS PASSED ✅")

@@ -11,7 +11,10 @@ from uuid import UUID
 from app.config import settings
 from app.database import get_db
 from app.dependencies import verify_bot_api_key
-from app.crud.user import get_user_by_telegram_id, create_user_from_bot, get_inactive_users, mark_user_reengagement
+from app.crud.user import (
+    get_user_by_telegram_id, create_user_from_bot, get_inactive_users,
+    mark_user_reengagement, get_streaks_at_risk,
+)
 from app.crud.evidence import get_staff_events, create_evidence_submission
 from app.crud.circle import get_weekly_digest_circles
 from app.services.promotion_service import get_reengagement_promos
@@ -140,6 +143,30 @@ async def inactive_users(
             "promo": promos_by_telegram_id.get(u.telegram_id),
         })
     return {"inactive_users": items, "count": len(items)}
+
+
+@router.get("/streaks-at-risk")
+async def streaks_at_risk(
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_bot_api_key),
+):
+    """Users whose streak is alive but who haven't checked in today.
+
+    The bot's evening streak-nudge job DMs each one ("one check-in today
+    keeps your {n}-day streak alive"). Runs once daily, so the 1-nudge/day
+    cap is inherent in the job cadence.
+    """
+    users = get_streaks_at_risk(db)
+    items = [
+        {
+            "telegram_id": u.telegram_id,
+            "name": u.name or u.telegram_handle or "User",
+            "current_streak": u.current_streak or 0,
+            "freeze_count": u.freeze_count or 0,
+        }
+        for u in users
+    ]
+    return {"users": items, "count": len(items)}
 
 
 @router.post("/users/{telegram_id}/reengagement-sent")

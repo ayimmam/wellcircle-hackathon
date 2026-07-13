@@ -16,11 +16,16 @@ const PointsTooltip = () => {
       {show && (
         <div style={{ position: 'absolute', top: '24px', left: 0, width: '250px', padding: '12px', background: 'var(--bg-surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', borderRadius: '12px', border: '1px solid var(--border)', zIndex: 50, fontSize: '0.85rem' }}>
           <h4 style={{ fontWeight: 'bold', marginBottom: '8px' }}>Legacy Points Dynamics</h4>
+          {/* Thresholds mirror the backend tier engine (points.get_points_tier) */}
           <ul style={{ paddingLeft: '16px', margin: 0, listStyleType: 'disc', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <li>🌱 <b>Seed Tier (100 pts):</b> 10% off specific events</li>
-            <li>🌿 <b>Sprout Tier (500 pts):</b> 20% off + free merch</li>
-            <li>🌳 <b>Tree Tier (1000 pts):</b> 1 Free month at partner gyms</li>
+            <li>🌱 <b>Seed (0+ pts):</b> earn +10 per daily check-in</li>
+            <li>🌿 <b>Sprout (100+ pts):</b> redeem vouchers in the store</li>
+            <li>🌳 <b>Grove (300+ pts):</b> unlock partner merch rewards</li>
+            <li>🌲 <b>Forest (700+ pts):</b> top-tier partner perks</li>
           </ul>
+          <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+            Points pause (−5/day) after 3 days away — a check-in keeps them growing.
+          </p>
         </div>
       )}
     </div>

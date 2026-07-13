@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { promoApplies, computeDiscountEtb } from '../utils/promo';
+import { promoApplies, computeDiscountEtb, daysLeft, expiryLabel } from '../utils/promo';
 
 describe('promoApplies', () => {
   const base = { id: 'p1', headline: 'Presale', discount_pct: 20, audience: 'first_time' };
@@ -38,5 +38,31 @@ describe('computeDiscountEtb', () => {
 
   it('never discounts below zero', () => {
     expect(computeDiscountEtb(100, 100)).toBe(100);
+  });
+});
+
+describe('daysLeft / expiryLabel (honest urgency)', () => {
+  const now = new Date('2026-07-13T10:00:00Z');
+  const inDays = (n) => new Date(now.getTime() + n * 24 * 60 * 60 * 1000).toISOString();
+
+  it('computes whole days remaining (ceil)', () => {
+    expect(daysLeft(inDays(3), now)).toBe(3);
+    expect(daysLeft(inDays(0.5), now)).toBe(1);
+    expect(daysLeft(now.toISOString(), now)).toBe(0);
+    expect(daysLeft(inDays(-2), now)).toBe(-2);
+  });
+
+  it('handles missing/garbage dates', () => {
+    expect(daysLeft(null, now)).toBeNull();
+    expect(daysLeft('not-a-date', now)).toBeNull();
+    expect(expiryLabel(null, now)).toBeNull();
+    expect(expiryLabel(inDays(-1), now)).toBeNull();
+  });
+
+  it('frames < 7 days as a countdown, otherwise a plain date', () => {
+    expect(expiryLabel(now.toISOString(), now)).toBe('⏳ Expires today');
+    expect(expiryLabel(inDays(1), now)).toBe('⏳ Expires tomorrow');
+    expect(expiryLabel(inDays(3), now)).toBe('⏳ Expires in 3 days');
+    expect(expiryLabel(inDays(14), now)).toMatch(/^Valid until /);
   });
 });

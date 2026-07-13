@@ -41,6 +41,7 @@ def get_all_communities(
             providers_by_id[p.id] = p
 
     joined_community_ids = set()
+    checked_in_today_ids = set()
     if user_id:
         community_ids = [c.id for c in communities]
         if community_ids:
@@ -50,6 +51,23 @@ def get_all_communities(
                 .filter(
                     CommunityMember.community_id.in_(community_ids),
                     CommunityMember.user_id == user_id,
+                )
+                .all()
+            }
+        # Drives the HomeScreen daily check-in card; batched like the joins
+        # above (one query for the whole list, not one per community)
+        if joined_community_ids:
+            today_start = datetime.now(timezone.utc).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            checked_in_today_ids = {
+                row.community_id
+                for row in db.query(CommunityFeedEvent.community_id)
+                .filter(
+                    CommunityFeedEvent.community_id.in_(joined_community_ids),
+                    CommunityFeedEvent.user_id == user_id,
+                    CommunityFeedEvent.event_type == "checkin",
+                    CommunityFeedEvent.created_at >= today_start,
                 )
                 .all()
             }
@@ -66,6 +84,7 @@ def get_all_communities(
             "provider_name": provider.name if provider else None,
             "provider_id": str(provider.id) if provider else None,
             "user_joined": c.id in joined_community_ids,
+            "checked_in_today": c.id in checked_in_today_ids,
         })
     return result
 
@@ -227,10 +246,17 @@ def checkin_community(db: Session, community_id: UUID, user: User):
 
     # C2: Streak tracking
     now = datetime.now(timezone.utc)
+    freeze_used = False
     if user.last_checkin_at:
         days_since = (now.date() - user.last_checkin_at.date()).days
         if days_since == 1:
             user.current_streak = (user.current_streak or 0) + 1
+        elif days_since == 2 and (user.freeze_count or 0) > 0:
+            # A freeze covers exactly one missed day — this makes the
+            # "miss a day without losing your streak" promise real.
+            user.freeze_count = (user.freeze_count or 0) - 1
+            user.current_streak = (user.current_streak or 0) + 1
+            freeze_used = True
         elif days_since > 1:
             user.current_streak = 1
         # same day = no change (shouldn't reach here due to duplicate check)
@@ -299,6 +325,7 @@ def checkin_community(db: Session, community_id: UUID, user: User):
         "new_balance": user.points_balance,
         "current_streak": user.current_streak or 0,
         "freeze_count": user.freeze_count or 0,
+        "freeze_used": freeze_used,
         "tier": tier,
         "tier_emoji": tier_emoji,
         "feed_event": {

@@ -6,7 +6,7 @@ import { showToast } from '../components/Toast';
 import Icon from '../components/Icon';
 import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
-import { promoApplies } from '../utils/promo';
+import { promoApplies, daysLeft, expiryLabel } from '../utils/promo';
 
 export default function ProviderDetail() {
   const { id } = useParams();
@@ -37,6 +37,7 @@ export default function ProviderDetail() {
       discount_pct: promo.discount_pct ?? undefined,
       audience: promo.audience,
       user_eligible: promo.user_eligible,
+      days_left: daysLeft(promo.valid_until) ?? undefined,
     });
     // one event per provider visit, not per re-render
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -115,8 +116,8 @@ export default function ProviderDetail() {
               🏷 {provider.active_promotion.headline}
             </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 4 }}>
-              {provider.active_promotion.valid_until && (
-                <>Valid until {new Date(provider.active_promotion.valid_until).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · </>
+              {expiryLabel(provider.active_promotion.valid_until) && (
+                <>{expiryLabel(provider.active_promotion.valid_until)} · </>
               )}
               {promoApplies(provider.active_promotion)
                 ? t('Applied automatically at checkout')
@@ -124,6 +125,19 @@ export default function ProviderDetail() {
                   ? t('First-visit offer — you have already booked here')
                   : null}
             </div>
+            {/* Anchoring: preview the cheapest service at the discounted price */}
+            {promoApplies(provider.active_promotion) && provider.services?.length > 0 && (() => {
+              const cheapest = [...provider.services].sort((a, b) => (a.price || 0) - (b.price || 0))[0];
+              if (!cheapest?.price) return null;
+              const off = Math.round(cheapest.price * provider.active_promotion.discount_pct / 100);
+              return (
+                <div style={{ fontSize: '0.78rem', marginTop: 6 }} id="promo-price-preview">
+                  {cheapest.name}:{' '}
+                  <s style={{ color: 'var(--text-tertiary)' }}>ETB {cheapest.price.toLocaleString()}</s>{' '}
+                  <b style={{ color: 'var(--accent)' }}>ETB {(cheapest.price - off).toLocaleString()}</b>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

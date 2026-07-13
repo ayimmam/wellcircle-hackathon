@@ -7,6 +7,7 @@ import Leaderboard from '../components/Leaderboard';
 import { showToast } from '../components/Toast';
 import { MOCK_CIRCLES, MOCK_LEADERBOARD } from '../data/mock';
 import Icon from '../components/Icon';
+import { track } from '../analytics';
 
 export default function CircleDetailScreen() {
   const { id } = useParams();
@@ -59,6 +60,10 @@ export default function CircleDetailScreen() {
     const link = `https://t.me/${botUsername}?startapp=circle_${circle.join_code}`;
     const text = `Join my "${circle.name}" circle on Well Circle! 💪 ${link}`;
     const tg = window.Telegram?.WebApp;
+    track('circle_invite_shared', {
+      circle_id: id,
+      method: tg?.switchInlineQuery ? 'inline_query' : 'clipboard',
+    });
 
     if (tg?.switchInlineQuery) {
       tg.switchInlineQuery(text, ['users', 'groups']);

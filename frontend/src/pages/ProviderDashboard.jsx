@@ -10,6 +10,7 @@ import FeedEvent from '../components/FeedEvent';
 import PromotionForm from '../components/PromotionForm';
 import { showToast } from '../components/Toast';
 import usePolling from '../hooks/usePolling';
+import { track } from '../analytics';
 
 const PROVIDER_DAILY_AWARD_CAP = 300; // mirrors backend PROVIDER_AWARD_MAX_POINTS_PER_DAY
 
@@ -171,7 +172,7 @@ export default function ProviderDashboard() {
         <button className={`admin-subtab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')}>Products</button>
         <button className={`admin-subtab ${tab === 'customers' ? 'active' : ''}`} onClick={() => setTab('customers')}>Customers</button>
         <button className={`admin-subtab ${tab === 'promotions' ? 'active' : ''}`} onClick={() => setTab('promotions')}>Promotions</button>
-        <button className={`admin-subtab ${tab === 'subscriptions' ? 'active' : ''}`} onClick={() => setTab('subscriptions')}>Subscriptions</button>
+        <button className={`admin-subtab ${tab === 'subscriptions' ? 'active' : ''}`} onClick={() => { setTab('subscriptions'); track('subscription_plan_view', {}); }}>Subscriptions</button>
       </div>
 
       {tab === 'products' ? (
@@ -464,13 +465,39 @@ export default function ProviderDashboard() {
             <h2 className="section-title">Subscription Plans</h2>
           </div>
           <div className="flex-col gap-12 mb-24">
-            {plans.map(p => {
+            {/* Anchoring: priciest plan first so Pro's 3,000 ETB frames Growth
+                as the reasonable middle; per-day subline shrinks the ask */}
+            {[...plans]
+              .sort((a, b) => (b.amount_etb ?? b.price_etb ?? 0) - (a.amount_etb ?? a.price_etb ?? 0))
+              .map(p => {
               const planId = p.plan_id || p.id;
+              const monthly = p.amount_etb ?? p.price_etb;
+              const isPopular = String(planId).toLowerCase().includes('growth') || /growth/i.test(p.name || '');
               return (
-              <div key={planId} className={`card ${selectedPlan === planId ? 'border-primary' : ''}`} style={selectedPlan === planId ? { border: '2px solid var(--brand-primary)' } : {}} onClick={() => setSelectedPlan(planId)}>
+              <div
+                key={planId}
+                className={`card ${selectedPlan === planId ? 'border-primary' : ''}`}
+                style={selectedPlan === planId ? { border: '2px solid var(--brand-primary)' } : {}}
+                onClick={() => { setSelectedPlan(planId); track('subscription_plan_select', { plan: planId }); }}
+                id={`plan-${planId}`}
+              >
                 <div className="card-body">
-                  <h3 className="card-title text-sm">{p.name}</h3>
-                  <p className="text-sm" style={{ fontWeight: 600, color: 'var(--brand-primary)' }}>{p.amount_etb ?? p.price_etb} ETB</p>
+                  <div className="flex items-center justify-between">
+                    <h3 className="card-title text-sm">{p.name}</h3>
+                    {isPopular && (
+                      <span className="category-badge" style={{ background: 'var(--accent)' }} id="most-popular-plan">
+                        ⭐ Most popular
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm" style={{ fontWeight: 600, color: 'var(--brand-primary)' }}>
+                    {monthly?.toLocaleString()} ETB/mo
+                    {monthly > 0 && (
+                      <span style={{ fontWeight: 400, color: 'var(--text-secondary)', marginLeft: 6, fontSize: '0.75rem' }}>
+                        ≈ {Math.round(monthly / 30)} ETB/day
+                      </span>
+                    )}
+                  </p>
                   <ul style={{ fontSize: '0.8rem', paddingLeft: '20px', marginTop: '8px' }}>
                     {p.features.map((f, i) => <li key={i} style={{ color: 'var(--text-secondary)' }}>{f}</li>)}
                   </ul>
@@ -491,6 +518,7 @@ export default function ProviderDashboard() {
                 )}
                 <button className="btn btn-primary" onClick={async () => {
                   try {
+                    track('subscription_initiated', { plan: selectedPlan, payment_method: paymentMethod });
                     const res = await initiateSubscription({
                       plan: selectedPlan,
                       payment_method: paymentMethod,

@@ -54,6 +54,17 @@ async def get_inactive_users(days: int = 7) -> dict:
         return response.json()
 
 
+async def get_streaks_at_risk() -> dict:
+    """Users with a live streak but no check-in today, via GET /api/bot/streaks-at-risk."""
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+        response = await client.get(
+            f"{BACKEND_URL}/api/bot/streaks-at-risk",
+            headers=HEADERS,
+        )
+        response.raise_for_status()
+        return response.json()
+
+
 async def mark_reengagement_sent(telegram_id: int) -> dict:
     """Mark re-engagement message sent via POST /api/bot/users/{id}/reengagement-sent."""
     async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:

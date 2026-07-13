@@ -13,6 +13,7 @@ from bot.handlers.admin import admin_handler
 from bot.handlers.evidence import evidence_conversation
 from bot.services.reengagement import schedule_reengagement
 from bot.services.weekly_digest import send_weekly_digest
+from bot.services.streak_nudge import send_streak_nudges
 from bot.config import BOT_TOKEN
 
 logging.basicConfig(
@@ -73,6 +74,15 @@ def main():
             name="weekly_digest",
         )
         logger.info("📊 Weekly digest job scheduled (Sundays 18:00 UTC)")
+
+        # Streak-at-risk nudge, daily 16:00 UTC (= 19:00 Addis Ababa) —
+        # evening enough to be actionable, early enough to act on it
+        job_queue.run_daily(
+            send_streak_nudges,
+            time=time(hour=16, minute=0),
+            name="streak_nudge",
+        )
+        logger.info("🔥 Streak nudge job scheduled (daily 16:00 UTC)")
 
     # Start polling
     logger.info("🤖 Bot polling started...")

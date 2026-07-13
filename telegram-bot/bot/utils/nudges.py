@@ -13,11 +13,15 @@ from bot.utils.messages import (
     REENGAGEMENT_MESSAGE,
     REENGAGEMENT_PROMO_MESSAGE,
     REENGAGEMENT_PROMO_BUTTON,
+    STREAK_NUDGE_MESSAGE,
+    STREAK_NUDGE_FREEZE_LINE,
+    STREAK_NUDGE_BUTTON,
 )
 
-# start_param prefix parsed by the Mini App (AuthContext.handleStartParam) —
+# start_param prefixes parsed by the Mini App (AuthContext.handleStartParam) —
 # same deep-link mechanism as `circle_{join_code}` invite links.
 REENTRY_PROMO_PARAM = "reentry_promo_{provider_id}"
+REENTRY_CHECKIN_PARAM = "reentry_checkin"
 
 
 def _format_expiry(valid_until: Optional[str]) -> str:
@@ -63,5 +67,37 @@ def build_reengagement_nudge(user: dict, bot_username: Optional[str] = None) -> 
     return {
         "text": text,
         "button_text": REENGAGEMENT_PROMO_BUTTON.format(discount_pct=promo["discount_pct"]),
+        "deep_link": deep_link,
+    }
+
+
+def build_streak_nudge(user: dict, bot_username: Optional[str] = None) -> dict:
+    """Evening nudge for a user whose streak is alive but unchecked today.
+
+    Loss-aversion framing, ethically bounded: the streak genuinely is one
+    missed day from needing a freeze (or resetting), freezes are always
+    mentioned when the user has them, and the copy stays
+    progress-over-perfection. Same return shape as build_reengagement_nudge.
+    """
+    name = user.get("name", "there")
+    streak = user.get("current_streak", 0)
+    freeze_count = user.get("freeze_count", 0)
+
+    freeze_line = ""
+    if freeze_count > 0:
+        freeze_line = STREAK_NUDGE_FREEZE_LINE.format(
+            freeze_count=freeze_count,
+            plural="" if freeze_count == 1 else "s",
+        )
+
+    text = STREAK_NUDGE_MESSAGE.format(name=name, streak=streak, freeze_line=freeze_line)
+
+    deep_link = None
+    if bot_username:
+        deep_link = f"https://t.me/{bot_username}?startapp={REENTRY_CHECKIN_PARAM}"
+
+    return {
+        "text": text,
+        "button_text": STREAK_NUDGE_BUTTON,
         "deep_link": deep_link,
     }

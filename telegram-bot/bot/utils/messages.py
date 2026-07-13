@@ -18,10 +18,22 @@ REENGAGEMENT_MESSAGE = """
 
 Your wellness circle has been active — new check-ins, new members, and new sessions dropping this week.
 
-Don't let your Legacy Points decay! 🌱
+Your points paused while you were away — a quick check-in gets them growing again. 🌱
 
 Tap /start to jump back in. Your tribe is waiting. 💪
 """
+
+STREAK_NUDGE_MESSAGE = """
+🔥 {name}, your <b>{streak}-day streak</b> is waiting.
+
+One check-in today keeps it alive 🌱{freeze_line}
+
+Progress over perfection — a 30-second check-in counts.
+"""
+
+STREAK_NUDGE_FREEZE_LINE = " (and you have {freeze_count} freeze{plural} if life gets in the way 🧊)"
+
+STREAK_NUDGE_BUTTON = "✨ Check in now"
 
 REENGAGEMENT_PROMO_MESSAGE = """
 👋 Hey {name}! We miss you at Well Circle.

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getProviders, getCommunities, joinCommunity } from '../api/client';
 import { NEIGHBOURHOOD_ALERTS } from '../data/mock';
@@ -9,6 +9,8 @@ import PointsBadge from '../components/PointsBadge';
 import StreakBadge from '../components/StreakBadge';
 import FirstRewardCard from '../components/FirstRewardCard';
 import SocialProofBanner from '../components/SocialProofBanner';
+import WelcomeBanner from '../components/WelcomeBanner';
+import CheckinCard from '../components/CheckinCard';
 import { showToast } from '../components/Toast';
 import FeaturedEventsCarousel from '../components/FeaturedEventsCarousel';
 import Icon from '../components/Icon';
@@ -18,20 +20,26 @@ import AskWellCircle from '../components/AskWellCircle';
 export default function HomeScreen() {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useTranslation();
   const [providers, setProviders] = useState([]);
-  const [communities, setCommunities] = useState([]);
+  const [allCommunities, setAllCommunities] = useState([]);
   const [alertDismissed, setAlertDismissed] = useState(false);
+  const justOnboarded = Boolean(location.state?.justOnboarded);
 
   useEffect(() => {
     getProviders()
       .then(res => setProviders(res.providers))
       .catch(err => showToast(`Providers Error: ${err.message}`, '❌'));
-      
+
     getCommunities()
-      .then(res => setCommunities(res.communities.filter(c => !c.user_joined).slice(0, 4)))
+      .then(res => setAllCommunities(res.communities))
       .catch(err => showToast(`Communities Error: ${err.message}`, '❌'));
   }, []);
+
+  const isJoined = (c) => c.user_joined || user?.joined_communities?.includes(c.id);
+  const communities = allCommunities.filter(c => !isJoined(c)).slice(0, 4);
+  const joinedCircles = allCommunities.filter(isJoined);
 
   const alertText = user?.location_neighborhood
     ? NEIGHBOURHOOD_ALERTS[user.location_neighborhood]
@@ -41,7 +49,7 @@ export default function HomeScreen() {
     try {
       const res = await joinCommunity(id);
       showToast('Joined! 🎉', '🤝');
-      setCommunities(prev => prev.map(c =>
+      setAllCommunities(prev => prev.map(c =>
         c.id === id ? { ...c, user_joined: true, member_count: res.member_count } : c
       ));
       if (user) {
@@ -75,13 +83,31 @@ export default function HomeScreen() {
         </div>
         {user && (
           <div className="flex items-center gap-8">
-            <StreakBadge streak={user.current_streak} freezeCount={user.freeze_count} />
+            <StreakBadge
+              streak={user.current_streak}
+              freezeCount={user.freeze_count}
+              atRisk={joinedCircles.length > 0 && joinedCircles.every(c => !c.checked_in_today)}
+            />
             <PointsBadge points={user.points_balance || 0} onClick={() => navigate('/products')} />
           </div>
         )}
       </div>
 
+      {/* One-time post-onboarding moment: plan reflection + welcome gift */}
+      {user && justOnboarded && <WelcomeBanner user={user} providers={providers} />}
+
       {user && <SocialProofBanner />}
+
+      {/* Daily habit trigger — check in without leaving Home */}
+      {user && joinedCircles.length > 0 && (
+        <CheckinCard
+          key={joinedCircles.map(c => c.id).join(',')}
+          circles={joinedCircles}
+          onChecked={(id) => setAllCommunities(prev =>
+            prev.map(c => c.id === id ? { ...c, checked_in_today: true } : c)
+          )}
+        />
+      )}
 
       {user && <FirstRewardCard pointsBalance={user.points_balance || 0} />}
 

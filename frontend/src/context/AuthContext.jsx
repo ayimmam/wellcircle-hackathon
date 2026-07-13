@@ -74,11 +74,14 @@ export function AuthProvider({ children }) {
       const providerId = startParam.startsWith('reentry_promo_')
         ? startParam.slice('reentry_promo_'.length)
         : null;
+      const isCheckinNudge = startParam === 'reentry_checkin';
       track('reentry_open', {
         source: 'bot_nudge',
+        ...(isCheckinNudge ? { nudge: 'streak' } : {}),
         ...(providerId ? { provider_id: providerId } : {}),
       });
       if (providerId) navigate(`/provider/${providerId}`);
+      else if (isCheckinNudge) navigate('/home'); // check-in card lives on Home
       return;
     }
 

@@ -2,7 +2,8 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
+import httpx
 from sqlalchemy.orm import Session
 
 from uuid import UUID
@@ -18,6 +19,28 @@ from app.schemas.user import BotRegisterRequest
 from app.schemas.evidence import BotEvidenceSubmitRequest
 
 router = APIRouter()
+
+
+@router.get("/photo/{file_path:path}")
+async def proxy_telegram_photo(file_path: str):
+    """Proxy Telegram user profile photo securely so the token is not leaked."""
+    if settings.TELEGRAM_BOT_TOKEN == "mock_token" or not settings.TELEGRAM_BOT_TOKEN:
+        raise HTTPException(status_code=400, detail="Telegram bot token not configured")
+    
+    # Restrict path to prevent directory traversal or arbitrary URL requests
+    if ".." in file_path or file_path.startswith("/"):
+        raise HTTPException(status_code=400, detail="Invalid photo path")
+
+    download_url = f"https://api.telegram.org/file/bot{settings.TELEGRAM_BOT_TOKEN}/{file_path}"
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(download_url, timeout=10.0)
+            resp.raise_for_status()
+            content_type = resp.headers.get("content-type", "image/jpeg")
+            return Response(content=resp.content, media_type=content_type)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail="Could not fetch photo from Telegram")
+
 
 
 @router.post("/register")

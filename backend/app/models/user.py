@@ -2,6 +2,7 @@
 
 from sqlalchemy import Column, String, Integer, BigInteger, Boolean, DateTime, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.hybrid import hybrid_property
 import uuid
 from datetime import datetime, timezone
 
@@ -24,7 +25,31 @@ class User(Base):
     exercise_frequency = Column(String(50), nullable=True)    # never|rarely|sometimes|regular|daily
 
     # --- Telegram profile data ---
-    photo_url = Column(String(500), nullable=True)
+    _photo_url = Column("photo_url", String(500), nullable=True)
+
+    @hybrid_property
+    def photo_url(self):
+        url = self._photo_url
+        if isinstance(url, str):
+            if "api.telegram.org" in url and "/file/bot" in url:
+                try:
+                    parts = url.split("/file/bot", 1)
+                    if len(parts) == 2:
+                        token_and_path = parts[1]
+                        subparts = token_and_path.split("/", 1)
+                        if len(subparts) == 2:
+                            file_path = subparts[1]
+                            from app.config import settings
+                            backend_base = settings.BACKEND_URL.rstrip("/") if settings.BACKEND_URL else ""
+                            return f"{backend_base}/api/bot/photo/{file_path}"
+                except Exception:
+                    pass
+            return url
+        return url
+
+    @photo_url.setter
+    def photo_url(self, value):
+        self._photo_url = value
 
     # --- Gamification ---
     points_balance = Column(Integer, default=0)

@@ -7,7 +7,7 @@ import Leaderboard from '../components/Leaderboard';
 import { showToast } from '../components/Toast';
 import { MOCK_CIRCLES, MOCK_LEADERBOARD } from '../data/mock';
 import Icon from '../components/Icon';
-import { track } from '../analytics';
+import { shareCircleInvite } from '../utils/circleInvite';
 
 export default function CircleDetailScreen() {
   const { id } = useParams();
@@ -52,30 +52,9 @@ export default function CircleDetailScreen() {
     }
   };
 
-  // E1: invite via Telegram-native sharing, falling back gracefully by client
-  // capability — switchInlineQuery opens a chat picker with the link
-  // pre-filled; plain clipboard copy if the WebApp API isn't available at all.
-  const handleInvite = async () => {
-    const botUsername = import.meta.env.VITE_BOT_USERNAME || 'WellCircleBot';
-    const link = `https://t.me/${botUsername}?startapp=circle_${circle.join_code}`;
-    const text = `Join my "${circle.name}" circle on Well Circle! 💪 ${link}`;
-    const tg = window.Telegram?.WebApp;
-    track('circle_invite_shared', {
-      circle_id: id,
-      method: tg?.switchInlineQuery ? 'inline_query' : 'clipboard',
-    });
-
-    if (tg?.switchInlineQuery) {
-      tg.switchInlineQuery(text, ['users', 'groups']);
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(link);
-      showToast('Invite link copied!', '📋');
-    } catch {
-      showToast(link, '🔗');
-    }
-  };
+  // E1: invite via Telegram-native sharing (shared with the onboarding
+  // circles step — see utils/circleInvite.js).
+  const handleInvite = () => shareCircleInvite(circle, { source: 'circle_detail' });
 
   const handleJoin = async () => {
     let joinCode = null;

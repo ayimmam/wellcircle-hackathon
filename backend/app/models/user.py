@@ -1,7 +1,7 @@
 """User ORM model - combines bot + Mini App onboarding fields."""
 
 from sqlalchemy import Column, String, Integer, BigInteger, Boolean, DateTime, Text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
 import uuid
 from datetime import datetime, timezone
@@ -21,7 +21,9 @@ class User(Base):
     # --- From Mini App Onboarding ---
     name = Column(String(255), nullable=True)                 # Required in onboarding
     goal = Column(Text, nullable=True)                        # Optional
-    interest_category = Column(String(50), nullable=True)     # yoga|gym|nutrition|spa|therapy|running
+    # List of yoga|gym|nutrition|spa|therapy|running — a user can pick more
+    # than one passion at onboarding (was a single interest_category column).
+    interest_categories = Column(JSONB, nullable=True)
     exercise_frequency = Column(String(50), nullable=True)    # never|rarely|sometimes|regular|daily
 
     # --- Telegram profile data ---

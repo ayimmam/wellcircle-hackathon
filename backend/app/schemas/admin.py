@@ -31,7 +31,7 @@ class AdminUserItem(BaseModel):
     telegram_id: int
     telegram_handle: Optional[str] = None
     name: Optional[str] = None
-    interest_category: Optional[str] = None
+    interest_categories: Optional[List[str]] = None  # null for legacy/un-onboarded users
     exercise_frequency: Optional[str] = None
     points_balance: int = 0
     is_onboarded: bool = False

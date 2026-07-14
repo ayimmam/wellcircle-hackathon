@@ -48,7 +48,7 @@ class UserOnboardingRequest(BaseModel):
     """Mini App onboarding - complete user profile."""
     name: str = Field(..., min_length=1, max_length=255)
     goal: Optional[str] = Field(None, max_length=500)
-    interest_category: InterestCategory
+    interest_categories: List[InterestCategory] = Field(..., min_length=1)
     exercise_frequency: ExerciseFrequency
     suggested_circle_ids: Optional[List[str]] = None  # UUIDs of circles to auto-join
 
@@ -70,7 +70,7 @@ class UserResponse(BaseModel):
     name: Optional[str] = None
     photo_url: Optional[str] = None
     goal: Optional[str] = None
-    interest_category: Optional[str] = None
+    interest_categories: List[str] = []
     exercise_frequency: Optional[str] = None
     points_balance: int = 0
     tier: str = "seed"

@@ -68,15 +68,21 @@ async def platform_analytics(
     active_7d = db.query(User).filter(User.last_activity_at >= week_ago).count()
     new_today = db.query(User).filter(User.created_at >= today_start).count()
 
-    # Top categories
-    cats = (
-        db.query(User.interest_category, func.count(User.id))
-        .filter(User.interest_category.isnot(None))
-        .group_by(User.interest_category)
-        .order_by(func.count(User.id).desc())
-        .limit(6)
+    # Top categories — a user can now have multiple interests, so each one
+    # contributes to its own bucket (a user with 3 interests counts once in
+    # each). JSONB array group-by isn't portable across dialects (and the
+    # in-memory SQLite test shim stores it as plain text), so this is done
+    # in Python rather than in SQL.
+    from collections import Counter
+    all_interests = (
+        db.query(User.interest_categories)
+        .filter(User.interest_categories.isnot(None))
         .all()
     )
+    counts = Counter()
+    for (categories,) in all_interests:
+        counts.update(categories or [])
+    cats = counts.most_common(6)
 
     return PlatformAnalytics(
         total_users=total_users, onboarded_users=onboarded,

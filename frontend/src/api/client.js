@@ -139,7 +139,7 @@ export async function onboardUser(data) {
       ...data,
       is_onboarded: true,
       auto_joined_communities: data.suggested_circle_ids || [],
-      suggested_communities: MOCK_COMMUNITIES.filter(c => c.category === data.interest_category).slice(0, 3),
+      suggested_communities: MOCK_COMMUNITIES.filter(c => (data.interest_categories || []).includes(c.category)).slice(0, 3),
       // mirrors backend endowed-progress welcome award
       welcome_points: 20,
       points_balance: (MOCK_USER.points_balance || 0) + 20,
@@ -147,7 +147,7 @@ export async function onboardUser(data) {
   }
   const payload = {
     name: data.name,
-    interest_category: data.interest_category,
+    interest_categories: data.interest_categories,
     exercise_frequency: data.exercise_frequency
   };
   if (data.goal) payload.goal = data.goal;
@@ -376,7 +376,7 @@ export async function getCircles() {
 export async function createCircle(data) {
   if (USE_MOCK) {
     await delay();
-    return { id: 'mock-circle-id', name: data.name };
+    return { id: 'mock-circle-' + Date.now(), name: data.name, join_code: 'MOCK' + Date.now().toString(36).toUpperCase(), message: 'Circle created successfully' };
   }
   return request('POST', '/circles', data);
 }
@@ -384,7 +384,8 @@ export async function createCircle(data) {
 export async function joinCircle(id, joinCode = null) {
   if (USE_MOCK) {
     await delay();
-    return { message: "Joined successfully" };
+    const circle = MOCK_CIRCLES.find(c => c.id === id);
+    return { id, name: circle?.name || 'Circle', join_code: circle?.join_code || null, message: 'Joined circle successfully' };
   }
   return request('POST', `/circles/${id}/join`, { join_code: joinCode });
 }

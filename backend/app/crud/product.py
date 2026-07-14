@@ -88,7 +88,7 @@ def browse_products(
     sort_by: str = "newest",
     page: int = 1,
     per_page: int = 12,
-    user_interest: Optional[str] = None,
+    user_interests: Optional[List[str]] = None,
 ) -> tuple[List[dict], int]:
     now = datetime.now(timezone.utc)
     query = (
@@ -135,7 +135,7 @@ def browse_products(
     rows = query.offset((page - 1) * per_page).limit(per_page).all()
 
     popular_ids = set()
-    if not user_interest:
+    if not user_interests:
         popular = (
             db.query(UserRedemption.product_id, func.count(UserRedemption.id).label("cnt"))
             .group_by(UserRedemption.product_id)
@@ -148,7 +148,7 @@ def browse_products(
     items = []
     for product, provider in rows:
         is_recommended = False
-        if user_interest and provider.category == user_interest:
+        if user_interests and provider.category in user_interests:
             is_recommended = True
         elif str(product.id) in popular_ids:
             is_recommended = True

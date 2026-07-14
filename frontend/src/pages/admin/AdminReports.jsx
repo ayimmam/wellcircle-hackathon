@@ -40,8 +40,8 @@ export default function AdminReports() {
         const res = await getAdminUsers({ per_page: 500 });
         downloadCsv(
           'wellcircle-users.csv',
-          ['id', 'telegram_id', 'name', 'interest_category', 'points_balance', 'is_onboarded', 'created_at'],
-          (res.users || []).map(u => [u.id, u.telegram_id, u.name, u.interest_category, u.points_balance, u.is_onboarded, u.created_at]),
+          ['id', 'telegram_id', 'name', 'interest_categories', 'points_balance', 'is_onboarded', 'created_at'],
+          (res.users || []).map(u => [u.id, u.telegram_id, u.name, (u.interest_categories || []).join('|'), u.points_balance, u.is_onboarded, u.created_at]),
         );
       } else if (id === 'providers') {
         const res = await getAdminProviders();

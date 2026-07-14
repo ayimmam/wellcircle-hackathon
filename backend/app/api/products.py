@@ -33,7 +33,7 @@ async def list_products(
     user: User | None = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ):
-    interest = user.interest_category if user else None
+    interests = user.interest_categories if user else None
     pid = UUID(provider_id) if provider_id else None
     items, total = browse_products(
         db,
@@ -46,7 +46,7 @@ async def list_products(
         sort_by=sort_by,
         page=page,
         per_page=per_page,
-        user_interest=interest,
+        user_interests=interests,
     )
     return ProductListResponse(products=items, total=total, page=page, per_page=per_page)
 

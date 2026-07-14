@@ -324,6 +324,7 @@ export const MOCK_PROVIDERS = [
       { name: 'Swim + Steam & Sauna (package)', price: 3600, duration: '—', booking_method: 'phone' },
       { name: 'Massage + Steam & Sauna (package)', price: 4950, duration: '—', booking_method: 'phone' }
     ],
+    contact_phone: '+251 98 056 5656',
     contact_email: 'booking@kurifturesorts.com',
     is_featured: true,
     community: { id: '22222222-0000-0000-0000-000000000011', name: 'Kuriftu Wellness Circle', member_count: 58, user_joined: false },

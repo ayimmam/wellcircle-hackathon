@@ -24,7 +24,10 @@ export default function BookingFlow() {
 
   // Form state
   const [selectedService, setSelectedService] = useState(location.state?.selectedService || null);
-  const [selectedDate, setSelectedDate] = useState(null);
+  // Multi-day booking: pick several days for the same service/time — each
+  // becomes its own booking, paid for together. Event bookings stay
+  // single-date (an event already has one fixed date) — see toggleDate.
+  const [selectedDates, setSelectedDates] = useState([]);
   const [selectedTime, setSelectedTime] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState(null);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -96,20 +99,36 @@ export default function BookingFlow() {
 
   const basePrice = selectedService?.price || 0;
   const platformFee = Math.round(basePrice * 0.02);
-  const subtotal = basePrice + platformFee;
+  const subtotal = basePrice + platformFee; // per day
+  const numDays = selectedDates.length || 1;
+  const totalSubtotal = subtotal * numDays;
   // Presale promo: the client only *predicts* the discount for display — the
   // backend re-derives eligibility and applies it to the booking; we always
-  // send the undiscounted amount (see handlePay).
+  // send the undiscounted per-day amount (see handlePay). The discount only
+  // ever applies to the first day (a "first visit" promo covering every day
+  // of a multi-day booking wouldn't match its own terms).
   const promo = promoApplies(provider?.active_promotion) ? provider.active_promotion : null;
   const predictedDiscount = promo ? computeDiscountEtb(subtotal, promo.discount_pct) : 0;
-  const totalPrice = subtotal - predictedDiscount;
-  // After creation, the booking row carries the server-applied promotion
+  const totalPrice = totalSubtotal - predictedDiscount;
+  // After creation, the booking row carries the server-applied promotion +
+  // combined total across every day (see BookingResponse.total_amount_etb)
   const appliedPromo = booking?.promotion || null;
-  const paidTotal = appliedPromo ? subtotal - appliedPromo.discount_etb : subtotal;
+  const paidTotal = booking?.total_amount_etb ?? (appliedPromo ? totalSubtotal - appliedPromo.discount_etb : totalSubtotal);
+
+  const toggleDate = (date) => {
+    if (eventId) {
+      // An event has one fixed date — no multi-select for event bookings.
+      setSelectedDates([date]);
+      return;
+    }
+    setSelectedDates(prev =>
+      prev.includes(date) ? prev.filter(d => d !== date) : [...prev, date]
+    );
+  };
 
   const canNext = () => {
     if (step === 0) return selectedService !== null;
-    if (step === 1) return selectedDate !== null && selectedTime !== null;
+    if (step === 1) return selectedDates.length > 0 && selectedTime !== null;
     if (step === 2) return paymentMethod !== null && phoneNumber.trim().length >= 9;
     return false;
   };
@@ -130,14 +149,21 @@ export default function BookingFlow() {
     setPaymentStatus('processing');
     pollAttemptsRef.current = 0;
     try {
+      // Earliest selected day is the "primary" booking; any others ride
+      // along as additional_slot_datetimes (same service/time), sharing one
+      // payment (see docs/API_CONTRACT.md's booking_group_id note).
+      const [primaryDate, ...extraDates] = [...selectedDates].sort();
       const bk = await createBooking({
         provider_id: providerId,
         service_name: selectedService.name,
-        slot_datetime: `${selectedDate}T${selectedTime}:00Z`,
-        amount_etb: subtotal, // undiscounted — the backend applies any promo
+        slot_datetime: `${primaryDate}T${selectedTime}:00Z`,
+        amount_etb: subtotal, // per-day, undiscounted — the backend applies any promo
         payment_method: paymentMethod,
         phone_number: phoneNumber,
         ...(eventId ? { event_id: eventId } : {}),
+        ...(extraDates.length > 0
+          ? { additional_slot_datetimes: extraDates.map(d => `${d}T${selectedTime}:00Z`) }
+          : {}),
       });
       setBooking(bk);
       await initiatePaymentFor(bk.id);
@@ -176,7 +202,8 @@ export default function BookingFlow() {
         track('booking_confirmed', {
           provider_id: providerId,
           service: selectedService?.name,
-          amount_etb: booking?.amount_etb ?? totalPrice,
+          amount_etb: booking?.total_amount_etb ?? totalPrice,
+          days: numDays,
           payment_method: paymentMethod,
         });
         if (booking?.promotion) {
@@ -248,9 +275,12 @@ export default function BookingFlow() {
         </p>
 
         {hasPhone && (
+          // Plain tel: anchor — Telegram's in-app WebView hands non-http(s)
+          // schemes to the OS dialer natively; no Telegram SDK call needed
+          // (WebApp.openLink() is http(s)-only and would reject a tel: link).
           <a
             className="btn btn-primary btn-block mb-12"
-            href={`tel:${provider.contact_phone}`}
+            href={`tel:${provider.contact_phone.replace(/[^\d+]/g, '')}`}
             onClick={() => track('booking_contact_clicked', { provider_id: providerId, method: 'phone' })}
             id="contact-call-btn"
           >
@@ -298,20 +328,24 @@ export default function BookingFlow() {
               <span className="confirmation-value">{selectedService?.name}</span>
             </div>
             <div className="confirmation-row">
-              <span className="confirmation-label">Date</span>
-              <span className="confirmation-value">{selectedDate}</span>
+              <span className="confirmation-label">{numDays > 1 ? 'Dates' : 'Date'}</span>
+              <span className="confirmation-value">{[...selectedDates].sort().join(', ')}</span>
             </div>
             <div className="confirmation-row">
               <span className="confirmation-label">Time</span>
               <span className="confirmation-value">{selectedTime}</span>
             </div>
             <div className="confirmation-row">
-              <span className="confirmation-label">Amount</span>
-              <span className="confirmation-value">ETB {basePrice.toLocaleString()}</span>
+              <span className="confirmation-label">
+                Amount{numDays > 1 ? ` (× ${numDays} days)` : ''}
+              </span>
+              <span className="confirmation-value">ETB {(basePrice * numDays).toLocaleString()}</span>
             </div>
             <div className="confirmation-row">
-              <span className="confirmation-label">Platform Fee (2%)</span>
-              <span className="confirmation-value">ETB {platformFee.toLocaleString()}</span>
+              <span className="confirmation-label">
+                Platform Fee (2%){numDays > 1 ? ` (× ${numDays} days)` : ''}
+              </span>
+              <span className="confirmation-value">ETB {(platformFee * numDays).toLocaleString()}</span>
             </div>
             {appliedPromo && (
               <div className="confirmation-row">
@@ -454,13 +488,21 @@ export default function BookingFlow() {
       {/* Step 1: Date & Time */}
       {step === 1 && (
         <div>
-          <h2 className="section-title mb-12">{t('Pick a Date')}</h2>
+          <h2 className="section-title mb-12">
+            {t('Pick a Date')}
+            {!eventId && (
+              <span style={{ fontWeight: 400, fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: 8 }}>
+                {t('— tap to select multiple days')}
+              </span>
+            )}
+          </h2>
           <div className="h-scroll mb-20" style={{ margin: '0 0 20px' }}>
             {days.map(day => (
               <button
                 key={day.date}
-                className={`chip date-chip ${selectedDate === day.date ? 'active' : ''}`}
-                onClick={() => setSelectedDate(day.date)}
+                className={`chip date-chip ${selectedDates.includes(day.date) ? 'active' : ''}`}
+                onClick={() => toggleDate(day.date)}
+                id={`date-chip-${day.date}`}
               >
                 {day.dayName} {day.dayNumber}
               </button>
@@ -495,21 +537,32 @@ export default function BookingFlow() {
                 <span className="confirmation-value">{selectedService?.name}</span>
               </div>
               <div className="confirmation-row">
-                <span className="confirmation-label">Date & Time</span>
-                <span className="confirmation-value">{selectedDate} at {selectedTime}</span>
+                <span className="confirmation-label">{numDays > 1 ? 'Dates & Time' : 'Date & Time'}</span>
+                <span className="confirmation-value">
+                  {[...selectedDates].sort().join(', ')} at {selectedTime}
+                </span>
               </div>
               <div className="confirmation-row">
-                <span className="confirmation-label">Service Amount</span>
-                <span className="confirmation-value">ETB {basePrice.toLocaleString()}</span>
+                <span className="confirmation-label">
+                  Service Amount{numDays > 1 ? ` (× ${numDays} days)` : ''}
+                </span>
+                <span className="confirmation-value">ETB {(basePrice * numDays).toLocaleString()}</span>
               </div>
               <div className="confirmation-row" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <span className="confirmation-label">Platform Fee (2%)</span>
-                <span className="confirmation-value">ETB {platformFee.toLocaleString()}</span>
+                <span className="confirmation-label">
+                  Platform Fee (2%){numDays > 1 ? ` (× ${numDays} days)` : ''}
+                </span>
+                <span className="confirmation-value">ETB {(platformFee * numDays).toLocaleString()}</span>
               </div>
               {promo && (
                 <div className="confirmation-row" id="promo-discount-row">
                   <span className="confirmation-label">
                     🏷 {promo.headline} ({promo.discount_pct}%)
+                    {numDays > 1 && (
+                      <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-tertiary)' }}>
+                        {t('Applied to your first day only')}
+                      </span>
+                    )}
                     {expiryLabel(promo.valid_until) && (
                       <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-tertiary)' }}>
                         {expiryLabel(promo.valid_until)}
@@ -526,7 +579,7 @@ export default function BookingFlow() {
                 <span className="confirmation-value" style={{ color: 'var(--accent)', fontSize: '1.1rem' }}>
                   {promo && predictedDiscount > 0 && (
                     <s style={{ color: 'var(--text-tertiary)', fontWeight: 400, fontSize: '0.85rem', marginRight: 8 }} id="anchor-price">
-                      ETB {subtotal.toLocaleString()}
+                      ETB {totalSubtotal.toLocaleString()}
                     </s>
                   )}
                   ETB {totalPrice.toLocaleString()}

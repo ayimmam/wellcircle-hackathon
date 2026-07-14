@@ -979,6 +979,9 @@ select.input option {
   padding: 10px 14px;
   font-weight: 700;
   text-align: center;
+  /* Inside .h-scroll's flex row, chips were shrinking below their text's
+     natural width on narrow viewports, spilling the label past the pill. */
+  flex-shrink: 0;
 }
 
 /* ================================================================

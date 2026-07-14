@@ -2,18 +2,26 @@
 
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 
 class BookingCreate(BaseModel):
-    """Create a booking."""
+    """Create a booking. `slot_datetime` is the first/primary day.
+
+    `additional_slot_datetimes`: same service, same time-of-day, on more days
+    (multi-day booking) — each becomes its own Booking row sharing the
+    primary's `booking_group_id`, charged at the plain per-day rate (any
+    promotion discount applies to the primary day only). Not supported for
+    event bookings (an event already has one fixed date).
+    """
     provider_id: str
     service_name: str
     slot_datetime: datetime
-    amount_etb: int = Field(..., gt=0)
+    amount_etb: int = Field(..., gt=0)  # per-day amount, undiscounted
     payment_method: str = Field(..., pattern="^(telebirr|mpesa)$")
     phone_number: Optional[str] = None
     event_id: Optional[str] = None
+    additional_slot_datetimes: Optional[List[datetime]] = None
 
 class AppliedPromotion(BaseModel):
     """Promotion the backend auto-applied to a booking (presale loop)."""
@@ -24,17 +32,22 @@ class AppliedPromotion(BaseModel):
 
 
 class BookingResponse(BaseModel):
-    """Booking detail."""
+    """Booking detail — the primary/first day's booking."""
     id: str
     provider_id: str
     service_name: str
     slot_datetime: datetime
-    amount_etb: int  # final charged amount, after any promotion discount
+    amount_etb: int  # final charged amount for THIS day, after any promotion discount
     payment_method: str
     payment_status: str
     event_id: Optional[str] = None
     promotion: Optional[AppliedPromotion] = None
     created_at: datetime
+    # Multi-day booking: ids of the sibling bookings created for the other
+    # selected days (empty for a single-day booking), and the combined total
+    # across the whole group (== amount_etb when there are no siblings).
+    additional_booking_ids: List[str] = Field(default_factory=list)
+    total_amount_etb: int = 0
 
     class Config:
         from_attributes = True

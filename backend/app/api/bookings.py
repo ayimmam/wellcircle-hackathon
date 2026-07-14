@@ -1,5 +1,6 @@
 """Booking routes."""
 
+import uuid
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -7,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.crud.booking import create_booking
+from app.crud.booking import create_booking, create_sibling_bookings
 from app.schemas.booking import BookingCreate, BookingResponse, AppliedPromotion
 from app.services.promotion_service import get_eligible_promotion, compute_discount_etb
 
@@ -36,22 +37,31 @@ async def create_new_booking(
     # applies — clients always send the undiscounted amount. Eligibility is
     # checked before the booking row exists so this booking can't disqualify
     # itself from a first-time promo.
+    if request.additional_slot_datetimes and request.event_id:
+        raise HTTPException(
+            status_code=422,
+            detail="Multi-day booking isn't supported for event bookings — an event already has one fixed date",
+        )
+
     promo = get_eligible_promotion(db, UUID(request.provider_id), user.id)
     discount_etb = compute_discount_etb(request.amount_etb, promo["discount_pct"]) if promo else 0
     charged_etb = request.amount_etb - discount_etb
-    promo_fields = (
-        {"promotion_id": UUID(promo["id"]), "discount_etb": discount_etb}
-        if discount_etb > 0
-        else {}
-    )
+    # Multi-day booking: every booking (primary + siblings) shares one group
+    # id so a single payment can cascade to all of them. Assigned even for a
+    # single-day booking for consistency (harmless — group of one).
+    group_id = uuid.uuid4()
+    primary_fields = {"booking_group_id": group_id}
+    if discount_etb > 0:
+        primary_fields["promotion_id"] = UUID(promo["id"])
+        primary_fields["discount_etb"] = discount_etb
 
     if request.event_id:
         event_uuid = UUID(request.event_id)
-        
+
         # 1. Lock the row explicitly for this transaction
         stmt = select(ProviderEvent).where(ProviderEvent.id == event_uuid).with_for_update()
         event = db.execute(stmt).scalar_one_or_none()
-        
+
         if not event or event.is_cancelled or event.spots_remaining <= 0:
             db.rollback()
             raise HTTPException(status_code=409, detail="No spots remaining or event cancelled")
@@ -68,7 +78,7 @@ async def create_new_booking(
             payment_method=request.payment_method,
             phone_number=request.phone_number,
             event_id=event_uuid,
-            **promo_fields,
+            **primary_fields,
         )
         db.add(EventInventoryLog(
             event_id=event_uuid,
@@ -86,18 +96,33 @@ async def create_new_booking(
             amount_etb=charged_etb,
             payment_method=request.payment_method,
             phone_number=request.phone_number,
-            **promo_fields,
+            **primary_fields,
+        )
+
+    # Multi-day booking: create one sibling booking per additional date, same
+    # service/time/payment method, plain per-day amount (the promo discount
+    # above only applied to the primary/first day).
+    sibling_bookings = []
+    if request.additional_slot_datetimes:
+        sibling_bookings = create_sibling_bookings(
+            db, user_id=user.id, group_id=group_id,
+            extra_dates=request.additional_slot_datetimes,
+            provider_id=UUID(request.provider_id),
+            service_name=request.service_name,
+            amount_etb=request.amount_etb,
+            payment_method=request.payment_method,
+            phone_number=request.phone_number,
         )
 
     # 4. Trigger Instant Notification
     background_tasks.add_task(
-        trigger_booking_notification, 
-        db, 
-        user.id, 
-        request.service_name, 
+        trigger_booking_notification,
+        db,
+        user.id,
+        request.service_name,
         str(request.slot_datetime)
     )
-        
+
     return BookingResponse(
         id=str(booking.id), provider_id=str(booking.provider_id),
         service_name=booking.service_name,
@@ -113,4 +138,6 @@ async def create_new_booking(
             discount_etb=discount_etb,
         ) if discount_etb > 0 else None,
         created_at=booking.created_at,
+        additional_booking_ids=[str(s.id) for s in sibling_bookings],
+        total_amount_etb=booking.amount_etb + sum(s.amount_etb for s in sibling_bookings),
     )

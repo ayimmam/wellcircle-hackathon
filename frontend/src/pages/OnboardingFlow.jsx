@@ -166,7 +166,7 @@ export default function OnboardingFlow() {
 
         {currentStep === 'frequency' && (
           <>
-            <div className="onboarding-emoji">📊</div>
+            <div className="onboarding-emoji">💪</div>
             <h2 className="onboarding-title">How often do you exercise?</h2>
             <p className="onboarding-subtitle">
               No judgment — we're here to help you grow.

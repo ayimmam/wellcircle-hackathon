@@ -27,4 +27,8 @@ class Booking(Base):
     promotion_id = Column(UUID(as_uuid=True), ForeignKey("provider_promotions.id"), nullable=True)
     discount_etb = Column(Integer, nullable=True)
     reminder_sent = Column(Boolean, nullable=False, default=False)
+    # Multi-day booking: bookings created together (same service/time, several
+    # days) share this key so one payment can cover the whole group. No FK —
+    # it's a correlation id, not a relationship to another booking.
+    booking_group_id = Column(UUID(as_uuid=True), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

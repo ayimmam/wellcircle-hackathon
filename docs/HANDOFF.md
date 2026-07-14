@@ -1,9 +1,46 @@
 # Well Circle — Project Handoff
 
 This document tracks implementation status against `PRD.md`, `IMPLEMENTATION_PROMPT.md`, and `PHASE3_IMPLEMENTATION_PLAN.md`.  
+
 **Last updated:** July 2026 — after Phase 11 (multi-passion onboarding + real circle creation, `feature/multi-passion-onboarding-circles`). Phase 9 (Kuriftu direct-contact booking fix) is detailed in `kuriftu-gap-analysis.md`; Phase 8 (UX Psychology Growth Loop) in `UX_GROWTH_LOOP_PLAN.md`; Phase 7 (Biniyam's presale/re-entry sprint track) in `BINIYAM_SPRINT_PLAN.md`. **Note:** a separate Phase 10 (booking UX polish + multi-day booking) exists on the not-yet-merged `feature/booking-ux-polish` branch, forked before this one — the two haven't been reconciled yet.
 
+
 For Phase 3 detail and LLM continuation notes, see also **`PHASE3_HANDOFF.md`**.
+
+---
+
+
+`main` does **not** yet include the two most recent features. Both are complete,
+tested, and pushed to `origin`, but not merged — **check these branches before
+assuming `main` is the full story**, and before starting new work that might
+overlap with either.
+
+### `feature/booking-ux-polish` (commits `726aae5` on top of `1fe390d`)
+Booking UX polish + **multi-day booking**: date-chip selection is now
+multi-select (one real `Booking` row per day, one combined payment via a new
+`booking_group_id` correlation key); a fixed CSS overflow bug on date chips;
+a swapped onboarding emoji; Kuriftu's confirmed phone number wired into the
+direct-contact screen's Call button (now primary, ahead of Email); and a new
+`backend/.vercelignore` (the Vercel Python builder was bundling every test/
+loadtest/maintenance script into the production Lambda). Full detail: that
+branch's own `HANDOFF.md` **Phase 10** entry (not visible from `main` until
+merged).
+
+### `feature/multi-passion-onboarding-circles` (commit `8415faa` on top of `1fe390d`)
+**Multi-select passions** at onboarding (`User.interest_category` → `interest_categories`,
+a full-replacement refactor across ~15 backend/frontend consumers — community
+suggestions, product personalization, admin analytics all now OR-match across
+every selected interest) + a rebuilt circles onboarding step: a one-sentence
+explainer, an "Available Circles" list to join an existing real `Circle`
+directly, and a "create your own circle" form — either path shows an inline
+Telegram invite-friends action. Full detail: that branch's own `HANDOFF.md`
+**Phase 11** entry (not visible from `main` until merged).
+
+**Both branches fork independently from the same `main` commit (`1fe390d`) and
+have not been reconciled with each other** — they touch almost entirely
+different files, so a normal merge/rebase of both into `main` (in either
+order) should be low-conflict, but this hasn't been verified. Do that check
+before merging.
 
 ---
 

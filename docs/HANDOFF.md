@@ -2,6 +2,7 @@
 
 This document tracks implementation status against `PRD.md`, `IMPLEMENTATION_PROMPT.md`, and `PHASE3_IMPLEMENTATION_PLAN.md`.  
 
+
 **Last updated:** July 2026 — after Phase 11 (multi-passion onboarding + real circle creation, `feature/multi-passion-onboarding-circles`). Phase 9 (Kuriftu direct-contact booking fix) is detailed in `kuriftu-gap-analysis.md`; Phase 8 (UX Psychology Growth Loop) in `UX_GROWTH_LOOP_PLAN.md`; Phase 7 (Biniyam's presale/re-entry sprint track) in `BINIYAM_SPRINT_PLAN.md`. **Note:** a separate Phase 10 (booking UX polish + multi-day booking) exists on the not-yet-merged `feature/booking-ux-polish` branch, forked before this one — the two haven't been reconciled yet.
 
 
@@ -731,6 +732,50 @@ HANDOFF.md
 
 ---
 
+### Phase 10 — Booking UX Polish + Multi-Day Booking (This Session, `feature/booking-ux-polish`)
+
+Direct user feedback from manually walking Onboarding → Home → Booking in the real app, plus one new capability (multi-day booking) scoped via a clarifying question rather than guessed. First feature branch under the new "one branch per feature" process.
+
+#### Quick polish
+- **Onboarding frequency-step emoji.** The 📊 bar-chart emoji on "How often do you exercise?" read as generic/placeholder-y ("vibecoded") — swapped for 💪, matching the step's actual content.
+- **Date-chip text overflow.** `.date-chip` (booking date picker) had no `flex-shrink: 0` inside its `.h-scroll` flex row, so on narrow viewports the flex algorithm could shrink a chip's box below its text's natural width, spilling the label past the pill (reported with a screenshot showing "Fri 17" overflowing). Fixed in `index.css`; verified via computed-style check in a real browser (`flex-shrink: 0` applied, `scrollWidth <= offsetWidth` on every chip at mobile width) since the sandbox's screenshot tool itself was unreliable this session — page content was verified via `read_page`/`get_page_text`/direct DOM inspection instead.
+- **Kuriftu now has a confirmed phone number** (+251 98 056 5656, alongside the email from Phase 9) — added to `contact_phone` in the reseed script and mock data. The "Call" button (already built in Phase 9, just never shown since no phone existed yet) now renders as the **primary** action ahead of Email, matching "most people prefer calling." Uses a plain `tel:` anchor — Telegram's in-app WebView hands non-http(s) schemes to the OS dialer natively; `WebApp.openLink()` (used elsewhere for Telebirr redirect pages) is http(s)-only and would reject a `tel:` link, so it's deliberately not used here.
+
+#### Multi-day booking
+A booking can now cover several days of the same service in one flow — scoped via a clarifying question: **one real `Booking` row per selected day, one combined payment.** Not available for event bookings (`event_id` set) — an event already has one fixed date.
+
+- **Backend:** new `bookings.booking_group_id` (nullable UUID correlation key, migration `007_booking_group.py` + idempotent `apply_booking_group_migration.py`). `BookingCreate.additional_slot_datetimes` (optional) triggers `crud/booking.py: create_sibling_bookings()` — one row per extra date, same service/time/payment method, **plain per-day rate** (any promotion discount applies to the primary/first day only — a "first-time visitor" promo covering every day of a multi-day booking wouldn't match its own terms). `update_booking_group_payment()` cascades a payment status change from the primary booking (which alone carries the trade_no/checkout_id — `telebirr_trade_no` is unique, so siblings can't share it) to every sibling sharing its group id, wired into both `telebirr`/`mpesa` initiate routes and their webhook callbacks. Each sibling still gets its own feed event, points bonus, and notification via the existing per-booking side effects in `update_booking_payment` — they're real, independent bookings that happen to be paid for together.
+- **Frontend:** `BookingFlow.jsx`'s date chips are now multi-select (`selectedDates` array; a second tap deselects that day). Order summary and the Pay button total scale with day count; the promo discount row notes "Applied to your first day only" when multiple days are selected. `createBooking()` sends the earliest date as `slot_datetime` and the rest as `additional_slot_datetimes`; the confirmation screen lists every date and the combined `total_amount_etb` from the response.
+
+#### Verification
+- Backend: `python -m app.tests.test_multi_day_booking` (new) — **8/8 passing** (sibling creation, discount-on-primary-only, payment cascade to all siblings without leaking the trade_no, each sibling earning its own points bonus, the event-booking rejection guard, and single-day bookings staying backward-compatible as a "group of one"). `test_provider_contact.py`'s stale `has_phone: false` expectation updated now that Kuriftu has a real number. All other backend suites re-ran clean.
+- Frontend: new `BookingFlow.multiDay.test.jsx` (5/5) plus `BookingFlow.phoneBooking.test.jsx` updated for the call button. Full suite: **83/83 passing**, `npm run build` ✅.
+- Live-browser verification (not just automated tests) for the CSS fix, the emoji swap, and multi-select toggling — see the "Date-chip text overflow" note above re: the screenshot tool's reliability this session.
+
+#### Housekeeping (before this branch)
+- Added `backend/.vercelignore` — Vercel's Python builder (`@vercel/python`) was bundling the **entire** backend directory into the deployed Lambda by default (no ignore file existed), including every `app/tests/*` suite, the top-level `tests/`/`test_api.py`/`test_auth.py`, `loadtest/`, and all the one-off `seed_*`/`apply_*`/`check_*`/`fix_*`/`patch_*`/`update_*` maintenance scripts — none of which `api/index.py` ever imports. Confirmed via `git grep` that no production code imports from `app.tests`. Doesn't affect Render (git-based deploy, unaffected by `.vercelignore`) or local dev.
+- Frontend was already clean by construction — Vite/Rollup only bundles what's reachable from the entry point, so `src/test/*.test.jsx` files were never in `dist/` (verified: no test-related strings anywhere in a production build).
+
+#### Files Changed / Added (Phase 10)
+```
+backend/alembic/versions/007_booking_group.py   (new)
+backend/apply_booking_group_migration.py   (new)
+backend/app/models/booking.py
+backend/app/schemas/booking.py
+backend/app/crud/booking.py
+backend/app/api/bookings.py
+backend/app/api/payments.py
+backend/app/tests/test_multi_day_booking.py   (new)
+backend/app/tests/test_provider_contact.py
+backend/update_kuriftu_services.py
+backend/.vercelignore   (new)
+frontend/src/index.css
+frontend/src/pages/OnboardingFlow.jsx
+frontend/src/pages/BookingFlow.jsx
+frontend/src/api/client.js
+frontend/src/data/mock.js
+frontend/src/test/BookingFlow.multiDay.test.jsx   (new)
+frontend/src/test/BookingFlow.phoneBooking.test.jsx
 ### Phase 11 — Multi-Passion Onboarding + Real Circle Creation (`feature/multi-passion-onboarding-circles`)
 
 Two product requests: (1) let users pick more than one passion at signup, (2) make the onboarding circles step actually explain what circles are, let users create their own circle, and invite friends — right there, not just auto-join interest-matched provider communities. Branched fresh off `main` (not off the unmerged `feature/booking-ux-polish`) to keep this feature isolated, per the one-branch-per-feature process adopted in Phase 10.

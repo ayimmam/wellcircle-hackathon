@@ -301,17 +301,23 @@ export async function createBooking(data) {
   if (USE_MOCK) {
     await delay(500);
     // Mirror the backend's server-side promo application: clients send the
-    // undiscounted amount; an eligible promotion knocks off a flat %.
+    // undiscounted per-day amount; an eligible promotion knocks off a flat %
+    // on the primary (first) day only.
     const provider = MOCK_PROVIDERS.find(p => p.id === data.provider_id);
     const promo = provider?.active_promotion;
     const eligible = promo && promo.discount_pct > 0 && promo.user_eligible !== false;
     const discountEtb = eligible
       ? Math.min(Math.round((data.amount_etb * promo.discount_pct) / 100), data.amount_etb)
       : 0;
+    const primaryAmount = data.amount_etb - discountEtb;
+    // Multi-day booking: one sibling per additional date, each at the plain
+    // per-day rate (mirrors backend create_sibling_bookings — no discount).
+    const extraDates = data.additional_slot_datetimes || [];
+    const additionalBookingIds = extraDates.map((_, i) => `bk-new-${Date.now()}-${i + 1}`);
     return {
       id: 'bk-new-' + Date.now(),
       ...data,
-      amount_etb: data.amount_etb - discountEtb,
+      amount_etb: primaryAmount,
       promotion: discountEtb > 0 ? {
         id: promo.id,
         headline: promo.headline,
@@ -319,7 +325,9 @@ export async function createBooking(data) {
         discount_etb: discountEtb,
       } : null,
       payment_status: 'pending',
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      additional_booking_ids: additionalBookingIds,
+      total_amount_etb: primaryAmount + extraDates.length * data.amount_etb,
     };
   }
   return request('POST', '/bookings', data);

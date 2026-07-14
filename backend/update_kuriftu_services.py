@@ -4,9 +4,9 @@ from the Wed Jul 15 gap-analysis call (docs/kuriftu-gap-analysis.md).
 All of Kuriftu's standalone wellness services (including the two bundled
 packages) are booked by phone/email, priced on-site after the service — not
 through the app's online 3-step flow. Every service is flagged
-`booking_method: "phone"`. `contact_phone` is left null: the call surfaced
-Kuriftu's booking email (booking@kurifturesorts.com), not a phone number —
-nothing is fabricated here.
+`booking_method: "phone"`. `contact_phone` (+251 98 056 5656) and
+`contact_email` (booking@kurifturesorts.com) were both confirmed directly by
+Kuriftu — nothing here is fabricated.
 
 Edits the existing "kuriftu" provider row in place (per
 seed_kuriftu_placeholder.py's own instructions) rather than inserting a
@@ -22,6 +22,7 @@ import os
 import psycopg2
 
 CONTACT_EMAIL = "booking@kurifturesorts.com"
+CONTACT_PHONE = "+251 98 056 5656"
 
 # Confirmed Wed Jul 15 call with Kuriftu African Village — see
 # docs/kuriftu-gap-analysis.md for the source pricing table.
@@ -66,9 +67,10 @@ else:
     price_range = f"ETB {min(prices):,} – {max(prices):,}"
     cur.execute(
         """UPDATE providers
-           SET services = %s, description = %s, price_range = %s, contact_email = %s
+           SET services = %s, description = %s, price_range = %s,
+               contact_email = %s, contact_phone = %s
            WHERE id = %s""",
-        (json.dumps(SERVICES), DESCRIPTION, price_range, CONTACT_EMAIL, str(provider_id)),
+        (json.dumps(SERVICES), DESCRIPTION, price_range, CONTACT_EMAIL, CONTACT_PHONE, str(provider_id)),
     )
     print(f"Updated {name} ({provider_id}) with {len(SERVICES)} confirmed phone-booked services.")
 

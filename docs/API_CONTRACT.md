@@ -692,11 +692,22 @@ useEffect(() => {
 Create a booking (payment pending).
 
 **Promotions are applied server-side.** Clients always send the
-**undiscounted** amount; if the user is eligible for the provider's active
-promotion (see `active_promotion.user_eligible` on provider detail), the
-backend deducts the flat % and returns the final charged `amount_etb` plus a
-`promotion` object (`null` when nothing applied). Payment initiation uses the
-booking's stored (discounted) amount.
+**undiscounted** per-day amount; if the user is eligible for the provider's
+active promotion (see `active_promotion.user_eligible` on provider detail),
+the backend deducts the flat % and returns the final charged `amount_etb`
+plus a `promotion` object (`null` when nothing applied). Payment initiation
+uses the booking's stored (discounted) amount.
+
+**Multi-day booking.** `additional_slot_datetimes` (optional) books the same
+service/time on more days — each becomes its own `Booking` row sharing the
+primary's `booking_group_id`, so one payment covers all of them (see
+`GET /api/payments/:booking_id/status` — polling the primary booking's status
+is sufficient signal for the whole group, since a payment success/failure
+cascades to every booking sharing its group id). Any promotion discount
+applies to the **primary/first day only** — the response's `promotion`
+reflects that, and `total_amount_etb` is the combined charge across every
+day. **Not supported for event bookings** (`event_id` set) — an event already
+has one fixed date; sending both is a 422.
 
 ```json
 // REQUEST
@@ -704,26 +715,29 @@ booking's stored (discounted) amount.
   "provider_id": "uuid-string",
   "service_name": "Morning Vinyasa Flow",
   "slot_datetime": "2026-06-07T07:00:00Z",
-  "amount_etb": 800,               // undiscounted — backend applies any promo
+  "amount_etb": 800,               // undiscounted, per day — backend applies any promo
   "payment_method": "telebirr",
-  "phone_number": "0911234567"
+  "phone_number": "0911234567",
+  "additional_slot_datetimes": ["2026-06-09T07:00:00Z", "2026-06-11T07:00:00Z"]  // optional
 }
 
 // RESPONSE 201
 {
-  "id": "uuid-booking",
+  "id": "uuid-booking",              // the primary (first-day) booking
   "provider_id": "uuid-string",
   "service_name": "Morning Vinyasa Flow",
   "slot_datetime": "2026-06-07T07:00:00Z",
-  "amount_etb": 640,               // final charged amount (800 − 20%)
+  "amount_etb": 640,                // final charged amount for THIS day (800 − 20%)
   "payment_method": "telebirr",
   "payment_status": "pending",
-  "promotion": {                   // null when no promotion applied
+  "promotion": {                    // null when no promotion applied
     "id": "uuid-promo",
     "headline": "Presale: 20% off your first visit",
     "discount_pct": 20,
     "discount_etb": 160
   },
+  "additional_booking_ids": ["uuid-booking-2", "uuid-booking-3"],  // [] for a single-day booking
+  "total_amount_etb": 2240,         // 640 + 800 + 800 — combined charge across every day
   "created_at": "2026-06-06T10:30:00Z"
 }
 ```

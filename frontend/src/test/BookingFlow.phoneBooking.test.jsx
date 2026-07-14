@@ -41,7 +41,7 @@ describe('BookingFlow direct-contact booking (Kuriftu gap analysis)', () => {
     expect(screen.queryByText('Payment Method')).not.toBeInTheDocument();
   });
 
-  it('shows an email link (no fabricated phone number) and tracks analytics', async () => {
+  it('shows both a call and an email link, call prioritized, and tracks analytics', async () => {
     renderBooking();
     const service = await screen.findByText('Deep Tissue Massage (50 min)');
     fireEvent.click(service.closest('.service-item'));
@@ -49,15 +49,23 @@ describe('BookingFlow direct-contact booking (Kuriftu gap analysis)', () => {
     await screen.findByText('Book Directly with Kuriftu Resort & Spa');
 
     await waitFor(() => expect(track).toHaveBeenCalledWith('booking_contact_requested', expect.objectContaining({
-      has_phone: false,
+      has_phone: true,
       has_email: true,
     })));
 
-    expect(document.getElementById('contact-call-btn')).toBeNull();
+    // Call is primary (most people prefer calling); email is secondary
+    const callLink = document.getElementById('contact-call-btn');
+    expect(callLink).toBeInTheDocument();
+    expect(callLink.className).toContain('btn-primary');
+    expect(callLink.getAttribute('href')).toBe('tel:+251980565656');
+
     const emailLink = document.getElementById('contact-email-btn');
     expect(emailLink).toBeInTheDocument();
+    expect(emailLink.className).toContain('btn-outline');
     expect(emailLink.getAttribute('href')).toMatch(/^mailto:booking@kurifturesorts\.com/);
 
+    fireEvent.click(callLink);
+    expect(track).toHaveBeenCalledWith('booking_contact_clicked', expect.objectContaining({ method: 'phone' }));
     fireEvent.click(emailLink);
     expect(track).toHaveBeenCalledWith('booking_contact_clicked', expect.objectContaining({ method: 'email' }));
   });

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.crud.booking import get_booking_by_id, update_booking_payment
+from app.crud.booking import get_booking_by_id, update_booking_payment, update_booking_group_payment
 from app.services.telebirr_payment import initiate_telebirr_payment, verify_telebirr_callback
 from app.services.mpesa_payment import initiate_stk_push, verify_mpesa_callback
 from app.schemas.booking import (
@@ -38,9 +38,10 @@ async def telebirr_initiate(
     if "error" in result:
         raise HTTPException(status_code=502, detail=result["error"])
 
-    # Store trade_no on booking
+    # Store trade_no on the primary booking; cascade the same status to any
+    # sibling bookings from a multi-day selection sharing its group id.
     status = "success" if result.get("mock") else "pending"
-    update_booking_payment(db, booking.id, status, trade_no=result["trade_no"])
+    update_booking_group_payment(db, booking.id, booking.booking_group_id, status, trade_no=result["trade_no"])
 
     return TelebirrInitiateResponse(
         booking_id=str(booking.id),
@@ -65,7 +66,7 @@ async def telebirr_callback(request: Request, db: Session = Depends(get_db)):
     )
     if booking:
         status = "success" if data["result_code"] == "0" else "failed"
-        update_booking_payment(db, booking.id, status)
+        update_booking_group_payment(db, booking.id, booking.booking_group_id, status)
         return {"status": "ok"}
 
     from app.services.subscription_service import (
@@ -104,8 +105,8 @@ async def mpesa_initiate(
         raise HTTPException(status_code=502, detail=result["error"])
 
     status = "success" if result.get("mock") else "pending"
-    update_booking_payment(
-        db, booking.id, status,
+    update_booking_group_payment(
+        db, booking.id, booking.booking_group_id, status,
         checkout_id=result["checkout_request_id"],
     )
 
@@ -129,7 +130,7 @@ async def mpesa_callback(request: Request, db: Session = Depends(get_db)):
     )
     if booking:
         status = "success" if data.get("result_code") == 0 else "failed"
-        update_booking_payment(db, booking.id, status)
+        update_booking_group_payment(db, booking.id, booking.booking_group_id, status)
         return {"status": "ok"}
 
     from app.services.subscription_service import (

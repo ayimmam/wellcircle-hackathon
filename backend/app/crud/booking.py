@@ -20,6 +20,24 @@ def create_booking(db: Session, user_id: UUID, **kwargs) -> Booking:
     return booking
 
 
+def create_sibling_bookings(
+    db: Session, user_id: UUID, group_id: UUID, extra_dates: List[datetime], **kwargs
+) -> List[Booking]:
+    """Multi-day booking: create one Booking per additional date, sharing
+    `group_id` with the primary booking. Callers pass the plain per-day
+    `amount_etb` (undiscounted) — any promotion discount was already applied
+    to the primary booking only (see api/bookings.py)."""
+    siblings = []
+    for slot in extra_dates:
+        booking = Booking(user_id=user_id, booking_group_id=group_id, slot_datetime=slot, **kwargs)
+        db.add(booking)
+        siblings.append(booking)
+    db.commit()
+    for s in siblings:
+        db.refresh(s)
+    return siblings
+
+
 def get_booking_by_id(db: Session, booking_id: UUID) -> Optional[Booking]:
     return db.query(Booking).filter(Booking.id == booking_id).first()
 
@@ -97,6 +115,35 @@ def update_booking_payment(
     db.commit()
     db.refresh(booking)
     return booking
+
+
+def update_booking_group_payment(
+    db: Session,
+    primary_booking_id: UUID,
+    group_id: Optional[UUID],
+    payment_status: str,
+    trade_no: Optional[str] = None,
+    checkout_id: Optional[str] = None,
+) -> Optional[Booking]:
+    """Multi-day booking: flip the primary booking's payment status (with its
+    trade_no/checkout_id) and cascade the SAME status to its sibling bookings.
+
+    Siblings never get trade_no/checkout_id — only the primary is actually
+    tied to the payment gateway record (telebirr_trade_no is unique), but each
+    sibling still gets its own feed event / points / notification via the
+    normal update_booking_payment side effects, since each represents a real
+    booking on its own day.
+    """
+    primary = update_booking_payment(db, primary_booking_id, payment_status, trade_no=trade_no, checkout_id=checkout_id)
+    if primary and group_id:
+        siblings = (
+            db.query(Booking)
+            .filter(Booking.booking_group_id == group_id, Booking.id != primary_booking_id)
+            .all()
+        )
+        for sibling in siblings:
+            update_booking_payment(db, sibling.id, payment_status)
+    return primary
 
 
 def admin_list_bookings(

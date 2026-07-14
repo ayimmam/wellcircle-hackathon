@@ -38,7 +38,7 @@ def _build_user_response(user, joined_communities) -> UserResponse:
         name=user.name,
         photo_url=user.photo_url,
         goal=user.goal,
-        interest_category=user.interest_category,
+        interest_categories=user.interest_categories or [],
         exercise_frequency=user.exercise_frequency,
         points_balance=user.points_balance,
         tier=tier,

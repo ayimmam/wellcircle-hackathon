@@ -1,3 +1,5 @@
+import secrets
+import string
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from uuid import UUID
@@ -9,7 +11,24 @@ from app.models.user import User
 from app.models.point_transaction import PointTransaction
 from app.models.community import CommunityFeedEvent
 
+
+def _generate_join_code(db: Session) -> str:
+    """8-char uppercase/digit code — short enough to share, and restricted to
+    characters Telegram's `?startapp=` deep-link param accepts. Mirrors
+    provider_invite.py's generation + uniqueness-check pattern."""
+    chars = string.ascii_uppercase + string.digits
+    code = "".join(secrets.choice(chars) for _ in range(8))
+    while db.query(Circle).filter(Circle.join_code == code).first():
+        code = "".join(secrets.choice(chars) for _ in range(8))
+    return code
+
+
 def create_circle(db: Session, name: str, description: str, owner_id: UUID, is_private: bool = False, join_code: str = None) -> Circle:
+    # Every circle gets a shareable join_code, even public ones — it's what
+    # powers the `?startapp=circle_{code}` invite-link flow, not just private
+    # access control.
+    if not join_code:
+        join_code = _generate_join_code(db)
     circle = Circle(name=name, description=description, owner_id=owner_id, is_private=is_private, join_code=join_code)
     db.add(circle)
     db.flush()

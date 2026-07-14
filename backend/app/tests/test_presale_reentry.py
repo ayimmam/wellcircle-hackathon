@@ -100,10 +100,10 @@ def test_all():
 
         # --- Fixtures -----------------------------------------------------
         guest = create_user_from_bot(db, telegram_id=500100200, telegram_handle="presale_guest")
-        onboard_user(db, guest, name="Presale Guest", interest_category="spa",
+        onboard_user(db, guest, name="Presale Guest", interest_categories=["spa"],
                      exercise_frequency="sometimes")
         repeat = create_user_from_bot(db, telegram_id=500100201, telegram_handle="repeat_guest")
-        onboard_user(db, repeat, name="Repeat Guest", interest_category="spa",
+        onboard_user(db, repeat, name="Repeat Guest", interest_categories=["spa"],
                      exercise_frequency="regular")
 
         provider, _ = create_provider(
@@ -322,7 +322,7 @@ def test_all():
 
         # a brand-new first-time user gets the richer presale promo instead
         fresh = create_user_from_bot(db, telegram_id=500100202, telegram_handle="fresh")
-        onboard_user(db, fresh, name="Fresh Guest", interest_category="spa",
+        onboard_user(db, fresh, name="Fresh Guest", interest_categories=["spa"],
                      exercise_frequency="rarely")
         promos = get_reengagement_promos(db, [fresh])
         # soonest-expiring wins: 'Everyone: 5% off' (3d) before presale (14d)

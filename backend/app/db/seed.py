@@ -38,12 +38,12 @@ def seed():
         u6_id, t6 = get_or_new("yonas_fit", uuid.UUID('00000000-0000-0000-0000-000000000006'), 100000007)
         
         users_to_seed = [
-            User(id=u1_id, telegram_id=t1, telegram_handle="meron_fitness", name="Meron Tadesse", goal="Lose weight and stay consistent", interest_category="yoga", exercise_frequency="sometimes", points_balance=120, is_onboarded=True, last_activity_at=datetime.now(timezone.utc) - timedelta(hours=2)),
-            User(id=u2_id, telegram_id=t2, telegram_handle="dawit_gym", name="Dawit", goal="Build muscle mass", interest_category="gym", exercise_frequency="daily", points_balance=720, is_onboarded=True, is_provider=True, last_activity_at=datetime.now(timezone.utc)),
-            User(id=u3_id, telegram_id=t3, telegram_handle="sara_runner", name="Sara", goal="Run a marathon", interest_category="running", exercise_frequency="regular", points_balance=310, is_onboarded=True, last_activity_at=datetime.now(timezone.utc)),
-            User(id=u4_id, telegram_id=t4, telegram_handle="abel_strong", name="Abel", goal="Get stronger", interest_category="gym", exercise_frequency="regular", points_balance=280, is_onboarded=True, last_activity_at=datetime.now(timezone.utc)),
-            User(id=u5_id, telegram_id=t5, telegram_handle="hana_zen", name="Hana", goal="Flexibility and mindfulness", interest_category="yoga", exercise_frequency="daily", points_balance=190, is_onboarded=True, last_activity_at=datetime.now(timezone.utc)),
-            User(id=u6_id, telegram_id=t6, telegram_handle="yonas_fit", name="Yonas", goal="General fitness", interest_category="gym", exercise_frequency="sometimes", points_balance=150, is_onboarded=True, last_activity_at=datetime.now(timezone.utc)),
+            User(id=u1_id, telegram_id=t1, telegram_handle="meron_fitness", name="Meron Tadesse", goal="Lose weight and stay consistent", interest_categories=["yoga", "nutrition"], exercise_frequency="sometimes", points_balance=120, is_onboarded=True, last_activity_at=datetime.now(timezone.utc) - timedelta(hours=2)),
+            User(id=u2_id, telegram_id=t2, telegram_handle="dawit_gym", name="Dawit", goal="Build muscle mass", interest_categories=["gym"], exercise_frequency="daily", points_balance=720, is_onboarded=True, is_provider=True, last_activity_at=datetime.now(timezone.utc)),
+            User(id=u3_id, telegram_id=t3, telegram_handle="sara_runner", name="Sara", goal="Run a marathon", interest_categories=["running", "gym"], exercise_frequency="regular", points_balance=310, is_onboarded=True, last_activity_at=datetime.now(timezone.utc)),
+            User(id=u4_id, telegram_id=t4, telegram_handle="abel_strong", name="Abel", goal="Get stronger", interest_categories=["gym"], exercise_frequency="regular", points_balance=280, is_onboarded=True, last_activity_at=datetime.now(timezone.utc)),
+            User(id=u5_id, telegram_id=t5, telegram_handle="hana_zen", name="Hana", goal="Flexibility and mindfulness", interest_categories=["yoga", "therapy"], exercise_frequency="daily", points_balance=190, is_onboarded=True, last_activity_at=datetime.now(timezone.utc)),
+            User(id=u6_id, telegram_id=t6, telegram_handle="yonas_fit", name="Yonas", goal="General fitness", interest_categories=["gym"], exercise_frequency="sometimes", points_balance=150, is_onboarded=True, last_activity_at=datetime.now(timezone.utc)),
         ]
         for user in users_to_seed:
             db.merge(user)

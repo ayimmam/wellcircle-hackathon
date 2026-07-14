@@ -357,8 +357,8 @@ def get_community_feed(db: Session, community_id: UUID, since: Optional[datetime
     return result
 
 
-def get_suggested_communities(db: Session, interest_category: str, user_id: UUID, limit: int = 5) -> List[dict]:
-    """Suggest communities based on interest, excluding already joined."""
+def get_suggested_communities(db: Session, interest_categories: List[str], user_id: UUID, limit: int = 5) -> List[dict]:
+    """Suggest communities matching ANY of the user's selected interests, excluding already joined."""
     joined_ids = (
         db.query(CommunityMember.community_id)
         .filter(CommunityMember.user_id == user_id)
@@ -366,7 +366,7 @@ def get_suggested_communities(db: Session, interest_category: str, user_id: UUID
     )
     communities = (
         db.query(Community)
-        .filter(Community.category == interest_category, ~Community.id.in_(joined_ids))
+        .filter(Community.category.in_(interest_categories), ~Community.id.in_(joined_ids))
         .order_by(Community.member_count.desc())
         .limit(limit)
         .all()

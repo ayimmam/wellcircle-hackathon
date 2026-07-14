@@ -95,7 +95,7 @@ def test_all():
         assert found is not None
         print("   ✅ get_user_by_telegram_id")
 
-        onboard_user(db, user, name="Meron Tadesse", interest_category="yoga",
+        onboard_user(db, user, name="Meron Tadesse", interest_categories=["yoga"],
                      exercise_frequency="sometimes", goal="Stay healthy")
         assert user.is_onboarded == True
         assert user.name == "Meron Tadesse"
@@ -192,7 +192,7 @@ def test_all():
         assert feed[1]["event_type"] == "join"
         print("   ✅ get_community_feed (2 events, newest first)")
 
-        sugg = get_suggested_communities(db, "yoga", user2.id)
+        sugg = get_suggested_communities(db, ["yoga"], user2.id)
         assert len(sugg) == 1
         assert sugg[0]["name"] == "Zen Yoga Community"
         print("   ✅ get_suggested_communities (interest-based)")

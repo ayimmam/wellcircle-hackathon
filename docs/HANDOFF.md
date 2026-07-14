@@ -1,13 +1,14 @@
 # Well Circle — Project Handoff
 
 This document tracks implementation status against `PRD.md`, `IMPLEMENTATION_PROMPT.md`, and `PHASE3_IMPLEMENTATION_PLAN.md`.  
-**Last updated:** July 2026 — `main` is at Phase 9 (Kuriftu direct-contact booking fix — see `kuriftu-gap-analysis.md`). Phase 8 (UX Psychology Growth Loop) is detailed in `UX_GROWTH_LOOP_PLAN.md`; Phase 7 (Biniyam's presale/re-entry sprint track) in `BINIYAM_SPRINT_PLAN.md`.
+
+**Last updated:** July 2026 — after Phase 11 (multi-passion onboarding + real circle creation, `feature/multi-passion-onboarding-circles`). Phase 9 (Kuriftu direct-contact booking fix) is detailed in `kuriftu-gap-analysis.md`; Phase 8 (UX Psychology Growth Loop) in `UX_GROWTH_LOOP_PLAN.md`; Phase 7 (Biniyam's presale/re-entry sprint track) in `BINIYAM_SPRINT_PLAN.md`. **Note:** a separate Phase 10 (booking UX polish + multi-day booking) exists on the not-yet-merged `feature/booking-ux-polish` branch, forked before this one — the two haven't been reconciled yet.
+
 
 For Phase 3 detail and LLM continuation notes, see also **`PHASE3_HANDOFF.md`**.
 
 ---
 
-## ⚠️ Pending Work — Unmerged Feature Branches (Read This First)
 
 `main` does **not** yet include the two most recent features. Both are complete,
 tested, and pushed to `origin`, but not merged — **check these branches before
@@ -725,6 +726,72 @@ frontend/src/data/mock.js
 frontend/src/test/BookingFlow.phoneBooking.test.jsx   (new)
 docs/API_CONTRACT.md
 docs/kuriftu-gap-analysis.md
+HANDOFF.md
+```
+
+---
+
+### Phase 11 — Multi-Passion Onboarding + Real Circle Creation (`feature/multi-passion-onboarding-circles`)
+
+Two product requests: (1) let users pick more than one passion at signup, (2) make the onboarding circles step actually explain what circles are, let users create their own circle, and invite friends — right there, not just auto-join interest-matched provider communities. Branched fresh off `main` (not off the unmerged `feature/booking-ux-polish`) to keep this feature isolated, per the one-branch-per-feature process adopted in Phase 10.
+
+Two architecture questions were clarified with the user before building (both had real cost-of-guessing-wrong): whether to fully replace the single `interest_category` field or keep it as a derived "primary" alongside a new array (**chose: fully replace, update every consumer** — bigger but more correct), and which entity "create their own circle" should target. That second one surfaced a real naming confusion in the existing code: the onboarding "circles" step has always suggested **`Community`** rows (provider-owned, category-matched) despite being labeled "circles" throughout the UI/variable names — the app's actual user-created, portable group entity with join codes and an invite-link mechanism is a separate model, **`Circle`** (used by `CircleDetailScreen.jsx`), which had a working backend (`POST /api/circles`) but *zero* frontend UI anywhere to create one. Confirmed: "create your own circle" targets the real `Circle` entity.
+
+#### What shipped
+
+**Multi-passion onboarding.** `User.interest_category` (single string) → `User.interest_categories` (JSONB array, **min 1 required**). Full-replacement refactor across every consumer:
+- Migration `008_multi_interest.py` + idempotent `apply_multi_interest_migration.py` — adds the array column, backfills existing single values (`to_jsonb(ARRAY[interest_category])`), drops the old column.
+- `get_suggested_communities` now does an **OR match** (`Community.category.in_(interest_categories)`) instead of equality — a user who picked yoga + gym sees communities for either.
+- Product "recommended for you" personalization (`browse_products`) matches if the provider's category is *any* of the user's interests.
+- Admin analytics' "top categories" breakdown now counts **each interest in its own bucket** per user (someone with 3 interests contributes to 3 buckets) — done in Python (`collections.Counter`) rather than SQL, since JSONB array group-by isn't portable across the real Postgres backend and the SQLite test shim.
+- Onboarding's interest step is now a multi-select toggle grid (same pattern as the existing circle-suggestion toggles); `canNext()` requires at least one pick.
+
+**Real circle creation, right in onboarding.** The circles step now has three sections: the existing interest-matched Community suggestions (auto-join, deferred to final submit — unchanged mechanic), a new **"Available Circles"** list (existing public real Circles the user hasn't joined, join button calls `POST /circles/:id/join` immediately), and a new **"Or start your own"** mini-form (`POST /circles`). Whichever circle the user ends up in — joined or created — shows the same inline "invite friends" card, reusing the existing Telegram share-sheet mechanism (`switchInlineQuery` + clipboard fallback), now extracted into `frontend/src/utils/circleInvite.js` so `CircleDetailScreen.jsx` and `OnboardingFlow.jsx` share one implementation instead of two copies.
+- **Real gap found and fixed:** `create_circle()` never auto-generated a `join_code` unless the caller supplied one — since no frontend ever called this endpoint before, nobody hit this. New circles now get an auto-generated 8-char code (`secrets`-based, uniqueness-checked, mirrors `provider_invite.py`'s existing pattern) — every circle gets one, not just private ones, since it's what powers the invite-link flow generally.
+- `POST /circles` and `POST /circles/:id/join` responses now include `join_code` (previously just a bare message) so the client can build the invite link immediately without a second `GET /circles` round-trip.
+- One-sentence explainer added to the circles step: "Circles are small accountability groups — check in together, cheer each other on, and stay consistent as a team."
+
+#### Verification
+- Backend: `python -m app.tests.test_multi_passion_circles` (new) — **15/15 passing** (multi-interest storage, OR-match community suggestions excluding already-joined, product personalization across interests, admin analytics per-interest bucketing, circle auto-join-code generation + uniqueness, explicit join_code preserved, join_code visibility gated to members). `test_integration.py`, `test_engagement_loop.py`, `test_presale_reentry.py`, `test_provider_contact.py` all re-ran clean after updating their `onboard_user(...)` calls to the new list-based signature.
+- Frontend: new `OnboardingFlow.circles.test.jsx` (6/6 — multi-select toggle, Next gating, explainer text, available-circles join → invite card, create-circle → invite card, OR-matched suggestions) plus the pre-existing `OnboardingFlow.test.jsx` (3/3, unchanged) and `WelcomeBanner.test.jsx` (4/4, updated for the array field and multi-interest display order). Full suite: **84/84 passing**, `npm run build` ✅.
+- `docs/API_CONTRACT.md` updated: `interest_categories` everywhere it appears (profile, onboarding request/response, admin user list, flow diagram), plus newly-documented `POST /api/circles` and `POST /api/circles/:id/join` (neither had contract docs before this).
+
+#### Known Gaps / Next Steps
+- `feature/booking-ux-polish` (Phase 10) and this branch both fork from `main` independently and haven't been reconciled — merging both will need a normal merge/rebase pass, not a special procedure, since they touch different files almost entirely.
+- The "Available Circles" list has no interest-based matching (the `Circle` model has no `category` field) — it just shows public circles the user hasn't joined, unfiltered. Adding a category to `Circle` (or some other matching signal) is a reasonable fast-follow if onboarding circle suggestions need to feel more targeted.
+- No live browser verification was performed for this feature in this sandbox (build + automated tests only) — worth a manual `npm run dev` pass through the full onboarding flow, especially the create-circle → invite-friends share-sheet on an actual Telegram client, before shipping.
+
+#### Files Changed / Added (Phase 11)
+```
+backend/alembic/versions/008_multi_interest.py   (new)
+backend/apply_multi_interest_migration.py   (new)
+backend/app/models/user.py
+backend/app/schemas/user.py
+backend/app/schemas/admin.py
+backend/app/crud/user.py
+backend/app/crud/community.py
+backend/app/crud/product.py
+backend/app/crud/circle.py
+backend/app/api/users.py
+backend/app/api/auth.py
+backend/app/api/products.py
+backend/app/api/admin.py
+backend/app/api/circles.py
+backend/app/db/seed.py
+backend/app/tests/test_multi_passion_circles.py   (new)
+backend/app/tests/test_integration.py
+backend/app/tests/test_engagement_loop.py
+backend/app/tests/test_presale_reentry.py
+frontend/src/utils/circleInvite.js   (new)
+frontend/src/pages/OnboardingFlow.jsx
+frontend/src/pages/CircleDetailScreen.jsx
+frontend/src/components/WelcomeBanner.jsx
+frontend/src/pages/admin/AdminReports.jsx
+frontend/src/api/client.js
+frontend/src/data/mock.js
+frontend/src/test/OnboardingFlow.circles.test.jsx   (new)
+frontend/src/test/WelcomeBanner.test.jsx
+docs/API_CONTRACT.md
 HANDOFF.md
 ```
 

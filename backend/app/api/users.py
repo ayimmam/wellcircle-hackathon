@@ -28,7 +28,7 @@ def _build_response(user: User, db: Session) -> UserResponse:
         id=str(user.id), telegram_id=user.telegram_id,
         telegram_handle=user.telegram_handle, name=user.name,
         photo_url=user.photo_url, goal=user.goal,
-        interest_category=user.interest_category,
+        interest_categories=user.interest_categories or [],
         exercise_frequency=user.exercise_frequency,
         points_balance=user.points_balance, tier=tier, tier_emoji=emoji,
         is_onboarded=user.is_onboarded, is_provider=user.is_provider,
@@ -57,10 +57,11 @@ async def complete_onboarding(
     if user.is_onboarded:
         raise HTTPException(status_code=400, detail="User already onboarded")
 
+    interest_values = [c.value for c in request.interest_categories]
     onboard_user(
         db, user,
         name=request.name,
-        interest_category=request.interest_category.value,
+        interest_categories=interest_values,
         exercise_frequency=request.exercise_frequency.value,
         goal=request.goal,
     )
@@ -77,16 +78,16 @@ async def complete_onboarding(
             except Exception:
                 pass
 
-    # Get suggestions based on interest
+    # Get suggestions matching any of the user's selected interests
     suggestions = get_suggested_communities(
-        db, request.interest_category.value, user.id
+        db, interest_values, user.id
     )
 
     return {
         "id": str(user.id),
         "telegram_id": user.telegram_id,
         "name": user.name,
-        "interest_category": user.interest_category,
+        "interest_categories": user.interest_categories,
         "exercise_frequency": user.exercise_frequency,
         "is_onboarded": True,
         "auto_joined_communities": auto_joined,

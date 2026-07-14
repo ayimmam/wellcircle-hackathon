@@ -63,7 +63,7 @@ def onboard_user(
     db: Session,
     user: User,
     name: str,
-    interest_category: str,
+    interest_categories: List[str],
     exercise_frequency: str,
     goal: Optional[str] = None,
 ) -> User:
@@ -73,7 +73,7 @@ def onboard_user(
     from app.services.points import apply_transaction, POINTS_WELCOME, TXN_WELCOME
 
     user.name = name
-    user.interest_category = interest_category
+    user.interest_categories = interest_categories
     user.exercise_frequency = exercise_frequency
     user.goal = goal
     was_onboarded = user.is_onboarded

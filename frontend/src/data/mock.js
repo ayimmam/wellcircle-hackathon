@@ -12,7 +12,7 @@ export const MOCK_USER = {
   name: 'Meron Tadesse',
   photo_url: 'https://i.pravatar.cc/150?u=meron',
   goal: 'Lose weight and stay consistent',
-  interest_category: 'yoga',
+  interest_categories: ['yoga', 'nutrition'],
   exercise_frequency: 'sometimes',
   points_balance: 120,
   tier: 'sprout',
@@ -421,9 +421,11 @@ export const MOCK_POINTS_HISTORY = {
 };
 
 // ─── Circles & Leaderboards ─────────────────────────
+// is_joined/is_private mirror the real GET /api/circles shape — used to
+// build the onboarding "Available Circles" join list (not-joined, public).
 export const MOCK_CIRCLES = [
-  { id: '33333333-0000-0000-0000-000000000001', name: 'Addis Morning Runners', description: 'We run every morning at 6 AM around Meskel Square.', member_count: 24, join_code: 'RUN24AM' },
-  { id: '33333333-0000-0000-0000-000000000002', name: 'Zen Seekers', description: 'Mindfulness, yoga, and finding peace in the chaotic city.', member_count: 56, join_code: 'ZEN56' }
+  { id: '33333333-0000-0000-0000-000000000001', name: 'Addis Morning Runners', description: 'We run every morning at 6 AM around Meskel Square.', member_count: 24, join_code: 'RUN24AM', is_private: false, is_joined: false },
+  { id: '33333333-0000-0000-0000-000000000002', name: 'Zen Seekers', description: 'Mindfulness, yoga, and finding peace in the chaotic city.', member_count: 56, join_code: 'ZEN56', is_private: false, is_joined: false }
 ];
 
 export const MOCK_LEADERBOARD = [

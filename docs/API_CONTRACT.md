@@ -60,6 +60,10 @@
 | Admin | GET | `/admin/evidence` | JWT (admin) | Frontend |
 | Admin | GET | `/admin/evidence/:id/photo` | JWT (admin) | Frontend |
 | Admin | POST | `/admin/evidence/:id/review` | JWT (admin) | Frontend |
+| Circles | GET | `/circles` | JWT | Frontend |
+| Circles | POST | `/circles` | JWT | Frontend |
+| Circles | POST | `/circles/:id/join` | JWT | Frontend |
+| Circles | GET | `/circles/:id/leaderboard` | JWT | Frontend |
 | Circles | POST | `/circles/join-by-code` | JWT | Frontend |
 | Circles | GET | `/circles/social-proof/today` | JWT | Frontend |
 
@@ -88,7 +92,7 @@ Authenticate via Telegram Mini App `initData`. Creates user if first login.
     "name": "Meron Tadesse",
     "photo_url": "https://t.me/i/userpic/...",
     "goal": "Lose weight and stay consistent",
-    "interest_category": "yoga",
+    "interest_categories": ["yoga", "nutrition"],
     "exercise_frequency": "sometimes",
     "points_balance": 120,
     "tier": "sprout",
@@ -210,7 +214,7 @@ Get current user's full profile.
   "name": "Meron Tadesse",
   "photo_url": "https://t.me/i/userpic/...",
   "goal": "Lose weight and stay consistent",
-  "interest_category": "yoga",
+  "interest_categories": ["yoga", "nutrition"],
   "exercise_frequency": "sometimes",
   "points_balance": 120,
   "tier": "sprout",
@@ -233,7 +237,7 @@ Complete Mini App onboarding. Sets `is_onboarded = true`.
 {
   "name": "Meron Tadesse",
   "goal": "Lose weight and stay consistent",   // OPTIONAL
-  "interest_category": "yoga",                  // REQUIRED: yoga|gym|nutrition|spa|therapy|running
+  "interest_categories": ["yoga", "nutrition"], // REQUIRED, min 1: yoga|gym|nutrition|spa|therapy|running
   "exercise_frequency": "sometimes",            // REQUIRED: never|rarely|sometimes|regular|daily
   "suggested_circle_ids": ["uuid-1"]            // OPTIONAL: auto-join these communities
 }
@@ -243,7 +247,7 @@ Complete Mini App onboarding. Sets `is_onboarded = true`.
   "id": "uuid-string",
   "telegram_id": 123456789,
   "name": "Meron Tadesse",
-  "interest_category": "yoga",
+  "interest_categories": ["yoga", "nutrition"],
   "exercise_frequency": "sometimes",
   "is_onboarded": true,
   "welcome_points": 20,        // one-time endowed-progress award
@@ -847,7 +851,7 @@ List all users with pagination.
       "telegram_id": 123456789,
       "telegram_handle": "meron_fitness",
       "name": "Meron Tadesse",
-      "interest_category": "yoga",
+      "interest_categories": ["yoga"],
       "exercise_frequency": "sometimes",
       "points_balance": 120,
       "is_onboarded": true,
@@ -1042,6 +1046,23 @@ All points mutations now flow through a single ledger (`point_transactions`); `G
 - `GET /api/circles` — now also returns `join_code` per circle, but **only for circles the caller has already joined** (it's the private-circle access gate, so it isn't exposed to browsers).
 - `GET /api/bot/circle-digests` — Bot API Key. Per-circle weekly top scorer + member Telegram IDs, for the bot's Sunday digest job.
 
+**`POST /api/circles`** — JWT. Create a circle; creator is auto-added as a member.
+```json
+// REQUEST
+{ "name": "Morning Yogis", "description": "optional", "is_private": false }
+
+// RESPONSE 200
+{ "id": "uuid-circle", "name": "Morning Yogis", "join_code": "A1B2C3D4", "message": "Circle created successfully" }
+```
+Every circle gets a `join_code` — auto-generated (8-char uppercase/digits, unique) if not supplied — not just private ones; it's what powers the `?startapp=circle_{code}` invite-link flow generally, not only private-circle access control.
+
+**`POST /api/circles/:id/join`** — JWT. `{ "join_code": "..." }` (only required for private circles).
+```json
+// RESPONSE 200
+{ "id": "uuid-circle", "name": "Morning Yogis", "join_code": "A1B2C3D4", "message": "Joined circle successfully" }
+```
+Now returns `join_code` (previously just a bare message) so the client can build the invite link immediately after joining, without a second `GET /api/circles` round-trip.
+
 ### Social proof & streaks (C2 / E2)
 - `POST /api/communities/{id}/checkin` response now also includes `current_streak` and `freeze_count`.
 - `GET /api/circles/social-proof/today` — JWT. `{ "checked_in_today": 3 }` — how many of the caller's circle-mates checked in today, across all their circles.
@@ -1099,9 +1120,12 @@ if user.is_onboarded === false:
     → Show Onboarding Flow:
         1. Enter name (required)
         2. Set goal (optional)
-        3. Pick interest_category (required)
+        3. Pick interest_categories — one or more (required, min 1)
         4. Pick exercise_frequency (required)
-        5. Suggest circles based on interest (optional join)
+        5. Suggest circles matching ANY selected interest (optional join);
+           also offers joining an existing real circle or creating a new one
+           (GET/POST /api/circles, POST /api/circles/:id/join), each with an
+           inline "invite friends" action once joined/created
     → POST /api/users/me/onboard
     ↓
 Home Screen (authenticated, onboarded)

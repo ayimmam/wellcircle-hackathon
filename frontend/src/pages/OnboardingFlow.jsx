@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { INTEREST_CATEGORIES, EXERCISE_FREQUENCIES, MOCK_COMMUNITIES } from '../data/mock';
 import { track } from '../analytics';
+import { getCircles, createCircle, joinCircle } from '../api/client';
+import { shareCircleInvite } from '../utils/circleInvite';
+import { showToast } from '../components/Toast';
 
 const STEPS = ['name', 'goal', 'interest', 'frequency', 'circles'];
 // Smart default: most users land mid-scale, and a pre-selected card means the
@@ -18,10 +21,24 @@ export default function OnboardingFlow() {
   const [formData, setFormData] = useState({
     name: user?.name || '',
     goal: '',
-    interest_category: '',
+    interest_categories: [],
     exercise_frequency: DEFAULT_FREQUENCY,
     suggested_circle_ids: []
   });
+
+  // Real (user-created) circles — separate from the interest-matched
+  // Community suggestions below. Joining/creating one happens immediately
+  // (not deferred to final submit), matching how circles already work
+  // everywhere else in the app (CircleDetailScreen).
+  const [availableCircles, setAvailableCircles] = useState([]);
+  const [committedCircle, setCommittedCircle] = useState(null); // created/joined this session
+  const [newCircleName, setNewCircleName] = useState('');
+  const [creatingCircle, setCreatingCircle] = useState(false);
+  const [joiningCircleId, setJoiningCircleId] = useState(null);
+
+  useEffect(() => {
+    getCircles().then(res => setAvailableCircles(res.circles || [])).catch(() => {});
+  }, []);
 
   useEffect(() => {
     track('onboarding_step_view', {
@@ -35,15 +52,58 @@ export default function OnboardingFlow() {
   const canNext = () => {
     if (currentStep === 'name') return formData.name.trim().length > 0;
     if (currentStep === 'goal') return true; // optional
-    if (currentStep === 'interest') return formData.interest_category !== '';
+    if (currentStep === 'interest') return formData.interest_categories.length > 0;
     if (currentStep === 'frequency') return formData.exercise_frequency !== '';
     if (currentStep === 'circles') return true; // optional
     return false;
   };
 
+  const toggleInterest = (value) => {
+    setFormData(prev => ({
+      ...prev,
+      interest_categories: prev.interest_categories.includes(value)
+        ? prev.interest_categories.filter(v => v !== value)
+        : [...prev.interest_categories, value]
+    }));
+  };
+
   const suggestedCircles = MOCK_COMMUNITIES.filter(
-    c => c.category === formData.interest_category
+    c => formData.interest_categories.includes(c.category)
   ).slice(0, 4);
+
+  const joinableCircles = availableCircles
+    .filter(c => !c.is_joined && !c.is_private && c.id !== committedCircle?.id)
+    .slice(0, 4);
+
+  const handleJoinCircle = async (circle) => {
+    setJoiningCircleId(circle.id);
+    try {
+      const res = await joinCircle(circle.id);
+      setCommittedCircle({ id: circle.id, name: circle.name, join_code: res.join_code });
+      track('circle_joined', { circle_id: circle.id, source: 'onboarding' });
+      showToast(`Joined ${circle.name}! 🎉`, '🤝');
+    } catch {
+      showToast('Could not join circle', '❌');
+    } finally {
+      setJoiningCircleId(null);
+    }
+  };
+
+  const handleCreateCircle = async () => {
+    if (!newCircleName.trim()) return;
+    setCreatingCircle(true);
+    try {
+      const res = await createCircle({ name: newCircleName.trim() });
+      setCommittedCircle({ id: res.id, name: res.name, join_code: res.join_code });
+      track('circle_created', { source: 'onboarding' });
+      showToast(`"${res.name}" created! ✨`, '✨');
+      setNewCircleName('');
+    } catch {
+      showToast('Could not create circle', '❌');
+    } finally {
+      setCreatingCircle(false);
+    }
+  };
 
   const handleNext = async () => {
     if (step < STEPS.length - 1) {
@@ -146,14 +206,14 @@ export default function OnboardingFlow() {
             <div className="onboarding-emoji">💡</div>
             <h2 className="onboarding-title">What interests you most?</h2>
             <p className="onboarding-subtitle">
-              Pick your main wellness interest. We'll suggest the best circles for you.
+              Pick as many as you like — we'll suggest the best circles for you.
             </p>
             <div className="option-grid">
               {INTEREST_CATEGORIES.map(cat => (
                 <button
                   key={cat.value}
-                  className={`option-card ${formData.interest_category === cat.value ? 'selected' : ''}`}
-                  onClick={() => setFormData(prev => ({ ...prev, interest_category: cat.value }))}
+                  className={`option-card ${formData.interest_categories.includes(cat.value) ? 'selected' : ''}`}
+                  onClick={() => toggleInterest(cat.value)}
                   id={`interest-${cat.value}`}
                 >
                   <div className="option-card-emoji">{cat.emoji}</div>
@@ -205,33 +265,107 @@ export default function OnboardingFlow() {
             <div className="onboarding-emoji">🤝</div>
             <h2 className="onboarding-title">Join a circle</h2>
             <p className="onboarding-subtitle">
-              Here are some communities based on your interests. This is optional — you can join later too.
+              Circles are small accountability groups — check in together, cheer each other on, and stay consistent as a team.
             </p>
-            <div className="flex-col gap-8">
-              {suggestedCircles.length > 0 ? suggestedCircles.map(c => (
-                <button
-                  key={c.id}
-                  className={`option-card ${formData.suggested_circle_ids.includes(c.id) ? 'selected' : ''}`}
-                  onClick={() => toggleCircle(c.id)}
-                  style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}
-                  id={`circle-${c.id}`}
-                >
-                  <span style={{ fontSize: '1.4rem' }}>🌿</span>
-                  <div style={{ flex: 1 }}>
-                    <div className="option-card-label">{c.name}</div>
-                    <div className="option-card-desc">by {c.provider_name} · 👥 {c.member_count}</div>
-                  </div>
-                  {formData.suggested_circle_ids.includes(c.id) && (
-                    <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✓</span>
-                  )}
-                </button>
-              )) : (
-                <div className="empty-state">
-                  <div className="empty-state-icon">🔍</div>
-                  <div className="empty-state-text">No circles found for your interest yet.</div>
+
+            {suggestedCircles.length > 0 && (
+              <>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', margin: '4px 0 8px' }}>
+                  Recommended for you
                 </div>
-              )}
+                <div className="flex-col gap-8 mb-16">
+                  {suggestedCircles.map(c => (
+                    <button
+                      key={c.id}
+                      className={`option-card ${formData.suggested_circle_ids.includes(c.id) ? 'selected' : ''}`}
+                      onClick={() => toggleCircle(c.id)}
+                      style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}
+                      id={`circle-${c.id}`}
+                    >
+                      <span style={{ fontSize: '1.4rem' }}>🌿</span>
+                      <div style={{ flex: 1 }}>
+                        <div className="option-card-label">{c.name}</div>
+                        <div className="option-card-desc">by {c.provider_name} · 👥 {c.member_count}</div>
+                      </div>
+                      {formData.suggested_circle_ids.includes(c.id) && (
+                        <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {joinableCircles.length > 0 && (
+              <>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', margin: '4px 0 8px' }}>
+                  Available Circles
+                </div>
+                <div className="flex-col gap-8 mb-16">
+                  {joinableCircles.map(c => (
+                    <div
+                      key={c.id}
+                      className="option-card"
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'default' }}
+                      id={`available-circle-${c.id}`}
+                    >
+                      <span style={{ fontSize: '1.4rem' }}>🌀</span>
+                      <div style={{ flex: 1 }}>
+                        <div className="option-card-label">{c.name}</div>
+                        <div className="option-card-desc">👥 {c.member_count} members</div>
+                      </div>
+                      <button
+                        className="btn btn-sm btn-secondary"
+                        onClick={() => handleJoinCircle(c)}
+                        disabled={joiningCircleId === c.id}
+                        id={`join-circle-${c.id}-btn`}
+                      >
+                        {joiningCircleId === c.id ? '…' : 'Join'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', margin: '4px 0 8px' }}>
+              Or start your own
             </div>
+            <div className="flex gap-8 mb-16">
+              <input
+                className="onboarding-input"
+                placeholder="Circle name"
+                value={newCircleName}
+                onChange={e => setNewCircleName(e.target.value)}
+                style={{ flex: 1 }}
+                id="new-circle-name-input"
+              />
+              <button
+                className="btn btn-secondary"
+                onClick={handleCreateCircle}
+                disabled={!newCircleName.trim() || creatingCircle}
+                id="create-circle-btn"
+              >
+                {creatingCircle ? '…' : 'Create'}
+              </button>
+            </div>
+
+            {committedCircle && (
+              <div className="card mb-16" id="onboarding-circle-invite-card">
+                <div className="card-body" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ flex: 1, fontSize: '0.85rem' }}>
+                    You're in <b>{committedCircle.name}</b> — invite friends?
+                  </span>
+                  <button
+                    className="btn btn-sm btn-primary"
+                    onClick={() => shareCircleInvite(committedCircle, { source: 'onboarding' })}
+                    id="onboarding-invite-btn"
+                  >
+                    📤 Invite
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

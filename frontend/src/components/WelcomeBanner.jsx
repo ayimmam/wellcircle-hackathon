@@ -32,7 +32,7 @@ export default function WelcomeBanner({ user, providers }) {
 
   if (dismissed || !user) return null;
 
-  const interest = INTEREST_CATEGORIES.find(c => c.value === user.interest_category);
+  const interests = INTEREST_CATEGORIES.filter(c => (user.interest_categories || []).includes(c.value));
   const frequency = EXERCISE_FREQUENCIES.find(f => f.value === user.exercise_frequency);
   const circleCount = user.joined_communities?.length || 0;
   const promo = giftProvider?.active_promotion;
@@ -51,7 +51,7 @@ export default function WelcomeBanner({ user, providers }) {
           </button>
         </div>
         <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '6px 0 10px' }}>
-          {interest ? `${interest.emoji} ${interest.label}` : 'Wellness'}
+          {interests.length > 0 ? interests.map(i => `${i.emoji} ${i.label}`).join(', ') : 'Wellness'}
           {frequency ? ` · ${frequency.label.toLowerCase()}` : ''}
           {circleCount > 0 ? ` · ${circleCount} circle${circleCount === 1 ? '' : 's'} joined` : ''}
           {' · '}<b style={{ color: 'var(--accent)' }}>+20 pts earned</b>

@@ -100,7 +100,7 @@ def test_all():
         print("\n1. Onboarding welcome points")
         user = create_user_from_bot(db, telegram_id=600100200, telegram_handle="endowed")
         assert (user.points_balance or 0) == 0
-        onboard_user(db, user, name="Endowed User", interest_category="yoga",
+        onboard_user(db, user, name="Endowed User", interest_categories=["yoga"],
                      exercise_frequency="sometimes")
         assert user.points_balance == POINTS_WELCOME
         welcome_txns = (
@@ -112,7 +112,7 @@ def test_all():
         print(f"   ✅ +{POINTS_WELCOME} welcome points awarded once, ledgered")
 
         # Re-running onboard (retry path) must not double-award
-        onboard_user(db, user, name="Endowed User", interest_category="yoga",
+        onboard_user(db, user, name="Endowed User", interest_categories=["yoga"],
                      exercise_frequency="regular")
         assert user.points_balance == POINTS_WELCOME
         assert db.query(PointTransaction).filter(
@@ -141,7 +141,7 @@ def test_all():
         # === 3. Streak freeze consumption =================================
         print("\n3. Streak freezes cover one missed day")
         frozen = create_user_from_bot(db, telegram_id=600100201, telegram_handle="frozen")
-        onboard_user(db, frozen, name="Frozen User", interest_category="yoga",
+        onboard_user(db, frozen, name="Frozen User", interest_categories=["yoga"],
                      exercise_frequency="daily")
         join_community(db, community.id, frozen)
         # Simulate: 6-day streak, 1 freeze, last check-in two days ago
@@ -159,7 +159,7 @@ def test_all():
 
         # Without a freeze, a 2-day gap resets to 1
         broken = create_user_from_bot(db, telegram_id=600100202, telegram_handle="broken")
-        onboard_user(db, broken, name="Broken User", interest_category="yoga",
+        onboard_user(db, broken, name="Broken User", interest_categories=["yoga"],
                      exercise_frequency="daily")
         join_community(db, community.id, broken)
         broken.current_streak = 4
@@ -175,7 +175,7 @@ def test_all():
         print("\n4. Streaks-at-risk feed (bot evening nudge)")
         # 'atrisk' checked in yesterday with a live streak → at risk
         atrisk = create_user_from_bot(db, telegram_id=600100203, telegram_handle="atrisk")
-        onboard_user(db, atrisk, name="At Risk", interest_category="gym",
+        onboard_user(db, atrisk, name="At Risk", interest_categories=["gym"],
                      exercise_frequency="regular")
         atrisk.current_streak = 3
         atrisk.freeze_count = 1

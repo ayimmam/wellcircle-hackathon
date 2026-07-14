@@ -13,7 +13,7 @@ vi.mock('../analytics', () => ({
 
 const USER = {
   id: 'u1',
-  interest_category: 'gym',
+  interest_categories: ['gym', 'yoga'],
   exercise_frequency: 'sometimes',
   joined_communities: ['c1', 'c2'],
 };
@@ -24,7 +24,10 @@ describe('WelcomeBanner (IKEA reflection + reciprocity gift)', () => {
   it('reflects the plan the user built + welcome points', () => {
     renderWithProviders(<WelcomeBanner user={USER} providers={[]} />);
     expect(screen.getByText(/Your plan is set/)).toBeInTheDocument();
-    expect(screen.getByText(/Gym · sometimes · 2 circles joined/)).toBeInTheDocument();
+    // order follows INTEREST_CATEGORIES's canonical order (yoga before gym), not selection order
+    const summary = screen.getByText(/sometimes · 2 circles joined/);
+    expect(summary.textContent).toContain('Yoga');
+    expect(summary.textContent).toContain('Gym');
     expect(screen.getByText('+20 pts earned')).toBeInTheDocument();
   });
 

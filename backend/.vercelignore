@@ -1,0 +1,41 @@
+# Vercel's Python builder (@vercel/python) bundles this entire directory into
+# the deployed Lambda by default — api/index.py only imports app.main:app, so
+# everything below is dead weight in production (bigger cold starts, and test/
+# load-test/one-off maintenance scripts have no business in the deployed
+# artifact). None of this affects Render or local dev, which run from the
+# full repo checkout.
+
+# Automated tests (run locally/CI via `python -m app.tests.*`, never on Vercel)
+app/tests/
+tests/
+test_api.py
+test_auth.py
+
+# Load testing (Locust — run locally against a target URL, not part of the app)
+loadtest/
+
+# One-off operational scripts (seed_*, apply_*, check_*, fix_*, patch_*,
+# update_*, etc.) — run manually from a developer machine against DATABASE_URL,
+# never invoked by the deployed API itself. See CLAUDE.md.
+apply_*.py
+check_*.py
+fix_*.py
+patch_*.py
+seed_*.py
+update_*.py
+cleanup_loadtest_data.py
+list_providers.py
+make_super_admin.py
+mark_kuriftu_featured.py
+replace_provider.py
+
+# Cron-only script (Render cron job target, not used on Vercel)
+scripts/
+
+# Local dev / VCS cruft
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.env.local

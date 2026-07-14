@@ -1,7 +1,7 @@
 # Well Circle — Project Handoff
 
 This document tracks implementation status against `PRD.md`, `IMPLEMENTATION_PROMPT.md`, and `PHASE3_IMPLEMENTATION_PLAN.md`.  
-**Last updated:** July 2026 — after Phase 5 (Points Economy, Provider Tools & Social Growth — see `POINTS_ECONOMY_PLAN.md`).
+**Last updated:** July 2026 — after Phase 9 (Kuriftu direct-contact booking fix — see `kuriftu-gap-analysis.md`). Phase 8 (UX Psychology Growth Loop) is detailed in `UX_GROWTH_LOOP_PLAN.md`; Phase 7 (Biniyam's presale/re-entry sprint track) in `BINIYAM_SPRINT_PLAN.md`.
 
 For Phase 3 detail and LLM continuation notes, see also **`PHASE3_HANDOFF.md`**.
 
@@ -133,7 +133,7 @@ Super admin is granted if **either** condition is true:
 |------|--------|
 | Telebirr / M-Pesa live payments | UI + API ready; sandbox credentials optional; demo auto-approve |
 | Real health data (Apple Health, etc.) | UI mock only |
-| Dynamic push notifications | Hardcoded neighbourhood alerts on Home |
+| Dynamic push notifications | ✅ Location alerts still hardcoded, but the bot now sends three *dynamic* DM nudges: 7-day-inactive re-engagement (promo-aware since Phase 7), daily streak-at-risk (Phase 8), and the pre-existing Sunday circle digest |
 | Admin invite-code UI | ✅ Generate + copy button on `/admin/providers` |
 | Admin redemption status UI | ✅ Redemptions sub-tab on `/admin/products` |
 | Admin CSV exports | ✅ Reports tab pulls live data from admin APIs |
@@ -512,6 +512,183 @@ frontend/.env.example
 docs/USER_FLOW_AUDIT.md   (new)
 docs/SPRINT_TEAM_HANDOFF.md   (new)
 .gitignore
+HANDOFF.md
+```
+
+---
+
+### Phase 7 — Biniyam's Sprint: Presale Promo + Re-Entry Loop (This Session)
+
+Biniyam's Jul 13–19 sprint track from `docs/WellCircle_Dev_Timeline.docx` (see `docs/SPRINT_TEAM_HANDOFF.md`'s Biniyam section for the handoff brief). Full day-by-day detail, the one-page Monday sketch, and test commands live in **`docs/BINIYAM_SPRINT_PLAN.md`** — this entry is the HANDOFF-format summary.
+
+#### What shipped
+- **Presale promos.** `provider_promotions.audience` (`all` | `first_time`) — a `first_time` promo is a presale: it displays to everyone but its discount only applies server-side to guests with no prior *successful* booking at that provider. `app/services/promotion_service.py` — `get_eligible_promotion`, `user_is_first_time`, `compute_discount_etb`. `POST /api/providers/me/promotions` accepts `audience` (422 if a presale promo has no `discount_pct`). Migrations: `alembic/versions/005_presale_promo.py` + idempotent `apply_presale_migration.py` + `seed_presale_promo.py` (targets the Kuriftu pilot provider).
+- **Server-side discount application.** `POST /api/bookings` re-derives eligibility and applies the discount itself — clients always send the undiscounted amount, so the total can never be gamed client-side. Booking rows record `promotion_id`/`discount_etb`. Provider detail exposes `active_promotion.user_eligible` per caller.
+- **Promo-aware re-entry nudge.** `GET /api/bot/inactive-users` now attaches each user's soonest-expiring eligible promo (batched — two queries total, no N+1, per the Phase 6 scaling note). `telegram-bot/bot/utils/nudges.py`'s `build_reengagement_nudge` references the discount and deep-links via `?startapp=reentry_promo_{provider_id}` (same `start_param` mechanism as circle invites); `AuthContext.handleStartParam` opens the provider page and tracks `reentry_open`.
+- **Frontend surfaces.** `PromotionForm.jsx` in a new Promotions tab on `ProviderDashboard`; promo banner + auto-applied discount on `ProviderDetail`/`BookingFlow`; Explore card badge. New analytics: `promo_view`, `promo_redeemed`.
+
+#### Verification
+- Backend: `python -m app.tests.test_presale_reentry` — **18/18 passing** (new). Fixed one stale, pre-existing assertion in `test_integration.py` (self-onboarding auto-approves in this codebase; the test asserted `pending_approval`).
+- Bot: `telegram-bot/bot/tests/test_nudges.py` (new) — pure-function nudge builder tests, 9/9 passing.
+- Frontend: 12 new Vitest tests (promo math, `PromotionForm` payloads, Explore `promo_view`, `AuthContext` re-entry deep link, `BookingFlow` discount pricing) — full suite 60/60 at the time.
+- `docs/API_CONTRACT.md` updated for all three changed/new shapes (promotions create/response, booking response, `inactive-users` payload).
+
+#### Files Changed / Added (Phase 7)
+```
+backend/alembic/versions/005_presale_promo.py   (new)
+backend/apply_presale_migration.py   (new)
+backend/seed_presale_promo.py   (new)
+backend/app/models/provider_promotion.py
+backend/app/models/booking.py
+backend/app/schemas/promotion.py
+backend/app/schemas/booking.py
+backend/app/services/promotion_service.py
+backend/app/api/providers.py
+backend/app/api/bookings.py
+backend/app/api/bot.py
+backend/app/crud/provider.py
+backend/app/tests/test_presale_reentry.py   (new)
+backend/app/tests/test_integration.py
+telegram-bot/bot/utils/nudges.py   (new)
+telegram-bot/bot/utils/messages.py
+telegram-bot/bot/services/reengagement.py
+telegram-bot/bot/tests/test_nudges.py   (new)
+frontend/src/components/PromotionForm.jsx   (new)
+frontend/src/utils/promo.js   (new)
+frontend/src/pages/ProviderDashboard.jsx
+frontend/src/pages/ProviderDetail.jsx
+frontend/src/pages/ExploreScreen.jsx
+frontend/src/pages/BookingFlow.jsx
+frontend/src/context/AuthContext.jsx
+frontend/src/api/client.js
+frontend/src/data/mock.js
+frontend/src/test/promo.utils.test.js   (new)
+frontend/src/test/PromotionForm.test.jsx   (new)
+frontend/src/test/ExploreScreen.promo.test.jsx   (new)
+frontend/src/test/AuthContext.reentry.test.jsx   (new)
+frontend/src/test/BookingFlow.promo.test.jsx   (new)
+docs/API_CONTRACT.md
+docs/BINIYAM_SPRINT_PLAN.md   (new)
+HANDOFF.md
+```
+
+---
+
+### Phase 8 — UX Psychology Growth Loop: Onboarding, Habit Loop & Conversion (This Session)
+
+Requested as a 4-stage sticky/high-converting workflow (Smart Defaults, Goal Gradient, Reciprocity, IKEA/Endowment, Loss Aversion, Contrast/Anchoring), scoped down to the principles that fit this MVP rather than implementing all six everywhere. Planned via Explore + Plan subagents against the real codebase plus web research on onboarding/streak/Telegram-Mini-App retention best practice; full architecture, principle-by-principle mapping, and file-by-file plan live in **`docs/UX_GROWTH_LOOP_PLAN.md`**. Every new behavior reuses this session's Phase 7 work (presale promos, re-entry deep links) rather than building parallel systems.
+
+#### Stage 1 — Onboarding (Smart Defaults, Endowed Progress, IKEA)
+- `OnboardingFlow.jsx`: the frequency step now arrives pre-selected (`sometimes`, "Most popular" chip, still changeable) so Next is never dead on that step; the name step's progress dot renders as already done ("1 of 5 already done ✓") since Telegram supplied the name for free.
+- Backend: `onboard_user()` awards a one-time **+20 welcome points** through the ledger (`TXN_WELCOME` in `app/services/points.py`, idempotent against retries) — the existing `FirstRewardCard` progress bar on Home now starts part-filled instead of at zero (classic endowed progress). `POST /users/me/onboard` returns `welcome_points`/`points_balance`.
+
+#### Stage 2 — First value loop (Reciprocity) & habit-loop trigger
+- New `WelcomeBanner.jsx`, shown once on Home right after onboarding (`location.state.justOnboarded`): reflects the plan the user just built (interest · frequency · circles joined · +20 pts) back at them, and surfaces a **welcome gift** — the first provider promo they're eligible for, reusing Phase 7's presale system end to end — plus a soft "add your neighbourhood" link (progressive profiling, asked after investment, not during setup).
+- New `CheckinCard.jsx` + shared `useCheckin.js` hook: daily check-in now lives on Home too (previously only inside `CommunityDetail`), with the same streak/freeze toasts and a 7-day milestone celebration (haptic + bigger toast). `GET /api/communities` gained a batched `checked_in_today` field to drive it (`crud/community.py`, no N+1).
+
+#### Stage 3 — Daily habit loop (Loss aversion, ethically bounded)
+- **Real bug found and fixed:** streak freezes were earned (`freeze_count` incremented every 7-day streak) but never actually *consumed* — the shipped copy "miss a day without losing your streak" was false. `checkin_community()` now consumes a freeze to cover exactly one missed day (`freeze_used` in the response), so the promise is honest.
+- New `GET /api/bot/streaks-at-risk` (`crud/user.py: get_streaks_at_risk`) feeds a new daily 16:00 UTC bot job (`telegram-bot/bot/services/streak_nudge.py`, `build_streak_nudge` in `nudges.py`): "your N-day streak is waiting" — always mentions freezes when the user has any, "progress over perfection" copy, deep-links via `?startapp=reentry_checkin`. `StreakBadge.jsx` shows an amber at-risk dot in-app.
+
+#### Stage 4 — Conversion (Anchoring, honest urgency)
+- Consumers: `BookingFlow.jsx` shows the original total struck through beside the discounted one; `ProviderDetail.jsx` previews the cheapest service at its discounted price for eligible users; promo expiries under 7 days read "⏳ Expires in N days" (real dates only — new `daysLeft`/`expiryLabel` helpers in `utils/promo.js`, no fake countdowns).
+- Providers: the subscriptions tab in `ProviderDashboard.jsx` now lists plans priciest-first (Pro anchors the set), badges Growth "⭐ Most popular", and adds per-day framing ("≈ 50 ETB/day"). Mock subscription plans (previously an empty array) now mirror the real backend plans so the tab is demoable/testable in mock mode.
+
+#### Quick wins
+- `ProfileScreen`'s `PointsTooltip` was advertising fictional tier thresholds (100/500/1000 pts) against the real engine (100/300/700) — rewritten to match, plus honest decay copy. A mismatched reward ladder undermines every goal-gradient surface, so this was fixed first.
+- Eleven new analytics events fill out the funnel: `onboarding_step_view`/`onboarding_complete`, `checkin`, `checkin_prompt_view`/`checkin_prompt_click`, `streak_milestone`, `streak_risk_view`, `redemption_start`, `circle_invite_shared`, `profile_prompt_click`, `subscription_plan_view`/`subscription_plan_select`/`subscription_initiated`.
+
+#### Verification
+- Backend: `python -m app.tests.test_engagement_loop` (new) — **9/9 passing** (welcome-points idempotency, `checked_in_today`, freeze consumption on both the covered and uncovered path, streaks-at-risk filtering, the bot endpoint payload). `test_integration.py`'s check-in assertion updated (`new_balance` is now 30, not 10, since onboarding awards +20 before the first check-in's +10) — re-ran clean.
+- Bot: `test_nudges.py` extended with streak-nudge tests (loss-aversion copy, freeze singular/plural, deep-link format) — all passing. `python -m py_compile` on every changed bot file (python-telegram-bot isn't installed in this sandbox, so the bot itself wasn't run live — only its pure-function logic and syntax were verified).
+- Frontend: 4 new test files (`OnboardingFlow`, `WelcomeBanner`, `CheckinCard`, `ProviderDashboard` plan anchoring) plus extensions to `promo.utils` and `BookingFlow.promo` — full suite **74/74 passing**, `npm run build` ✅.
+- `docs/API_CONTRACT.md` updated for all four changed/new shapes (`communities` list `checked_in_today`, checkin response `freeze_used`, `GET /api/bot/streaks-at-risk`, onboard response `welcome_points`/`points_balance`).
+
+#### Known Gaps / Next Steps
+- No live browser verification was performed for the new UI (build + automated tests only, in this sandbox) — worth a manual `npm run dev` pass over `WelcomeBanner`/`CheckinCard` layout before shipping to real users.
+- Two friction points from Phase 6's `USER_FLOW_AUDIT.md` remain open and untouched by this phase: **F5** (no debounce on Explore search) and **F6** (booking confirmation still hardcodes `"+50 Legacy Points (Phase 2)"` instead of the real points awarded — this phase's anchoring work touched the same screen's price rows but not that line).
+- A follow-up icon/back-button visual pass was requested after this phase and is tracked separately, not part of Phase 8.
+
+#### Files Changed / Added (Phase 8)
+```
+backend/app/services/points.py
+backend/app/crud/user.py
+backend/app/crud/community.py
+backend/app/api/users.py
+backend/app/api/bot.py
+backend/app/tests/test_engagement_loop.py   (new)
+backend/app/tests/test_integration.py
+telegram-bot/bot/services/streak_nudge.py   (new)
+telegram-bot/bot/services/api_client.py
+telegram-bot/bot/utils/nudges.py
+telegram-bot/bot/utils/messages.py
+telegram-bot/bot/main.py
+telegram-bot/bot/tests/test_nudges.py
+frontend/src/components/WelcomeBanner.jsx   (new)
+frontend/src/components/CheckinCard.jsx   (new)
+frontend/src/hooks/useCheckin.js   (new)
+frontend/src/components/StreakBadge.jsx
+frontend/src/pages/OnboardingFlow.jsx
+frontend/src/pages/HomeScreen.jsx
+frontend/src/pages/ProfileScreen.jsx
+frontend/src/pages/BookingFlow.jsx
+frontend/src/pages/ProviderDetail.jsx
+frontend/src/pages/ProviderDashboard.jsx
+frontend/src/pages/ProductRedeem.jsx
+frontend/src/pages/CircleDetailScreen.jsx
+frontend/src/context/AuthContext.jsx
+frontend/src/utils/promo.js
+frontend/src/api/client.js
+frontend/src/data/mock.js
+frontend/src/test/OnboardingFlow.test.jsx   (new)
+frontend/src/test/WelcomeBanner.test.jsx   (new)
+frontend/src/test/CheckinCard.test.jsx   (new)
+frontend/src/test/ProviderDashboard.plans.test.jsx   (new)
+frontend/src/test/promo.utils.test.js
+frontend/src/test/BookingFlow.promo.test.jsx
+docs/API_CONTRACT.md
+docs/UX_GROWTH_LOOP_PLAN.md   (new)
+HANDOFF.md
+```
+
+---
+
+### Phase 9 — Kuriftu Gap Analysis: Direct-Contact Booking Fix (This Session)
+
+Following up a real call with Kuriftu African Village (Wed Jul 15, `docs/kuriftu-gap-analysis.md`): their standalone wellness services aren't booked or paid through any online system at all — no fixed time slots, no deposit, payment collected on-site after the service. The app's 3-step online-payment `BookingFlow` couldn't represent this. Scoped fix (of four options offered): implement the direct-contact flow; defer package/bundle schema work and the room+service bundle case (which needs a "room" concept that doesn't exist anywhere in the app) as explicitly out of scope.
+
+#### What shipped
+- **`booking_method` per service.** `ServiceItem` gains an optional `"online"` (default) | `"phone"` field, validated via pattern, carried in the existing `services` JSONB — no migration needed for this part.
+- **Provider contact fields.** New `providers.contact_phone` / `contact_email` columns (both nullable — a provider may have either, both, or neither). Migration `alembic/versions/006_provider_contact_info.py` + idempotent `apply_provider_contact_migration.py`. Exposed on `GET /api/providers/:id` and provider-self endpoints (`get_provider_me`); `update_provider_me`'s existing generic passthrough picks them up automatically.
+- **`BookingFlow.jsx` direct-contact screen.** Phone-booked services show a "Book directly" tag in the service list. Selecting one and tapping Continue skips the date/time and payment steps entirely and shows a dedicated screen: `tel:`/`mailto:` links (only for whichever contact method the provider actually has — nothing fabricated), "no deposit, pay on-site after your visit" copy, and a Back button that returns to service selection without losing the pick. `ProviderDetail.jsx`'s service list carries the same tag for consistency before the guest even opens Booking. New analytics: `booking_contact_requested`, `booking_contact_clicked`.
+- **Kuriftu reseeded with confirmed pricing.** `backend/update_kuriftu_services.py` (new, idempotent — edits the existing "kuriftu" row per the gap analysis's own instruction, doesn't insert a duplicate) replaces the placeholder services with all 13 confirmed real services + packages, all `booking_method: "phone"`, and sets `contact_email` to the address surfaced on the call. **No phone number was set** — the call surfaced an email, not a phone number, and none was invented. Mock-mode parity: a new Kuriftu provider entry in `frontend/src/data/mock.js` (`is_featured: true`, matching production) so the flow is demoable and testable without a backend.
+
+#### Verification
+- Backend: `python -m app.tests.test_provider_contact` (new) — **8/8 passing** (`ServiceItem.booking_method` validation, provider detail/me exposing contact fields without fabricating unset ones, `update_provider_me` setting one contact field without clobbering the other). `test_integration.py`, `test_presale_reentry.py`, `test_engagement_loop.py` re-ran clean — no regressions.
+- Frontend: 4 new Vitest tests (`BookingFlow.phoneBooking.test.jsx`) — phone-tagged services skip straight to the contact screen, the email-only case renders no fabricated phone link and fires the right analytics, Back preserves the selection, and online-booked providers are completely unaffected. Full suite: 78/78 passing (one *pre-existing* flake in `routes.smoke.test.jsx`'s Splash-screen timeout, reproduced on a clean run with none of this phase's files touched — a system-load-sensitive 4s Suspense-wait unrelated to this work, not a regression from it).
+- `docs/API_CONTRACT.md` updated: provider detail response gains `contact_phone`/`contact_email`, and a new note documents `booking_method` and the direct-contact flow it triggers.
+
+#### Known Gaps / Next Steps
+- **G5 (packages)** needed no schema change to represent as flat line items, and Kuriftu's two bundled packages are seeded that way — but there's still no concept of a package being *composed of* its underlying services, if that's ever needed for pricing logic or inventory.
+- **G7 (room + wellness bundle)** is unaddressed — Kuriftu's online, pay-upfront room-bundle path actually matches the app's existing payment model, but there is no "room" entity, room-selection UI, or bundle-pricing concept anywhere in the schema. Flagged, not built.
+- No live browser verification was performed in this sandbox (build + automated tests only) — worth a manual `npm run dev` pass on the new contact screen, especially the `tel:`/`mailto:` links on an actual phone, before shipping.
+
+#### Files Changed / Added (Phase 9)
+```
+backend/alembic/versions/006_provider_contact_info.py   (new)
+backend/apply_provider_contact_migration.py   (new)
+backend/update_kuriftu_services.py   (new)
+backend/app/models/provider.py
+backend/app/schemas/provider.py
+backend/app/schemas/provider_onboarding.py
+backend/app/crud/provider.py
+backend/app/tests/test_provider_contact.py   (new)
+frontend/src/pages/BookingFlow.jsx
+frontend/src/pages/ProviderDetail.jsx
+frontend/src/data/mock.js
+frontend/src/test/BookingFlow.phoneBooking.test.jsx   (new)
+docs/API_CONTRACT.md
+docs/kuriftu-gap-analysis.md
 HANDOFF.md
 ```
 

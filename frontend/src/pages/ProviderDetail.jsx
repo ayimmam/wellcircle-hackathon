@@ -167,7 +167,14 @@ export default function ProviderDetail() {
           >
             <div>
               <div className="service-name">{service.name}</div>
-              <div className="service-duration">{service.duration}</div>
+              <div className="service-duration">
+                {service.duration}
+                {service.booking_method === 'phone' && (
+                  <span className="inline-icon-text" style={{ marginLeft: 8, color: 'var(--text-tertiary)' }}>
+                    <Icon name="smartphone" size={11} /> {t('Book directly')}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="service-price">ETB {service.price?.toLocaleString()}</div>
           </div>

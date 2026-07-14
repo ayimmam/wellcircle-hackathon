@@ -297,6 +297,38 @@ export const MOCK_PROVIDERS = [
     community: { id: '22222222-0000-0000-0000-000000000010', name: 'MoveMind Runners', member_count: 142, user_joined: false },
     member_count: 142,
     community_id: '22222222-0000-0000-0000-000000000010'
+  },
+  {
+    id: '11111111-0000-0000-0000-000000000011',
+    name: 'Kuriftu Resort & Spa',
+    category: 'spa',
+    description: 'Pilot partner resort offering spa, sauna, and wellness experiences. Wellness services are booked directly with Kuriftu (not paid in-app) — contact them to schedule; payment is collected on-site after your visit.',
+    location_text: 'Bishoftu, Ethiopia',
+    lat: 8.7833, lng: 38.9833,
+    price_range: 'ETB 600 – 5,500',
+    rating: 4.9,
+    cover_photo_url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
+    photos: [
+      'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
+      'https://images.unsplash.com/photo-1540541338287-41700207dee6?w=800'
+    ],
+    // Confirmed Jul 15 gap-analysis call — all booked directly, not in-app
+    // (see docs/kuriftu-gap-analysis.md)
+    services: [
+      { name: 'Aroma Massage (90 min)', price: 5500, duration: '90 min', booking_method: 'phone' },
+      { name: 'Swedish Massage (30 min)', price: 2000, duration: '30 min', booking_method: 'phone' },
+      { name: 'Deep Tissue Massage (50 min)', price: 3000, duration: '50 min', booking_method: 'phone' },
+      { name: 'Steam & Sauna', price: 2500, duration: '2 hours', booking_method: 'phone' },
+      { name: 'Morocco Bath (90 min)', price: 5000, duration: '90 min', booking_method: 'phone' },
+      { name: 'Manicure (Normal)', price: 600, duration: '—', booking_method: 'phone' },
+      { name: 'Swim + Steam & Sauna (package)', price: 3600, duration: '—', booking_method: 'phone' },
+      { name: 'Massage + Steam & Sauna (package)', price: 4950, duration: '—', booking_method: 'phone' }
+    ],
+    contact_email: 'booking@kurifturesorts.com',
+    is_featured: true,
+    community: { id: '22222222-0000-0000-0000-000000000011', name: 'Kuriftu Wellness Circle', member_count: 58, user_joined: false },
+    member_count: 58,
+    community_id: '22222222-0000-0000-0000-000000000011'
   }
 ];
 

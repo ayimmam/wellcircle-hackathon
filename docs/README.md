@@ -19,8 +19,13 @@ doc and the code disagree, trust the code.
 ## Current sprint (Jul 13–19, 2026 — Kuriftu Resort pilot)
 - [USER_FLOW_AUDIT.md](./USER_FLOW_AUDIT.md) — user-flow map and friction-point audit (Monday deliverable).
 - [SPRINT_TEAM_HANDOFF.md](./SPRINT_TEAM_HANDOFF.md) — per-person handoff notes for the rest of the team's remaining tasks.
+- [BINIYAM_SPRINT_PLAN.md](./BINIYAM_SPRINT_PLAN.md) — Biniyam's presale-promo + re-entry-loop track: one-page sketch, day-by-day map, and test commands (Phase 7 in `HANDOFF.md`).
+- [kuriftu-gap-analysis.md](./kuriftu-gap-analysis.md) — Bezi's Wed Jul 15 gap analysis (real Kuriftu call) comparing the app's booking flow to Kuriftu's actual process, plus confirmed pricing and the direct-contact booking fix that came out of it (Phase 9 in `HANDOFF.md`).
 - [Kuriftu Resort.html](./Kuriftu%20Resort.html) — reference page used to prioritize Kuriftu across front-page surfaces.
 - Supabase Observability PDFs — dashboard snapshots used to validate free-tier capacity during load testing (not narrative docs).
+
+## Growth / UX
+- [UX_GROWTH_LOOP_PLAN.md](./UX_GROWTH_LOOP_PLAN.md) — 4-stage onboarding → habit-loop → conversion workflow, mapped to specific UX psychology principles and this app's actual features (Phase 8 in `HANDOFF.md`).
 
 ## Implementation history
 - [HANDOFF.md](./HANDOFF.md) — implementation status and change log, by phase.

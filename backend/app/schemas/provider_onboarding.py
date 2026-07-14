@@ -58,6 +58,8 @@ class ProviderMeResponse(BaseModel):
     services: Optional[List[ServiceItem]] = None
     theme_primary_color: Optional[str] = None
     theme_accent_color: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
     dashboard_stats: ProviderDashboardStats
 
 
@@ -72,6 +74,8 @@ class ProviderMeUpdate(BaseModel):
     services: Optional[List[ServiceItem]] = None
     theme_primary_color: Optional[str] = Field(None, pattern="^#[0-9A-Fa-f]{6}$")
     theme_accent_color: Optional[str] = Field(None, pattern="^#[0-9A-Fa-f]{6}$")
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
 
 
 class PendingProviderItem(BaseModel):

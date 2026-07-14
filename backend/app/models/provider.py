@@ -22,8 +22,15 @@ class Provider(Base):
     rating = Column(Float, nullable=True)
     cover_photo_url = Column(String(500), nullable=True)
     photos = Column(JSONB, nullable=True)                # Array of photo URLs (max 5)
-    services = Column(JSONB, nullable=True)              # [{name, price, duration}]
+    services = Column(JSONB, nullable=True)              # [{name, price, duration, booking_method}]
     owner_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+    # --- Direct-contact booking (Kuriftu gap analysis, Jul 15) ---
+    # Some providers/services aren't booked online at all — the guest calls
+    # or emails directly and pays on-site after the service. Nullable
+    # because most providers still use the in-app flow.
+    contact_phone = Column(String(30), nullable=True)
+    contact_email = Column(String(255), nullable=True)
 
     # --- Lifecycle (Phase 2) ---
     status = Column(String(50), default="active")  # draft|pending_approval|active|inactive|rejected

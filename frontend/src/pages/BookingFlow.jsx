@@ -30,6 +30,10 @@ export default function BookingFlow() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [booking, setBooking] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null); // null | 'processing' | 'success' | 'failed'
+  // Kuriftu gap analysis (Jul 15): some services aren't booked in-app at all —
+  // no fixed slots, no upfront payment. Selecting one skips straight to a
+  // contact screen instead of the date/payment steps.
+  const [showContact, setShowContact] = useState(false);
   const pollAttemptsRef = useRef(0);
 
   const days = getNextDays(7);
@@ -66,6 +70,17 @@ export default function BookingFlow() {
       setSelectedService(location.state.selectedService);
     }
   }, [location.state]);
+
+  useEffect(() => {
+    if (!showContact) return;
+    track('booking_contact_requested', {
+      provider_id: providerId,
+      service: selectedService?.name,
+      has_phone: Boolean(provider?.contact_phone),
+      has_email: Boolean(provider?.contact_email),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showContact]);
 
   useEffect(() => {
     if (selectedService || !eventId || !provider?.services?.length) return;
@@ -193,6 +208,72 @@ export default function BookingFlow() {
         {[1,2,3].map(i => (
           <div key={i} className="skeleton" style={{ height: 60, marginBottom: 8 }} />
         ))}
+      </div>
+    );
+  }
+
+  // ─── Direct-Contact Screen ────────────────────────
+  // Some providers/services (Kuriftu's standalone wellness offerings) aren't
+  // booked online at all — the guest contacts them directly, there's no
+  // deposit, and payment happens on-site after the service.
+  if (showContact) {
+    const hasPhone = Boolean(provider.contact_phone);
+    const hasEmail = Boolean(provider.contact_email);
+    return (
+      <div className="page" id="booking-contact-screen">
+        <div className="flex items-center gap-12 mb-20">
+          <button className="btn btn-icon btn-secondary" onClick={() => setShowContact(false)} aria-label="Go back">
+            <Icon name="chevron-left" size={20} />
+          </button>
+          <div style={{ flex: 1 }}>
+            <h1 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Book Directly with {provider.name}</h1>
+          </div>
+        </div>
+
+        <div className="card mb-20">
+          <div className="card-body">
+            <div className="confirmation-row">
+              <span className="confirmation-label">Service</span>
+              <span className="confirmation-value">{selectedService?.name}</span>
+            </div>
+            <div className="confirmation-row" style={{ borderBottom: 'none' }}>
+              <span className="confirmation-label">Price</span>
+              <span className="confirmation-value">ETB {selectedService?.price?.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 20 }}>
+          {t("This service isn't booked through the app — contact {{name}} directly to schedule. No deposit is needed; payment is collected on-site after your visit.", { name: provider.name })}
+        </p>
+
+        {hasPhone && (
+          <a
+            className="btn btn-primary btn-block mb-12"
+            href={`tel:${provider.contact_phone}`}
+            onClick={() => track('booking_contact_clicked', { provider_id: providerId, method: 'phone' })}
+            id="contact-call-btn"
+          >
+            <Icon name="smartphone" size={18} /> {t('Call')} {provider.contact_phone}
+          </a>
+        )}
+        {hasEmail && (
+          <a
+            className={`btn btn-block ${hasPhone ? 'btn-outline' : 'btn-primary'}`}
+            href={`mailto:${provider.contact_email}?subject=${encodeURIComponent(`Booking: ${selectedService?.name || ''}`)}`}
+            onClick={() => track('booking_contact_clicked', { provider_id: providerId, method: 'email' })}
+            id="contact-email-btn"
+          >
+            <Icon name="message-circle" size={18} /> {t('Email')} {provider.contact_email}
+          </a>
+        )}
+        {!hasPhone && !hasEmail && (
+          <div className="empty-state">
+            <div className="empty-state-text">
+              {t('Contact details for this provider are not available yet — check My Bookings or Explore for updates.')}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -354,7 +435,14 @@ export default function BookingFlow() {
               >
                 <div>
                   <div className="service-name">{service.name}</div>
-                  <div className="service-duration">{service.duration}</div>
+                  <div className="service-duration">
+                    {service.duration}
+                    {service.booking_method === 'phone' && (
+                      <span className="inline-icon-text" style={{ marginLeft: 8, color: 'var(--text-tertiary)' }}>
+                        <Icon name="smartphone" size={11} /> {t('Book directly')}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="service-price">ETB {service.price?.toLocaleString()}</div>
               </div>
@@ -492,7 +580,16 @@ export default function BookingFlow() {
 
       {/* Actions */}
       <div style={{ marginTop: 24 }}>
-        {step < 2 ? (
+        {step === 0 && selectedService?.booking_method === 'phone' ? (
+          <button
+            className="btn btn-primary btn-block"
+            onClick={() => setShowContact(true)}
+            disabled={!canNext()}
+            id="booking-continue-contact-btn"
+          >
+            {t('Continue')} <Icon name="chevron-right" size={18} />
+          </button>
+        ) : step < 2 ? (
           <button
             className="btn btn-primary btn-block"
             onClick={() => setStep(s => s + 1)}

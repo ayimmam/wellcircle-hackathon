@@ -382,6 +382,7 @@ Full provider detail with services, photos, linked community.
       "name": "Morning Vinyasa Flow",
       "price": 800,
       "duration": "60 min"
+      // "booking_method" omitted here = "online" (default, in-app booking + payment)
     },
     {
       "name": "Private Session",
@@ -397,6 +398,8 @@ Full provider detail with services, photos, linked community.
   },
   "theme_primary_color": "#10B981",
   "theme_accent_color": "#F59E0B",
+  "contact_phone": null,             // set when at least one service is booking_method "phone"
+  "contact_email": "booking@example.com",
   "active_promotion": {              // null when no active promotion
     "id": "uuid-promo",
     "headline": "Presale: 20% off your first visit",
@@ -410,6 +413,17 @@ Full provider detail with services, photos, linked community.
 
 `GET /api/providers` list items carry the same `active_promotion` object minus
 `user_eligible` (the list has no per-user context — treat it as marketing copy).
+
+**Direct-contact services (Kuriftu gap analysis, Jul 15).** A service's
+`booking_method` is `"online"` (default, omitted) or `"phone"` — a `"phone"`
+service isn't booked or paid in-app at all: no time slots, no upfront
+payment. The guest contacts the provider directly using `contact_phone`
+and/or `contact_email` (either may be null) and pays on-site after the
+service. `POST /api/bookings` is never called for these — there is
+intentionally no server-side record of a phone/email booking request.
+**Frontend:** `BookingFlow.jsx` shows a "Book directly" tag on these service
+rows and, when one is selected, replaces the date/payment steps with a
+contact screen (`tel:`/`mailto:` links) instead of continuing the normal flow.
 
 ### `POST /api/providers/me/promotions`
 Create a promotion for your own provider. **Provider-only access.**

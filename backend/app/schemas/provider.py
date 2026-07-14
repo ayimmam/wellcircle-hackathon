@@ -10,6 +10,11 @@ class ServiceItem(BaseModel):
     name: str
     price: int  # ETB
     duration: str  # e.g. "60 min"
+    # "online" (default, in-app booking + payment) or "phone" — booked
+    # directly with the provider, who collects payment on-site after the
+    # service (Kuriftu gap analysis: their standalone spa services work
+    # this way, with no fixed time slots or upfront deposit).
+    booking_method: Optional[str] = Field(None, pattern="^(online|phone)$")
 
 
 class ProviderBase(BaseModel):
@@ -86,6 +91,8 @@ class ProviderDetail(ProviderListItem):
     community: Optional[CommunityBrief] = None
     theme_primary_color: Optional[str] = None
     theme_accent_color: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
 
 
 class ProviderListResponse(BaseModel):

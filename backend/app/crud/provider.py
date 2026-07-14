@@ -158,6 +158,8 @@ def get_provider_detail(db: Session, provider_id: UUID, user_id: Optional[UUID] 
         "is_featured": bool(provider.is_featured),
         "subscription_plan": provider.subscription_plan,
         "active_promotion": promotion,
+        "contact_phone": provider.contact_phone,
+        "contact_email": provider.contact_email,
     }
 
 
@@ -548,6 +550,8 @@ def get_provider_me(db: Session, user: User) -> Optional[dict]:
         "services": provider.services or [],
         "theme_primary_color": provider.theme_primary_color,
         "theme_accent_color": provider.theme_accent_color,
+        "contact_phone": provider.contact_phone,
+        "contact_email": provider.contact_email,
         "dashboard_stats": {
             "total_members": total_members,
             "new_members_today": new_members_today,

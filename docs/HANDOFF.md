@@ -840,6 +840,33 @@ docs/API_CONTRACT.md
 HANDOFF.md
 ```
 
+### Phase 12 — Google Sheets Booking Export Integration (This Session)
+
+Integration of Google Sheets API to export booking data specifically for the Kuriftu pilot provider.
+
+#### What shipped
+- **Google Sheets API Service:** `backend/app/services/sheets.py` manages Google service account authentication and appending rows to a configured spreadsheet.
+- **Booking Flow Hook:** `create_new_booking` in `backend/app/api/bookings.py` detects if the booked provider is the Kuriftu pilot. If so, it asynchronously fires `export_booking_to_sheets` in a `BackgroundTask` with `[Name, Phone Number, Date & Time, Service Type, Service Name]` to avoid slowing down the user's HTTP request.
+- **Environment config:** Added placeholders to `.env.example` for `GOOGLE_SHEETS_CREDENTIALS` (JSON string) and `GOOGLE_SHEETS_BOOKING_SHEET_ID`.
+
+#### Verification
+- Backend: `python -m unittest app.tests.test_sheets` (new) — **1/1 passing** (mocks the Google API client and ensures the correct payload shape is appended).
+
+#### Known Gaps / Next Steps
+- Currently hardcoded to check if "kuriftu" is in the provider name. In a multi-tenant scale-out, a `Provider.spreadsheet_id` schema addition would make this data-driven.
+- Requires deployment environment (Render/Vercel) variables to be populated manually since they contain actual Google service account keys.
+
+#### Files Changed / Added (Phase 12)
+```
+backend/requirements.txt
+backend/app/services/sheets.py   (new)
+backend/app/api/bookings.py
+backend/app/tests/test_sheets.py   (new)
+backend/.env.example
+HANDOFF.md
+```
+
 ---
 
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
+

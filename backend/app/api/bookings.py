@@ -11,6 +11,8 @@ from app.models.user import User
 from app.crud.booking import create_booking, create_sibling_bookings
 from app.schemas.booking import BookingCreate, BookingResponse, AppliedPromotion
 from app.services.promotion_service import get_eligible_promotion, compute_discount_etb
+from app.services.sheets import export_booking_to_sheets
+from app.models.provider import Provider
 
 router = APIRouter()
 
@@ -122,6 +124,22 @@ async def create_new_booking(
         request.service_name,
         str(request.slot_datetime)
     )
+
+    # 5. Sync to Google Sheets for Kuriftu
+    provider = db.query(Provider).filter(Provider.id == UUID(request.provider_id)).first()
+    if provider and "kuriftu" in provider.name.lower():
+        # Service type is Event if event_id is present, otherwise Service
+        service_type = "Event" if request.event_id else "Service"
+        user_name = user.name or user.telegram_handle or "Unknown User"
+        
+        background_tasks.add_task(
+            export_booking_to_sheets,
+            name=user_name,
+            phone_number=request.phone_number,
+            datetime_str=str(request.slot_datetime),
+            service_type=service_type,
+            service_name=request.service_name
+        )
 
     return BookingResponse(
         id=str(booking.id), provider_id=str(booking.provider_id),

@@ -6,11 +6,10 @@ from app.services.sheets import export_booking_to_sheets
 @pytest.mark.asyncio
 @patch('app.services.sheets.httpx.AsyncClient')
 @patch('app.services.sheets.jwt.encode')
-@patch.dict(os.environ, {
-    "GOOGLE_SHEETS_CREDENTIALS": '{"client_email": "test@test.com", "private_key": "mock_key"}',
-    "GOOGLE_SHEETS_BOOKING_SHEET_ID": "mock_sheet_id"
-})
-async def test_export_booking_to_sheets(mock_jwt_encode, mock_httpx_client):
+async def test_export_booking_to_sheets(mock_jwt_encode, mock_httpx_client, monkeypatch):
+    monkeypatch.setenv("GOOGLE_SHEETS_CREDENTIALS", '{"client_email": "test@test.com", "private_key": "mock_key"}')
+    monkeypatch.setenv("GOOGLE_SHEETS_BOOKING_SHEET_ID", "mock_sheet_id")
+    
     # Setup mocks
     mock_jwt_encode.return_value = "mock_signed_jwt"
     

@@ -108,18 +108,18 @@ def browse_products(
     if product_type:
         query = query.filter(Product.type == product_type)
     if price_min is not None:
-        query = query.filter(Product.price_etb >= price_min)
+        query = query.filter(Product.points_cost >= price_min)
     if price_max is not None:
-        query = query.filter(Product.price_etb <= price_max)
+        query = query.filter(Product.points_cost <= price_max)
     if in_stock_only:
         query = query.filter(Product.quantity_in_stock > 0)
 
     total = query.count()
 
     if sort_by == "price_asc":
-        query = query.order_by(Product.price_etb.asc())
+        query = query.order_by(Product.points_cost.asc())
     elif sort_by == "price_desc":
-        query = query.order_by(Product.price_etb.desc())
+        query = query.order_by(Product.points_cost.desc())
     elif sort_by == "popular":
         subq = (
             db.query(UserRedemption.product_id, func.count(UserRedemption.id).label("cnt"))

@@ -10,6 +10,7 @@ import StreakBadge from '../components/StreakBadge';
 import FirstRewardCard from '../components/FirstRewardCard';
 import SocialProofBanner from '../components/SocialProofBanner';
 import WelcomeBanner from '../components/WelcomeBanner';
+import HomePromoBanner from '../components/HomePromoBanner';
 import CheckinCard from '../components/CheckinCard';
 import { showToast } from '../components/Toast';
 import FeaturedEventsCarousel from '../components/FeaturedEventsCarousel';
@@ -95,6 +96,11 @@ export default function HomeScreen() {
 
       {/* One-time post-onboarding moment: plan reflection + welcome gift */}
       {user && justOnboarded && <WelcomeBanner user={user} providers={providers} />}
+
+      {/* Experiment: persistent promo banner (test arm only) — suppressed
+          right after onboarding so WelcomeBanner's welcome gift isn't
+          duplicated on the same screen. */}
+      {user && <HomePromoBanner providers={providers} suppressed={justOnboarded} />}
 
       {user && <SocialProofBanner />}
 

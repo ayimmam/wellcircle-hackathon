@@ -51,3 +51,26 @@ export function track(event, properties = {}) {
   if (!enabled) return;
   posthog.capture(event, properties);
 }
+
+/**
+ * Reads a PostHog feature flag / experiment variant. Calling this (rather
+ * than reading the flag some other way) is what fires PostHog's
+ * `$feature_flag_called` event, which experiments use for their default
+ * "Include people when: Feature flag is called" inclusion criteria — so
+ * every flag read should go through this function, not a raw posthog call.
+ * Falls back to `fallback` ("control" by default) when analytics is
+ * disabled (local dev, tests, mock mode) or flags haven't loaded yet, so
+ * callers always render the pre-experiment behavior in those cases.
+ */
+export function getFeatureFlag(key, fallback = 'control') {
+  if (!enabled) return fallback;
+  return posthog.getFeatureFlag(key) ?? fallback;
+}
+
+/** Re-invokes `callback` once PostHog's flags have (re)loaded, so a variant
+ * read at mount time (before flags are ready) can be corrected shortly
+ * after. No-op when analytics is disabled. */
+export function onFeatureFlags(callback) {
+  if (!enabled) return () => {};
+  return posthog.onFeatureFlags(callback) || (() => {});
+}

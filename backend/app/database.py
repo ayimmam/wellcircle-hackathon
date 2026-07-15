@@ -23,7 +23,7 @@ if "supabase" in settings.DATABASE_URL:
 # per request instead, leaving pooling to Supavisor where it belongs.
 # Off Vercel (local dev, Render — a persistent process), the normal
 # client-side pool is correct and beneficial, so keep it there.
-if os.getenv("VERCEL"):
+if os.getenv("VERCEL") or settings.DATABASE_URL.startswith("sqlite"):
     engine = create_engine(
         settings.DATABASE_URL,
         echo=settings.DEBUG,

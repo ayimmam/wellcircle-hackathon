@@ -132,14 +132,18 @@ async def create_new_booking(
         service_type = "Event" if request.event_id else "Service"
         user_name = user.name or user.telegram_handle or "Unknown User"
         
-        background_tasks.add_task(
-            export_booking_to_sheets,
-            name=user_name,
-            phone_number=request.phone_number,
-            datetime_str=str(request.slot_datetime),
-            service_type=service_type,
-            service_name=request.service_name
-        )
+        # Run the Google Sheets sync synchronously to ensure it completes before Vercel freezes the function
+        try:
+            await export_booking_to_sheets(
+                name=user_name,
+                phone_number=request.phone_number,
+                datetime_str=str(request.slot_datetime),
+                service_type=service_type,
+                service_name=request.service_name
+            )
+        except Exception as e:
+            # Catch exceptions here so a sheets failure doesn't ruin the user's booking response
+            pass
 
     return BookingResponse(
         id=str(booking.id), provider_id=str(booking.provider_id),

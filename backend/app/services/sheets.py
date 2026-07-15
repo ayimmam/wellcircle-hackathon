@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 SCOPES = "https://www.googleapis.com/auth/spreadsheets"
 TOKEN_URI = "https://oauth2.googleapis.com/token"
 
-def get_access_token() -> str:
+async def get_access_token() -> str:
     creds_json = os.environ.get("GOOGLE_SHEETS_CREDENTIALS")
     if not creds_json:
         logger.warning("GOOGLE_SHEETS_CREDENTIALS is not set. Google Sheets integration is disabled.")
@@ -32,8 +32,8 @@ def get_access_token() -> str:
         signed_jwt = jwt.encode(payload, creds["private_key"], algorithm="RS256")
         
         # Request access token
-        with httpx.Client() as client:
-            resp = client.post(TOKEN_URI, data={
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(TOKEN_URI, data={
                 "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
                 "assertion": signed_jwt
             })
@@ -43,7 +43,7 @@ def get_access_token() -> str:
         logger.error(f"Failed to get Google Sheets access token: {e}")
         return None
 
-def export_booking_to_sheets(name: str, phone_number: str, datetime_str: str, service_type: str, service_name: str):
+async def export_booking_to_sheets(name: str, phone_number: str, datetime_str: str, service_type: str, service_name: str):
     """
     Appends a new booking row to the Google Sheet.
     Order: [Name, Phone Number, Date & Time, Service Type, Service Name]
@@ -53,7 +53,7 @@ def export_booking_to_sheets(name: str, phone_number: str, datetime_str: str, se
         logger.warning("GOOGLE_SHEETS_BOOKING_SHEET_ID is not set.")
         return
 
-    access_token = get_access_token()
+    access_token = await get_access_token()
     if not access_token:
         return
 
@@ -68,8 +68,8 @@ def export_booking_to_sheets(name: str, phone_number: str, datetime_str: str, se
     url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS"
     
     try:
-        with httpx.Client() as client:
-            resp = client.post(
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
                 url,
                 headers={"Authorization": f"Bearer {access_token}"},
                 json={"values": values}

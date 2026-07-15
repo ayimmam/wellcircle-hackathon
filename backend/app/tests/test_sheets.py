@@ -1,20 +1,21 @@
 import os
 import pytest
-from unittest.mock import patch, MagicMock
-from app.services.sheets import export_booking_to_sheets, get_access_token
+from unittest.mock import patch, MagicMock, AsyncMock
+from app.services.sheets import export_booking_to_sheets
 
-@patch('app.services.sheets.httpx.Client')
+@pytest.mark.asyncio
+@patch('app.services.sheets.httpx.AsyncClient')
 @patch('app.services.sheets.jwt.encode')
 @patch.dict(os.environ, {
     "GOOGLE_SHEETS_CREDENTIALS": '{"client_email": "test@test.com", "private_key": "mock_key"}',
     "GOOGLE_SHEETS_BOOKING_SHEET_ID": "mock_sheet_id"
 })
-def test_export_booking_to_sheets(mock_jwt_encode, mock_httpx_client):
+async def test_export_booking_to_sheets(mock_jwt_encode, mock_httpx_client):
     # Setup mocks
     mock_jwt_encode.return_value = "mock_signed_jwt"
     
-    mock_client_instance = MagicMock()
-    mock_httpx_client.return_value.__enter__.return_value = mock_client_instance
+    mock_client_instance = AsyncMock()
+    mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
     
     # Mock for get_access_token (first httpx call)
     mock_token_response = MagicMock()
@@ -27,7 +28,7 @@ def test_export_booking_to_sheets(mock_jwt_encode, mock_httpx_client):
     mock_client_instance.post.side_effect = [mock_token_response, mock_append_response]
     
     # Execute
-    export_booking_to_sheets(
+    await export_booking_to_sheets(
         name="Test User",
         phone_number="+251911234567",
         datetime_str="2026-07-20 10:00:00",

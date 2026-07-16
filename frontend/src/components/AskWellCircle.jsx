@@ -24,7 +24,7 @@ export default function AskWellCircle() {
     }
     return [{
       id: 0,
-      text: "🌿 Hi! Welcome to Well Circle. Tell me what wellness service you need, your neighborhood in Addis Ababa, or your budget range, and I will find your perfect match!",
+      text: "Hi! Welcome to Well Circle. Tell me what wellness service you need, your neighborhood in Addis Ababa, or your budget range, and I will find your perfect match!",
       sender: 'assistant'
     }];
   });
@@ -178,8 +178,8 @@ export default function AskWellCircle() {
               paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div className="burger-logo" style={{ width: '36px', height: '36px', fontSize: '1rem' }}>
-                  ✨
+                <div className="burger-logo" style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="message-circle" size={18} />
                 </div>
                 <div>
                   <div className="burger-brand-name">CIRCLER</div>
@@ -194,7 +194,7 @@ export default function AskWellCircle() {
                     if (window.confirm("Clear chat history?")) {
                       setMessages([{
                         id: 0,
-                        text: "🌿 Hi! Welcome to Well Circle. Tell me what wellness service you need, your neighborhood in Addis Ababa, or your budget range, and I will find your perfect match!",
+                        text: "Hi! Welcome to Well Circle. Tell me what wellness service you need, your neighborhood in Addis Ababa, or your budget range, and I will find your perfect match!",
                         sender: 'assistant'
                       }]);
                       setIsFirstMessage(true);
@@ -264,7 +264,7 @@ export default function AskWellCircle() {
                         }}
                         style={{ fontSize: '0.8rem', padding: '6px 12px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                       >
-                        📍 {msg.provider.name}
+                        <Icon name="map-pin" size={13} /> {msg.provider.name}
                       </button>
                     </div>
                   )}

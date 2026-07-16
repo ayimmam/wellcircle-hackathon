@@ -11,7 +11,7 @@ export default function AdminAnalytics() {
     try {
       setData(await getAdminAnalytics());
     } catch (err) {
-      showToast(err.message, '❌');
+      showToast(err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -38,7 +38,7 @@ export default function AdminAnalytics() {
     a.download = 'wellcircle-analytics.csv';
     a.click();
     URL.revokeObjectURL(url);
-    showToast('CSV exported', '✅');
+    showToast('CSV exported', 'success');
   };
 
   if (loading || !data) {

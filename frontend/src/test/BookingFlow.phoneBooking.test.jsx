@@ -38,7 +38,7 @@ describe('BookingFlow direct-contact booking (Kuriftu gap analysis)', () => {
     // Lands on the contact screen, not the date/time step
     expect(await screen.findByText('Book Directly with Kuriftu Resort & Spa')).toBeInTheDocument();
     expect(screen.queryByText('Pick a Date')).not.toBeInTheDocument();
-    expect(screen.queryByText('Payment Method')).not.toBeInTheDocument();
+    expect(screen.queryByText('Review & Confirm')).not.toBeInTheDocument();
   });
 
   it('shows both a call and an email link, call prioritized, and tracks analytics', async () => {

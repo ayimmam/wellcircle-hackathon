@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getProducts } from '../api/client';
 import { useTranslation } from 'react-i18next';
+import Icon from '../components/Icon';
 
 export default function ProductsStore() {
   const { user } = useAuth();
@@ -27,7 +28,7 @@ export default function ProductsStore() {
   return (
     <div className="page">
       <h1 className="section-title mb-8">{t('Legacy Points Store')}</h1>
-      <p className="text-secondary mb-16">{t('Your Balance:')} <strong style={{ color: 'var(--secondary)' }}>{user?.points_balance ?? 0} 🌿 {t('pts')}</strong></p>
+      <p className="text-secondary mb-16">{t('Your Balance:')} <strong className="inline-icon-text" style={{ color: 'var(--secondary)' }}>{user?.points_balance ?? 0} <Icon name="leaf" size={14} /> {t('pts')}</strong></p>
 
       <input className="input mb-12" placeholder={t("Search products...")} value={search} onChange={e => setSearch(e.target.value)} />
       <div className="flex gap-8 mb-16 flex-wrap">

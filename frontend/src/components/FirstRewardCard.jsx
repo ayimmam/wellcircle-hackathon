@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProducts } from '../api/client';
+import Icon from './Icon';
 
 const POINTS_PER_CHECKIN = 10;
 
@@ -47,8 +48,9 @@ export default function FirstRewardCard({ pointsBalance }) {
       id="first-reward-card"
     >
       <div className="flex items-center justify-between mb-8">
-        <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>
-          {reached ? '🎁 Reward unlocked!' : '🎯 Your first reward'}
+        <span className="flex items-center gap-6" style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+          <Icon name={reached ? 'trophy' : 'star'} size={15} />
+          {reached ? 'Reward unlocked!' : 'Your first reward'}
         </span>
         <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{pointsBalance || 0}/{cost} pts</span>
       </div>

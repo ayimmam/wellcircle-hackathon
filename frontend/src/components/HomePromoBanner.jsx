@@ -50,7 +50,7 @@ export default function HomePromoBanner({ providers, suppressed = false }) {
         onClick={() => navigate(`/provider/${giftProvider.id}`)}
         id="home-promo-banner-cta"
       >
-        <span style={{ fontSize: '1.3rem' }}>🏷️</span>
+        <Icon name="ticket" size={20} />
         <span style={{ flex: 1 }}>
           <span style={{ display: 'block', fontWeight: 700, fontSize: '0.85rem' }}>
             {promo.headline || `${promo.discount_pct}% off at ${giftProvider.name}`}

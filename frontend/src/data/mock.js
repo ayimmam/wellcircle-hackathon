@@ -441,12 +441,35 @@ export const MOCK_LEADERBOARD = [
 export const MOCK_POSTS = [
   {
     id: '44444444-0000-0000-0000-000000000001',
-    content: "Just finished a 5K run! Feeling great! 🏃‍♀️",
+    content: "Just finished a 5K run! Feeling great!",
     user: { id: '002', name: 'Meron Tadesse', photo_url: 'https://i.pravatar.cc/150?u=meron' },
     created_at: new Date(now - 1 * 3600000).toISOString(),
-    reactions: { '🔥': 2, '👏': 1 },
+    activity_type: 'run',
+    distance_km: 5.0,
+    duration_min: 28,
+    photo_url: null,
+    reactions: { '🔥': 2, 'coins': 1 },
     total_points_gifted: 5,
-    circle_id: '33333333-0000-0000-0000-000000000001'
+    circle_id: '33333333-0000-0000-0000-000000000001',
+    comments: [
+      {
+        id: 'cmt-0001',
+        content: 'Nice pace!',
+        created_at: new Date(now - 0.9 * 3600000).toISOString(),
+        parent_comment_id: null,
+        user: { id: '001', name: 'Dawit', photo_url: 'https://i.pravatar.cc/150?u=dawit' },
+        replies: [
+          {
+            id: 'cmt-0002',
+            content: 'Thanks! Trying to beat it next week.',
+            created_at: new Date(now - 0.8 * 3600000).toISOString(),
+            parent_comment_id: 'cmt-0001',
+            user: { id: '002', name: 'Meron Tadesse', photo_url: 'https://i.pravatar.cc/150?u=meron' },
+            replies: []
+          }
+        ]
+      }
+    ]
   },
   {
     id: '44444444-0000-0000-0000-000000000003',
@@ -534,13 +557,13 @@ export const MOCK_PROVIDER_STATS = {
 
 // ─── Neighbourhood Alerts ───────────────────────────
 export const NEIGHBOURHOOD_ALERTS = {
-  "Bole": "🧘 New yoga session opening in Bole this Saturday — only 3 spots left. Book now via Well Circle.",
-  "Kazanchis": "💪 Iron & Soul Gym is running a 2-for-1 day pass offer in Kazanchis this week.",
-  "Piassa": "🛁 Piassa Heritage Hammam is offering a free herbal steam add-on for all bookings today.",
-  "CMC": "🌿 Zen Flow Studio in CMC just opened evening slots — hot yoga at 7 PM starting Monday.",
-  "Sarbet": "🥗 Nourish Ethiopia is hosting a free nutrition consultation clinic in Sarbet this weekend.",
-  "Megenagna": "🥡 Green Plate Kitchen is delivering free trial meal boxes to Megenagna — order by 12 PM.",
-  "Other": "🌟 Three new wellness providers just joined Well Circle near you. Tap Explore to discover them."
+  "Bole": "New yoga session opening in Bole this Saturday — only 3 spots left. Book now via Well Circle.",
+  "Kazanchis": "Iron & Soul Gym is running a 2-for-1 day pass offer in Kazanchis this week.",
+  "Piassa": "Piassa Heritage Hammam is offering a free herbal steam add-on for all bookings today.",
+  "CMC": "Zen Flow Studio in CMC just opened evening slots — hot yoga at 7 PM starting Monday.",
+  "Sarbet": "Nourish Ethiopia is hosting a free nutrition consultation clinic in Sarbet this weekend.",
+  "Megenagna": "Green Plate Kitchen is delivering free trial meal boxes to Megenagna — order by 12 PM.",
+  "Other": "Three new wellness providers just joined Well Circle near you. Tap Explore to discover them."
 };
 
 // ─── Health Metrics (hardcoded) ─────────────────────

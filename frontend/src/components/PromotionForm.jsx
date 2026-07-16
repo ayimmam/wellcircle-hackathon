@@ -31,13 +31,13 @@ export default function PromotionForm({ onCreated }) {
         valid_until: `${validUntil}T23:59:59Z`,
         audience: firstTimeOnly ? 'first_time' : 'all',
       });
-      showToast('Promotion created! 🏷', '✅');
+      showToast('Promotion created!', 'success');
       setHeadline('');
       setDiscountPct('');
       setValidUntil('');
       onCreated?.(promo);
     } catch (err) {
-      showToast(err.message || 'Could not create promotion', '❌');
+      showToast(err.message || 'Could not create promotion', 'error');
     } finally {
       setSubmitting(false);
     }

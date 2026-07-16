@@ -9,6 +9,7 @@ import Leaderboard from '../components/Leaderboard';
 import { showToast } from '../components/Toast';
 import usePolling from '../hooks/usePolling';
 import useCheckin from '../hooks/useCheckin';
+import Icon from '../components/Icon';
 
 export default function CommunityDetail() {
   const { id } = useParams();
@@ -61,7 +62,7 @@ export default function CommunityDetail() {
       if (res.feed_event) {
         setEvents(prev => [{ ...res.feed_event, user_photo: user?.photo_url }, ...prev]);
       }
-      showToast('Welcome to the circle! 🎉', '🤝');
+      showToast('Welcome to the circle!', 'success');
       if (user) {
         setUser(prev => ({
           ...prev,
@@ -69,7 +70,7 @@ export default function CommunityDetail() {
         }));
       }
     } catch (err) {
-      showToast('Already a member', '👥');
+      showToast('Already a member');
     } finally {
       setJoining(false);
     }
@@ -79,7 +80,7 @@ export default function CommunityDetail() {
     try {
       const res = await leaveCommunity(id);
       setCommunity(prev => ({ ...prev, user_joined: false, member_count: res.member_count }));
-      showToast('Left the circle', '👋');
+      showToast('Left the circle');
       if (user) {
         setUser(prev => ({
           ...prev,
@@ -87,7 +88,7 @@ export default function CommunityDetail() {
         }));
       }
     } catch (err) {
-      showToast('Error leaving community', '❌');
+      showToast('Error leaving community', 'error');
     }
   };
 
@@ -105,7 +106,7 @@ export default function CommunityDetail() {
       }
       setChallengeRefreshKey(k => k + 1);
     } catch (err) {
-      showToast('Already checked in today', '✅');
+      showToast('Already checked in today');
       setCheckedIn(true);
     }
   };
@@ -136,7 +137,7 @@ export default function CommunityDetail() {
           </p>
         </div>
         <div className="points-chip" style={{ background: 'var(--bg-card)' }}>
-          <span>👥</span>
+          <Icon name="users" size={14} />
           <span style={{ color: 'var(--text-primary)' }}>{community.member_count}</span>
         </div>
       </div>
@@ -152,7 +153,9 @@ export default function CommunityDetail() {
               id="checkin-btn"
               style={{ flex: 2 }}
             >
-              {checkedIn ? '✅ Checked in today' : '✨ Check In Today'}
+              {checkedIn ? (
+                <span className="flex items-center justify-center gap-6"><Icon name="check" size={16} /> Checked in today</span>
+              ) : 'Check In Today'}
             </button>
             <button
               className="btn btn-secondary"
@@ -170,7 +173,7 @@ export default function CommunityDetail() {
             disabled={joining}
             id="join-btn"
           >
-            {joining ? 'Joining...' : '🤝 Join Circle'}
+            {joining ? 'Joining...' : 'Join Circle'}
           </button>
         )}
       </div>
@@ -183,16 +186,16 @@ export default function CommunityDetail() {
       {/* Tabs for Feed and Posts */}
       <div className="flex gap-8 mb-16">
         <button
-          className={`chip ${activeTab === 'feed' ? 'active' : ''}`}
+          className={`chip flex items-center gap-6 ${activeTab === 'feed' ? 'active' : ''}`}
           onClick={() => setActiveTab('feed')}
         >
-          📡 Live Feed
+          <Icon name="chart" size={14} /> Live Feed
         </button>
         <button
-          className={`chip ${activeTab === 'posts' ? 'active' : ''}`}
+          className={`chip flex items-center gap-6 ${activeTab === 'posts' ? 'active' : ''}`}
           onClick={() => setActiveTab('posts')}
         >
-          📝 Posts & Reactions
+          <Icon name="message-circle" size={14} /> Posts & Reactions
         </button>
       </div>
 
@@ -208,7 +211,7 @@ export default function CommunityDetail() {
             </div>
           ) : (
             <div className="empty-state">
-              <div className="empty-state-icon">📡</div>
+              <div className="empty-state-icon"><Icon name="chart" size={32} /></div>
               <div className="empty-state-text">No activity yet. Be the first to join!</div>
             </div>
           )}

@@ -9,7 +9,7 @@ import { track } from '../analytics';
 export function shareCircleInvite(circle, { source = 'circle_detail' } = {}) {
   const botUsername = import.meta.env.VITE_BOT_USERNAME || 'WellCircleBot';
   const link = `https://t.me/${botUsername}?startapp=circle_${circle.join_code}`;
-  const text = `Join my "${circle.name}" circle on Well Circle! 💪 ${link}`;
+  const text = `Join my "${circle.name}" circle on Well Circle! ${link}`;
   const tg = window.Telegram?.WebApp;
 
   track('circle_invite_shared', {
@@ -23,6 +23,6 @@ export function shareCircleInvite(circle, { source = 'circle_detail' } = {}) {
     return;
   }
   navigator.clipboard.writeText(link)
-    .then(() => showToast('Invite link copied!', '📋'))
-    .catch(() => showToast(link, '🔗'));
+    .then(() => showToast('Invite link copied!', 'success'))
+    .catch(() => showToast(link));
 }

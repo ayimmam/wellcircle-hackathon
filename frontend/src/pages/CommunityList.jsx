@@ -5,6 +5,7 @@ import CommunityCard from '../components/CommunityCard';
 import { showToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import Icon from '../components/Icon';
 
 export default function CommunityList() {
   const { user, setUser } = useAuth();
@@ -38,7 +39,7 @@ export default function CommunityList() {
   const handleJoin = async (id) => {
     try {
       const res = await joinCommunity(id);
-      showToast('Joined the circle! 🎉', '🤝');
+      showToast('Joined the circle!', 'success');
       setCommunities(prev => prev.map(c =>
         c.id === id ? { ...c, user_joined: true, member_count: res.member_count } : c
       ));
@@ -49,7 +50,7 @@ export default function CommunityList() {
         }));
       }
     } catch (err) {
-      showToast('Already a member', '👥');
+      showToast('Already a member');
     }
   };
   const [isPrivate, setIsPrivate] = useState(false);
@@ -58,7 +59,7 @@ export default function CommunityList() {
   const handleCreateCircle = async () => {
     if (!newCircleName.trim()) return;
     if (isPrivate && !joinCode.trim()) {
-      showToast('Please enter a join code for the private circle', '⚠️');
+      showToast('Please enter a join code for the private circle', 'error');
       return;
     }
     try {
@@ -66,10 +67,10 @@ export default function CommunityList() {
       setNewCircleName('');
       setJoinCode('');
       setIsPrivate(false);
-      showToast('Circle created!', '✨');
+      showToast('Circle created!', 'success');
       getCircles().then(res => setCircles(res.circles || []));
     } catch (err) {
-      showToast('Error creating circle', '❌');
+      showToast('Error creating circle', 'error');
     }
   };
 
@@ -164,12 +165,12 @@ export default function CommunityList() {
           {circles.map(c => (
             <div key={c.id} className="card" onClick={() => navigate(`/circle/${c.id}`)}>
               <div className="card-body">
-                <h3 style={{ fontSize: '1.1rem', marginBottom: 4 }}>
-                  {c.is_private && '🔒 '}
+                <h3 className="flex items-center gap-6" style={{ fontSize: '1.1rem', marginBottom: 4 }}>
+                  {c.is_private && <Icon name="lock" size={14} />}
                   {c.name}
                 </h3>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  👥 {c.member_count} members
+                <div className="flex items-center gap-4" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  <Icon name="users" size={12} /> {c.member_count} members
                 </div>
               </div>
             </div>
@@ -187,12 +188,12 @@ export default function CommunityList() {
               {circles.filter(c => !c.user_joined).map(c => (
                 <div key={c.id} className="card" onClick={() => navigate(`/circle/${c.id}`)}>
                   <div className="card-body">
-                    <h3 style={{ fontSize: '1.1rem', marginBottom: 4 }}>
-                      {c.is_private && '🔒 '}
-                      ⭕ {c.name}
+                    <h3 className="flex items-center gap-6" style={{ fontSize: '1.1rem', marginBottom: 4 }}>
+                      {c.is_private && <Icon name="lock" size={14} />}
+                      {c.name}
                     </h3>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      👥 {c.member_count} members
+                    <div className="flex items-center gap-4" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      <Icon name="users" size={12} /> {c.member_count} members
                     </div>
                   </div>
                 </div>
@@ -201,7 +202,7 @@ export default function CommunityList() {
           )}
           {communities.filter(c => !c.user_joined).length === 0 && circles.filter(c => !c.user_joined).length === 0 && (
             <div className="empty-state">
-              <div className="empty-state-icon">🔍</div>
+              <div className="empty-state-icon"><Icon name="search" size={32} /></div>
               <div className="empty-state-text">No circles found.</div>
             </div>
           )}
@@ -214,7 +215,7 @@ export default function CommunityList() {
         </div>
       ) : (
         <div className="empty-state">
-          <div className="empty-state-icon">{tab === 'joined' ? '🌱' : '🔍'}</div>
+          <div className="empty-state-icon"><Icon name={tab === 'joined' ? 'leaf' : 'search'} size={32} /></div>
           <div className="empty-state-text">
             {tab === 'joined' ? "You haven't joined any circles yet." : 'No circles found for this category.'}
           </div>

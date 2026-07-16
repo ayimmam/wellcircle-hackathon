@@ -53,30 +53,30 @@ describe('BookingFlow multi-day selection', () => {
     expect(document.getElementById(`date-chip-${days[1].date}`).className).toContain('active');
   });
 
-  it('order summary and Pay button total scale with the number of days', async () => {
+  it('order summary and Confirm button total scale with the number of days', async () => {
     renderBooking();
     await pickServiceAndDates(3);
     fireEvent.click(screen.getByRole('button', { name: /^next/i }));
-    await screen.findByText('Payment Method');
+    await screen.findByText('Review & Confirm');
 
     // Day Pass: 180 + 2% fee (4, rounded) = 184/day × 3 = 552
     expect(screen.getByText('Service Amount (× 3 days)')).toBeInTheDocument();
     expect(screen.getByText('ETB 540')).toBeInTheDocument(); // 180 × 3
     expect(screen.getByText('Platform Fee (2%) (× 3 days)')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /pay etb 552/i })).toBeInTheDocument();
+    expect(screen.getByText(/ETB 552/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /send booking request/i })).toBeInTheDocument();
   }, 10000);
 
   it('confirmation screen lists every selected date and the combined total', async () => {
     renderBooking();
     await pickServiceAndDates(2);
     fireEvent.click(screen.getByRole('button', { name: /^next/i }));
-    await screen.findByText('Payment Method');
-    fireEvent.click(document.getElementById('payment-telebirr'));
+    await screen.findByText('Review & Confirm');
     fireEvent.change(document.getElementById('phone-input'), { target: { value: '0911234567' } });
-    fireEvent.click(document.getElementById('pay-btn'));
+    fireEvent.click(screen.getByRole('button', { name: /send booking request/i }));
 
     await waitFor(
-      () => expect(screen.getByText('Booking Confirmed!')).toBeInTheDocument(),
+      () => expect(screen.getByText('Booking Request Sent!')).toBeInTheDocument(),
       { timeout: 5000 }
     );
     expect(screen.getByText(`${days[0].date}, ${days[1].date}`)).toBeInTheDocument();

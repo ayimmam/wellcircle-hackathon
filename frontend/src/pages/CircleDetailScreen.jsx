@@ -19,6 +19,9 @@ export default function CircleDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [joined, setJoined] = useState(false);
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'leaderboard' | 'members'
+  // Right after joining, land on Activity with a friendly intro pre-filled —
+  // one less blank-page moment for a brand-new member.
+  const [justJoined, setJustJoined] = useState(false);
 
   useEffect(() => {
     loadCircle();
@@ -33,16 +36,21 @@ export default function CircleDetailScreen() {
       const res = await getCircleLeaderboard(id);
       setLeaderboard(res.leaderboard || []);
 
-      // E1: fetch join_code (only returned for circles the user is already in)
-      // for the invite link, without disturbing the name/description source above.
+      // Fetch the real circle (name/description/member_count/join_code) from
+      // the live list — previously this only merged join_code, so a real
+      // (non-mock) circle always displayed the generic 'Circle' fallback name.
       try {
         const circlesRes = await getCircles();
         const match = (circlesRes.circles || []).find(c => c.id === id);
         if (match) {
           setJoined(Boolean(match.is_joined));
-          if (match.join_code) {
-            setCircle(prev => ({ ...prev, join_code: match.join_code }));
-          }
+          setCircle(prev => ({
+            ...prev,
+            name: match.name || prev.name,
+            description: match.description ?? prev.description,
+            member_count: match.member_count ?? prev.member_count,
+            ...(match.join_code ? { join_code: match.join_code } : {}),
+          }));
         }
       } catch { /* invite link is a bonus, not required for the page to work */ }
     } catch (err) {
@@ -65,10 +73,12 @@ export default function CircleDetailScreen() {
     try {
       await joinCircle(id, joinCode);
       setJoined(true);
-      showToast('You joined the circle!', '🎉');
+      setJustJoined(true);
+      setActiveTab('chat');
+      showToast('You joined the circle!', 'success');
       if (circle) setCircle(prev => ({ ...prev, member_count: (prev.member_count || 0) + 1 }));
     } catch (err) {
-      showToast('Error joining', '❌');
+      showToast('Error joining', 'error');
     }
   };
 
@@ -85,9 +95,9 @@ export default function CircleDetailScreen() {
   }
 
   const tabs = [
-    { key: 'chat', label: 'Chat', icon: '💬' },
-    { key: 'leaderboard', label: 'Leaderboard', icon: '🏆' },
-    { key: 'members', label: 'Members', icon: '👥' },
+    { key: 'chat', label: 'Activity', icon: 'message-circle' },
+    { key: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
+    { key: 'members', label: 'Members', icon: 'users' },
   ];
 
   return (
@@ -98,8 +108,8 @@ export default function CircleDetailScreen() {
           <Icon name="chevron-left" size={18} />
         </button>
         <div style={{ flex: 1 }}>
-          <h1 style={{ fontSize: '1.2rem', fontWeight: 800 }}>
-            {circle.is_private && '🔒 '}
+          <h1 className="flex items-center gap-6" style={{ fontSize: '1.2rem', fontWeight: 800 }}>
+            {circle.is_private && <Icon name="lock" size={16} />}
             {circle.name}
           </h1>
           <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 2 }}>
@@ -107,7 +117,7 @@ export default function CircleDetailScreen() {
           </p>
         </div>
         <div className="points-chip" style={{ background: 'var(--bg-card)' }}>
-          <span>👥</span>
+          <Icon name="users" size={14} />
           <span style={{ color: 'var(--text-primary)' }}>{circle.member_count}</span>
         </div>
       </div>
@@ -115,17 +125,17 @@ export default function CircleDetailScreen() {
       {/* Join / Joined + Invite */}
       <div className="flex gap-8 mb-16">
         {joined ? (
-          <div className="btn btn-secondary" style={{ flex: 1, cursor: 'default', opacity: 0.7 }}>
-            ✅ You're a member
+          <div className="btn btn-secondary flex items-center justify-center gap-6" style={{ flex: 1, cursor: 'default', opacity: 0.7 }}>
+            <Icon name="check" size={16} /> You're a member
           </div>
         ) : (
           <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleJoin}>
-            🤝 Join Circle
+            Join Circle
           </button>
         )}
         {joined && circle.join_code && (
-          <button className="btn btn-secondary" style={{ flex: 1 }} onClick={handleInvite}>
-            📤 Invite friends
+          <button className="btn btn-secondary flex items-center justify-center gap-6" style={{ flex: 1 }} onClick={handleInvite}>
+            <Icon name="send" size={15} /> Invite friends
           </button>
         )}
       </div>
@@ -135,20 +145,26 @@ export default function CircleDetailScreen() {
         {tabs.map(t => (
           <button
             key={t.key}
-            className={`chip ${activeTab === t.key ? 'active' : ''}`}
+            className={`chip flex items-center gap-6 ${activeTab === t.key ? 'active' : ''}`}
             onClick={() => setActiveTab(t.key)}
           >
-            {t.icon} {t.label}
+            <Icon name={t.icon} size={14} /> {t.label}
           </button>
         ))}
       </div>
 
       {/* Tab Content */}
       {activeTab === 'chat' && (
-        joined ? <PostFeed circleId={id} /> : (
+        joined ? (
+          <PostFeed
+            circleId={id}
+            initialDraft={justJoined ? `Hi I'm ${user?.name?.split(' ')[0] || 'there'}, I'm glad to join you guys!` : undefined}
+            onDraftConsumed={() => setJustJoined(false)}
+          />
+        ) : (
           <div className="card">
             <div className="card-body text-center" style={{ padding: '32px 16px' }}>
-              <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🔒</div>
+              <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><Icon name="lock" size={40} /></div>
               <h3 className="card-title mb-8">Join to participate</h3>
               <p className="text-secondary text-sm">You need to join this circle to view and participate in the chat.</p>
             </div>
@@ -181,7 +197,7 @@ export default function CircleDetailScreen() {
                     <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', background: '#ccc' }}>
                       {member.photo_url
                         ? <img src={member.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>👤</span>
+                        : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Icon name="user" size={16} /></span>
                       }
                     </div>
                     <div style={{ flex: 1 }}>
@@ -197,7 +213,7 @@ export default function CircleDetailScreen() {
             </div>
           ) : (
             <div className="empty-state">
-              <div className="empty-state-icon">🏆</div>
+              <div className="empty-state-icon"><Icon name="trophy" size={32} /></div>
               <div className="empty-state-text">No leaderboard yet. Start checking in!</div>
             </div>
           )}
@@ -212,13 +228,13 @@ export default function CircleDetailScreen() {
                 <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: '#ccc' }}>
                   {member.photo_url
                     ? <img src={member.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>👤</span>
+                    : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Icon name="user" size={18} /></span>
                   }
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{member.name}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                    🌿 {member.total_points} Legacy Points
+                  <div className="flex items-center gap-4" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    <Icon name="leaf" size={12} /> {member.total_points} Legacy Points
                   </div>
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--brand-primary)', fontWeight: 600 }}>
@@ -228,7 +244,7 @@ export default function CircleDetailScreen() {
             </div>
           )) : (
             <div className="empty-state">
-              <div className="empty-state-icon">👥</div>
+              <div className="empty-state-icon"><Icon name="users" size={32} /></div>
               <div className="empty-state-text">No members to show yet.</div>
             </div>
           )}

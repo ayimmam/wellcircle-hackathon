@@ -41,7 +41,7 @@ export default function AdminProviders() {
       setActive(a.providers || []);
       setRejected(r.providers || []);
     } catch (err) {
-      showToast(err.message, '❌');
+      showToast(err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -52,10 +52,10 @@ export default function AdminProviders() {
   const handleApprove = async (id) => {
     try {
       await approveProvider(id);
-      showToast('Provider approved', '✅');
+      showToast('Provider approved', 'success');
       setSelected(null);
       load();
-    } catch (err) { showToast(err.message, '❌'); }
+    } catch (err) { showToast(err.message, 'error'); }
   };
 
   const handleReject = async (id) => {
@@ -63,10 +63,10 @@ export default function AdminProviders() {
     if (!reason) return;
     try {
       await rejectProvider(id, reason);
-      showToast('Provider rejected', '✅');
+      showToast('Provider rejected', 'success');
       setSelected(null);
       load();
-    } catch (err) { showToast(err.message, '❌'); }
+    } catch (err) { showToast(err.message, 'error'); }
   };
 
   const handlePromote = async (e) => {
@@ -82,10 +82,10 @@ export default function AdminProviders() {
           lng: promoteForm.lng ? parseFloat(promoteForm.lng) : null,
         }
       });
-      showToast('Provider created', '✅');
+      showToast('Provider created', 'success');
       setShowAdd(false);
       load();
-    } catch (err) { showToast(err.message, '❌'); }
+    } catch (err) { showToast(err.message, 'error'); }
   };
 
   const handleGenerateInvite = async () => {
@@ -93,9 +93,9 @@ export default function AdminProviders() {
     try {
       const res = await generateInviteCode(30);
       setInviteCode(res);
-      showToast('Invite code generated', '✅');
+      showToast('Invite code generated', 'success');
     } catch (err) {
-      showToast(err.message, '❌');
+      showToast(err.message, 'error');
     } finally {
       setGeneratingInvite(false);
     }
@@ -105,9 +105,9 @@ export default function AdminProviders() {
     if (!inviteCode?.invite_code) return;
     try {
       await navigator.clipboard.writeText(inviteCode.invite_code);
-      showToast('Copied to clipboard', '📋');
+      showToast('Copied to clipboard', 'success');
     } catch {
-      showToast(inviteCode.invite_code, '📋');
+      showToast(inviteCode.invite_code);
     }
   };
 

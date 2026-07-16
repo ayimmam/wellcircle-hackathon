@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import useCheckin from '../hooks/useCheckin';
 import { showToast } from './Toast';
 import { track } from '../analytics';
+import Icon from './Icon';
 
 /**
  * Daily check-in card on Home — the habit-loop trigger. Check-in used to live
@@ -40,7 +41,7 @@ export default function CheckinCard({ circles, onChecked }) {
       setCheckedIds(prev => new Set([...prev, id]));
       onChecked?.(id);
     } catch {
-      showToast('Already checked in today', '✅');
+      showToast('Already checked in today');
       setCheckedIds(prev => new Set([...prev, id]));
       onChecked?.(id);
     } finally {
@@ -50,10 +51,11 @@ export default function CheckinCard({ circles, onChecked }) {
 
   return (
     <div className="card mb-24" style={{ padding: 16 }} id="home-checkin-card">
-      <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 10 }}>
+      <div className="flex items-center gap-6" style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 10 }}>
+        {streak === 0 ? <Icon name="star" size={15} /> : <span>🔥</span>}
         {streak === 0
-          ? '✨ Start your streak — daily check-ins earn +10 pts'
-          : `🔥 Keep your ${streak}-day streak going`}
+          ? 'Start your streak — daily check-ins earn +10 pts'
+          : `Keep your ${streak}-day streak going`}
       </div>
       <div className="flex-col gap-8">
         {list.map(c => {
@@ -69,7 +71,9 @@ export default function CheckinCard({ circles, onChecked }) {
                 onClick={() => handleCheckin(c.id)}
                 id={`home-checkin-${c.id}`}
               >
-                {done ? '✓ Checked in' : busyId === c.id ? '…' : 'Check in +10'}
+                {done ? (
+                  <span className="flex items-center gap-4"><Icon name="check" size={13} /> Checked in</span>
+                ) : busyId === c.id ? '…' : 'Check in +10'}
               </button>
             </div>
           );

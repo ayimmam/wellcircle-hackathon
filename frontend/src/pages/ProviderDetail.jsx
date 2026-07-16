@@ -51,9 +51,9 @@ export default function ProviderDetail() {
         ...prev,
         community: { ...prev.community, user_joined: true, member_count: res.member_count }
       }));
-      showToast('Joined the circle! 🎉', '🤝');
+      showToast('Joined the circle!', 'success');
     } catch (err) {
-      showToast('Already a member', '👥');
+      showToast('Already a member');
     }
   };
 
@@ -112,8 +112,8 @@ export default function ProviderDetail() {
       {provider.active_promotion && (
         <div className="card" style={{ marginBottom: 16, border: '1px solid var(--accent)' }} id="promo-banner">
           <div className="card-body" style={{ padding: '12px 14px' }}>
-            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
-              🏷 {provider.active_promotion.headline}
+            <div className="inline-icon-text" style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+              <Icon name="ticket" size={14} /> {provider.active_promotion.headline}
             </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 4 }}>
               {expiryLabel(provider.active_promotion.valid_until) && (

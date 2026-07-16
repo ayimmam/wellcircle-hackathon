@@ -65,11 +65,11 @@ export default function ProviderOnboard() {
 
   const next = () => {
     if (step === 0 && !form.provider_invite_code.trim()) {
-      showToast('Enter your invite code', '⚠️');
+      showToast('Enter your invite code', 'error');
       return;
     }
     if (step === 1 && (!form.name || !form.location_text)) {
-      showToast('Fill in required fields', '⚠️');
+      showToast('Fill in required fields', 'error');
       return;
     }
     setStep(s => s + 1);
@@ -77,7 +77,7 @@ export default function ProviderOnboard() {
 
   const submit = async () => {
     if (!form.terms || !form.guidelines) {
-      showToast('Please accept terms and guidelines', '⚠️');
+      showToast('Please accept terms and guidelines', 'error');
       return;
     }
     setSubmitting(true);
@@ -105,7 +105,7 @@ export default function ProviderOnboard() {
       }
       setDone(true);
     } catch (err) {
-      showToast(err.message, '❌');
+      showToast(err.message, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -189,7 +189,7 @@ export default function ProviderOnboard() {
           
           <div className="card card-warning mt-16">
             <div className="card-body">
-              <h4 className="font-bold mb-4 text-sm card-warning-title">Boost your visibility! 🚀</h4>
+              <h4 className="font-bold mb-4 text-sm card-warning-title">Boost your visibility</h4>
               <p className="text-xs text-secondary mb-8">Subscribe to a premium plan to be featured on the Explore page and boost your upcoming events.</p>
               <select className="input" value={form.subscription_plan} onChange={e => update('subscription_plan', e.target.value)}>
                 <option value="starter">Starter — 500 ETB/mo</option>

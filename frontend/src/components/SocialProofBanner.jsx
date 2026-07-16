@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getCircleSocialProof } from '../api/client';
+import Icon from './Icon';
 
 /**
  * E2: social proof surface — "circle-mates checked in today" reuses existing
@@ -20,7 +21,7 @@ export default function SocialProofBanner() {
 
   return (
     <div className="alert-banner mb-24" id="social-proof-banner" style={{ background: 'var(--bg-elevated)' }}>
-      <span className="alert-banner-icon">🔥</span>
+      <span className="alert-banner-icon"><Icon name="users" size={16} /></span>
       <span className="alert-banner-text">
         {count} circle-mate{count === 1 ? '' : 's'} checked in today
       </span>

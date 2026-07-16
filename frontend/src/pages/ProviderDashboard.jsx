@@ -11,6 +11,7 @@ import PromotionForm from '../components/PromotionForm';
 import { showToast } from '../components/Toast';
 import usePolling from '../hooks/usePolling';
 import { track } from '../analytics';
+import Icon from '../components/Icon';
 
 const PROVIDER_DAILY_AWARD_CAP = 300; // mirrors backend PROVIDER_AWARD_MAX_POINTS_PER_DAY
 
@@ -79,7 +80,7 @@ export default function ProviderDashboard() {
       })
       .catch(err => {
         setError(err.message || 'Could not load provider dashboard');
-        showToast(err.message || 'Could not load provider dashboard', '❌');
+        showToast(err.message || 'Could not load provider dashboard', 'error');
       })
       .finally(() => setLoading(false));
   }, []);
@@ -88,12 +89,12 @@ export default function ProviderDashboard() {
     setAwardingId(customerId);
     try {
       const res = await awardCustomerPoints(customerId, points, 'Provider appreciation award');
-      showToast(`+${points} pts awarded! 🎉`, '✅');
+      showToast(`+${points} pts awarded!`, 'success');
       setCustomers(prev => prev.map(c =>
         c.user_id === customerId ? { ...c, points_balance: res.customer_new_balance } : c
       ));
     } catch (err) {
-      showToast(err.message, '❌');
+      showToast(err.message, 'error');
     } finally {
       setAwardingId(null);
     }
@@ -117,7 +118,7 @@ export default function ProviderDashboard() {
     try {
       const st = await getSubscriptionStatus(subPollId);
       if (st.status === 'active' || st.status === 'success') {
-        showToast('Subscription active!', '✅');
+        showToast('Subscription active!', 'success');
         setSubPollId(null);
         return;
       }
@@ -143,7 +144,7 @@ export default function ProviderDashboard() {
       <div className="page">
         <button className="btn btn-icon btn-secondary mb-16" onClick={() => navigate(-1)}>←</button>
         <div className="empty-state">
-          <div className="empty-state-icon">📊</div>
+          <div className="empty-state-icon"><Icon name="chart" size={32} /></div>
           <div className="empty-state-text">{error || 'Unable to load provider dashboard'}</div>
           <p className="text-sm text-secondary mt-8">Provider access is required. Apply via Become Provider or ask an admin to approve your account.</p>
           <button className="btn btn-primary mt-16" onClick={() => navigate('/provider-onboard')}>Become a Provider</button>
@@ -163,7 +164,10 @@ export default function ProviderDashboard() {
           <h1 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{stats.provider_name}</h1>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Provider Dashboard</p>
         </div>
-        <span style={{ fontSize: '0.72rem', color: 'var(--accent)' }}>🟢 Live</span>
+        <span className="flex items-center gap-4" style={{ fontSize: '0.72rem', color: 'var(--accent)' }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }} />
+          Live
+        </span>
       </div>
 
       <div className="admin-subtabs mb-16" style={{ overflowX: 'auto', whiteSpace: 'nowrap', display: 'flex', gap: '8px' }}>
@@ -234,7 +238,7 @@ export default function ProviderDashboard() {
                       style={{ alignSelf: 'flex-start' }}
                       onClick={() => setNewProduct(p => ({ ...p, price_etb: String(priceSuggestion.median) }))}
                     >
-                      💡 {priceSuggestion.suggestion_text}
+                      {priceSuggestion.suggestion_text}
                     </button>
                   )}
                   <input className="input" type="number" placeholder="Stock" value={newProduct.quantity_in_stock} onChange={e => setNewProduct(p => ({ ...p, quantity_in_stock: e.target.value }))} />
@@ -246,11 +250,11 @@ export default function ProviderDashboard() {
                         price_etb: parseInt(newProduct.price_etb, 10),
                         quantity_in_stock: parseInt(newProduct.quantity_in_stock, 10),
                       });
-                      showToast('Product created', '✅');
+                      showToast('Product created', 'success');
                       setShowCreate(false);
                       const p = await getProviderProducts();
                       setProducts(p.products || []);
-                    } catch (err) { showToast(err.message, '❌'); }
+                    } catch (err) { showToast(err.message, 'error'); }
                   }}>Create</button>
                 </div>
               </div>
@@ -280,11 +284,11 @@ export default function ProviderDashboard() {
                       spots_remaining: parseInt(spots),
                       staff_user_id: staffId || null,
                     });
-                    showToast('Inventory updated', '✅');
+                    showToast('Inventory updated', 'success');
                     setIsEditing(false);
                     const ev = await getProviderEvents(providerId);
                     setEvents(ev.events || []);
-                  } catch (err) { showToast(err.message, '❌'); }
+                  } catch (err) { showToast(err.message, 'error'); }
                 };
 
                 return (
@@ -324,10 +328,10 @@ export default function ProviderDashboard() {
                           <button className="btn btn-secondary btn-sm" onClick={async () => {
                             try {
                               await updateProviderEvent(event.id, { is_cancelled: true });
-                              showToast('Event cancelled', '✅');
+                              showToast('Event cancelled', 'success');
                               const ev = await getProviderEvents(providerId);
                               setEvents(ev.events || []);
-                            } catch (err) { showToast(err.message, '❌'); }
+                            } catch (err) { showToast(err.message, 'error'); }
                           }}>Cancel Session</button>
                         )}
                         <span className={`badge ${event.is_cancelled ? 'badge-muted' : 'badge-success'}`}>{event.is_cancelled ? 'Cancelled' : 'Active'}</span>
@@ -341,7 +345,7 @@ export default function ProviderDashboard() {
           </div>
 
           <div className="p-16 border rounded-xl bg-accent-light mt-16 mb-24" style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', borderWidth: '1px', borderStyle: 'solid' }}>
-            <h3 className="font-bold text-lg mb-8" style={{ color: '#166534' }}>🚀 Boost Your Event</h3>
+            <h3 className="font-bold text-lg mb-8" style={{ color: '#166534' }}>Boost Your Event</h3>
             <p className="text-sm mb-16" style={{ color: '#15803d' }}>Pay 50 ETB via Telebirr to pin your wellness event to the Featured carousel for 48 hours.</p>
             
             <select className="input mb-12" id="boost-event-select" style={{ width: '100%' }}>
@@ -356,11 +360,11 @@ export default function ProviderDashboard() {
                 if (!sel.value) return;
                 try {
                   // Mock payment simulation targeting provider_promotions
-                  showToast('Processing Telebirr...', '⏳');
+                  showToast('Processing Telebirr...');
                   await new Promise(r => setTimeout(r, 1000));
-                  showToast('Payment Successful! Event pinned to consumer Explore feed.', '🚀');
+                  showToast('Payment successful! Event pinned to consumer Explore feed.', 'success');
                 } catch (e) {
-                  showToast('Error boosting event', '❌');
+                  showToast('Error boosting event', 'error');
                 }
               }}
             >
@@ -398,11 +402,11 @@ export default function ProviderDashboard() {
                         price_etb: newEvent.price_etb,
                         staff_user_id: newEvent.staff_user_id || null,
                       });
-                      showToast('Event created', '✅');
+                      showToast('Event created', 'success');
                       setShowCreateEvent(false);
                       const ev = await getProviderEvents(providerId);
                       setEvents(ev.events || []);
-                    } catch (err) { showToast(err.message, '❌'); }
+                    } catch (err) { showToast(err.message, 'error'); }
                   }}>Create</button>
                 </div>
               </div>
@@ -422,7 +426,7 @@ export default function ProviderDashboard() {
                   <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', background: '#ccc', flexShrink: 0 }}>
                     {c.photo_url
                       ? <img src={c.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>👤</span>}
+                      : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Icon name="user" size={16} /></span>}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{c.name}</div>
@@ -435,14 +439,14 @@ export default function ProviderDashboard() {
                     disabled={awardingId === c.user_id}
                     onClick={() => handleAward(c.user_id, 25)}
                   >
-                    {awardingId === c.user_id ? '…' : '🎁 +25 pts'}
+                    {awardingId === c.user_id ? '…' : <span className="inline-icon-text"><Icon name="coins" size={13} /> +25 pts</span>}
                   </button>
                 </div>
               </div>
             ))}
             {customers.length === 0 && (
               <div className="empty-state">
-                <div className="empty-state-icon">👥</div>
+                <div className="empty-state-icon"><Icon name="users" size={32} /></div>
                 <div className="empty-state-text">No customers yet — bookings and community check-ins will show up here.</div>
               </div>
             )}
@@ -485,8 +489,8 @@ export default function ProviderDashboard() {
                   <div className="flex items-center justify-between">
                     <h3 className="card-title text-sm">{p.name}</h3>
                     {isPopular && (
-                      <span className="category-badge" style={{ background: 'var(--accent)' }} id="most-popular-plan">
-                        ⭐ Most popular
+                      <span className="category-badge inline-icon-text" style={{ background: 'var(--accent)' }} id="most-popular-plan">
+                        <Icon name="star" size={12} /> Most popular
                       </span>
                     )}
                   </div>
@@ -534,8 +538,8 @@ export default function ProviderDashboard() {
                       setSubPollId(res.subscription_id);
                       setSubPollStartedAt(Date.now());
                     }
-                    if (!res.to_pay_url) showToast('Subscription successful', '✅');
-                  } catch (err) { showToast(err.message, '❌'); }
+                    if (!res.to_pay_url) showToast('Subscription successful', 'success');
+                  } catch (err) { showToast(err.message, 'error'); }
                 }}>
                   Subscribe Now
                 </button>
@@ -631,8 +635,8 @@ export default function ProviderDashboard() {
                   <div className="flex justify-between items-center">
                     <div>
                       <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{c.name}</div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
-                        👥 {c.member_count} · ✅ {c.checkins_today} check-ins · {Math.round(c.engagement_rate * 100)}% engagement
+                      <div className="flex items-center gap-4" style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
+                        <Icon name="users" size={12} /> {c.member_count} · <Icon name="check" size={12} /> {c.checkins_today} check-ins · {Math.round(c.engagement_rate * 100)}% engagement
                       </div>
                     </div>
                     <button className="btn btn-secondary btn-sm" onClick={() => setShowCreateChallenge(c.id)}>+ Challenge</button>
@@ -662,9 +666,9 @@ export default function ProviderDashboard() {
                         starts_at: new Date(newChallenge.starts_at).toISOString(),
                         ends_at: new Date(newChallenge.ends_at).toISOString(),
                       });
-                      showToast('Challenge created', '✅');
+                      showToast('Challenge created', 'success');
                       setShowCreateChallenge(null);
-                    } catch (err) { showToast(err.message, '❌'); }
+                    } catch (err) { showToast(err.message, 'error'); }
                   }}>Create</button>
                 </div>
               </div>
@@ -678,7 +682,10 @@ export default function ProviderDashboard() {
         <>
           <div className="section-header">
             <h2 className="section-title">Live Activity</h2>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>🟢 Real-time</span>
+            <span className="flex items-center gap-4" style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }} />
+              Real-time
+            </span>
           </div>
           <div className="feed mb-24">
             {stats.recent_feed.map(event => (

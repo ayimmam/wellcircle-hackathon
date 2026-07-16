@@ -1,3 +1,5 @@
+import Icon from './Icon';
+
 export default function FeedEvent({ event }) {
   const timeAgo = getTimeAgo(event.created_at);
 
@@ -14,9 +16,9 @@ export default function FeedEvent({ event }) {
   };
 
   const typeIcon = {
-    join: '🤝',
-    checkin: '✅',
-    booking: '📅'
+    join: 'users',
+    checkin: 'check',
+    booking: 'calendar'
   };
 
   return (
@@ -32,7 +34,7 @@ export default function FeedEvent({ event }) {
         <div className="feed-action">{actionText[event.event_type] || event.event_type}</div>
         <div className="feed-time">{timeAgo}</div>
       </div>
-      <span className="feed-type-icon">{typeIcon[event.event_type] || '📌'}</span>
+      <span className="feed-type-icon"><Icon name={typeIcon[event.event_type] || 'map-pin'} size={16} /></span>
     </div>
   );
 }

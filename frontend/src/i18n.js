@@ -85,7 +85,16 @@ const resources = {
       "Neighborhood": "Neighborhood",
       "City": "City",
       "Cancel": "Cancel",
-      "Redeem Points": "Redeem Points"
+      "Redeem Points": "Redeem Points",
+      "You only pay after using the service — no upfront payment.": "You only pay after using the service — no upfront payment.",
+      "Review & Confirm": "Review & Confirm",
+      "No payment now. Our team will call you to confirm, and you pay {{name}} directly then.": "No payment now. Our team will call you to confirm, and you pay {{name}} directly then.",
+      "Contact Phone Number": "Contact Phone Number",
+      "Send Booking Request": "Send Booking Request",
+      "Total (pay on-site)": "Total (pay on-site)",
+      "Confirm": "Confirm",
+      "Booking Request Sent!": "Booking Request Sent!",
+      "Our team will call you at {{phone}} to confirm your slot. No payment is needed now — you'll pay {{name}} directly once it's confirmed.": "Our team will call you at {{phone}} to confirm your slot. No payment is needed now — you'll pay {{name}} directly once it's confirmed."
     }
   },
   am: {

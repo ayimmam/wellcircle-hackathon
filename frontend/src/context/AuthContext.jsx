@@ -89,10 +89,10 @@ export function AuthProvider({ children }) {
     const joinCode = startParam.slice('circle_'.length);
     try {
       const res = await joinCircleByCode(joinCode);
-      showToast(`Joined ${res.name || 'circle'}! 🎉`, '🤝');
+      showToast(`Joined ${res.name || 'circle'}!`, 'success');
       navigate(`/circle/${res.id}`);
     } catch {
-      showToast('Invalid or expired invite link', '❌');
+      showToast('Invalid or expired invite link', 'error');
     }
   }, [navigate]);
 

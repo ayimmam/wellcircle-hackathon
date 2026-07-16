@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import Icon from './Icon';
 
 /**
  * Catches render-time crashes anywhere below it so a single broken screen
@@ -30,7 +31,7 @@ export default class ErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <div className="error-boundary" role="alert" style={fallbackStyle}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🌿</div>
+          <div style={{ marginBottom: 12 }}><Icon name="leaf" size={40} /></div>
           <h2 style={{ margin: '0 0 8px', fontSize: 18 }}>Something went wrong</h2>
           <p style={{ margin: '0 0 20px', color: 'var(--text-muted, #6b7280)', maxWidth: 280 }}>
             We hit a snag loading this screen. Please try again.

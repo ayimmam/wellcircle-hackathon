@@ -5,6 +5,7 @@ import { getProduct, redeemProduct } from '../api/client';
 import { showToast } from '../components/Toast';
 import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
+import Icon from '../components/Icon';
 
 export default function ProductRedeem() {
   const { id } = useParams();
@@ -32,7 +33,7 @@ export default function ProductRedeem() {
     if (insufficient) return;
     if (product.shipping_required) {
       if (!address.line1 || !address.fullName) {
-        showToast('Please fill in delivery address', '⚠️');
+        showToast('Please fill in delivery address', 'error');
         return;
       }
     }
@@ -46,7 +47,7 @@ export default function ProductRedeem() {
       setResult(res);
       refreshUser();
     } catch (err) {
-      showToast(err.message, '❌');
+      showToast(err.message, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -55,7 +56,7 @@ export default function ProductRedeem() {
   const copyCode = () => {
     if (result?.redemption_code) {
       navigator.clipboard.writeText(result.redemption_code);
-      showToast('Copied to clipboard', '✅');
+      showToast('Copied to clipboard', 'success');
     }
   };
 
@@ -72,7 +73,7 @@ export default function ProductRedeem() {
                 <button className="btn btn-secondary btn-sm mt-8" onClick={copyCode}>{t('Copy to Clipboard')}</button>
               </div>
             )}
-            <p className="mt-16">{t('New Balance:')} <strong>{result.details.new_balance} {t('pts')} 🌿</strong></p>
+            <p className="mt-16">{t('New Balance:')} <strong className="inline-icon-text">{result.details.new_balance} {t('pts')} <Icon name="leaf" size={13} /></strong></p>
             {result.details.provider_instructions && (
               <p className="text-sm text-secondary mt-12">{result.details.provider_instructions}</p>
             )}
@@ -94,8 +95,8 @@ export default function ProductRedeem() {
       <div className="card mb-16">
         <div className="card-body">
           <p><strong>{t('Product:')}</strong> {product.name}</p>
-          <p><strong>{t('Cost:')}</strong> {product.price_etb} {t('pts')} 🌿</p>
-          <p><strong>{t('Your Balance:')}</strong> {balance} {t('pts')} 🌿</p>
+          <p className="inline-icon-text"><strong>{t('Cost:')}</strong> {product.price_etb} {t('pts')} <Icon name="leaf" size={13} /></p>
+          <p className="inline-icon-text"><strong>{t('Your Balance:')}</strong> {balance} {t('pts')} <Icon name="leaf" size={13} /></p>
         </div>
       </div>
 

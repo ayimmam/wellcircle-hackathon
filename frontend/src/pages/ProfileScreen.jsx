@@ -52,16 +52,16 @@ export default function ProfileScreen() {
 
   const handleNeighbourhoodSelect = async (neighbourhood) => {
     if (user?.location_neighborhood === neighbourhood) {
-      showToast('Already changed', 'ℹ️');
+      showToast('Already changed');
       setShowNeighbourhoodSheet(false);
       return;
     }
     try {
       await updateProfile({ location_neighborhood: neighbourhood });
-      showToast(`Location set to ${neighbourhood}! 📍`, '✅');
+      showToast(`Location set to ${neighbourhood}!`, 'success');
       setShowNeighbourhoodSheet(false);
     } catch (err) {
-      showToast('Failed to update', '❌');
+      showToast('Failed to update', 'error');
     }
   };
 
@@ -70,7 +70,7 @@ export default function ProfileScreen() {
     setHealthConnected(newState);
     try {
       await updateProfile({ health_app_connected: newState });
-      showToast(newState ? 'Health app connected! 💚' : 'Health app disconnected', newState ? '✅' : '📴');
+      showToast(newState ? 'Health app connected!' : 'Health app disconnected', newState ? 'success' : undefined);
     } catch (err) {
       // Still update locally per PRD — frontend state is source of truth
     }
@@ -137,8 +137,8 @@ export default function ProfileScreen() {
                 style={i === Math.min(4, pointsHistory.items.length - 1) ? { borderBottom: 'none' } : {}}
               >
                 <div>
-                  <span style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>
-                    {item.action === 'checkin' ? '✅ Check-in' : item.action === 'decay' ? '📉 Decay' : item.action}
+                  <span className="inline-icon-text" style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                    {item.action === 'checkin' ? <><Icon name="check" size={13} /> Check-in</> : item.action === 'decay' ? <><Icon name="chart" size={13} /> Decay</> : item.action}
                   </span>
                   {item.community_name && (
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginLeft: 8 }}>
@@ -302,7 +302,7 @@ export default function ProfileScreen() {
           onClick={() => navigate('/products')} 
           id="redeem-btn"
         >
-          🎁 {t('Redeem Points')}
+          <Icon name="ticket" size={16} /> {t('Redeem Points')}
         </button>
       </div>
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getProduct } from '../api/client';
+import Icon from '../components/Icon';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -33,9 +34,9 @@ export default function ProductDetail() {
 
       <h1 className="section-title">{product.name}</h1>
       <p className="text-secondary mb-8">
-        {product.provider?.name} • ★ {product.provider?.rating || '—'} • {product.provider?.location_text}
+        {product.provider?.name} • <span className="inline-icon-text"><Icon name="star" size={13} /> {product.provider?.rating || '—'}</span> • {product.provider?.location_text}
       </p>
-      <p className="product-price-lg mb-16">{product.price_etb} Legacy Points 🌿</p>
+      <p className="product-price-lg mb-16 inline-icon-text">{product.price_etb} Legacy Points <Icon name="leaf" size={16} /></p>
 
       <div className="card mb-16">
         <div className="card-body">

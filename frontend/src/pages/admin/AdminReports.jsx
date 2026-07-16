@@ -31,7 +31,7 @@ function downloadCsv(filename, headers, rows) {
 export default function AdminReports() {
   const handleExport = async (id) => {
     if (id === 'pdf') {
-      showToast('PDF report generation coming soon', '📄');
+      showToast('PDF report generation coming soon');
       return;
     }
 
@@ -65,9 +65,9 @@ export default function AdminReports() {
           (res.redemptions || []).map(r => [r.id, r.user_name, r.product_name, r.provider_name, r.points_spent, r.type, r.delivery_status, r.redemption_code, r.redeemed_at]),
         );
       }
-      showToast(`${id} CSV downloaded`, '✅');
+      showToast(`${id} CSV downloaded`, 'success');
     } catch (err) {
-      showToast(err.message || 'Export failed', '❌');
+      showToast(err.message || 'Export failed', 'error');
     }
   };
 

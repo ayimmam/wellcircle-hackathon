@@ -30,6 +30,8 @@ export default function MyBookings() {
 
 
 
+  const STATUS_LABELS = { success: 'Confirmed', pending: 'Pending', failed: 'Failed' };
+
   const BookingItem = ({ b, isUpcoming }) => {
     let statusColor = 'var(--text-secondary)';
     if (b.payment_status === 'success') statusColor = '#10b981'; // green
@@ -45,7 +47,7 @@ export default function MyBookings() {
           <div style={{ textAlign: 'right' }}>
             {isUpcoming && <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '4px 8px', borderRadius: '4px', background: 'var(--accent)', color: '#fff', display: 'inline-block', marginBottom: '4px', fontFamily: 'monospace' }}>#{b.id.split('-')[0].toUpperCase()}</span>}
             <div style={{ fontSize: '0.75rem', fontWeight: 600, color: statusColor, textTransform: 'uppercase' }}>
-              {b.payment_status}
+              {STATUS_LABELS[b.payment_status] || b.payment_status}
             </div>
           </div>
         </div>

@@ -21,7 +21,7 @@ export default function AdminProducts() {
       const res = await getAdminProducts({ search: search || undefined, status });
       setProducts(res.products || []);
     } catch (err) {
-      showToast(err.message, '❌');
+      showToast(err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -36,7 +36,7 @@ export default function AdminProducts() {
       });
       setRedemptions(res.redemptions || []);
     } catch (err) {
-      showToast(err.message, '❌');
+      showToast(err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -50,18 +50,18 @@ export default function AdminProducts() {
   const saveStock = async () => {
     try {
       await updateProductStock(stockModal.id, parseInt(newStock, 10));
-      showToast('Stock updated', '✅');
+      showToast('Stock updated', 'success');
       setStockModal(null);
       loadProducts();
-    } catch (err) { showToast(err.message, '❌'); }
+    } catch (err) { showToast(err.message, 'error'); }
   };
 
   const handleStatusUpdate = async (id, newStatus) => {
     try {
       await updateRedemptionStatus(id, newStatus);
-      showToast(`Status updated to ${newStatus}`, '✅');
+      showToast(`Status updated to ${newStatus}`, 'success');
       loadRedemptions();
-    } catch (err) { showToast(err.message, '❌'); }
+    } catch (err) { showToast(err.message, 'error'); }
   };
 
   return (

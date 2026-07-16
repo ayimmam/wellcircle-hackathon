@@ -41,7 +41,9 @@ export default function WelcomeBanner({ user, providers }) {
     <div className="card mb-24" style={{ border: '1px solid var(--accent)' }} id="welcome-banner">
       <div className="card-body" style={{ padding: '14px 16px' }}>
         <div className="flex items-center justify-between">
-          <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>🎉 Your plan is set</span>
+          <span className="flex items-center gap-6" style={{ fontWeight: 800, fontSize: '0.95rem' }}>
+            <Icon name="check" size={15} /> Your plan is set
+          </span>
           <button
             className="alert-banner-close"
             onClick={() => setDismissed(true)}
@@ -67,7 +69,7 @@ export default function WelcomeBanner({ user, providers }) {
             onClick={() => navigate(`/provider/${giftProvider.id}`)}
             id="welcome-gift-card"
           >
-            <span style={{ fontSize: '1.3rem' }}>🎁</span>
+            <Icon name="ticket" size={20} />
             <span style={{ flex: 1 }}>
               <span style={{ display: 'block', fontWeight: 700, fontSize: '0.85rem' }}>
                 Welcome gift: {promo.discount_pct}% off at {giftProvider.name}

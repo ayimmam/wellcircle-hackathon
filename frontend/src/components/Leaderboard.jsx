@@ -23,10 +23,10 @@ const Leaderboard = ({ communityId }) => {
   const handleInteraction = async (targetUserId, actionType) => {
     try {
       await createInteraction(communityId, targetUserId, actionType);
-      showToast(`Sent a ${actionType}!`, '🎉');
+      showToast(`Sent a ${actionType}!`, 'success');
     } catch (err) {
       console.error(err);
-      showToast(`Failed to send ${actionType}`, '❌');
+      showToast(`Failed to send ${actionType}`, 'error');
     }
   };
 

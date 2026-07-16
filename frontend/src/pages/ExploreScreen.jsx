@@ -125,8 +125,8 @@ export default function ExploreScreen() {
                 }}>
                   <div style={{ fontSize: '1.05rem', fontWeight: 700 }}>{p.name}</div>
                   {p.active_promotion && (
-                    <div style={{ fontSize: '0.72rem', color: 'var(--accent-light)', marginTop: 4 }}>
-                      🏷 {p.active_promotion.headline}
+                    <div className="flex items-center gap-4" style={{ fontSize: '0.72rem', color: 'var(--accent-light)', marginTop: 4 }}>
+                      <Icon name="ticket" size={12} /> {p.active_promotion.headline}
                     </div>
                   )}
                 </div>

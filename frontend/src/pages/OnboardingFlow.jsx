@@ -81,9 +81,9 @@ export default function OnboardingFlow() {
       const res = await joinCircle(circle.id);
       setCommittedCircle({ id: circle.id, name: circle.name, join_code: res.join_code });
       track('circle_joined', { circle_id: circle.id, source: 'onboarding' });
-      showToast(`Joined ${circle.name}! 🎉`, '🤝');
+      showToast(`Joined ${circle.name}!`, 'success');
     } catch {
-      showToast('Could not join circle', '❌');
+      showToast('Could not join circle', 'error');
     } finally {
       setJoiningCircleId(null);
     }
@@ -96,10 +96,10 @@ export default function OnboardingFlow() {
       const res = await createCircle({ name: newCircleName.trim() });
       setCommittedCircle({ id: res.id, name: res.name, join_code: res.join_code });
       track('circle_created', { source: 'onboarding' });
-      showToast(`"${res.name}" created! ✨`, '✨');
+      showToast(`"${res.name}" created!`, 'success');
       setNewCircleName('');
     } catch {
-      showToast('Could not create circle', '❌');
+      showToast('Could not create circle', 'error');
     } finally {
       setCreatingCircle(false);
     }

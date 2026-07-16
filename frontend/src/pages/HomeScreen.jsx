@@ -31,11 +31,11 @@ export default function HomeScreen() {
   useEffect(() => {
     getProviders()
       .then(res => setProviders(res.providers))
-      .catch(err => showToast(`Providers Error: ${err.message}`, '❌'));
+      .catch(err => showToast(`Providers Error: ${err.message}`, 'error'));
 
     getCommunities()
       .then(res => setAllCommunities(res.communities))
-      .catch(err => showToast(`Communities Error: ${err.message}`, '❌'));
+      .catch(err => showToast(`Communities Error: ${err.message}`, 'error'));
   }, []);
 
   const isJoined = (c) => c.user_joined || user?.joined_communities?.includes(c.id);
@@ -49,7 +49,7 @@ export default function HomeScreen() {
   const handleJoin = async (id) => {
     try {
       const res = await joinCommunity(id);
-      showToast('Joined! 🎉', '🤝');
+      showToast('Joined!', 'success');
       setAllCommunities(prev => prev.map(c =>
         c.id === id ? { ...c, user_joined: true, member_count: res.member_count } : c
       ));
@@ -60,7 +60,7 @@ export default function HomeScreen() {
         }));
       }
     } catch (err) {
-      showToast('Already a member', '👥');
+      showToast('Already a member');
     }
   };
 

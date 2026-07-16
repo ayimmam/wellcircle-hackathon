@@ -324,6 +324,8 @@ export async function createBooking(data) {
         discount_pct: promo.discount_pct,
         discount_etb: discountEtb,
       } : null,
+      // Every booking starts pending — pay_on_site bookings wait on our team
+      // calling to confirm, not an automatic flip (mirrors the backend).
       payment_status: 'pending',
       created_at: new Date().toISOString(),
       additional_booking_ids: additionalBookingIds,
@@ -454,12 +456,15 @@ export async function reactToPost(postId, data) {
   return request('POST', `/posts/${postId}/react`, data);
 }
 
-export async function commentOnPost(postId, content) {
+export async function commentOnPost(postId, content, parentCommentId = null) {
   if (USE_MOCK) {
     await delay();
     return { id: 'mock-comment', message: "Success" };
   }
-  return request('POST', `/posts/${postId}/comments`, { content });
+  return request('POST', `/posts/${postId}/comments`, {
+    content,
+    ...(parentCommentId ? { parent_comment_id: parentCommentId } : {}),
+  });
 }
 
 

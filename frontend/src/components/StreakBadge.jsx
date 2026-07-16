@@ -16,7 +16,7 @@ export default function StreakBadge({ streak, freezeCount = 0, atRisk = false })
   return (
     <div className="points-chip" id="streak-badge" title={title} style={{ position: 'relative' }}>
       <span className="points-chip-emoji">🔥</span>
-      <span>{streak}d streak{freezeCount > 0 ? ' · 🧊' : ''}</span>
+      <span>{streak}d streak{freezeCount > 0 ? ' · freeze' : ''}</span>
       {atRisk && (
         <span
           id="streak-risk-dot"

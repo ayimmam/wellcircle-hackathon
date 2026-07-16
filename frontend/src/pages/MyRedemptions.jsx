@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMyRedemptions } from '../api/client';
+import Icon from '../components/Icon';
 
 const STATUS_ICONS = {
-  pending: '⏳',
+  pending: '···',
   confirmed: '✓',
   shipped: '⟳',
   delivered: '✓',
@@ -56,7 +57,7 @@ export default function MyRedemptions() {
                   <div style={{ flex: 1 }}>
                     <h3 className="card-title text-sm">{r.product_name}</h3>
                     <p className="text-xs text-secondary">{r.provider_name}</p>
-                    <p className="text-sm">{r.points_spent} 🌿 • {STATUS_ICONS[r.delivery_status] || ''} {r.delivery_status}</p>
+                    <p className="text-sm inline-icon-text">{r.points_spent} <Icon name="leaf" size={13} /> • {STATUS_ICONS[r.delivery_status] || ''} {r.delivery_status}</p>
                     <p className="text-xs text-secondary">{new Date(r.redeemed_at).toLocaleString()}</p>
                     {r.redemption_code && <p className="text-sm mt-4"><code>{r.redemption_code}</code></p>}
                     {r.provider_notes && <p className="text-xs text-secondary mt-4">{r.provider_notes}</p>}

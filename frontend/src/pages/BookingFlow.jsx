@@ -1,15 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { getProvider, createBooking, initiateTelebirr, initiateMpesa, getPaymentStatus } from '../api/client';
+import { getProvider, createBooking } from '../api/client';
 import { MOCK_TIME_SLOTS, getNextDays } from '../data/mock';
 import { showToast } from '../components/Toast';
 import Icon from '../components/Icon';
-import usePolling from '../hooks/usePolling';
 import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
 import { promoApplies, computeDiscountEtb, expiryLabel } from '../utils/promo';
 
-const STEP_LABELS = ['Service', 'Date & Time', 'Payment'];
+const STEP_LABELS = ['Service', 'Date & Time', 'Confirm'];
 
 export default function BookingFlow() {
   const { providerId } = useParams();
@@ -29,15 +28,15 @@ export default function BookingFlow() {
   // single-date (an event already has one fixed date) — see toggleDate.
   const [selectedDates, setSelectedDates] = useState([]);
   const [selectedTime, setSelectedTime] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState(null);
+  // No in-app payment: our team calls this number to confirm the booking
+  // and collect payment in person (see docs/API_CONTRACT.md's pay_on_site note).
   const [phoneNumber, setPhoneNumber] = useState('');
   const [booking, setBooking] = useState(null);
-  const [paymentStatus, setPaymentStatus] = useState(null); // null | 'processing' | 'success' | 'failed'
+  const [confirmed, setConfirmed] = useState(false);
   // Kuriftu gap analysis (Jul 15): some services aren't booked in-app at all —
   // no fixed slots, no upfront payment. Selecting one skips straight to a
   // contact screen instead of the date/payment steps.
   const [showContact, setShowContact] = useState(false);
-  const pollAttemptsRef = useRef(0);
 
   const days = getNextDays(7);
 
@@ -104,7 +103,7 @@ export default function BookingFlow() {
   const totalSubtotal = subtotal * numDays;
   // Presale promo: the client only *predicts* the discount for display — the
   // backend re-derives eligibility and applies it to the booking; we always
-  // send the undiscounted per-day amount (see handlePay). The discount only
+  // send the undiscounted per-day amount (see handleConfirm). The discount only
   // ever applies to the first day (a "first visit" promo covering every day
   // of a multi-day booking wouldn't match its own terms).
   const promo = promoApplies(provider?.active_promotion) ? provider.active_promotion : null;
@@ -129,36 +128,24 @@ export default function BookingFlow() {
   const canNext = () => {
     if (step === 0) return selectedService !== null;
     if (step === 1) return selectedDates.length > 0 && selectedTime !== null;
-    if (step === 2) return paymentMethod !== null && phoneNumber.trim().length >= 9;
+    if (step === 2) return phoneNumber.trim().length >= 9;
     return false;
   };
 
-  // F2: a booking is created before payment is confirmed, so a failed/timed-out
-  // payment must NOT re-create the booking on retry — that produced duplicate
-  // bookings for one purchase. Retry re-initiates payment against the same
-  // booking.id instead of calling createBooking again.
-  const initiatePaymentFor = async (bookingId) => {
-    if (paymentMethod === 'telebirr') {
-      await initiateTelebirr(bookingId);
-    } else {
-      await initiateMpesa(bookingId, phoneNumber);
-    }
-  };
-
-  const handlePay = async () => {
-    setPaymentStatus('processing');
-    pollAttemptsRef.current = 0;
+  // No in-app payment gateway: the booking is created `pending` and our team
+  // calls `phoneNumber` to confirm the slot — payment is collected in person
+  // then, not through the app (see docs/API_CONTRACT.md's pay_on_site note).
+  const handleConfirm = async () => {
     try {
       // Earliest selected day is the "primary" booking; any others ride
-      // along as additional_slot_datetimes (same service/time), sharing one
-      // payment (see docs/API_CONTRACT.md's booking_group_id note).
+      // along as additional_slot_datetimes (same service/time).
       const [primaryDate, ...extraDates] = [...selectedDates].sort();
       const bk = await createBooking({
         provider_id: providerId,
         service_name: selectedService.name,
         slot_datetime: `${primaryDate}T${selectedTime}:00Z`,
         amount_etb: subtotal, // per-day, undiscounted — the backend applies any promo
-        payment_method: paymentMethod,
+        payment_method: 'pay_on_site',
         phone_number: phoneNumber,
         ...(eventId ? { event_id: eventId } : {}),
         ...(extraDates.length > 0
@@ -166,67 +153,25 @@ export default function BookingFlow() {
           : {}),
       });
       setBooking(bk);
-      await initiatePaymentFor(bk.id);
-      // usePolling below picks up payment-status polling now that
-      // paymentStatus === 'processing' and booking.id is set.
-    } catch (err) {
-      setPaymentStatus('failed');
-      showToast(err.message || 'Payment initiation failed. Try again.', '❌');
-    }
-  };
-
-  const handleRetryPayment = async () => {
-    if (!booking?.id) return handlePay();
-    setPaymentStatus('processing');
-    pollAttemptsRef.current = 0;
-    try {
-      await initiatePaymentFor(booking.id);
-    } catch (err) {
-      setPaymentStatus('failed');
-      showToast(err.message || 'Payment retry failed. Try again.', '❌');
-    }
-  };
-
-  // B4: was a raw setInterval that kept polling even if the tab was
-  // backgrounded or the component unmounted mid-payment; usePolling pauses
-  // in the background and cleans up on unmount automatically.
-  usePolling(async () => {
-    if (!booking?.id) return;
-    pollAttemptsRef.current += 1;
-    try {
-      const status = await getPaymentStatus(booking.id);
-      if (status.payment_status === 'success') {
-        setPaymentStatus('success');
-        setBooking(prev => ({ ...prev, ...status, promotion: prev?.promotion }));
-        showToast('Payment confirmed! 🎉', '✅');
-        track('booking_confirmed', {
+      setConfirmed(true);
+      track('booking_confirmed', {
+        provider_id: providerId,
+        service: selectedService?.name,
+        amount_etb: bk?.total_amount_etb ?? totalPrice,
+        days: numDays,
+      });
+      if (bk?.promotion) {
+        track('promo_redeemed', {
           provider_id: providerId,
-          service: selectedService?.name,
-          amount_etb: booking?.total_amount_etb ?? totalPrice,
-          days: numDays,
-          payment_method: paymentMethod,
+          promotion_id: bk.promotion.id,
+          discount_pct: bk.promotion.discount_pct,
+          discount_etb: bk.promotion.discount_etb,
         });
-        if (booking?.promotion) {
-          track('promo_redeemed', {
-            provider_id: providerId,
-            promotion_id: booking.promotion.id,
-            discount_pct: booking.promotion.discount_pct,
-            discount_etb: booking.promotion.discount_etb,
-          });
-        }
-      } else if (status.payment_status === 'failed') {
-        setPaymentStatus('failed');
-        showToast('Payment failed. Try again.', '❌');
-      } else if (pollAttemptsRef.current > 20) {
-        // 60 seconds timeout
-        setPaymentStatus('failed');
-        showToast('Payment confirmation timed out.', '⏳');
       }
     } catch (err) {
-      setPaymentStatus('failed');
-      showToast('Error checking payment status.', '❌');
+      showToast(err.message || 'Could not confirm booking. Try again.', 'error');
     }
-  }, 3000, paymentStatus === 'processing');
+  };
 
   if (loading || !provider) {
     return (
@@ -309,14 +254,17 @@ export default function BookingFlow() {
   }
 
   // ─── Confirmation Screen ─────────────────────────
-  if (paymentStatus === 'success') {
+  if (confirmed) {
     return (
       <div className="page" id="booking-confirmation-screen">
         <div className="booking-confirmation">
           <div className="confirmation-check"><Icon name="check" size={28} strokeWidth={2.5} /></div>
-          <h2 className="confirmation-title">{t('Booking Confirmed!')}</h2>
+          <h2 className="confirmation-title">{t('Booking Request Sent!')}</h2>
           <p className="confirmation-ref">
             Ref: {booking?.reference_number || booking?.id?.slice(0, 12)}
+          </p>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 auto 16px', maxWidth: 320 }}>
+            {t("Our team will call you at {{phone}} to confirm your slot. No payment is needed now — you'll pay {{name}} directly once it's confirmed.", { phone: phoneNumber, name: provider.name })}
           </p>
           <div className="confirmation-details">
             <div className="confirmation-row">
@@ -349,79 +297,25 @@ export default function BookingFlow() {
             </div>
             {appliedPromo && (
               <div className="confirmation-row">
-                <span className="confirmation-label">🏷 {appliedPromo.headline} ({appliedPromo.discount_pct}%)</span>
+                <span className="confirmation-label flex items-center gap-4">
+                  <Icon name="ticket" size={13} /> {appliedPromo.headline} ({appliedPromo.discount_pct}%)
+                </span>
                 <span className="confirmation-value" style={{ color: 'var(--accent)' }}>
                   −ETB {appliedPromo.discount_etb.toLocaleString()}
                 </span>
               </div>
             )}
             <div className="confirmation-row">
-              <span className="confirmation-label" style={{ fontWeight: 700 }}>Total Paid</span>
+              <span className="confirmation-label" style={{ fontWeight: 700 }}>{t('Total (pay on-site)')}</span>
               <span className="confirmation-value" style={{ fontWeight: 700 }}>ETB {paidTotal.toLocaleString()}</span>
             </div>
-            <div className="confirmation-row">
-              <span className="confirmation-label">Payment</span>
-              <span className="confirmation-value" style={{ textTransform: 'capitalize' }}>{paymentMethod}</span>
-            </div>
           </div>
 
-          <div className="points-chip" style={{ margin: '0 auto 24px', display: 'inline-flex' }}>
-            <Icon name="trophy" size={16} />
-            <span>+50 Legacy Points (Phase 2)</span>
-          </div>
-
-          <button className="btn btn-primary btn-block" onClick={() => navigate('/home')} id="go-home-btn">
-            {t('Back to Home')}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Processing Screen ───────────────────────────
-  if (paymentStatus === 'processing') {
-    return (
-      <div className="page" id="payment-processing-screen">
-        <div style={{ textAlign: 'center', paddingTop: 80 }}>
-          <div className="splash-spinner" style={{ margin: '0 auto 24px' }} />
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: 8 }}>{t('Processing Payment...')}</h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            {paymentMethod === 'telebirr'
-              ? 'Complete the payment on your Telebirr app'
-              : 'Check your phone for the M-Pesa prompt'}
-          </p>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: 16 }}>
-            Polling for confirmation...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Failed / Timed-out Screen ───────────────────
-  // F2: previously a failed/timed-out payment just toasted and fell back to
-  // the step-2 form, where hitting Pay again called createBooking a second
-  // time (duplicate booking) instead of retrying the existing one.
-  if (paymentStatus === 'failed') {
-    return (
-      <div className="page" id="payment-failed-screen">
-        <div style={{ textAlign: 'center', paddingTop: 80 }}>
-          <div className="confirmation-check" style={{ background: 'var(--danger)' }}>
-            <Icon name="x" size={28} strokeWidth={2.5} />
-          </div>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginTop: 16, marginBottom: 8 }}>
-            {t('Payment Failed')}
-          </h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 24, padding: '0 16px' }}>
-            {booking
-              ? t('Your booking is saved. Retry the payment to confirm it, or check its status in My Bookings.')
-              : t('Something went wrong before your booking could be created. Please try again.')}
-          </p>
-          <button className="btn btn-primary btn-block" style={{ marginBottom: 12 }} onClick={handleRetryPayment} id="retry-payment-btn">
-            {t('Retry Payment')}
-          </button>
-          <button className="btn btn-outline btn-block" onClick={() => navigate('/my-bookings')} id="view-my-bookings-btn">
+          <button className="btn btn-primary btn-block" onClick={() => navigate('/my-bookings')} id="view-my-bookings-btn" style={{ marginBottom: 12 }}>
             {t('View My Bookings')}
+          </button>
+          <button className="btn btn-outline btn-block" onClick={() => navigate('/home')} id="go-home-btn">
+            {t('Back to Home')}
           </button>
         </div>
       </div>
@@ -459,6 +353,9 @@ export default function BookingFlow() {
       {step === 0 && (
         <div>
           <h2 className="section-title mb-12">{t('Select a Service')}</h2>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)', marginBottom: 12 }}>
+            {t('You only pay after using the service — no upfront payment.')}
+          </p>
           <div className="services-list">
             {provider.services?.map((service, i) => (
               <div
@@ -524,10 +421,10 @@ export default function BookingFlow() {
         </div>
       )}
 
-      {/* Step 2: Payment */}
+      {/* Step 2: Confirm */}
       {step === 2 && (
         <div>
-          <h2 className="section-title mb-12">{t('Payment Method')}</h2>
+          <h2 className="section-title mb-12">{t('Review & Confirm')}</h2>
 
           {/* Order summary */}
           <div className="card mb-20">
@@ -557,7 +454,9 @@ export default function BookingFlow() {
               {promo && (
                 <div className="confirmation-row" id="promo-discount-row">
                   <span className="confirmation-label">
-                    🏷 {promo.headline} ({promo.discount_pct}%)
+                    <span className="flex items-center gap-4" style={{ display: 'inline-flex' }}>
+                      <Icon name="ticket" size={13} /> {promo.headline} ({promo.discount_pct}%)
+                    </span>
                     {numDays > 1 && (
                       <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-tertiary)' }}>
                         {t('Applied to your first day only')}
@@ -588,46 +487,21 @@ export default function BookingFlow() {
             </div>
           </div>
 
-          <div className="payment-methods">
-            <button
-              className={`payment-method ${paymentMethod === 'telebirr' ? 'selected' : ''}`}
-              onClick={() => setPaymentMethod('telebirr')}
-              id="payment-telebirr"
-            >
-              <span className="payment-method-icon"><Icon name="smartphone" size={22} /></span>
-              <div>
-                <div className="payment-method-name">{t('Pay with Telebirr')}</div>
-                <div className="payment-method-desc">Ethio Telecom mobile money</div>
-              </div>
-            </button>
-            <button
-              className={`payment-method ${paymentMethod === 'mpesa' ? 'selected' : ''}`}
-              onClick={() => setPaymentMethod('mpesa')}
-              id="payment-mpesa"
-            >
-              <span className="payment-method-icon"><Icon name="credit-card" size={22} /></span>
-              <div>
-                <div className="payment-method-name">{t('Pay with M-Pesa')}</div>
-                <div className="payment-method-desc">Safaricom Daraja STK Push</div>
-              </div>
-            </button>
-          </div>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)', marginTop: 12, marginBottom: 16 }}>
+            {t('No payment now. Our team will call you to confirm, and you pay {{name}} directly then.', { name: provider.name })}
+          </p>
 
-          {paymentMethod && (
-            <div style={{ marginTop: 16 }}>
-              <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 8, display: 'block' }}>
-                {paymentMethod === 'telebirr' ? 'Phone Number (09XX)' : 'Phone Number (254XXX)'}
-              </label>
-              <input
-                className="onboarding-input"
-                placeholder={paymentMethod === 'telebirr' ? '0911234567' : '254712345678'}
-                value={phoneNumber}
-                onChange={e => setPhoneNumber(e.target.value)}
-                type="tel"
-                id="phone-input"
-              />
-            </div>
-          )}
+          <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 8, display: 'block' }}>
+            {t('Contact Phone Number')}
+          </label>
+          <input
+            className="onboarding-input"
+            placeholder="0911234567"
+            value={phoneNumber}
+            onChange={e => setPhoneNumber(e.target.value)}
+            type="tel"
+            id="phone-input"
+          />
         </div>
       )}
 
@@ -654,11 +528,11 @@ export default function BookingFlow() {
         ) : (
           <button
             className="btn btn-primary btn-block btn-lg"
-            onClick={handlePay}
+            onClick={handleConfirm}
             disabled={!canNext()}
-            id="pay-btn"
+            id="confirm-booking-btn"
           >
-            <Icon name="coins" size={18} /> Pay ETB {totalPrice.toLocaleString()}
+            {t('Send Booking Request')}
           </button>
         )}
       </div>

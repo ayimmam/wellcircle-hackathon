@@ -24,8 +24,23 @@ from app.models.event_inventory_log import EventInventoryLog
 from app.models.user_notification import UserNotification
 
 def trigger_booking_notification(db_session: Session, user_id: UUID, service_name: str, datetime_str: str):
-    msg = f"Your booking for {service_name} on {datetime_str} is confirmed!"
-    db_session.add(UserNotification(user_id=user_id, message=msg, is_read=False))
+    # Pre-existing bug fix: this previously passed `message=` to a model with
+    # no such column and a non-nullable `title`, so it crashed silently on
+    # every booking (a background task's exception never reaches the client).
+    # Fires for every booking regardless of payment_method — none of them are
+    # auto-confirmed at creation anymore. `pay_on_site` bookings stay
+    # `pending` until our team calls to confirm (and, for Kuriftu, the
+    # booking is also on the staff Google Sheet — see create_new_booking).
+    # telebirr/mpesa bookings still separately get a real "confirmed"
+    # notification once their gateway payment actually succeeds.
+    db_session.add(UserNotification(
+        user_id=user_id,
+        type="booking_received",
+        title="Booking request received",
+        body=f"Your booking for {service_name} on {datetime_str} is on its way to confirmation — we'll contact you shortly.",
+        action_url="/my-bookings",
+        is_read=False,
+    ))
     db_session.commit()
 
 @router.post("", response_model=BookingResponse, status_code=201)
@@ -116,7 +131,11 @@ async def create_new_booking(
             phone_number=request.phone_number,
         )
 
-    # 4. Trigger Instant Notification
+    # 4. Trigger Instant Notification — an ack only, for every payment
+    # method. Nothing is auto-confirmed at creation: telebirr/mpesa wait on
+    # their gateway callback (see payments.py), and pay_on_site waits on our
+    # team calling the guest to confirm (phone_number below) and collecting
+    # payment in person — never flipped to "success" automatically here.
     background_tasks.add_task(
         trigger_booking_notification,
         db,

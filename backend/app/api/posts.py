@@ -17,6 +17,11 @@ class PostCreate(BaseModel):
     community_id: Optional[str] = None
     circle_id: Optional[str] = None
     content: str
+    # Strava-style activity stats — all optional, a plain text post omits them.
+    activity_type: Optional[str] = None
+    distance_km: Optional[float] = None
+    duration_min: Optional[int] = None
+    photo_url: Optional[str] = None
 
 class ReactionCreate(BaseModel):
     emoji: str
@@ -30,7 +35,11 @@ def api_create_post(post_in: PostCreate, user: User = Depends(get_current_user),
             user_id=user.id,
             content=post_in.content,
             community_id=UUID(post_in.community_id) if post_in.community_id else None,
-            circle_id=UUID(post_in.circle_id) if post_in.circle_id else None
+            circle_id=UUID(post_in.circle_id) if post_in.circle_id else None,
+            activity_type=post_in.activity_type,
+            distance_km=post_in.distance_km,
+            duration_min=post_in.duration_min,
+            photo_url=post_in.photo_url,
         )
         return {"id": post.id, "message": "Post created successfully"}
     except ValueError as e:
@@ -59,10 +68,14 @@ def api_react_to_post(post_id: str, reaction_in: ReactionCreate, user: User = De
 
 class CommentCreate(BaseModel):
     content: str
+    parent_comment_id: Optional[str] = None
 
 @router.post("/{post_id}/comments")
 def api_create_comment(post_id: str, comment_in: CommentCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     from app.crud.post import create_comment
-    comment = create_comment(db, UUID(post_id), user_id=user.id, content=comment_in.content)
+    comment = create_comment(
+        db, UUID(post_id), user_id=user.id, content=comment_in.content,
+        parent_comment_id=UUID(comment_in.parent_comment_id) if comment_in.parent_comment_id else None,
+    )
     return {"id": comment.id, "message": "Comment added successfully"}
 

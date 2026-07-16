@@ -18,7 +18,12 @@ class BookingCreate(BaseModel):
     service_name: str
     slot_datetime: datetime
     amount_etb: int = Field(..., gt=0)  # per-day amount, undiscounted
-    payment_method: str = Field(..., pattern="^(telebirr|mpesa)$")
+    # `pay_on_site` — no in-app payment gateway; the booking stays `pending`
+    # after creation (see api/bookings.py) and our team calls the guest on
+    # `phone_number` to confirm the slot — payment is collected then, not
+    # through the app. For Kuriftu, the booking is also synced to the
+    # staff-facing Google Sheet at creation (see services/sheets.py).
+    payment_method: str = Field(..., pattern="^(telebirr|mpesa|pay_on_site)$")
     phone_number: Optional[str] = None
     event_id: Optional[str] = None
     additional_slot_datetimes: Optional[List[datetime]] = None

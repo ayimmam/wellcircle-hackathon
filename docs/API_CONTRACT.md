@@ -686,10 +686,118 @@ useEffect(() => {
 
 ---
 
+## 5a. Posts & Circle Activity (Strava-style feed)
+
+### `POST /api/posts`
+Create a post in a community or circle. `activity_type`/`distance_km`/
+`duration_min`/`photo_url` are all optional — a plain text post omits them.
+When posted into a circle, every OTHER circle member gets a best-effort
+in-app `circle_activity` notification (see `GET /api/users/me/notifications`);
+a notification failure never blocks the post itself.
+
+```json
+// REQUEST
+{
+  "circle_id": "uuid-circle",       // or community_id
+  "content": "Morning run felt great!",
+  "activity_type": "run",            // optional: run|walk|ride|yoga|gym|swim|general
+  "distance_km": 5.2,                // optional
+  "duration_min": 32,                // optional
+  "photo_url": "https://..."         // optional — URL only, no upload endpoint yet
+}
+
+// RESPONSE 200
+{ "id": "uuid-post", "message": "Post created successfully" }
+```
+
+### `GET /api/posts?circle_id=...&community_id=...&limit=20`
+Returns posts newest-first, each with reactions, total points gifted, and
+comments nested one level deep (`replies` on each top-level comment).
+
+```json
+{
+  "posts": [
+    {
+      "id": "uuid-post",
+      "content": "Morning run felt great!",
+      "is_system_event": false,
+      "activity_type": "run",
+      "distance_km": 5.2,
+      "duration_min": 32,
+      "photo_url": null,
+      "user": { "id": "uuid-user", "name": "Meron", "photo_url": null },
+      "created_at": "2026-07-16T07:00:00Z",
+      "reactions": { "🔥": 2, "coins": 1 },
+      "total_points_gifted": 10,
+      "comments": [
+        {
+          "id": "uuid-comment",
+          "content": "Nice pace!",
+          "created_at": "2026-07-16T07:05:00Z",
+          "parent_comment_id": null,
+          "user": { "id": "uuid-user-2", "name": "Abel", "photo_url": null },
+          "replies": [
+            {
+              "id": "uuid-reply",
+              "content": "Thanks!",
+              "created_at": "2026-07-16T07:06:00Z",
+              "parent_comment_id": "uuid-comment",
+              "user": { "id": "uuid-user", "name": "Meron", "photo_url": null },
+              "replies": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+### `POST /api/posts/{post_id}/comments`
+`parent_comment_id` (optional) makes this a reply. Replies are **one level
+deep only** — replying to a comment that already has a `parent_comment_id`
+returns `422`, as does a `parent_comment_id` from a different post.
+
+```json
+// REQUEST
+{ "content": "Nice pace!", "parent_comment_id": "uuid-comment" }  // omit for a top-level comment
+
+// RESPONSE 200
+{ "id": "uuid-comment", "message": "Comment added successfully" }
+```
+
+### `POST /api/posts/{post_id}/react`
+Unchanged shape. `emoji` can be a plain reaction (`"🔥"`) or `"coins"` for a
+point-gift reaction (frontend renders gifting via the coin icon, not an
+emoji) — `points_gifted > 0` transfers points through the ledger and is
+capped by the giver's balance.
+
+```json
+// REQUEST
+{ "emoji": "coins", "points_gifted": 5 }
+
+// RESPONSE 200
+{ "message": "Reaction added successfully", "points_gifted": 5 }
+```
+
+---
+
 ## 6. Bookings & Payments
 
 ### `POST /api/bookings`
-Create a booking (payment pending).
+Create a booking.
+
+**`payment_method: "pay_on_site"` (WP1, consumer booking flow default).** No
+payment gateway is involved — the guest pays the provider in person after the
+service. The backend marks the booking (and every sibling in a multi-day
+group) `payment_status: "success"` immediately at creation, which fires the
+same side effects a gateway success would: +50 Legacy Points, a provider
+community feed event, and a "Booking Confirmed" in-app notification. Do not
+call `POST /api/payments/telebirr/initiate` or `.../mpesa/initiate` for a
+`pay_on_site` booking — there is nothing to poll. `telebirr`/`mpesa` remain
+valid values (used by provider-subscription payments and kept for API
+compatibility) and still create a `pending` booking that requires payment
+initiation + `GET /api/payments/:booking_id/status` polling as before.
 
 **Promotions are applied server-side.** Clients always send the
 **undiscounted** per-day amount; if the user is eligible for the provider's

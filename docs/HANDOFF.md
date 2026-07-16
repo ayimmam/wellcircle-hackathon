@@ -868,5 +868,102 @@ HANDOFF.md
 
 ---
 
+### Phase 13 — Pay-on-Site Booking, Strava-style Circle Activity Feed & Emoji Cleanup (This Session)
+
+Executed `docs/FEATURE_PLAN_CIRCLES_AND_POLISH.md` end to end (four work packages, ordered by priority), then reconciled WP1 with Phase 12's Google Sheets booking export (pulled from `main` mid-session — see that entry above) and made three follow-up fixes. See the plan doc for the full task-by-task detail; this entry summarizes what shipped and the real bugs found along the way.
+
+#### WP1 — Booking: no more in-app payment; staff confirms by phone
+- `BookingFlow.jsx` Step 0 now shows "You only pay after using the service — no upfront payment." above the service list.
+- The old Service → Date/Time → **Payment** (Telebirr/M-Pesa + phone + polling) flow is now Service → Date/Time → **Confirm** — a review screen with a contact phone number field (no payment method picker), ending on a "Booking Request Sent!" summary.
+- **Reconciled with Phase 12's Google Sheets export** (pulled mid-session): the real business model is staff-driven, not automatic — a `pay_on_site` booking is created and stays `payment_status: "pending"`; our team calls the guest on the phone number collected in Step 2 to confirm the slot, and for Kuriftu the booking is also on the staff Google Sheet (Phase 12's `export_booking_to_sheets`, unchanged). The first pass of this work had mistakenly auto-flipped `pay_on_site` bookings to `"success"` and awarded points immediately at creation, before Phase 12's sheets logic landed — that's now removed; nothing is auto-confirmed, telebirr/mpesa and pay_on_site all just get a "request received" ack notification, and the real "Booking Confirmed" notification/points bonus only fires once payment status actually flips to success (unchanged existing logic).
+- **Bug fixed in passing:** `trigger_booking_notification` (`api/bookings.py`) had been constructing `UserNotification(message=...)` against a model with no `message` column and a non-nullable `title` — silently crashing on every booking's background task since it was added. Fixed to use the real fields.
+- `MyBookings.jsx` status pill shows "Confirmed"/"Pending"/"Failed" instead of the raw `payment_status` string.
+- Telebirr/M-Pesa remain fully intact for provider subscriptions and API compatibility — nothing was removed from the payment services themselves.
+
+#### WP2 — Notification bell icon
+- `Icon.jsx`'s `bell` path replaced with a clean, recognizable bell (was an unrecognizable rough polygon).
+
+#### WP3 — Strava-style circle activity feed
+The circles feed already had posts/comments/point-gifting reactions (`PostFeed.jsx`, `posts`/`reactions`/`post_comments` tables) — this extended that system rather than building a parallel one.
+- **Schema** (`alembic/versions/009_circle_activity.py` + idempotent `apply_circle_activity_migration.py`): `posts` gained `activity_type`/`distance_km`/`duration_min`/`photo_url` (all optional); `post_comments` gained `parent_comment_id` (one level of replies only).
+- **API**: `POST /api/posts` and `POST /api/posts/:id/comments` accept the new optional fields; a reply to an already-nested comment, or to a comment on a different post, returns 422. `GET /api/posts` now nests each top-level comment's replies under it.
+- **Bug fixed in passing:** `get_posts()` ran 2 extra queries *per post* (reactions + comments), ~41 queries for a 20-post page — rewritten to 2 queries total for the whole page (batched by post id, grouped in Python), matching the project's established no-N+1 rule from Phase 6.
+- **Notifications**: creating a circle post fans out a best-effort, batched `circle_activity` `UserNotification` to every other circle member (never the author), surfaced via the existing generic `/notifications` inbox — no code changes needed there. In-app only, no bot DM, by design (avoids notification spam).
+- **Frontend** (`PostFeed.jsx`): an optional "Add activity details" composer (activity type chips, distance/duration inputs, photo URL — no upload backend yet, URL only), a stat strip on activity posts, indented one-level replies with a Reply action, and point-gifting reactions now use the coin `Icon` instead of an emoji (🔥/👏 plain reactions unchanged, per product decision).
+- **Bug fixed in passing:** `CircleDetailScreen.loadCircle()` sourced the circle's name/description/member_count from `MOCK_CIRCLES` even in live mode, only merging `join_code` from the real API — a real (non-seed) circle always showed the generic "Circle" fallback name. Now merges name/description/member_count from the live `getCircles()` match too.
+- Circle detail's "Chat" tab relabeled "Activity" (internal `chat` key unchanged).
+- **Join → straight into Activity with a pre-filled intro** (follow-up fix, same session): `CircleDetailScreen.handleJoin()` now switches `activeTab` to `'chat'` and passes `PostFeed` a one-time `initialDraft` — "Hi I'm {first name}, I'm glad to join you guys!" — pre-filled (and auto-focused) in the composer. `PostFeed` takes `initialDraft`/`onDraftConsumed` props; the draft is applied once at mount and the parent's flag is cleared immediately after, so leaving and returning to the tab later doesn't re-stomp whatever the member is typing by then.
+
+#### WP4 — Emoji cleanup
+- **Toast refactor**: `showToast(message, icon)` → `showToast(message, variant)` where `variant` is `'success' | 'error' | undefined`; `ToastContainer` renders an SVG check/x instead of a raw emoji string. All ~82 `showToast` call sites app-wide converted; no call site passes an emoji anymore.
+- **Chrome sweep**: decorative emoji in tab icons, buttons, headers, empty states, and badges replaced with `Icon.jsx` SVGs (added `lock` and `flame` icon paths) across `CircleDetailScreen`, `PostFeed`, `BookingFlow`, `CommunityDetail`, `CommunityList`, `ProfileScreen`, `ProductRedeem`, `ProductsStore`, `ProductDetail`, `MyRedemptions`, `ProviderDetail`, `ProviderOnboard`, `ProviderDashboard`, `ExploreScreen`, `FeedEvent`, `ErrorBoundary`, `AskWellCircle`, `FirstRewardCard`, `SocialProofBanner`, `WelcomeBanner`. App-authored copy (e.g. `NEIGHBOURHOOD_ALERTS`) had its leading decorative emoji stripped.
+- **Explicitly kept** (per product decision): onboarding/signup screen emoji (`OnboardingFlow.jsx` untouched), the points-gifting coin icon, feed reaction emoji (🔥/👏/etc. in `PostFeed`/`Leaderboard`), and the 🥇🥈🥉 leaderboard medals in `CircleDetailScreen`. Also left untouched as a consistent "icon system": the points-tier badges (🌱🌿🌳🌲 Seed/Sprout/Grove/Forest) and category emoji (🧘💪🥗 etc.) in `constants.js`/`mock.js`.
+- **Follow-up fix (same session):** the 🔥 streak emoji was restored on user request — `StreakBadge.jsx`, `CheckinCard.jsx` (active-streak state only; the zero-streak "start your streak" prompt keeps the `star` Icon), and `useCheckin.js`'s streak-continuation toast all use 🔥 again instead of the `flame` SVG swap from the initial sweep.
+
+#### Verification
+- Frontend: `npm run build` ✅ · `npm test` → **98/98 passing** across 20 files (3 `BookingFlow` test files updated for the new Confirm-step + phone-field flow, `PostFeed.test.jsx` covering activity stats + nested replies + coin gifting + the join-intro prefill).
+- Backend: `python -m app.tests.test_circle_activity` → **20/20 passing** (stats round-trip, nested replies, 2nd-level-reply rejection, notification fan-out, coin gifting). `test_integration.py`, `test_points_economy.py` (65/65), `test_presale_reentry.py`, `test_engagement_loop.py`, and Phase 12's `test_sheets.py` (pytest) all re-ran clean — no regressions from the `Post`/`PostComment` schema change or the booking flow rework. `app.main` imports cleanly, 101 routes.
+- Not verified live in this sandbox: no headless-browser pass was run (no dev server available here) — recommended before shipping: `npm run dev` through book → send request → circle post a run → comment → reply → gift via coin → notification appears in `/notifications`; join a circle and confirm the Activity composer is pre-filled.
+
+#### Files Changed / Added (Phase 13)
+```
+backend/alembic/versions/009_circle_activity.py   (new)
+backend/apply_circle_activity_migration.py   (new)
+backend/app/models/post.py
+backend/app/crud/post.py
+backend/app/api/posts.py
+backend/app/schemas/booking.py
+backend/app/api/bookings.py
+backend/app/tests/test_circle_activity.py   (new)
+docs/API_CONTRACT.md
+docs/FEATURE_PLAN_CIRCLES_AND_POLISH.md   (new)
+frontend/src/pages/BookingFlow.jsx
+frontend/src/pages/MyBookings.jsx
+frontend/src/api/client.js
+frontend/src/i18n.js
+frontend/src/components/Icon.jsx
+frontend/src/components/Toast.jsx
+frontend/src/components/PostFeed.jsx
+frontend/src/components/FeedEvent.jsx
+frontend/src/components/ErrorBoundary.jsx
+frontend/src/components/AskWellCircle.jsx
+frontend/src/components/FirstRewardCard.jsx
+frontend/src/components/SocialProofBanner.jsx
+frontend/src/components/StreakBadge.jsx
+frontend/src/components/WelcomeBanner.jsx
+frontend/src/components/CheckinCard.jsx
+frontend/src/components/Leaderboard.jsx
+frontend/src/components/PromotionForm.jsx
+frontend/src/hooks/useCheckin.js
+frontend/src/context/AuthContext.jsx
+frontend/src/utils/circleInvite.js
+frontend/src/pages/CircleDetailScreen.jsx
+frontend/src/pages/CommunityDetail.jsx
+frontend/src/pages/CommunityList.jsx
+frontend/src/pages/ExploreScreen.jsx
+frontend/src/pages/ProductsStore.jsx
+frontend/src/pages/ProductDetail.jsx
+frontend/src/pages/ProductRedeem.jsx
+frontend/src/pages/MyRedemptions.jsx
+frontend/src/pages/ProfileScreen.jsx
+frontend/src/pages/ProviderDetail.jsx
+frontend/src/pages/ProviderOnboard.jsx
+frontend/src/pages/ProviderDashboard.jsx
+frontend/src/pages/HomeScreen.jsx
+frontend/src/pages/OnboardingFlow.jsx
+frontend/src/pages/admin/AdminAnalytics.jsx
+frontend/src/pages/admin/AdminProducts.jsx
+frontend/src/pages/admin/AdminProviders.jsx
+frontend/src/pages/admin/AdminReports.jsx
+frontend/src/data/mock.js
+frontend/src/test/BookingFlow.promo.test.jsx
+frontend/src/test/BookingFlow.multiDay.test.jsx
+frontend/src/test/BookingFlow.phoneBooking.test.jsx
+frontend/src/test/PostFeed.test.jsx   (new)
+HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
 

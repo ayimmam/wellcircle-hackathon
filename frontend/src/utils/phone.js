@@ -3,18 +3,21 @@
 // length check rather than per-country rules (not worth the maintenance for
 // a handful of guest bookings from elsewhere).
 
+// `placeholder` is the national number only (no leading 0, no country code —
+// the code is already shown in the adjacent select), matching what a user
+// should actually type into that field.
 export const COUNTRY_CODES = [
-  { code: '+251', country: 'Ethiopia', flagLabel: 'ET', nationalLength: 9, mobilePrefixes: ['9', '7'] },
-  { code: '+254', country: 'Kenya', flagLabel: 'KE' },
-  { code: '+1', country: 'USA/Canada', flagLabel: 'US' },
-  { code: '+44', country: 'UK', flagLabel: 'GB' },
-  { code: '+971', country: 'UAE', flagLabel: 'AE' },
-  { code: '+966', country: 'Saudi Arabia', flagLabel: 'SA' },
-  { code: '+49', country: 'Germany', flagLabel: 'DE' },
-  { code: '+33', country: 'France', flagLabel: 'FR' },
-  { code: '+39', country: 'Italy', flagLabel: 'IT' },
-  { code: '+86', country: 'China', flagLabel: 'CN' },
-  { code: '+91', country: 'India', flagLabel: 'IN' },
+  { code: '+251', country: 'Ethiopia', flagLabel: 'ET', nationalLength: 9, mobilePrefixes: ['9', '7'], placeholder: '911234567' },
+  { code: '+254', country: 'Kenya', flagLabel: 'KE', placeholder: '712345678' },
+  { code: '+1', country: 'USA/Canada', flagLabel: 'US', placeholder: '2025551234' },
+  { code: '+44', country: 'UK', flagLabel: 'GB', placeholder: '7911123456' },
+  { code: '+971', country: 'UAE', flagLabel: 'AE', placeholder: '501234567' },
+  { code: '+966', country: 'Saudi Arabia', flagLabel: 'SA', placeholder: '512345678' },
+  { code: '+49', country: 'Germany', flagLabel: 'DE', placeholder: '15123456789' },
+  { code: '+33', country: 'France', flagLabel: 'FR', placeholder: '612345678' },
+  { code: '+39', country: 'Italy', flagLabel: 'IT', placeholder: '3123456789' },
+  { code: '+86', country: 'China', flagLabel: 'CN', placeholder: '13123456789' },
+  { code: '+91', country: 'India', flagLabel: 'IN', placeholder: '9876543210' },
 ];
 
 function stripFormatting(input) {

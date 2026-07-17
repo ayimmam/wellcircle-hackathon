@@ -20,6 +20,7 @@ export default function PhoneInput({ value, onChange }) {
 
   const result = validatePhone(code, national);
   const showError = touched && national.trim().length > 0 && !result.valid;
+  const activeCountry = COUNTRY_CODES.find(c => c.code === code) || COUNTRY_CODES[0];
 
   const handleNationalBlur = () => {
     setTouched(true);
@@ -49,7 +50,7 @@ export default function PhoneInput({ value, onChange }) {
         <input
           className="onboarding-input"
           style={{ flex: 1 }}
-          placeholder={code === '+251' ? '0911234567' : 'phone number'}
+          placeholder={activeCountry.placeholder}
           value={national}
           onChange={e => setNational(e.target.value)}
           onBlur={handleNationalBlur}

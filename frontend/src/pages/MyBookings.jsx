@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { getMyBookings } from '../api/client';
 import Icon from '../components/Icon';
 
 export default function MyBookings() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [upcoming, setUpcoming] = useState([]);
   const [past, setPast] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -69,7 +71,7 @@ export default function MyBookings() {
         <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} aria-label="Go back">
           <Icon name="chevron-left" size={20} />
         </button>
-        <h1 style={{ fontSize: '1.3rem', fontWeight: 800 }}>My Experiences</h1>
+        <h1 style={{ fontSize: '1.3rem', fontWeight: 800 }}>{t('My Bookings')}</h1>
       </div>
 
       <div className="flex-col gap-12">

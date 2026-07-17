@@ -175,38 +175,28 @@ export default function CircleDetailScreen() {
       {activeTab === 'leaderboard' && (
         <div className="leaderboard">
           {leaderboard.length > 0 ? (
-            <div className="flex-col gap-8">
+            <div className="feed">
               {leaderboard.map((member, idx) => (
                 <div
                   key={member.user_id}
-                  className="card"
-                  style={{
-                    background: idx === 0 ? 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05))' : 'var(--bg-card)',
-                    border: idx === 0 ? '1px solid rgba(245,158,11,0.3)' : undefined
-                  }}
+                  className={`cell leaderboard-row ${idx === 0 ? 'leader' : ''}`}
                 >
-                  <div className="card-body flex items-center gap-12">
-                    <div style={{
-                      fontWeight: 800,
-                      fontSize: '1.2rem',
-                      width: 28,
-                      color: idx === 0 ? '#F59E0B' : idx === 1 ? '#94A3B8' : idx === 2 ? '#CD7F32' : 'var(--text-secondary)'
-                    }}>
-                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
-                    </div>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', background: '#ccc' }}>
-                      {member.photo_url
-                        ? <img src={member.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Icon name="user" size={16} /></span>
-                      }
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600 }}>{member.name}</div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{member.total_points} total pts</div>
-                    </div>
-                    <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--brand-primary)' }}>
-                      {member.weekly_points} <span style={{ fontSize: '0.7rem', fontWeight: 400, color: 'var(--text-secondary)' }}>this week</span>
-                    </div>
+                  <div className={`cell-rank ${idx < 3 ? 'top' : ''}`}>
+                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                  </div>
+                  <div className="avatar avatar-md">
+                    {member.photo_url
+                      ? <img src={member.photo_url} alt="" />
+                      : <Icon name="user" size={16} />
+                    }
+                  </div>
+                  <div className="cell-body">
+                    <div className="cell-title">{member.name}</div>
+                    <div className="cell-subtitle">{member.total_points} total pts</div>
+                  </div>
+                  <div className="cell-trailing">
+                    {member.weekly_points}
+                    <div className="cell-trailing-sub">this week</div>
                   </div>
                 </div>
               ))}
@@ -221,26 +211,22 @@ export default function CircleDetailScreen() {
       )}
 
       {activeTab === 'members' && (
-        <div className="flex-col gap-8">
+        <div className="feed">
           {leaderboard.length > 0 ? leaderboard.map(member => (
-            <div key={member.user_id} className="card">
-              <div className="card-body flex items-center gap-12">
-                <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: '#ccc' }}>
-                  {member.photo_url
-                    ? <img src={member.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Icon name="user" size={18} /></span>
-                  }
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{member.name}</div>
-                  <div className="flex items-center gap-4" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                    <Icon name="leaf" size={12} /> {member.total_points} Legacy Points
-                  </div>
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--brand-primary)', fontWeight: 600 }}>
-                  {member.weekly_points} pts/wk
+            <div key={member.user_id} className="cell">
+              <div className="avatar avatar-lg">
+                {member.photo_url
+                  ? <img src={member.photo_url} alt="" />
+                  : <Icon name="user" size={18} />
+                }
+              </div>
+              <div className="cell-body">
+                <div className="cell-title">{member.name}</div>
+                <div className="cell-subtitle">
+                  <Icon name="leaf" size={12} /> {member.total_points} Legacy Points
                 </div>
               </div>
+              <div className="cell-trailing" style={{ fontSize: '0.8rem' }}>{member.weekly_points} pts/wk</div>
             </div>
           )) : (
             <div className="empty-state">

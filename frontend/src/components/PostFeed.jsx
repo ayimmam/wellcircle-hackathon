@@ -134,29 +134,28 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
   return (
     <div className="post-feed">
       {/* Compose area */}
-      <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card mb-16">
         <div className="card-body">
           <textarea
             value={newPostContent}
             onChange={e => setNewPostContent(e.target.value)}
             placeholder="Share an update, milestone, or encouragement..."
-            className="input"
-            style={{ minHeight: 80, marginBottom: 8, resize: 'none' }}
+            className="input post-composer-field"
+            style={{ minHeight: 80, resize: 'none' }}
             autoFocus={Boolean(initialDraft)}
             id="post-composer"
           />
 
           {!showActivityDetails ? (
             <button
-              className="btn btn-secondary"
-              style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: 20, marginBottom: 8 }}
+              className="btn btn-secondary post-composer-toggle"
               onClick={() => setShowActivityDetails(true)}
             >
               + Add activity details
             </button>
           ) : (
-            <div style={{ marginBottom: 8 }}>
-              <div className="flex gap-6" style={{ flexWrap: 'wrap', marginBottom: 8 }}>
+            <div className="mb-8">
+              <div className="flex gap-6 flex-wrap mb-8">
                 {ACTIVITY_TYPES.map(type => (
                   <button
                     key={type}
@@ -167,11 +166,10 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                   </button>
                 ))}
               </div>
-              <div className="flex gap-8" style={{ marginBottom: 8 }}>
+              <div className="post-composer-row">
                 <input
                   type="number"
                   className="input"
-                  style={{ padding: '6px 12px', minHeight: 'unset', fontSize: '0.85rem' }}
                   placeholder="Distance (km)"
                   value={distanceKm}
                   onChange={e => setDistanceKm(e.target.value)}
@@ -179,7 +177,6 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                 <input
                   type="number"
                   className="input"
-                  style={{ padding: '6px 12px', minHeight: 'unset', fontSize: '0.85rem' }}
                   placeholder="Duration (min)"
                   value={durationMin}
                   onChange={e => setDurationMin(e.target.value)}
@@ -187,8 +184,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
               </div>
               <input
                 type="url"
-                className="input"
-                style={{ padding: '6px 12px', minHeight: 'unset', fontSize: '0.85rem' }}
+                className="input post-composer-field"
                 placeholder="Photo URL (optional)"
                 value={photoUrl}
                 onChange={e => setPhotoUrl(e.target.value)}
@@ -207,65 +203,48 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
         {posts.map(post => (
           <div
             key={post.id}
-            className="card"
-            style={{
-              marginBottom: 12,
-              ...(post.is_system_event ? {
-                background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(139,92,246,0.04))',
-                borderLeft: '3px solid var(--brand-primary)'
-              } : {})
-            }}
+            className={`card mb-12 post-card ${post.is_system_event ? 'system-event' : ''}`}
           >
             <div className="card-body">
               {/* User row */}
-              <div className="flex items-center gap-8 mb-8">
-                <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', background: '#ddd', flexShrink: 0 }}>
+              <div className="post-user-row">
+                <div className="avatar avatar-md">
                   {post.user.photo_url
-                    ? <img src={post.user.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Icon name="user" size={16} /></span>
+                    ? <img src={post.user.photo_url} alt="" />
+                    : <Icon name="user" size={16} />
                   }
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                  <div className="post-user-name">
                     {post.user.name}
                     {post.is_system_event && (
-                      <span style={{ marginLeft: 6, fontSize: '0.65rem', background: 'var(--brand-primary)', color: '#fff', padding: '1px 6px', borderRadius: 8, verticalAlign: 'middle' }}>
-                        activity
-                      </span>
+                      <span className="post-system-badge">activity</span>
                     )}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{timeAgo(post.created_at)}</div>
+                  <div className="post-time">{timeAgo(post.created_at)}</div>
                 </div>
               </div>
 
               {/* Content */}
-              <p style={{ fontSize: '0.95rem', marginBottom: post.activity_type ? 8 : 12, lineHeight: 1.5 }}>{post.content}</p>
+              <p className={`post-content ${post.activity_type ? 'has-stats' : ''}`}>{post.content}</p>
 
               {/* Activity stat strip */}
               {post.activity_type && (
-                <div
-                  className="flex items-center gap-6"
-                  style={{ fontSize: '0.8rem', color: 'var(--brand-primary)', fontWeight: 600, marginBottom: 12 }}
-                >
+                <div className="post-stat-strip">
                   <Icon name="leaf" size={14} />
                   <span>{activityLabel(post)}</span>
                 </div>
               )}
               {post.photo_url && (
-                <img
-                  src={post.photo_url}
-                  alt=""
-                  style={{ maxWidth: '100%', borderRadius: 12, marginBottom: 12, display: 'block' }}
-                />
+                <img src={post.photo_url} alt="" className="post-photo" />
               )}
 
               {/* Reactions */}
-              <div className="flex gap-6" style={{ flexWrap: 'wrap' }}>
+              <div className="post-reactions">
                 {Object.entries(post.reactions || {}).map(([emoji, count]) => (
                   <button
                     key={emoji}
-                    className="btn btn-secondary"
-                    style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: 20 }}
+                    className="btn btn-secondary post-reaction-btn"
                     onClick={() => handleReact(post.id, emoji, emoji === 'coins' ? 5 : 0)}
                   >
                     {emoji === 'coins' ? <Icon name="coins" size={13} /> : emoji} {count}
@@ -273,8 +252,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                 ))}
                 {/* Quick add reactions */}
                 <button
-                  className="btn btn-secondary"
-                  style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: 20, opacity: 0.8, border: '1px solid var(--border)' }}
+                  className="btn btn-secondary post-reaction-btn"
                   onClick={() => handleReact(post.id, '🔥', 0)}
                   title="React with fire"
                 >
@@ -282,24 +260,21 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                 </button>
                 {/* Point-gifting reactions use the coin icon, not an emoji */}
                 <button
-                  className="btn btn-secondary"
-                  style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: 20, opacity: 0.8, border: '1px solid var(--border)' }}
+                  className="btn btn-secondary post-reaction-btn gift-5"
                   onClick={() => handleReact(post.id, 'coins', 5)}
                   title="Gift 5 Legacy Points"
                 >
                   <Icon name="coins" size={13} /> Gift 5
                 </button>
                 <button
-                  className="btn btn-secondary"
-                  style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: 20, opacity: 0.8, border: '1px solid var(--border)', background: 'rgba(245, 158, 11, 0.1)', color: '#D97706' }}
+                  className="btn btn-secondary post-reaction-btn gift-10"
                   onClick={() => handleReact(post.id, 'coins', 10)}
                   title="Gift 10 Legacy Points"
                 >
                   <Icon name="coins" size={13} /> Gift 10
                 </button>
                 <button
-                  className="btn btn-secondary"
-                  style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: 20, opacity: 0.8, border: '1px solid var(--border)', background: 'rgba(59, 130, 246, 0.1)', color: '#2563EB' }}
+                  className="btn btn-secondary post-reaction-btn gift-50"
                   onClick={() => handleReact(post.id, 'coins', 50)}
                   title="Gift 50 Legacy Points"
                 >
@@ -308,30 +283,29 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
               </div>
 
               {post.total_points_gifted > 0 && (
-                <div className="flex items-center gap-4" style={{ fontSize: '0.7rem', color: 'var(--brand-primary)', marginTop: 8, fontWeight: 500 }}>
+                <div className="post-gift-note">
                   <Icon name="leaf" size={12} />
                   <span>+{post.total_points_gifted} Legacy Points gifted</span>
                 </div>
               )}
 
               {/* Comments Section */}
-              <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+              <div className="post-comments">
                 {(post.comments || []).length > 0 && (
-                  <div style={{ marginBottom: 12 }}>
+                  <div className="mb-12">
                     {(post.comments || []).map(comment => (
-                      <div key={comment.id} style={{ marginBottom: 8 }}>
-                        <div style={{ display: 'flex', gap: 8, background: 'rgba(0,0,0,0.02)', padding: 8, borderRadius: 8 }}>
-                          <div style={{ width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', background: '#ddd', flexShrink: 0 }}>
+                      <div key={comment.id} className="mb-8">
+                        <div className="comment-row">
+                          <div className="avatar avatar-sm">
                             {comment.user.photo_url
-                              ? <img src={comment.user.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                              : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Icon name="user" size={12} /></span>}
+                              ? <img src={comment.user.photo_url} alt="" />
+                              : <Icon name="user" size={12} />}
                           </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600, fontSize: '0.8rem' }}>{comment.user.name} <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>• {timeAgo(comment.created_at)}</span></div>
-                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{comment.content}</div>
+                          <div className="comment-body">
+                            <div className="comment-author">{comment.user.name} <span className="comment-meta">• {timeAgo(comment.created_at)}</span></div>
+                            <div className="comment-text">{comment.content}</div>
                             <button
-                              className="btn btn-secondary"
-                              style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: 20, marginTop: 4 }}
+                              className="btn btn-secondary comment-reply-btn"
                               onClick={() => { setReplyingToId(comment.id); setReplyContent(''); }}
                             >
                               Reply
@@ -341,17 +315,17 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
 
                         {/* Replies, indented under their parent */}
                         {(comment.replies || []).length > 0 && (
-                          <div style={{ marginLeft: 24, marginTop: 6 }}>
+                          <div className="replies-list">
                             {comment.replies.map(reply => (
-                              <div key={reply.id} style={{ display: 'flex', gap: 8, marginBottom: 6, background: 'rgba(0,0,0,0.015)', padding: 8, borderRadius: 8 }}>
-                                <div style={{ width: 20, height: 20, borderRadius: '50%', overflow: 'hidden', background: '#ddd', flexShrink: 0 }}>
+                              <div key={reply.id} className="reply-row">
+                                <div className="avatar avatar-xs">
                                   {reply.user.photo_url
-                                    ? <img src={reply.user.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Icon name="user" size={10} /></span>}
+                                    ? <img src={reply.user.photo_url} alt="" />
+                                    : <Icon name="user" size={10} />}
                                 </div>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontWeight: 600, fontSize: '0.75rem' }}>{reply.user.name} <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>• {timeAgo(reply.created_at)}</span></div>
-                                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{reply.content}</div>
+                                <div className="comment-body">
+                                  <div style={{ fontWeight: 600, fontSize: '0.75rem' }}>{reply.user.name} <span className="comment-meta">• {timeAgo(reply.created_at)}</span></div>
+                                  <div className="comment-text">{reply.content}</div>
                                 </div>
                               </div>
                             ))}
@@ -359,11 +333,10 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                         )}
 
                         {replyingToId === comment.id && (
-                          <div style={{ display: 'flex', gap: 8, marginLeft: 24, marginTop: 6 }}>
+                          <div className="reply-composer-row">
                             <input
                               type="text"
                               className="input"
-                              style={{ flex: 1, padding: '6px 12px', minHeight: 'unset', fontSize: '0.85rem' }}
                               placeholder="Write a reply..."
                               value={replyContent}
                               onChange={e => setReplyContent(e.target.value)}
@@ -380,11 +353,10 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                 )}
 
                 {commentingOnId === post.id ? (
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div className="comment-composer-row">
                     <input
                       type="text"
                       className="input"
-                      style={{ flex: 1, padding: '6px 12px', minHeight: 'unset', fontSize: '0.85rem' }}
                       placeholder="Write a comment..."
                       value={commentContent}
                       onChange={e => setCommentContent(e.target.value)}
@@ -395,7 +367,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                     <button className="btn btn-secondary" style={{ padding: '4px 12px', fontSize: '0.8rem' }} onClick={() => setCommentingOnId(null)}>Cancel</button>
                   </div>
                 ) : (
-                  <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: 20 }} onClick={() => setCommentingOnId(post.id)}>
+                  <button className="btn btn-secondary post-composer-toggle" onClick={() => setCommentingOnId(post.id)}>
                     <Icon name="message-circle" size={13} /> Comment {post.comments?.length > 0 ? `(${post.comments.length})` : ''}
                   </button>
                 )}

@@ -35,21 +35,17 @@ const Leaderboard = ({ communityId }) => {
 
   return (
     <div className="mb-16">
-      <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '12px' }}>Top Check-ins (Last 30 Days)</h3>
-      <div className="card" style={{ padding: '0' }}>
+      <h3 className="section-title mb-12">Top Check-ins (Last 30 Days)</h3>
+      <div className="feed">
         {leaderboard.map((u, i) => (
-          <div key={u.user_id} style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: i < leaderboard.length - 1 ? '1px solid var(--border)' : 'none' }}>
-            <div style={{ width: '24px', fontWeight: 'bold', color: i < 3 ? 'var(--brand-primary)' : 'var(--text-secondary)' }}>
-              {i + 1}
+          <div key={u.user_id} className="cell">
+            <div className={`cell-rank ${i < 3 ? 'top' : ''}`}>{i + 1}</div>
+            <div className="avatar avatar-md">
+              <img src={u.photo_url || `https://ui-avatars.com/api/?name=${u.name}&background=random`} alt={u.name} />
             </div>
-            <img 
-              src={u.photo_url || `https://ui-avatars.com/api/?name=${u.name}&background=random`} 
-              alt={u.name}
-              style={{ width: '32px', height: '32px', borderRadius: '50%', margin: '0 12px' }}
-            />
-            <div style={{ flex: 1, fontWeight: 600, fontSize: '0.9rem' }}>{u.name}</div>
-            <div style={{ fontWeight: 700, color: 'var(--brand-primary)', marginRight: '16px' }}>{u.checkins_last_30_days}</div>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div className="cell-body cell-title">{u.name}</div>
+            <div className="cell-trailing" style={{ marginRight: 8 }}>{u.checkins_last_30_days}</div>
+            <div className="flex gap-8">
               <button className="btn btn-sm btn-outline" style={{ padding: '4px 8px', fontSize: '0.75rem' }} onClick={() => handleInteraction(u.user_id, 'nudge')}>👉</button>
               <button className="btn btn-sm btn-outline" style={{ padding: '4px 8px', fontSize: '0.75rem' }} onClick={() => handleInteraction(u.user_id, 'high-five')}>🙌</button>
             </div>

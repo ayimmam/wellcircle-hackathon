@@ -1,12 +1,19 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 import { getPointsHistory } from '../api/client';
-import { getTier, NEIGHBOURHOODS, MOCK_HEALTH_METRICS, MOCK_COMMUNITIES } from '../data/mock';
+import { getTier, NEIGHBOURHOODS, MOCK_COMMUNITIES } from '../data/mock';
+import { submitFeedback } from '../api/client';
 import { showToast } from '../components/Toast';
+import { effectiveTimeFormat, formatSlot } from '../utils/timeFormat';
+import PhoneInput from '../components/PhoneInput';
+import { parsePhone } from '../utils/phone';
+import BugReportSheet from '../components/BugReportSheet';
+
+const HEALTH_APPS = ['Apple Health', 'Google Fit', 'Samsung Health', 'Fitbit', 'Garmin', 'Strava', 'Huawei Health', 'Other'];
 
 const PointsTooltip = () => {
   const [show, setShow] = useState(false);
@@ -36,9 +43,16 @@ export default function ProfileScreen() {
   const { user, updateProfile } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const [pointsHistory, setPointsHistory] = useState(null);
   const [showNeighbourhoodSheet, setShowNeighbourhoodSheet] = useState(false);
-  const [healthConnected, setHealthConnected] = useState(user?.health_app_connected || false);
+  const [healthAppChoice, setHealthAppChoice] = useState(HEALTH_APPS[0]);
+  const [healthAppOther, setHealthAppOther] = useState('');
+  const [healthAppVoted, setHealthAppVoted] = useState(null);
+  const [votingHealthApp, setVotingHealthApp] = useState(false);
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [phoneEditResult, setPhoneEditResult] = useState({ valid: false, e164: null });
+  const [showBugReport, setShowBugReport] = useState(false);
   const { t, i18n } = useTranslation();
 
   const tier = getTier(user?.points_balance || 0);
@@ -49,6 +63,17 @@ export default function ProfileScreen() {
   useEffect(() => {
     getPointsHistory().then(setPointsHistory);
   }, []);
+
+  // Location nudges (Home's "Near you" section, Explore's "Near me" filter)
+  // deep-link here with a flag to auto-open the neighbourhood sheet — clear
+  // the state after so navigating back doesn't re-trigger it.
+  useEffect(() => {
+    if (location.state?.openNeighbourhood) {
+      setShowNeighbourhoodSheet(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   const handleNeighbourhoodSelect = async (neighbourhood) => {
     if (user?.location_neighborhood === neighbourhood) {
@@ -65,14 +90,18 @@ export default function ProfileScreen() {
     }
   };
 
-  const toggleHealthApp = async () => {
-    const newState = !healthConnected;
-    setHealthConnected(newState);
+  const handleHealthAppVote = async () => {
+    const appName = healthAppChoice === 'Other' ? healthAppOther.trim() : healthAppChoice;
+    if (!appName || votingHealthApp) return;
+    setVotingHealthApp(true);
     try {
-      await updateProfile({ health_app_connected: newState });
-      showToast(newState ? 'Health app connected!' : 'Health app disconnected', newState ? 'success' : undefined);
+      await submitFeedback({ type: 'health_app_request', message: appName });
+      showToast(t("Noted — we'll prioritize it."), 'success');
+      setHealthAppVoted(appName);
     } catch (err) {
-      // Still update locally per PRD — frontend state is source of truth
+      showToast(err.message, 'error');
+    } finally {
+      setVotingHealthApp(false);
     }
   };
 
@@ -184,6 +213,70 @@ export default function ProfileScreen() {
         </div>
       </div>
 
+      {/* Time Format */}
+      <div className="profile-section">
+        <div className="profile-section-title">{t('Time Format')}</div>
+        <div className="profile-card">
+          <div className="theme-toggle" role="group" aria-label="Time format">
+            <button
+              type="button"
+              className={`theme-toggle-btn ${effectiveTimeFormat(user) === '12h' ? 'active' : ''}`}
+              onClick={() => updateProfile({ time_format: '12h' }).then(() => showToast('Time format updated', 'success'))}
+              id="time-format-12h-btn"
+            >
+              {`12-hour (${formatSlot('14:00', '12h')})`}
+            </button>
+            <button
+              type="button"
+              className={`theme-toggle-btn ${effectiveTimeFormat(user) === '24h' ? 'active' : ''}`}
+              onClick={() => updateProfile({ time_format: '24h' }).then(() => showToast('Time format updated', 'success'))}
+              id="time-format-24h-btn"
+            >
+              {`24-hour (${formatSlot('14:00', '24h')})`}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Contact phone */}
+      <div className="profile-section">
+        <div className="profile-section-title">{t('Contact')}</div>
+        <div className="profile-card">
+          {editingPhone ? (
+            <div>
+              <PhoneInput value={parsePhone(user?.phone_number)} onChange={setPhoneEditResult} />
+              <div className="flex gap-8" style={{ marginTop: 10 }}>
+                <button
+                  className="btn btn-primary btn-sm"
+                  disabled={!phoneEditResult.valid}
+                  onClick={() => {
+                    updateProfile({ phone_number: phoneEditResult.e164 }).then(() => {
+                      showToast('Phone number updated', 'success');
+                      setEditingPhone(false);
+                    });
+                  }}
+                  id="save-phone-btn"
+                >
+                  {t('Save')}
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={() => setEditingPhone(false)}>
+                  {t('Cancel')}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <span style={{ fontSize: '0.95rem' }}>
+                {user?.phone_number || <span style={{ color: 'var(--text-secondary)' }}>{t('No phone number saved')}</span>}
+              </span>
+              <button className="btn btn-secondary btn-sm" onClick={() => setEditingPhone(true)} id="edit-phone-btn">
+                {t('Edit')}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Language Selection */}
       <div className="profile-section">
         <div className="profile-section-title">{t('Language')}</div>
@@ -266,32 +359,58 @@ export default function ProfileScreen() {
 
       {/* Health & Activity */}
       <div className="profile-section">
-        <div className="profile-section-title">{t('Health & Activity')}</div>
+        <div className="profile-section-title flex items-center gap-8">
+          {t('Health & Activity')}
+          <span className="badge badge-muted" id="health-app-coming-soon">{t('Coming soon')}</span>
+        </div>
         <div className="profile-card">
-          <button
-            className={`btn btn-block ${healthConnected ? 'btn-primary' : 'btn-outline'}`}
-            onClick={toggleHealthApp}
-            id="health-app-toggle"
-          >
-            {healthConnected ? <><Icon name="check" size={16} strokeWidth={2.5} /> {t('Connected')}</> : t('Connect Health App')}
-          </button>
-
-          {healthConnected && (
-            <div className="health-metrics">
-              <div className="health-metric">
-                <div className="health-metric-value">{MOCK_HEALTH_METRICS.steps_this_week.toLocaleString()}</div>
-                <div className="health-metric-label">Steps this week</div>
-              </div>
-              <div className="health-metric">
-                <div className="health-metric-value">{MOCK_HEALTH_METRICS.active_minutes}</div>
-                <div className="health-metric-label">Active min</div>
-              </div>
-              <div className="health-metric">
-                <div className="health-metric-value">{MOCK_HEALTH_METRICS.wellness_score}</div>
-                <div className="health-metric-label">Wellness score</div>
-              </div>
-            </div>
+          {healthAppVoted ? (
+            <p style={{ margin: 0 }}>{t('Thanks for voting: {{app}}', { app: healthAppVoted })}</p>
+          ) : (
+            <>
+              <p className="text-sm text-secondary mb-8">{t('Which app should we support first?')}</p>
+              <select
+                className="input mb-8"
+                value={healthAppChoice}
+                onChange={e => setHealthAppChoice(e.target.value)}
+                id="health-app-select"
+              >
+                {HEALTH_APPS.map(app => <option key={app} value={app}>{app}</option>)}
+              </select>
+              {healthAppChoice === 'Other' && (
+                <input
+                  className="input mb-8"
+                  placeholder={t('Which app?')}
+                  value={healthAppOther}
+                  onChange={e => setHealthAppOther(e.target.value)}
+                  id="health-app-other-input"
+                />
+              )}
+              <button
+                className="btn btn-primary btn-block"
+                onClick={handleHealthAppVote}
+                disabled={votingHealthApp || (healthAppChoice === 'Other' && !healthAppOther.trim())}
+                id="health-app-vote-btn"
+              >
+                {t('Submit')}
+              </button>
+            </>
           )}
+        </div>
+      </div>
+
+      {/* Support */}
+      <div className="profile-section">
+        <div className="profile-section-title">{t('Support')}</div>
+        <div
+          className="profile-card"
+          onClick={() => setShowBugReport(true)}
+          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
+          id="report-bug-row"
+        >
+          <Icon name="message-circle" size={20} />
+          <div style={{ flex: 1, fontSize: '0.88rem', fontWeight: 600 }}>{t('Report a bug')}</div>
+          <Icon name="chevron-right" size={16} className="text-tertiary" style={{ color: 'var(--text-tertiary)' }} />
         </div>
       </div>
 
@@ -340,6 +459,8 @@ export default function ProfileScreen() {
           </div>
         </>
       )}
+
+      {showBugReport && <BugReportSheet onClose={() => setShowBugReport(false)} />}
     </div>
   );
 }

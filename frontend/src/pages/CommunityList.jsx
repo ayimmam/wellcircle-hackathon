@@ -1,27 +1,37 @@
 import { useState, useEffect } from 'react';
-import { getCommunities, joinCommunity, getCircles, createCircle } from '../api/client';
+import { getCommunities, joinCommunity, getCircles, createCircle, getRanks } from '../api/client';
 import { CATEGORIES } from '../data/mock';
 import CommunityCard from '../components/CommunityCard';
 import { showToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
+
+const MEDALS = ['🥇', '🥈', '🥉'];
 
 export default function CommunityList() {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [communities, setCommunities] = useState([]);
   const [circles, setCircles] = useState([]);
-  const [tab, setTab] = useState('explore'); // 'explore' | 'joined' | 'circles'
+  const [tab, setTab] = useState('explore'); // 'explore' | 'joined' | 'circles' | 'ranks'
   const [category, setCategory] = useState('all');
   const [loading, setLoading] = useState(true);
   const [newCircleName, setNewCircleName] = useState('');
+  const [ranks, setRanks] = useState(null);
+  const [ranksView, setRanksView] = useState('communities'); // 'communities' | 'individuals'
 
   useEffect(() => {
     setLoading(true);
     if (tab === 'circles') {
       getCircles()
         .then(res => setCircles(res.circles || []))
+        .finally(() => setLoading(false));
+    } else if (tab === 'ranks') {
+      getRanks()
+        .then(res => setRanks(res))
         .finally(() => setLoading(false));
     } else {
       Promise.all([
@@ -100,9 +110,16 @@ export default function CommunityList() {
         >
           My Circles
         </button>
+        <button
+          className={`chip inline-icon-text ${tab === 'ranks' ? 'active' : ''}`}
+          onClick={() => setTab('ranks')}
+          id="tab-ranks"
+        >
+          <Icon name="trophy" size={13} /> {t('Ranks')}
+        </button>
       </div>
 
-      {tab !== 'circles' && (
+      {tab !== 'circles' && tab !== 'ranks' && (
         <div className="filter-chips">
           {CATEGORIES.map(cat => (
             <button
@@ -128,6 +145,99 @@ export default function CommunityList() {
               </div>
             </div>
           ))}
+        </div>
+      ) : tab === 'ranks' ? (
+        <div id="ranks-panel">
+          <div className="admin-subtabs mb-16" style={{ display: 'flex', gap: 8 }}>
+            <button
+              className={`admin-subtab ${ranksView === 'communities' ? 'active' : ''}`}
+              onClick={() => setRanksView('communities')}
+              id="ranks-view-communities"
+            >
+              {t('Communities')}
+            </button>
+            <button
+              className={`admin-subtab ${ranksView === 'individuals' ? 'active' : ''}`}
+              onClick={() => setRanksView('individuals')}
+              id="ranks-view-individuals"
+            >
+              {t('Individuals')}
+            </button>
+          </div>
+
+          {ranksView === 'communities' ? (
+            ranks?.communities?.length > 0 ? (
+              <div className="flex-col gap-8">
+                {ranks.communities.map((c, i) => (
+                  <div
+                    key={c.community_id}
+                    className="card"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/community/${c.community_id}`)}
+                    id={`rank-community-${c.community_id}`}
+                  >
+                    <div className="card-body flex items-center justify-between">
+                      <div className="flex items-center gap-12">
+                        <span style={{ fontSize: '1.1rem', fontWeight: 800, width: 28 }}>
+                          {MEDALS[i] || `#${c.rank}`}
+                        </span>
+                        <div>
+                          <div style={{ fontWeight: 700 }}>{c.name}</div>
+                          <div className="inline-icon-text" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                            <Icon name="users" size={12} /> {c.member_count}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ fontWeight: 800 }}>{c.weekly_points} pts</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <div className="empty-state-icon"><Icon name="trophy" size={32} /></div>
+                <div className="empty-state-text">{t('No points earned this week yet — check in to get on the board')}</div>
+              </div>
+            )
+          ) : ranks?.users?.length > 0 ? (
+            <div className="flex-col gap-8">
+              {ranks.users.map((u, i) => {
+                const isMe = u.user_id === user?.id;
+                return (
+                  <div
+                    key={u.user_id}
+                    className="card"
+                    id={`rank-user-${u.user_id}`}
+                    style={isMe ? { border: '2px solid var(--brand-primary)' } : undefined}
+                  >
+                    <div className="card-body flex items-center justify-between">
+                      <div className="flex items-center gap-12">
+                        <span style={{ fontSize: '1.1rem', fontWeight: 800, width: 28 }}>
+                          {MEDALS[i] || `#${u.rank}`}
+                        </span>
+                        <div style={{ fontWeight: 700 }}>{u.name}{isMe ? ` (${t('You')})` : ''}</div>
+                      </div>
+                      <div style={{ fontWeight: 800 }}>{u.weekly_points} pts</div>
+                    </div>
+                  </div>
+                );
+              })}
+              {ranks?.me && !ranks.users.some(u => u.user_id === user?.id) && (
+                <div className="card" id="rank-me-footer" style={{ border: '2px dashed var(--brand-primary)' }}>
+                  <div className="card-body flex items-center justify-between">
+                    <div style={{ fontWeight: 700 }}>
+                      {t('You')} — {ranks.me.rank != null ? `#${ranks.me.rank} · ${ranks.me.weekly_points} pts` : t('Unranked')}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <div className="empty-state-icon"><Icon name="trophy" size={32} /></div>
+              <div className="empty-state-text">{t('No points earned this week yet — check in to get on the board')}</div>
+            </div>
+          )}
         </div>
       ) : tab === 'circles' ? (
         <div className="flex-col gap-12">

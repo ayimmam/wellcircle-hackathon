@@ -6,13 +6,18 @@ import EventCard from '../components/EventCard';
 import Icon from '../components/Icon';
 import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
+import { useAuth } from '../context/AuthContext';
+import { isNearUser, nearbyEvents } from '../utils/nearby';
 
 export default function ExploreScreen() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [view, setView] = useState('studios');
   const [providers, setProviders] = useState([]);
+  const [allProviders, setAllProviders] = useState([]); // unfiltered, for events' near-me matching
   const [events, setEvents] = useState([]);
   const [category, setCategory] = useState('all');
+  const [nearMeActive, setNearMeActive] = useState(false);
   const location = useLocation();
   const [search, setSearch] = useState(location.state?.search || '');
   const [loading, setLoading] = useState(true);
@@ -24,6 +29,12 @@ export default function ExploreScreen() {
   useEffect(() => {
     track('explore_view', { view, category });
   }, [view, category]);
+
+  useEffect(() => {
+    // Fetched once regardless of view — events' "near me" matching needs
+    // every provider's location_text, not just the currently-listed ones.
+    getProviders().then(res => setAllProviders(res.providers || [])).catch(() => {});
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -51,6 +62,22 @@ export default function ExploreScreen() {
         .finally(() => setLoading(false));
     }
   }, [view, category, search]);
+
+  const toggleNearMe = () => {
+    if (!user?.location_neighborhood) {
+      navigate('/profile', { state: { openNeighbourhood: true } });
+      return;
+    }
+    setNearMeActive(v => !v);
+  };
+
+  const neighbourhood = user?.location_neighborhood;
+  const visibleProviders = nearMeActive && neighbourhood
+    ? providers.filter(p => isNearUser(p, neighbourhood))
+    : providers;
+  const visibleEvents = nearMeActive && neighbourhood
+    ? nearbyEvents(events, allProviders, neighbourhood)
+    : events;
 
   return (
     <div className="page" id="explore-screen">
@@ -82,6 +109,13 @@ export default function ExploreScreen() {
             {cat.label}
           </button>
         ))}
+        <button
+          className={`chip inline-icon-text ${nearMeActive ? 'active' : ''}`}
+          onClick={toggleNearMe}
+          id="filter-near-me"
+        >
+          <Icon name="map-pin" size={13} /> {t('Near me')}
+        </button>
       </div>
 
       {loading ? (
@@ -91,9 +125,9 @@ export default function ExploreScreen() {
           ))}
         </div>
       ) : view === 'events' ? (
-        events.length > 0 ? (
+        visibleEvents.length > 0 ? (
           <div className="flex-col gap-8">
-            {events.map(e => <EventCard key={e.id} event={e} />)}
+            {visibleEvents.map(e => <EventCard key={e.id} event={e} />)}
           </div>
         ) : (
           <div className="empty-state">
@@ -101,9 +135,9 @@ export default function ExploreScreen() {
             <div className="empty-state-text">{t('No upcoming events in this category.')}</div>
           </div>
         )
-      ) : providers.length > 0 ? (
+      ) : visibleProviders.length > 0 ? (
         <div className="flex-col gap-16">
-          {providers.map(p => (
+          {visibleProviders.map(p => (
             <div
               key={p.id}
               className="card"

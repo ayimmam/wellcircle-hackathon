@@ -33,8 +33,15 @@ async function pickServiceAndDates(dateCount) {
   await screen.findByText('Pick a Date');
   for (let i = 0; i < dateCount; i++) {
     fireEvent.click(document.getElementById(`date-chip-${days[i].date}`));
+    if (i === 1) {
+      // The 2nd day triggers the multi-day modal the first time selection
+      // grows past one day — choose Yes -> Same time to preserve the
+      // classic single-time-for-all-days behavior these tests assert on.
+      fireEvent.click(document.getElementById('multiday-yes-btn'));
+      fireEvent.click(document.getElementById('multiday-same-time-btn'));
+    }
   }
-  fireEvent.click(screen.getByRole('button', { name: '09:00' }));
+  fireEvent.click(document.getElementById('time-slot-09:00'));
 }
 
 describe('BookingFlow multi-day selection', () => {
@@ -82,6 +89,55 @@ describe('BookingFlow multi-day selection', () => {
     expect(screen.getByText(`${days[0].date}, ${days[1].date}`)).toBeInTheDocument();
     // 184/day × 2 = 368 total
     expect(screen.getByText('ETB 368')).toBeInTheDocument();
+  }, 10000);
+
+  it('a 2nd day tap opens the multi-day modal; "No" keeps only the new day', async () => {
+    renderBooking();
+    const service = await screen.findByText('Day Pass');
+    fireEvent.click(service.closest('.service-item'));
+    fireEvent.click(screen.getByRole('button', { name: /^next/i }));
+    await screen.findByText('Pick a Date');
+
+    fireEvent.click(document.getElementById(`date-chip-${days[0].date}`));
+    fireEvent.click(document.getElementById(`date-chip-${days[1].date}`));
+    expect(document.getElementById('multi-day-modal')).toBeInTheDocument();
+
+    fireEvent.click(document.getElementById('multiday-no-btn'));
+    expect(document.getElementById('multi-day-modal')).toBeNull();
+    expect(document.getElementById(`date-chip-${days[0].date}`).className).not.toContain('active');
+    expect(document.getElementById(`date-chip-${days[1].date}`).className).toContain('active');
+  });
+
+  it('"Yes -> Different times" walks each day to its own time slot and the summary shows both pairs', async () => {
+    renderBooking();
+    const service = await screen.findByText('Day Pass');
+    fireEvent.click(service.closest('.service-item'));
+    fireEvent.click(screen.getByRole('button', { name: /^next/i }));
+    await screen.findByText('Pick a Date');
+
+    fireEvent.click(document.getElementById(`date-chip-${days[0].date}`));
+    fireEvent.click(document.getElementById(`date-chip-${days[1].date}`));
+    fireEvent.click(document.getElementById('multiday-yes-btn'));
+    fireEvent.click(document.getElementById('multiday-different-times-btn'));
+
+    // Sequential per-day picker: day 1 first
+    await screen.findByText(new RegExp(`Day 1 of 2: ${days[0].dayName} ${days[0].dayNumber}`));
+    fireEvent.click(document.getElementById('time-slot-09:00'));
+    // auto-advances to day 2
+    await screen.findByText(new RegExp(`Day 2 of 2: ${days[1].dayName} ${days[1].dayNumber}`));
+    fireEvent.click(document.getElementById('time-slot-18:30'));
+
+    fireEvent.click(screen.getByRole('button', { name: /^next/i }));
+    await screen.findByText('Review & Confirm');
+    fireEvent.change(document.getElementById('phone-input'), { target: { value: '0911234567' } });
+    fireEvent.click(screen.getByRole('button', { name: /send booking request/i }));
+
+    await waitFor(
+      () => expect(screen.getByText('Booking Request Sent!')).toBeInTheDocument(),
+      { timeout: 5000 }
+    );
+    expect(screen.getByText(new RegExp(`${days[0].dayName} ${days[0].dayNumber}`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`${days[1].dayName} ${days[1].dayNumber}`))).toBeInTheDocument();
   }, 10000);
 
   it('event bookings stay single-date — a second tap replaces, not adds', async () => {

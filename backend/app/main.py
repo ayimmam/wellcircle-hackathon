@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, providers, communities, bookings, payments, users, circles, posts, products, events, challenges, notifications, subscriptions
+from app.api import auth, providers, communities, bookings, payments, users, circles, posts, products, events, challenges, notifications, subscriptions, ranks, feedback
 from app.api.admin import router as admin_router
 from app.api.bot import router as bot_router
 from app.config import settings
@@ -103,6 +103,8 @@ app.include_router(events.router, prefix="/api", tags=["Events"])
 app.include_router(challenges.router, prefix="/api", tags=["Challenges"])
 app.include_router(notifications.router, prefix="/api", tags=["Notifications"])
 app.include_router(subscriptions.router, prefix="/api", tags=["Subscriptions"])
+app.include_router(ranks.router, prefix="/api", tags=["Ranks"])
+app.include_router(feedback.router, prefix="/api", tags=["Feedback"])
 
 
 @app.get("/health", tags=["Health"])

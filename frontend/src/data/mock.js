@@ -24,6 +24,8 @@ export const MOCK_USER = {
   is_super_admin: import.meta.env.VITE_MOCK_SUPER_ADMIN === 'true',
   location_neighborhood: null,
   health_app_connected: false,
+  phone_number: null,
+  time_format: null,
   joined_communities: [
     '22222222-0000-0000-0000-000000000003',
     '22222222-0000-0000-0000-000000000005'
@@ -42,6 +44,7 @@ export const MOCK_PROVIDERS = [
     lat: 9.0105, lng: 38.7878,
     price_range: 'ETB 800 – 4,500',
     rating: 4.7,
+    contact_phone: '+251 91 123 4567',
     cover_photo_url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800',
     photos: [
       'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800',
@@ -566,13 +569,6 @@ export const NEIGHBOURHOOD_ALERTS = {
   "Other": "Three new wellness providers just joined Well Circle near you. Tap Explore to discover them."
 };
 
-// ─── Health Metrics (hardcoded) ─────────────────────
-export const MOCK_HEALTH_METRICS = {
-  steps_this_week: 6240,
-  active_minutes: 48,
-  wellness_score: 72
-};
-
 // ─── Tiers ──────────────────────────────────────────
 export const TIERS = [
   { name: 'Seed',   tier: 'seed',   emoji: '🌱', min: 0,   max: 99 },
@@ -615,6 +611,54 @@ export const INTEREST_CATEGORIES = [
 ];
 
 export const NEIGHBOURHOODS = ['Bole', 'Kazanchis', 'Piassa', 'CMC', 'Sarbet', 'Megenagna', 'Other'];
+
+// ─── Events (Phase 3 featured events + V2 "near you") ──
+// getEvents()/getFeaturedEvents() previously always returned an empty mock
+// array — the "Happening Soon" carousel and the location-nearby matching
+// both needed at least one real event to have anything to show in mock mode.
+export const MOCK_EVENTS = [
+  {
+    id: 'evt-shanti-01',
+    provider_id: '11111111-0000-0000-0000-000000000003', // Shanti Yoga Addis, Bole
+    provider_name: 'Shanti Yoga Addis',
+    service_name: 'Sunrise Rooftop Yoga',
+    price_etb: 350,
+    capacity: 20,
+    spots_remaining: 4,
+    urgency: 'high',
+    is_boosted: true,
+    starts_at: new Date(Date.now() + 2 * 86400000).toISOString(),
+  },
+  {
+    id: 'evt-lifestyle-01',
+    provider_id: '11111111-0000-0000-0000-000000000001', // Lifestyle Fitness Center, Bole
+    provider_name: 'Lifestyle Fitness Center',
+    service_name: 'Group HIIT Class',
+    price_etb: 200,
+    capacity: 15,
+    spots_remaining: 9,
+    urgency: 'medium',
+    is_boosted: false,
+    starts_at: new Date(Date.now() + 4 * 86400000).toISOString(),
+  },
+];
+
+// ─── Ranks (V2 UX Phase 5 — weekly leaderboard) ─────
+export const MOCK_RANKS = {
+  communities: [
+    { community_id: '22222222-0000-0000-0000-000000000003', name: 'Shanti Yoga Circle', member_count: 83, weekly_points: 2450, rank: 1 },
+    { community_id: '22222222-0000-0000-0000-000000000001', name: 'Lifestyle Fit Squad', member_count: 47, weekly_points: 1980, rank: 2 },
+    { community_id: '22222222-0000-0000-0000-000000000002', name: 'Iron & Soul Lifters', member_count: 28, weekly_points: 1120, rank: 3 },
+    { community_id: '22222222-0000-0000-0000-000000000004', name: 'Zen Flow Hot Yoga', member_count: 35, weekly_points: 860, rank: 4 },
+  ],
+  users: [
+    { user_id: '00000000-0000-0000-0000-000000000099', name: 'Hana Girma', photo_url: 'https://i.pravatar.cc/150?u=hana', weekly_points: 340, rank: 1 },
+    { user_id: '00000000-0000-0000-0000-000000000098', name: 'Dawit Bekele', photo_url: 'https://i.pravatar.cc/150?u=dawit', weekly_points: 295, rank: 2 },
+    { user_id: '00000000-0000-0000-0000-000000000097', name: 'Selam Alemu', photo_url: 'https://i.pravatar.cc/150?u=selam', weekly_points: 210, rank: 3 },
+    { user_id: '00000000-0000-0000-0000-000000000001', name: 'Meron Tadesse', photo_url: 'https://i.pravatar.cc/150?u=meron', weekly_points: 120, rank: 8 },
+  ],
+  me: { rank: 8, weekly_points: 120 },
+};
 
 // ─── Time Slots ─────────────────────────────────────
 export const MOCK_TIME_SLOTS = [

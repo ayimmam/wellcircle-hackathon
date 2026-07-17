@@ -1,11 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Icon from './Icon';
 
 import { getApiBase } from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import { track } from '../analytics';
+
+const CONCIERGE_CHIPS = [
+  { label: 'Affordable gyms around me', needsLocation: true },
+  { label: 'Best-rated spas', needsLocation: false },
+  { label: 'Yoga classes this week', needsLocation: false },
+  { label: 'Nutrition coaching options', needsLocation: false },
+];
 
 export default function AskWellCircle() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { t } = useTranslation();
+  const inputRef = useRef(null);
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -45,10 +58,11 @@ export default function AskWellCircle() {
     }
   }, [messages, isOpen]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
-    
-    const userMsg = input.trim();
+  const handleSend = async (override) => {
+    const raw = override ?? input;
+    if (!raw.trim() || isLoading) return;
+
+    const userMsg = raw.trim();
     setInput('');
     setMessages(prev => [...prev, { id: Date.now(), text: userMsg, sender: 'user' }]);
     setIsLoading(true);
@@ -112,6 +126,21 @@ export default function AskWellCircle() {
     if (e.key === 'Enter') {
       handleSend();
     }
+  };
+
+  const handleChipTap = (chip) => {
+    track('concierge_chip_click', { chip: chip.label });
+    if (chip.needsLocation) {
+      const area = user?.location_neighborhood;
+      if (area) {
+        handleSend(`Affordable gyms around ${area}`);
+      } else {
+        setInput('Affordable gyms around ');
+        inputRef.current?.focus();
+      }
+      return;
+    }
+    handleSend(chip.label);
   };
 
   return (
@@ -291,12 +320,30 @@ export default function AskWellCircle() {
               borderTop: '1px solid var(--border-subtle)',
               paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)'
             }}>
+              {messages.length <= 1 && (
+                <div
+                  id="concierge-chips"
+                  style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}
+                >
+                  {CONCIERGE_CHIPS.map(chip => (
+                    <button
+                      key={chip.label}
+                      className="chip"
+                      onClick={() => handleChipTap(chip)}
+                      id={`concierge-chip-${chip.label.replace(/\s+/g, '-').toLowerCase()}`}
+                    >
+                      {t(chip.label)}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div style={{
                 display: 'flex',
                 gap: '10px',
                 alignItems: 'center'
               }}>
                 <input
+                  ref={inputRef}
                   className="input"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}

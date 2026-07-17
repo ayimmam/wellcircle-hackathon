@@ -32,7 +32,7 @@ import {
   MOCK_PRODUCTS, MOCK_REDEMPTIONS, MOCK_ADMIN_ANALYTICS, MOCK_PENDING_PROVIDERS,
   MOCK_ADMIN_PROVIDERS, MOCK_ADMIN_PRODUCTS, MOCK_PROVIDER_PRODUCTS,
   MOCK_PROVIDER_CUSTOMERS, MOCK_PRICE_SUGGESTION, MOCK_PROVIDER_POINTS_ANALYTICS,
-  MOCK_SOCIAL_PROOF,
+  MOCK_SOCIAL_PROOF, MOCK_EVENTS, MOCK_RANKS,
 } from '../data/mock';
 
 // ─── Auth helpers ───────────────────────────────────
@@ -751,7 +751,7 @@ export async function getAdminNotifications(limit = 20, offset = 0) {
 
 // ─── Phase 3 ──────────────────────────────────────
 export async function getEvents(params = {}) {
-  if (USE_MOCK) return { events: [], count: 0 };
+  if (USE_MOCK) return { events: [...MOCK_EVENTS], count: MOCK_EVENTS.length };
   const qs = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => {
     if (v != null && v !== '') qs.set(k, String(v));
@@ -768,6 +768,62 @@ export async function getFeaturedEvents() {
   const to = new Date();
   to.setDate(to.getDate() + 7);
   return request('GET', `/events?boosted_only=true&limit=10&to=${to.toISOString()}`);
+}
+
+export async function getRanks() {
+  if (USE_MOCK) {
+    await delay();
+    return MOCK_RANKS;
+  }
+  return request('GET', '/ranks');
+}
+
+// ─── Feedback (V2 UX Phase 6) ───────────────────────
+// In-memory mock store — mirrors the backend's feedback table for the
+// duration of a mock-mode session so the Admin Feedback tab can list
+// what was just submitted via submitFeedback().
+let _mockFeedback = [];
+
+export async function submitFeedback({ type, message, context }) {
+  if (USE_MOCK) {
+    await delay();
+    const item = {
+      id: `mock-fb-${_mockFeedback.length + 1}`,
+      user_id: MOCK_USER.id,
+      user_name: MOCK_USER.name,
+      user_handle: MOCK_USER.telegram_handle,
+      type, message, context: context || null,
+      status: 'new',
+      created_at: new Date().toISOString(),
+    };
+    _mockFeedback = [item, ..._mockFeedback];
+    return { id: item.id };
+  }
+  return request('POST', '/feedback', { type, message, context });
+}
+
+export async function getAdminFeedback({ type, status, page = 1 } = {}) {
+  if (USE_MOCK) {
+    await delay();
+    let items = _mockFeedback;
+    if (type) items = items.filter(f => f.type === type);
+    if (status) items = items.filter(f => f.status === status);
+    return { items, total: items.length, page };
+  }
+  const qs = new URLSearchParams();
+  if (type) qs.set('type', type);
+  if (status) qs.set('status', status);
+  qs.set('page', String(page));
+  return request('GET', `/admin/feedback?${qs.toString()}`);
+}
+
+export async function updateFeedbackStatus(id, status) {
+  if (USE_MOCK) {
+    await delay();
+    _mockFeedback = _mockFeedback.map(f => f.id === id ? { ...f, status } : f);
+    return { id, status };
+  }
+  return request('PATCH', `/admin/feedback/${id}`, { status });
 }
 
 export async function getChallenges(communityId) {

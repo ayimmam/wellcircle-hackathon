@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import Icon from './Icon';
+import BugReportSheet from './BugReportSheet';
 
 /**
  * Catches render-time crashes anywhere below it so a single broken screen
@@ -9,11 +10,11 @@ import Icon from './Icon';
 export default class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null, showReportSheet: false };
   }
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
   }
 
   componentDidCatch(error, info) {
@@ -36,9 +37,24 @@ export default class ErrorBoundary extends Component {
           <p style={{ margin: '0 0 20px', color: 'var(--text-muted, #6b7280)', maxWidth: 280 }}>
             We hit a snag loading this screen. Please try again.
           </p>
-          <button className="btn btn-primary" onClick={this.handleReload}>
-            Reload
-          </button>
+          <div className="flex gap-8">
+            <button className="btn btn-primary" onClick={this.handleReload}>
+              Reload
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => this.setState({ showReportSheet: true })}
+              id="report-problem-btn"
+            >
+              Report this problem
+            </button>
+          </div>
+          {this.state.showReportSheet && (
+            <BugReportSheet
+              error={this.state.error}
+              onClose={() => this.setState({ showReportSheet: false })}
+            />
+          )}
         </div>
       );
     }

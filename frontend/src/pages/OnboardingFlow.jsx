@@ -221,6 +221,11 @@ export default function OnboardingFlow() {
                 </button>
               ))}
             </div>
+            {formData.interest_categories.length > 0 && (
+              <p id="interest-circles-hint" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: 8 }}>
+                Nice pick! Each passion has <strong>circles</strong> — small accountability groups you can join (or create) on the next steps.
+              </p>
+            )}
           </>
         )}
 

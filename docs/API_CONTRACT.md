@@ -66,6 +66,10 @@
 | Circles | GET | `/circles/:id/leaderboard` | JWT | Frontend |
 | Circles | POST | `/circles/join-by-code` | JWT | Frontend |
 | Circles | GET | `/circles/social-proof/today` | JWT | Frontend |
+| Ranks | GET | `/ranks` | JWT | Frontend |
+| Feedback | POST | `/feedback` | JWT | Frontend |
+| Admin | GET | `/admin/feedback` | JWT (admin) | Frontend |
+| Admin | PATCH | `/admin/feedback/:id` | JWT (admin) | Frontend |
 
 ---
 
@@ -102,6 +106,8 @@ Authenticate via Telegram Mini App `initData`. Creates user if first login.
     "is_super_admin": false,
     "location_neighborhood": "Bole",
     "health_app_connected": false,
+    "phone_number": null,
+    "time_format": null,
     "joined_communities": ["uuid-1", "uuid-2"],
     "created_at": "2026-06-06T10:00:00Z"
   },
@@ -224,6 +230,8 @@ Get current user's full profile.
   "is_super_admin": false,
   "location_neighborhood": "Bole",
   "health_app_connected": false,
+  "phone_number": null,
+  "time_format": null,
   "joined_communities": ["uuid-1", "uuid-2"],
   "created_at": "2026-06-06T10:00:00Z"
 }
@@ -279,7 +287,7 @@ Complete Mini App onboarding. Sets `is_onboarded = true`.
 ```
 
 ### `PATCH /api/users/me`
-Update profile fields (personalization, neighborhood opt-in).
+Update profile fields (personalization, neighborhood opt-in, contact/format prefs).
 
 ```json
 // REQUEST (all fields optional)
@@ -287,7 +295,9 @@ Update profile fields (personalization, neighborhood opt-in).
   "name": "Meron T.",
   "goal": "Updated goal",
   "location_neighborhood": "Bole",
-  "health_app_connected": true
+  "health_app_connected": true,
+  "phone_number": "+251911234567",   // E.164; backend only checks shape (6-15 digits, optional +)
+  "time_format": "12h"               // '12h' | '24h' — 422 on any other value
 }
 
 // RESPONSE 200 — same as GET /users/me
@@ -1175,6 +1185,62 @@ Now returns `join_code` (previously just a bare message) so the client can build
 - `POST /api/communities/{id}/checkin` response now also includes `current_streak` and `freeze_count`.
 - `GET /api/circles/social-proof/today` — JWT. `{ "checked_in_today": 3 }` — how many of the caller's circle-mates checked in today, across all their circles.
 - `GET /api/circles/{id}/leaderboard` — `weekly_points` is now computed from the ledger (trailing 7 days of positive transactions) instead of the previously-unfed `CircleMember.weekly_points` column; response shape is unchanged.
+
+---
+
+## 9b. Ranks — Weekly Leaderboard (V2 UX Phase 5)
+
+**`GET /api/ranks`** — JWT. Trailing 7-day weekly leaderboard, both community and individual. Metric is the sum of positive `point_transactions.amount` rows with `created_at >= now() - 7 days` (negative/reversal transactions reduce the total but don't count as separate entries; transactions older than 7 days are excluded entirely).
+
+```json
+// RESPONSE 200
+{
+  "communities": [
+    { "community_id": "uuid", "name": "Shanti Yoga Circle", "member_count": 83, "weekly_points": 2450, "rank": 1 }
+  ],
+  "users": [
+    { "user_id": "uuid", "name": "Hana Girma", "photo_url": "https://...", "weekly_points": 340, "rank": 1 }
+  ],
+  "me": { "rank": 8, "weekly_points": 120 }
+}
+```
+- `communities` / `users` are each capped at the top 20, ordered by `weekly_points` descending.
+- A user who belongs to two communities contributes their weekly points to both communities' totals (community sums are independent per-community aggregates, not mutually exclusive).
+- `me.rank` is `null` (not `0` or last place) when the caller earned 0 points in the trailing 7 days.
+- Mock mode (`getRanks()` in `client.js`) returns the `MOCK_RANKS` fixture from `data/mock.js`.
+
+---
+
+## 9c. Feedback — Bug Reports & Health-App Wishlist (V2 UX Phase 6)
+
+**`POST /api/feedback`** — JWT. Submit a bug report, health-app connect request, or general suggestion.
+```json
+// REQUEST
+{ "type": "bug", "message": "Booking button does nothing on Safari", "context": { "route": "/booking/123", "error": null, "user_agent": "Mozilla/5.0 ..." } }
+
+// RESPONSE 201
+{ "id": "uuid" }
+```
+- `type` — one of `bug` | `health_app_request` | `suggestion`.
+- `message` — 1-2000 chars.
+- `context` — optional free-form JSON (route/error/user_agent); not validated beyond being an object.
+- New rows default to `status: "new"`.
+
+**`GET /api/admin/feedback?type=&status=&page=`** — Super admin. Paginated (20/page), newest-first, submitter name/handle joined in a single query.
+```json
+// RESPONSE 200
+{
+  "items": [
+    { "id": "uuid", "user_id": "uuid", "user_name": "Alice", "user_handle": "alice_tg", "type": "bug", "message": "...", "context": {...}, "status": "new", "created_at": "2026-07-17T10:00:00Z" }
+  ],
+  "total": 42,
+  "page": 1
+}
+```
+
+**`PATCH /api/admin/feedback/{id}`** — Super admin. `{ "status": "reviewed" }` (`new` | `reviewed` | `resolved`) → `{ "id": "uuid", "status": "reviewed" }`. 404 if the id doesn't exist.
+
+Mock parity: `submitFeedback()`, `getAdminFeedback()`, `updateFeedbackStatus()` in `client.js`.
 
 ---
 

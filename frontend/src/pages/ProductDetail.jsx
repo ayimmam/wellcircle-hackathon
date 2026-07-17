@@ -22,7 +22,7 @@ export default function ProductDetail() {
 
   return (
     <div className="page">
-      <button className="btn btn-icon btn-secondary mb-16" onClick={() => navigate(-1)}>←</button>
+      <button className="btn btn-icon btn-secondary mb-16" onClick={() => navigate(-1)} aria-label="Go back"><Icon name="chevron-left" size={20} /></button>
 
       {images.length > 0 && (
         <div className="product-carousel mb-16">

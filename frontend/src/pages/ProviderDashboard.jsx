@@ -142,7 +142,7 @@ export default function ProviderDashboard() {
   if (error || !stats) {
     return (
       <div className="page">
-        <button className="btn btn-icon btn-secondary mb-16" onClick={() => navigate(-1)}>←</button>
+        <button className="btn btn-icon btn-secondary mb-16" onClick={() => navigate(-1)} aria-label="Go back"><Icon name="chevron-left" size={20} /></button>
         <div className="empty-state">
           <div className="empty-state-icon"><Icon name="chart" size={32} /></div>
           <div className="empty-state-text">{error || 'Unable to load provider dashboard'}</div>
@@ -157,8 +157,8 @@ export default function ProviderDashboard() {
     <div className="page" id="provider-dashboard-screen">
       {/* Header */}
       <div className="flex items-center gap-12 mb-16">
-        <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} id="dashboard-back-btn">
-          ←
+        <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} id="dashboard-back-btn" aria-label="Go back">
+          <Icon name="chevron-left" size={20} />
         </button>
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{stats.provider_name}</h1>

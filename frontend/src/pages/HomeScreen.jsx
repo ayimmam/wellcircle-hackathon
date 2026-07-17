@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getProviders, getCommunities, joinCommunity } from '../api/client';
+import { getProviders, getCommunities, joinCommunity, getEvents } from '../api/client';
+import NearYouSection from '../components/NearYouSection';
 import { NEIGHBOURHOOD_ALERTS } from '../data/mock';
 import ProviderCard from '../components/ProviderCard';
 import CommunityCard from '../components/CommunityCard';
@@ -25,6 +26,7 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const [providers, setProviders] = useState([]);
   const [allCommunities, setAllCommunities] = useState([]);
+  const [events, setEvents] = useState([]);
   const [alertDismissed, setAlertDismissed] = useState(false);
   const justOnboarded = Boolean(location.state?.justOnboarded);
 
@@ -36,6 +38,8 @@ export default function HomeScreen() {
     getCommunities()
       .then(res => setAllCommunities(res.communities))
       .catch(err => showToast(`Communities Error: ${err.message}`, 'error'));
+
+    getEvents().then(res => setEvents(res.events || [])).catch(() => {});
   }, []);
 
   const isJoined = (c) => c.user_joined || user?.joined_communities?.includes(c.id);
@@ -127,6 +131,8 @@ export default function HomeScreen() {
           </button>
         </div>
       )}
+
+      {user && <NearYouSection user={user} providers={providers} events={events} />}
 
       {/* Hero Banner Card — top provider */}
       {topProvider && (

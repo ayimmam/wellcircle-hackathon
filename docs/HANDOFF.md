@@ -965,5 +965,124 @@ HANDOFF.md
 
 ---
 
+### Phase 14 — V2 UX Upgrades: Prefs, Ranks, Feedback & Concierge Chips (This Session)
+
+Executed `docs/FEATURE_PLAN_V2_UX_UPGRADES.md` end to end, all 8 phases. Explicitly out of scope per the plan: the major Claude-design UI redesign — no screens were restyled beyond what each task required.
+
+#### Phase 1 — Back-button standardization, CheckinCard bug fix, onboarding hint
+- Replaced literal `←` with `<Icon name="chevron-left" />` (+ `aria-label="Go back"`) across `CommunityDetail`, `MyRedemptions`, `ProductDetail`, `ProductRedeem`, `ProviderDashboard` (2 spots), `ProviderOnboard` (also added a missing `Icon` import).
+- **Bug fixed:** `CheckinCard` stayed mounted (showing an empty/stale list) once every joined circle had already been checked in today; it now unmounts (`return null`) once `checkedIds` covers every circle.
+- Onboarding's interest-picker step gained a one-line hint under the passion chips, shown only after the user selects at least one.
+
+#### Phase 2 — User preferences: phone number + time format
+- Backend: `users.phone_number` (E.164, validated `^\+?[0-9]{6,15}$`) and `users.time_format` (`12h`/`24h`) — Alembic `010_user_prefs.py` + idempotent `apply_user_prefs_migration.py`, `UserProfileUpdate`/`UserResponse` schema fields, `_build_response()` wiring. `test_user_prefs.py` — 7/7.
+- Frontend: `utils/timeFormat.js` (`detectTimeFormat`/`formatSlot`/`effectiveTimeFormat`, Intl-based auto-detect with a user override), `utils/phone.js` + `components/PhoneInput.jsx` (country-code selector, Ethiopia default, national-number validation).
+
+#### Phase 3 — Booking flow polish
+- Time slots now display in the user's preferred AM/PM or 24h format (stable `id="time-slot-{24h value}"` kept for test/automation targeting regardless of display format).
+- `PhoneInput` replaces the raw phone `<input>` in the booking Confirm step; a valid phone auto-saves to the profile and unlocks a "Call {provider} now" `tel:` button on the request-sent screen.
+- Multi-day booking: selecting a 2nd date now prompts "Book multiple days?" → "Same time on all days?" / "Different times", with a per-day time picker for the latter (`BookingFlow.jsx`'s `timeMode`/`perDayTimes`/`multiDayModalStage` state machine).
+
+#### Phase 4 — Location-aware nearby surfacing
+- `utils/nearby.js` (`isNearUser`/`nearbyProviders`/`nearbyEvents`) does neighbourhood text matching — no GPS, per owner decision.
+- `components/LocationNudge.jsx` + `components/NearYouSection.jsx`: Home gets a "Near you" section (nudge to set a neighbourhood if unset, else matched providers/events, else a "browse all" fallback).
+- Explore gained a "Near me" filter chip that deep-links to Profile's neighbourhood sheet if unset, otherwise filters the current list client-side.
+- **Real gap found in passing:** `getEvents()`'s mock branch had always returned an empty array — added a `MOCK_EVENTS` fixture (2 events tied to Bole-area providers) so the "near you" matching and Explore's Events tab have something to show in mock mode.
+
+#### Phase 5 — Weekly ranks (leaderboard)
+- Backend `GET /api/ranks` (new `app/api/ranks.py` + `crud/ranks.py`): trailing-7-day sum of positive `point_transactions.amount`, top 20 communities + top 20 individuals + the caller's own rank (`null` if they earned 0 that week, not 0 or last place). A user in two communities contributes to both totals independently. `test_ranks.py` — 10/10.
+- Frontend: `CommunityList.jsx` gained a 4th "Ranks" tab (Communities/Individuals segmented toggle, 🥇🥈🥉 medals for top 3, tap a community row to open it, own-row highlighted + a dashed footer showing your rank if you're outside the top 20). `CommunityRanks.test.jsx` — 3/3.
+
+#### Phase 6 — Feedback: bug reports & health-app wishlist
+- Backend: new `feedback` table (`type`: bug/health_app_request/suggestion, `message`, `context` JSONB, `status`) — Alembic `011_feedback.py` + `apply_feedback_migration.py`. `POST /api/feedback` (JWT), `GET /api/admin/feedback` (paginated, submitter name/handle joined in one query — no N+1) and `PATCH /api/admin/feedback/:id` (both super-admin) added to `admin.py`. `test_feedback.py` — 15/15.
+- Admin: new "Feedback" tab (`AdminFeedback.jsx`) — type filter chips, per-item status `<select>`, following `AdminProducts.jsx`'s styling conventions.
+- In-app bug reporting: `components/BugReportSheet.jsx` (same local-overlay pattern as the booking flow's multi-day modal) — textarea + auto-collected context (route/error/user-agent), reachable from Profile's new "Support" section or from `ErrorBoundary`'s crash fallback (which now also stores the caught error and offers a pre-wired "Report this problem" button).
+- Health & Activity section replaced the (never-real) connect/disconnect toggle with a "Coming soon" badge and a "Which app should we support first?" vote (`submitFeedback({type: 'health_app_request', ...})`), collapsing to "Thanks for voting: {app}" for the session. Removed the now-fully-dead `MOCK_HEALTH_METRICS` fixture and the unused `Connect Health App`/`Connected` i18n keys.
+
+#### Phase 7 — AI concierge quick-request chips
+- `AskWellCircle.jsx` shows 4 tappable chips above the input, only on a fresh conversation (≤1 message): "Affordable gyms around me" (location-aware — sends immediately with the neighbourhood substituted if set, otherwise prefills the input and focuses it without sending), "Best-rated spas", "Yoga classes this week", "Nutrition coaching options" (all send immediately). Each tap fires `concierge_chip_click` via analytics.
+
+#### Verification
+- Frontend: `npm run build` ✅ · `npm test` → **145/145 passing** across 31 files (one isolated re-run confirmed a single smoke-test failure seen on one parallel run was the known environment flake noted in the plan, not a real regression).
+- Backend: `test_integration`, `test_points_economy` (65/65), `test_presale_reentry`, `test_engagement_loop`, `test_circle_activity` (20/20), `test_ranks` (10/10), `test_feedback` (15/15), `test_user_prefs` (7/7), and `pytest app/tests/test_sheets.py` all pass clean. `app.main` imports cleanly — **105 routes** (up from 101).
+- `docs/API_CONTRACT.md` updated: user prefs fields (auth response, `GET`/`PATCH /users/me`), new `## 9b. Ranks` and `## 9c. Feedback` sections, Quick Reference table rows for `/ranks`, `/feedback`, `/admin/feedback`.
+- Manual dev pass (mock mode, headless browser): onboarding hint, Home's "Near you" nudge, Community's Ranks tab (both Communities and Individuals views, own-row highlight), Profile's Time Format/Contact/Health-wishlist/Report-a-bug all verified live; booking flow loads with the Confirm-step payment copy intact. Admin's Feedback tab was verified via its dedicated unit tests rather than live (the mock session user isn't a super admin, so `AdminGuard` correctly redirects it away — expected, not a bug).
+
+#### Files Changed / Added (Phase 14)
+```
+backend/app/models/user.py
+backend/app/models/feedback.py   (new)
+backend/app/models/__init__.py
+backend/app/schemas/user.py
+backend/app/schemas/ranks.py   (new)
+backend/app/schemas/feedback.py   (new)
+backend/app/api/users.py
+backend/app/api/ranks.py   (new)
+backend/app/api/feedback.py   (new)
+backend/app/api/admin.py
+backend/app/crud/ranks.py   (new)
+backend/app/crud/feedback.py   (new)
+backend/app/main.py
+backend/alembic/versions/010_user_prefs.py   (new)
+backend/alembic/versions/011_feedback.py   (new)
+backend/apply_user_prefs_migration.py   (new)
+backend/apply_feedback_migration.py   (new)
+backend/app/tests/test_user_prefs.py   (new)
+backend/app/tests/test_ranks.py   (new)
+backend/app/tests/test_feedback.py   (new)
+docs/API_CONTRACT.md
+docs/FEATURE_PLAN_V2_UX_UPGRADES.md
+frontend/src/utils/timeFormat.js   (new)
+frontend/src/utils/phone.js   (new)
+frontend/src/utils/nearby.js   (new)
+frontend/src/components/PhoneInput.jsx   (new)
+frontend/src/components/LocationNudge.jsx   (new)
+frontend/src/components/NearYouSection.jsx   (new)
+frontend/src/components/BugReportSheet.jsx   (new)
+frontend/src/components/ErrorBoundary.jsx
+frontend/src/components/AskWellCircle.jsx
+frontend/src/components/CheckinCard.jsx
+frontend/src/pages/BookingFlow.jsx
+frontend/src/pages/ProfileScreen.jsx
+frontend/src/pages/HomeScreen.jsx
+frontend/src/pages/ExploreScreen.jsx
+frontend/src/pages/CommunityList.jsx
+frontend/src/pages/OnboardingFlow.jsx
+frontend/src/pages/CommunityDetail.jsx
+frontend/src/pages/MyRedemptions.jsx
+frontend/src/pages/ProductDetail.jsx
+frontend/src/pages/ProductRedeem.jsx
+frontend/src/pages/ProviderDashboard.jsx
+frontend/src/pages/ProviderOnboard.jsx
+frontend/src/pages/admin/AdminLayout.jsx
+frontend/src/pages/admin/AdminFeedback.jsx   (new)
+frontend/src/App.jsx
+frontend/src/data/mock.js
+frontend/src/api/client.js
+frontend/src/i18n.js
+frontend/src/test/timeFormat.test.js   (new)
+frontend/src/test/phone.test.js   (new)
+frontend/src/test/nearby.test.js   (new)
+frontend/src/test/ProfileScreen.location.test.jsx   (new)
+frontend/src/test/ProfileScreen.healthApp.test.jsx   (new)
+frontend/src/test/HomeNearYou.test.jsx   (new)
+frontend/src/test/ExploreScreen.nearMe.test.jsx   (new)
+frontend/src/test/CommunityRanks.test.jsx   (new)
+frontend/src/test/AdminFeedback.test.jsx   (new)
+frontend/src/test/BugReportSheet.test.jsx   (new)
+frontend/src/test/AskWellCircle.chips.test.jsx   (new)
+frontend/src/test/renderWithProviders.jsx
+frontend/src/test/CheckinCard.test.jsx
+frontend/src/test/OnboardingFlow.test.jsx
+frontend/src/test/ErrorBoundary.test.jsx
+frontend/src/test/routes.smoke.test.jsx
+frontend/src/test/BookingFlow.promo.test.jsx
+frontend/src/test/BookingFlow.multiDay.test.jsx
+frontend/src/test/BookingFlow.phoneBooking.test.jsx
+HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
 

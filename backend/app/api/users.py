@@ -35,6 +35,8 @@ def _build_response(user: User, db: Session) -> UserResponse:
         is_super_admin=user.is_super_admin or user.telegram_id in settings.super_admin_ids,
         location_neighborhood=user.location_neighborhood,
         health_app_connected=user.health_app_connected,
+        phone_number=user.phone_number,
+        time_format=user.time_format,
         joined_communities=joined, created_at=user.created_at,
     )
 

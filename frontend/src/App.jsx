@@ -39,6 +39,7 @@ const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
 const AdminProviders = lazy(() => import('./pages/admin/AdminProviders'));
 const AdminProducts = lazy(() => import('./pages/admin/AdminProducts'));
 const AdminReports = lazy(() => import('./pages/admin/AdminReports'));
+const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback'));
 
 function RouteFallback() {
   return (
@@ -101,6 +102,7 @@ export function AppShell() {
               <Route path="providers" element={<AdminProviders />} />
               <Route path="products" element={<AdminProducts />} />
               <Route path="reports" element={<AdminReports />} />
+              <Route path="feedback" element={<AdminFeedback />} />
             </Route>
 
             {/* Fallback */}

@@ -127,8 +127,8 @@ export default function CommunityDetail() {
     <div className="page" id="community-detail-screen">
       {/* Header */}
       <div className="flex items-center gap-12 mb-20">
-        <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} id="community-back-btn">
-          ←
+        <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} id="community-back-btn" aria-label="Go back">
+          <Icon name="chevron-left" size={20} />
         </button>
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: '1.2rem', fontWeight: 800 }}>{community.name}</h1>

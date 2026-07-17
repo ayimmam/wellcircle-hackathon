@@ -32,7 +32,7 @@ async function walkToConfirmStep() {
 
   // Step 1: pick a date + time
   fireEvent.click(document.querySelector('.date-chip'));
-  fireEvent.click(screen.getByRole('button', { name: MOCK_TIME_SLOTS[0] }));
+  fireEvent.click(document.getElementById(`time-slot-${MOCK_TIME_SLOTS[0]}`));
   fireEvent.click(screen.getByRole('button', { name: /next/i }));
 
   // Step 2: review & confirm summary is showing
@@ -70,7 +70,7 @@ describe('BookingFlow presale pricing', () => {
     fireEvent.click(service.closest('.service-item'));
     fireEvent.click(screen.getByRole('button', { name: /next/i }));
     fireEvent.click(document.querySelector('.date-chip'));
-    fireEvent.click(screen.getByRole('button', { name: MOCK_TIME_SLOTS[0] }));
+    fireEvent.click(document.getElementById(`time-slot-${MOCK_TIME_SLOTS[0]}`));
     fireEvent.click(screen.getByRole('button', { name: /next/i }));
     await screen.findByText(/review & confirm/i);
 
@@ -93,5 +93,11 @@ describe('BookingFlow presale pricing', () => {
       () => expect(screen.getByText('Booking Request Sent!')).toBeInTheDocument(),
       { timeout: 3000 }
     );
+
+    // Lifestyle Fitness Center carries a mock contact_phone — the request-sent
+    // screen offers a direct "call now" fallback alongside the async confirm.
+    const callBtn = document.getElementById('call-provider-now-btn');
+    expect(callBtn).toBeInTheDocument();
+    expect(callBtn.getAttribute('href')).toBe('tel:+251911234567');
   }, 10000);
 });

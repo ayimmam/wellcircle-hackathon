@@ -64,6 +64,7 @@ const ROUTES = [
   ['Admin providers', '/admin/providers'],
   ['Admin products', '/admin/products'],
   ['Admin reports', '/admin/reports'],
+  ['Admin feedback', '/admin/feedback'],
   ['Unknown route fallback', '/this-does-not-exist'],
 ];
 

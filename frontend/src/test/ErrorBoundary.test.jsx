@@ -2,6 +2,11 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ErrorBoundary from '../components/ErrorBoundary';
+import '../i18n';
+
+vi.mock('../api/client', () => ({
+  submitFeedback: vi.fn().mockResolvedValue({ id: 'mock-fb-1' }),
+}));
 
 function Boom() {
   throw new Error('kaboom internal detail');
@@ -37,6 +42,18 @@ describe('ErrorBoundary', () => {
     render(<ErrorBoundary><Boom /></ErrorBoundary>);
     await userEvent.click(screen.getByRole('button', { name: /reload/i }));
     expect(reload).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('shows a "Report this problem" button that opens the bug report sheet pre-wired with the caught error', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(<ErrorBoundary><Boom /></ErrorBoundary>);
+
+    const reportBtn = screen.getByRole('button', { name: /report this problem/i });
+    expect(reportBtn).toBeInTheDocument();
+    await userEvent.click(reportBtn);
+
+    expect(document.getElementById('bug-report-modal')).toBeInTheDocument();
     spy.mockRestore();
   });
 });

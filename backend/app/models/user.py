@@ -75,6 +75,10 @@ class User(Base):
     location_neighborhood = Column(String(100), nullable=True)   # Bole, Kazanchis, etc.
     health_app_connected = Column(Boolean, default=False)
 
+    # --- User preferences (V2 UX) ---
+    phone_number = Column(String(20), nullable=True)  # E.164, e.g. +251911234567
+    time_format = Column(String(3), nullable=True)    # '12h' | '24h'
+
     # --- Timestamps ---
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),

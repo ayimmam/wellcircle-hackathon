@@ -59,6 +59,10 @@ class UserProfileUpdate(BaseModel):
     goal: Optional[str] = Field(None, max_length=500)
     location_neighborhood: Optional[str] = None
     health_app_connected: Optional[bool] = None
+    # V2 UX: stored in E.164; frontend owns format/UX validation, backend just
+    # refuses garbage (max length + loose digit pattern).
+    phone_number: Optional[str] = Field(None, max_length=20, pattern=r"^\+?[0-9]{6,15}$")
+    time_format: Optional[str] = Field(None, pattern=r"^(12h|24h)$")
 
 
 # --- Response schemas ---
@@ -80,6 +84,8 @@ class UserResponse(BaseModel):
     is_super_admin: bool = False
     location_neighborhood: Optional[str] = None
     health_app_connected: bool = False
+    phone_number: Optional[str] = None
+    time_format: Optional[str] = None
     joined_communities: List[str] = []  # Community IDs
     created_at: datetime
 

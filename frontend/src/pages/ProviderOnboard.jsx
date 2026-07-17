@@ -4,6 +4,7 @@ import { selfOnboardProvider, initiateSubscription, getSubscriptionStatus } from
 import { INTEREST_CATEGORIES } from '../data/mock';
 import { showToast } from '../components/Toast';
 import usePolling from '../hooks/usePolling';
+import Icon from '../components/Icon';
 
 const STEPS = ['Invite Code', 'Basic Info', 'Services & Photos', 'Payment Setup', 'Review'];
 
@@ -130,7 +131,7 @@ export default function ProviderOnboard() {
 
   return (
     <div className="page onboard-page" id="provider-onboard-screen">
-      <button className="btn btn-icon btn-secondary mb-16" onClick={() => step > 0 ? setStep(s => s - 1) : navigate(-1)}>←</button>
+      <button className="btn btn-icon btn-secondary mb-16" onClick={() => step > 0 ? setStep(s => s - 1) : navigate(-1)} aria-label="Go back"><Icon name="chevron-left" size={20} /></button>
       <h1 className="section-title mb-8">Become a Wellness Provider</h1>
       <p className="text-secondary text-sm mb-16">Step {step + 1} of {STEPS.length}: {STEPS[step]}</p>
       <div className="progress-bar mb-24">

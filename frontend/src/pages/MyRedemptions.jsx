@@ -30,7 +30,7 @@ export default function MyRedemptions() {
 
   return (
     <div className="page">
-      <button className="btn btn-icon btn-secondary mb-16" onClick={() => navigate(-1)}>←</button>
+      <button className="btn btn-icon btn-secondary mb-16" onClick={() => navigate(-1)} aria-label="Go back"><Icon name="chevron-left" size={20} /></button>
       <h1 className="section-title mb-16">My Redemptions</h1>
 
       <div className="filter-chips wrap mb-16">

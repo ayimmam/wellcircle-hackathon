@@ -7,6 +7,10 @@ import Icon from '../components/Icon';
 import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
 import { promoApplies, computeDiscountEtb, expiryLabel } from '../utils/promo';
+import { useAuth } from '../context/AuthContext';
+import { effectiveTimeFormat, formatSlot } from '../utils/timeFormat';
+import PhoneInput from '../components/PhoneInput';
+import { parsePhone } from '../utils/phone';
 
 const STEP_LABELS = ['Service', 'Date & Time', 'Confirm'];
 
@@ -16,6 +20,8 @@ export default function BookingFlow() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { t } = useTranslation();
+  const { user, updateProfile } = useAuth();
+  const timeFormat = effectiveTimeFormat(user);
   const eventId = searchParams.get('event_id') || location.state?.eventId || null;
   const [step, setStep] = useState(0);
   const [provider, setProvider] = useState(location.state?.provider || null);
@@ -23,14 +29,21 @@ export default function BookingFlow() {
 
   // Form state
   const [selectedService, setSelectedService] = useState(location.state?.selectedService || null);
-  // Multi-day booking: pick several days for the same service/time — each
-  // becomes its own booking, paid for together. Event bookings stay
-  // single-date (an event already has one fixed date) — see toggleDate.
+  // Multi-day booking: pick several days for the same service — each becomes
+  // its own booking. `timeMode` decides whether they share one time
+  // ('same', the classic behavior) or each has its own ('perDay').
   const [selectedDates, setSelectedDates] = useState([]);
-  const [selectedTime, setSelectedTime] = useState(null);
+  const [selectedTime, setSelectedTime] = useState(null); // used when timeMode !== 'perDay'
+  const [timeMode, setTimeMode] = useState(null); // null | 'same' | 'perDay'
+  const [perDayTimes, setPerDayTimes] = useState({}); // { 'YYYY-MM-DD': '09:00' }
+  const [perDayPickerDate, setPerDayPickerDate] = useState(null);
+  // Multi-day modal: 'ask-multi' -> "book multiple days?"; 'ask-timeMode' -> "same time on all days?"
+  const [multiDayModalStage, setMultiDayModalStage] = useState(null);
+  const [pendingNewDay, setPendingNewDay] = useState(null);
+
   // No in-app payment: our team calls this number to confirm the booking
   // and collect payment in person (see docs/API_CONTRACT.md's pay_on_site note).
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneResult, setPhoneResult] = useState({ valid: false, e164: null });
   const [booking, setBooking] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
   // Kuriftu gap analysis (Jul 15): some services aren't booked in-app at all —
@@ -39,6 +52,10 @@ export default function BookingFlow() {
   const [showContact, setShowContact] = useState(false);
 
   const days = getNextDays(7);
+  const dayLabel = (dateStr) => {
+    const d = days.find(x => x.date === dateStr);
+    return d ? `${d.dayName} ${d.dayNumber}` : dateStr;
+  };
 
   useEffect(() => {
     track('booking_start', {
@@ -114,42 +131,95 @@ export default function BookingFlow() {
   const appliedPromo = booking?.promotion || null;
   const paidTotal = booking?.total_amount_etb ?? (appliedPromo ? totalSubtotal - appliedPromo.discount_etb : totalSubtotal);
 
+  const sortedDates = [...selectedDates].sort();
+  const timeFor = (date) => (timeMode === 'perDay' ? perDayTimes[date] : selectedTime);
+  // Per-line "date · time" pairs for the summary/confirmation screens.
+  const dateTimeLines = () => sortedDates.map(d => ({ date: d, time: timeFor(d) }));
+
   const toggleDate = (date) => {
     if (eventId) {
-      // An event has one fixed date — no multi-select for event bookings.
+      // An event has one fixed date — no multi-select for event bookings;
+      // the multi-day modal must never appear for them.
       setSelectedDates([date]);
       return;
     }
-    setSelectedDates(prev =>
-      prev.includes(date) ? prev.filter(d => d !== date) : [...prev, date]
-    );
+    if (selectedDates.includes(date)) {
+      setSelectedDates(prev => prev.filter(d => d !== date));
+      setPerDayTimes(prev => {
+        const next = { ...prev };
+        delete next[date];
+        return next;
+      });
+      // Deselecting down to one day resets nothing — mode/times are kept.
+      return;
+    }
+    // The modal only appears the FIRST time the selection grows past one day
+    // in this session; subsequent extra days follow the already-chosen mode.
+    if (selectedDates.length >= 1 && timeMode === null) {
+      setPendingNewDay(date);
+      setMultiDayModalStage('ask-multi');
+      return;
+    }
+    const next = [...selectedDates, date];
+    setSelectedDates(next);
+    if (timeMode === 'perDay') setPerDayPickerDate(date);
+  };
+
+  const closeMultiDayModal = () => {
+    setMultiDayModalStage(null);
+    setPendingNewDay(null);
+  };
+
+  const resolveKeepJustNew = () => {
+    setSelectedDates([pendingNewDay]);
+    setPerDayTimes({});
+    closeMultiDayModal();
+  };
+
+  const resolveMultiYes = () => setMultiDayModalStage('ask-timeMode');
+
+  const resolveTimeModeSame = () => {
+    setTimeMode('same');
+    setSelectedDates(prev => [...prev, pendingNewDay]);
+    closeMultiDayModal();
+  };
+
+  const resolveTimeModePerDay = () => {
+    setTimeMode('perDay');
+    const nextSelected = [...selectedDates, pendingNewDay].sort();
+    setSelectedDates(nextSelected);
+    setPerDayPickerDate(nextSelected.find(d => !perDayTimes[d]) || nextSelected[0]);
+    closeMultiDayModal();
   };
 
   const canNext = () => {
     if (step === 0) return selectedService !== null;
-    if (step === 1) return selectedDates.length > 0 && selectedTime !== null;
-    if (step === 2) return phoneNumber.trim().length >= 9;
+    if (step === 1) {
+      if (selectedDates.length === 0) return false;
+      if (timeMode === 'perDay') return selectedDates.every(d => perDayTimes[d]);
+      return selectedTime !== null;
+    }
+    if (step === 2) return phoneResult.valid;
     return false;
   };
 
   // No in-app payment gateway: the booking is created `pending` and our team
-  // calls `phoneNumber` to confirm the slot — payment is collected in person
-  // then, not through the app (see docs/API_CONTRACT.md's pay_on_site note).
+  // calls `phoneResult.e164` to confirm the slot — payment is collected in
+  // person then, not through the app (see docs/API_CONTRACT.md's pay_on_site note).
   const handleConfirm = async () => {
     try {
-      // Earliest selected day is the "primary" booking; any others ride
-      // along as additional_slot_datetimes (same service/time).
-      const [primaryDate, ...extraDates] = [...selectedDates].sort();
+      const [primaryDate, ...extraDates] = sortedDates;
+      const primaryTime = timeFor(primaryDate);
       const bk = await createBooking({
         provider_id: providerId,
         service_name: selectedService.name,
-        slot_datetime: `${primaryDate}T${selectedTime}:00Z`,
+        slot_datetime: `${primaryDate}T${primaryTime}:00Z`,
         amount_etb: subtotal, // per-day, undiscounted — the backend applies any promo
         payment_method: 'pay_on_site',
-        phone_number: phoneNumber,
+        phone_number: phoneResult.e164,
         ...(eventId ? { event_id: eventId } : {}),
         ...(extraDates.length > 0
-          ? { additional_slot_datetimes: extraDates.map(d => `${d}T${selectedTime}:00Z`) }
+          ? { additional_slot_datetimes: extraDates.map(d => `${d}T${timeFor(d)}:00Z`) }
           : {}),
       });
       setBooking(bk);
@@ -167,6 +237,11 @@ export default function BookingFlow() {
           discount_pct: bk.promotion.discount_pct,
           discount_etb: bk.promotion.discount_etb,
         });
+      }
+      // Save the phone number to the profile for next time — best-effort,
+      // never blocks or fails the booking, and only when it actually changed.
+      if (phoneResult.e164 && phoneResult.e164 !== user?.phone_number) {
+        updateProfile({ phone_number: phoneResult.e164 }).catch(() => {});
       }
     } catch (err) {
       showToast(err.message || 'Could not confirm booking. Try again.', 'error');
@@ -264,7 +339,7 @@ export default function BookingFlow() {
             Ref: {booking?.reference_number || booking?.id?.slice(0, 12)}
           </p>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 auto 16px', maxWidth: 320 }}>
-            {t("Our team will call you at {{phone}} to confirm your slot. No payment is needed now — you'll pay {{name}} directly once it's confirmed.", { phone: phoneNumber, name: provider.name })}
+            {t("Our team will call you at {{phone}} to confirm your slot. No payment is needed now — you'll pay {{name}} directly once it's confirmed.", { phone: phoneResult.e164, name: provider.name })}
           </p>
           <div className="confirmation-details">
             <div className="confirmation-row">
@@ -275,14 +350,27 @@ export default function BookingFlow() {
               <span className="confirmation-label">Service</span>
               <span className="confirmation-value">{selectedService?.name}</span>
             </div>
-            <div className="confirmation-row">
-              <span className="confirmation-label">{numDays > 1 ? 'Dates' : 'Date'}</span>
-              <span className="confirmation-value">{[...selectedDates].sort().join(', ')}</span>
-            </div>
-            <div className="confirmation-row">
-              <span className="confirmation-label">Time</span>
-              <span className="confirmation-value">{selectedTime}</span>
-            </div>
+            {timeMode === 'perDay' ? (
+              <div className="confirmation-row" style={{ alignItems: 'flex-start' }}>
+                <span className="confirmation-label">{t('Dates & Times')}</span>
+                <span className="confirmation-value" style={{ textAlign: 'right' }}>
+                  {dateTimeLines().map(({ date, time }) => (
+                    <span key={date} style={{ display: 'block' }}>{dayLabel(date)} · {formatSlot(time, timeFormat)}</span>
+                  ))}
+                </span>
+              </div>
+            ) : (
+              <>
+                <div className="confirmation-row">
+                  <span className="confirmation-label">{numDays > 1 ? 'Dates' : 'Date'}</span>
+                  <span className="confirmation-value">{sortedDates.join(', ')}</span>
+                </div>
+                <div className="confirmation-row">
+                  <span className="confirmation-label">Time</span>
+                  <span className="confirmation-value">{formatSlot(selectedTime, timeFormat)}</span>
+                </div>
+              </>
+            )}
             <div className="confirmation-row">
               <span className="confirmation-label">
                 Amount{numDays > 1 ? ` (× ${numDays} days)` : ''}
@@ -310,6 +398,18 @@ export default function BookingFlow() {
               <span className="confirmation-value" style={{ fontWeight: 700 }}>ETB {paidTotal.toLocaleString()}</span>
             </div>
           </div>
+
+          {provider.contact_phone && (
+            <a
+              className="btn btn-outline btn-block"
+              href={`tel:${provider.contact_phone.replace(/[^\d+]/g, '')}`}
+              onClick={() => track('booking_contact_clicked', { provider_id: providerId, method: 'phone', source: 'request_sent' })}
+              id="call-provider-now-btn"
+              style={{ marginBottom: 12 }}
+            >
+              <Icon name="smartphone" size={16} /> {t('Or call {{name}} to confirm now', { name: provider.name })}
+            </a>
+          )}
 
           <button className="btn btn-primary btn-block" onClick={() => navigate('/my-bookings')} id="view-my-bookings-btn" style={{ marginBottom: 12 }}>
             {t('View My Bookings')}
@@ -406,18 +506,61 @@ export default function BookingFlow() {
             ))}
           </div>
 
-          <h2 className="section-title mb-12">{t('Pick a Time')}</h2>
-          <div className="time-slots">
-            {MOCK_TIME_SLOTS.map(slot => (
-              <button
-                key={slot}
-                className={`time-slot ${selectedTime === slot ? 'selected' : ''}`}
-                onClick={() => setSelectedTime(slot)}
-              >
-                {slot}
-              </button>
-            ))}
-          </div>
+          {timeMode === 'perDay' ? (
+            <>
+              <h2 className="section-title mb-12">
+                {t('Pick a time — Day {{n}} of {{total}}: {{day}}', {
+                  n: sortedDates.indexOf(perDayPickerDate) + 1,
+                  total: sortedDates.length,
+                  day: dayLabel(perDayPickerDate),
+                })}
+              </h2>
+              <div className="flex gap-8 mb-12" style={{ flexWrap: 'wrap' }}>
+                {sortedDates.map(d => (
+                  <button
+                    key={d}
+                    className={`chip ${perDayPickerDate === d ? 'active' : ''}`}
+                    onClick={() => setPerDayPickerDate(d)}
+                    id={`perday-chip-${d}`}
+                  >
+                    {dayLabel(d)}{perDayTimes[d] ? ` · ${formatSlot(perDayTimes[d], timeFormat)}` : ''}
+                  </button>
+                ))}
+              </div>
+              <div className="time-slots">
+                {MOCK_TIME_SLOTS.map(slot => (
+                  <button
+                    key={slot}
+                    id={`time-slot-${slot}`}
+                    className={`time-slot ${perDayTimes[perDayPickerDate] === slot ? 'selected' : ''}`}
+                    onClick={() => {
+                      setPerDayTimes(prev => ({ ...prev, [perDayPickerDate]: slot }));
+                      const nextWithoutTime = sortedDates.find(d => d !== perDayPickerDate && !perDayTimes[d]);
+                      if (nextWithoutTime) setPerDayPickerDate(nextWithoutTime);
+                    }}
+                  >
+                    {formatSlot(slot, timeFormat)}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="section-title mb-12">{t('Pick a Time')}</h2>
+              <div className="time-slots">
+                {MOCK_TIME_SLOTS.map(slot => (
+                  <button
+                    key={slot}
+                    id={`time-slot-${slot}`}
+                    className={`time-slot ${selectedTime === slot ? 'selected' : ''}`}
+                    onClick={() => setSelectedTime(slot)}
+                  >
+                    {formatSlot(slot, timeFormat)}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -433,12 +576,23 @@ export default function BookingFlow() {
                 <span className="confirmation-label">Service</span>
                 <span className="confirmation-value">{selectedService?.name}</span>
               </div>
-              <div className="confirmation-row">
-                <span className="confirmation-label">{numDays > 1 ? 'Dates & Time' : 'Date & Time'}</span>
-                <span className="confirmation-value">
-                  {[...selectedDates].sort().join(', ')} at {selectedTime}
-                </span>
-              </div>
+              {timeMode === 'perDay' ? (
+                <div className="confirmation-row" style={{ alignItems: 'flex-start' }}>
+                  <span className="confirmation-label">{t('Dates & Times')}</span>
+                  <span className="confirmation-value" style={{ textAlign: 'right' }}>
+                    {dateTimeLines().map(({ date, time }) => (
+                      <span key={date} style={{ display: 'block' }}>{dayLabel(date)} · {formatSlot(time, timeFormat)}</span>
+                    ))}
+                  </span>
+                </div>
+              ) : (
+                <div className="confirmation-row">
+                  <span className="confirmation-label">{numDays > 1 ? 'Dates & Time' : 'Date & Time'}</span>
+                  <span className="confirmation-value">
+                    {sortedDates.join(', ')} at {formatSlot(selectedTime, timeFormat)}
+                  </span>
+                </div>
+              )}
               <div className="confirmation-row">
                 <span className="confirmation-label">
                   Service Amount{numDays > 1 ? ` (× ${numDays} days)` : ''}
@@ -492,16 +646,9 @@ export default function BookingFlow() {
           </p>
 
           <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 8, display: 'block' }}>
-            {t('Contact Phone Number')}
+            {t('Type your phone number so {{name}} can contact you', { name: provider.name })}
           </label>
-          <input
-            className="onboarding-input"
-            placeholder="0911234567"
-            value={phoneNumber}
-            onChange={e => setPhoneNumber(e.target.value)}
-            type="tel"
-            id="phone-input"
-          />
+          <PhoneInput value={parsePhone(user?.phone_number)} onChange={setPhoneResult} />
         </div>
       )}
 
@@ -536,6 +683,43 @@ export default function BookingFlow() {
           </button>
         )}
       </div>
+
+      {/* Multi-day modal — local overlay, no portal needed */}
+      {multiDayModalStage && (
+        <div
+          id="multi-day-modal"
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24,
+          }}
+        >
+          <div className="card" style={{ maxWidth: 340, width: '100%' }}>
+            <div className="card-body">
+              {multiDayModalStage === 'ask-multi' ? (
+                <>
+                  <h3 className="card-title mb-16">{t('Book multiple days?')}</h3>
+                  <button className="btn btn-primary btn-block mb-8" onClick={resolveMultiYes} id="multiday-yes-btn">
+                    {t('Yes, multiple days')}
+                  </button>
+                  <button className="btn btn-outline btn-block" onClick={resolveKeepJustNew} id="multiday-no-btn">
+                    {t('No — keep just {{day}}', { day: dayLabel(pendingNewDay) })}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h3 className="card-title mb-16">{t('Same time on all days?')}</h3>
+                  <button className="btn btn-primary btn-block mb-8" onClick={resolveTimeModeSame} id="multiday-same-time-btn">
+                    {t('Same time')}
+                  </button>
+                  <button className="btn btn-outline btn-block" onClick={resolveTimeModePerDay} id="multiday-different-times-btn">
+                    {t('Different times')}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

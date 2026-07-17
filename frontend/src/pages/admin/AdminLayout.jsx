@@ -6,6 +6,7 @@ const TABS = [
   { path: '/admin/providers', label: 'Providers' },
   { path: '/admin/products', label: 'Products' },
   { path: '/admin/reports', label: 'Reports' },
+  { path: '/admin/feedback', label: 'Feedback' },
 ];
 
 export default function AdminLayout() {

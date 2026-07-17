@@ -25,11 +25,13 @@ from app.crud.product import admin_list_products, update_product_stock, update_r
 from app.crud.booking import admin_list_bookings
 from app.crud.admin_notification import get_admin_notifications
 from app.crud.evidence import get_pending_evidence, get_evidence_photo_file_id, review_evidence
+from app.crud.feedback import list_feedback, update_feedback_status
 from app.services.telegram_notify import (
     send_telegram_message, build_approval_message, build_rejection_message,
 )
 from app.services.telegram_bot import fetch_telegram_file
 from app.schemas.evidence import EvidenceReviewRequest
+from app.schemas.feedback import FeedbackListResponse, FeedbackStatusUpdate
 from app.schemas.provider import ProviderCreate, ProviderUpdate
 from app.schemas.admin import PlatformAnalytics, AdminUserListResponse, AdminUserItem, AdminBookingListResponse, AdminBookingItem
 from app.schemas.provider_onboarding import (
@@ -423,3 +425,29 @@ async def review_evidence_submission(
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/feedback", response_model=FeedbackListResponse)
+def list_admin_feedback(
+    type: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    admin: User = Depends(get_super_admin),
+    db: Session = Depends(get_db),
+):
+    """Paginated, newest-first feedback list — bug reports, health-app requests, suggestions."""
+    items, total = list_feedback(db, type=type, status=status, page=page)
+    return {"items": items, "total": total, "page": page}
+
+
+@router.patch("/feedback/{feedback_id}")
+def patch_feedback_status(
+    feedback_id: str,
+    payload: FeedbackStatusUpdate,
+    admin: User = Depends(get_super_admin),
+    db: Session = Depends(get_db),
+):
+    fb = update_feedback_status(db, UUID(feedback_id), payload.status)
+    if not fb:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+    return {"id": str(fb.id), "status": fb.status}

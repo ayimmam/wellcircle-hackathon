@@ -89,7 +89,7 @@ export default function ProductRedeem() {
 
   return (
     <div className="page">
-      <button className="btn btn-icon btn-secondary mb-16" onClick={() => navigate(-1)}>←</button>
+      <button className="btn btn-icon btn-secondary mb-16" onClick={() => navigate(-1)} aria-label="Go back"><Icon name="chevron-left" size={20} /></button>
       <h2 className="section-title mb-16">{t('Confirm Redemption')}</h2>
 
       <div className="card mb-16">

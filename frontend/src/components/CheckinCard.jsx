@@ -33,6 +33,13 @@ export default function CheckinCard({ circles, onChecked }) {
 
   if (list.length === 0) return null;
 
+  // Once every listed circle is checked in (including ones that arrived
+  // already checked_in_today), the card has nothing left to prompt — unmount
+  // it. The toast for the last check-in is rendered by the global
+  // ToastContainer, not inside this card, so it survives the unmount.
+  const allDone = list.every(c => checkedIds.has(c.id));
+  if (allDone) return null;
+
   const handleCheckin = async (id) => {
     setBusyId(id);
     track('checkin_prompt_click', { surface: 'home', community_id: id });

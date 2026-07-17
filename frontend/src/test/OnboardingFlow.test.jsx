@@ -53,4 +53,16 @@ describe('OnboardingFlow (Stage 1 psychology)', () => {
     expect(document.getElementById('frequency-daily').className).toContain('selected');
     expect(document.getElementById('frequency-sometimes').className).not.toContain('selected');
   });
+
+  it('selecting a passion on the interest step surfaces the circles hint immediately', async () => {
+    renderWithProviders(<OnboardingFlow />, { route: '/onboarding' });
+    await screen.findByText("What's your name?");
+    goToStep('interest');
+
+    expect(document.getElementById('interest-circles-hint')).toBeNull();
+    fireEvent.click(document.getElementById('interest-yoga'));
+    const hint = document.getElementById('interest-circles-hint');
+    expect(hint).toBeInTheDocument();
+    expect(hint.textContent).toContain('circles');
+  });
 });

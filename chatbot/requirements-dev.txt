@@ -1,0 +1,3 @@
+# Test/dev dependencies (install on top of requirements.txt)
+pytest
+httpx

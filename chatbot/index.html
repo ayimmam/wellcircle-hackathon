@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Well Circle Concierge</title>
+<style>
+  :root {
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --text: var(--tg-theme-text-color, #111111);
+    --hint: var(--tg-theme-hint-color, #999999);
+    --button: var(--tg-theme-button-color, #2AABEE);
+    --button-text: var(--tg-theme-button-text-color, #ffffff);
+    --bubble: #f0f2f5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .header {
+    padding: 16px;
+    font-weight: 600;
+    font-size: 16px;
+    border-bottom: 1px solid #eee;
+  }
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .msg {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 14px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+  }
+  .msg.user {
+    align-self: flex-end;
+    background: var(--button);
+    color: var(--button-text);
+    border-bottom-right-radius: 4px;
+  }
+  .msg.assistant {
+    align-self: flex-start;
+    background: var(--bubble);
+    color: var(--text);
+    border-bottom-left-radius: 4px;
+  }
+  .provider-link {
+    align-self: flex-start;
+    margin-top: -4px;
+    padding: 8px 14px;
+    border: 1px solid var(--button);
+    color: var(--button);
+    background: transparent;
+    border-radius: 10px;
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+  }
+  .typing {
+    align-self: flex-start;
+    color: var(--hint);
+    font-size: 13px;
+    padding: 4px 14px;
+  }
+  .input-row {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid #eee;
+  }
+  .input-row input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    font-size: 14px;
+    outline: none;
+  }
+  .input-row button {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 20px;
+    background: var(--button);
+    color: var(--button-text);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .input-row button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .suggestions {
+    display: flex;
+    gap: 8px;
+    padding: 0 12px 12px;
+    flex-wrap: wrap;
+  }
+  .suggestion {
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 14px;
+    background: var(--bubble);
+    color: var(--text);
+    cursor: pointer;
+    border: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">✨ Ask Well Circle</div>
+
+<!-- RULE 1: Empty on load. No hardcoded greeting. -->
+<div class="messages" id="messages"></div>
+
+<div class="suggestions" id="suggestions">
+  <button class="suggestion" onclick="useSuggestion('I am stressed and have 500 ETB')">😩 Stressed, 500 ETB</button>
+  <button class="suggestion" onclick="useSuggestion('I want a relaxing massage')">💆 Relaxing massage</button>
+  <button class="suggestion" onclick="useSuggestion('I need a nutritionist on a budget')">🥗 Budget nutritionist</button>
+</div>
+
+<div class="input-row">
+  <input type="text" id="input" placeholder="Type how you're feeling..." />
+  <button id="sendBtn" onclick="sendMessage()">Send</button>
+</div>
+
+<script>
+  const API_URL = "https://well-circle-concierge.onrender.com/ai/concierge";
+
+  const messagesEl = document.getElementById('messages');
+  const inputEl = document.getElementById('input');
+  const sendBtn = document.getElementById('sendBtn');
+  const suggestionsEl = document.getElementById('suggestions');
+
+  // RULE 4: isFirstMessage starts true, flips to false after first successful transaction
+  let isFirstMessage = true;
+  let conversationHistory = []; // {role: 'user'|'assistant', content: string}
+
+  // NEW: persisted session id so the backend can remember the last few
+  // turns of this conversation across reloads of the mini app.
+  let sessionId = localStorage.getItem('wellcircle_session_id') || null;
+
+  function addMessage(text, role) {
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    div.textContent = text;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return div;
+  }
+
+  function addProviderLink(providerId, providerName) {
+    const a = document.createElement('div');
+    a.className = 'provider-link';
+    a.textContent = `View ${providerName} →`;
+    a.onclick = () => {
+      if (window.parent) {
+        window.parent.postMessage({
+          type: 'navigate_to_provider',
+          provider_id: providerId
+        }, '*');
+      }
+      console.log('Navigate to provider:', providerId, providerName);
+    };
+    messagesEl.appendChild(a);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function useSuggestion(text) {
+    inputEl.value = text;
+    sendMessage();
+  }
+
+  function showTyping() {
+    const typingEl = document.createElement('div');
+    typingEl.className = 'typing';
+    typingEl.textContent = 'Concierge is thinking...';
+    messagesEl.appendChild(typingEl);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return typingEl;
+  }
+
+  /**
+   * Core transaction function. Sends a message to the backend and processes
+   * the response using strict conditional split routing (RULE 3).
+   *
+   * @param {string} userText - The text to send as `message`.
+   * @param {boolean} displayUserBubble - Whether to render userText as a user bubble
+   *                                       (false for the silent __init__ call).
+   */
+  async function sendToBackend(userText, displayUserBubble) {
+    const typingEl = showTyping();
+
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userText,
+          is_first_message: isFirstMessage,
+          history: conversationHistory,
+          session_id: sessionId, // NEW: server-side memory key
+        }),
+      });
+
+      if (!res.ok) throw new Error('Request failed');
+
+      const data = await res.json();
+      typingEl.remove();
+
+      // NEW: persist whatever session_id the backend assigned/echoed so
+      // the next message keeps using the same remembered conversation.
+      if (data.session_id && data.session_id !== sessionId) {
+        sessionId = data.session_id;
+        localStorage.setItem('wellcircle_session_id', sessionId);
+      }
+
+      // RULE 3: Strict conditional split routing - never render both fields
+      if (data.intro && data.intro.trim().length > 0) {
+        addMessage(data.intro, 'assistant');
+
+        // Onboarding turn: don't pollute history with the huge intro text
+        if (displayUserBubble) {
+          conversationHistory.push({ role: 'user', content: userText });
+        }
+      } else if (data.reply && data.reply.trim().length > 0) {
+        addMessage(data.reply, 'assistant');
+
+        if (displayUserBubble) {
+          conversationHistory.push({ role: 'user', content: userText });
+        }
+        conversationHistory.push({ role: 'assistant', content: data.reply });
+      }
+
+      // RULE 5: Robust provider link handling
+      if (data.provider_id && data.provider_name) {
+        addProviderLink(data.provider_id, data.provider_name);
+      }
+
+      // RULE 4: Flip state after successful transaction
+      isFirstMessage = false;
+
+    } catch (err) {
+      typingEl.remove();
+      addMessage("Sorry, I couldn't reach the concierge right now. Please try again.", 'assistant');
+      console.error(err);
+    }
+  }
+
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    addMessage(text, 'user');
+    inputEl.value = '';
+    sendBtn.disabled = true;
+    suggestionsEl.style.display = 'none';
+
+    await sendToBackend(text, true);
+
+    sendBtn.disabled = false;
+  }
+
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendMessage();
+  });
+
+  // RULE 2: Automatic onboarding trigger on load.
+  // Silent fetch with is_first_message: true, message: "__init__".
+  // No user bubble is rendered for this initialization call.
+  window.addEventListener('DOMContentLoaded', () => {
+    // Apply Telegram theme if available
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.ready();
+      const theme = window.Telegram.WebApp.themeParams;
+      for (const [key, value] of Object.entries(theme)) {
+        document.documentElement.style.setProperty(`--tg-theme-${key.replace(/_/g, '-')}`, value);
+      }
+    }
+
+    sendBtn.disabled = true;
+    sendToBackend("__init__", false).finally(() => {
+      sendBtn.disabled = false;
+    });
+  });
+</script>
+
+</body>
+</html>

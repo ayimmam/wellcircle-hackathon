@@ -58,6 +58,22 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   --brand-primary: var(--accent-text);
   --primary: var(--accent);
 
+  /* Accent tint scale — flat washes of the accent (Telegram UI Kit's
+     secondary_fill / plain_background convention), replacing one-off
+     rgba(245,166,35,X) literals scattered through the sheet. */
+  --tint-accent-04: rgba(245, 166, 35, 0.04);
+  --tint-accent-06: rgba(245, 166, 35, 0.06);
+  --tint-accent-08: rgba(245, 166, 35, 0.08);
+  --tint-accent-10: rgba(245, 166, 35, 0.10);
+  --tint-accent-12: rgba(245, 166, 35, 0.12);
+  --tint-accent-15: rgba(245, 166, 35, 0.15);
+  --tint-accent-20: rgba(245, 166, 35, 0.20);
+  --tint-accent-25: rgba(245, 166, 35, 0.25);
+
+  /* Card elevation — the kit's diffused two-layer shadow shape, tuned to
+     our ink color instead of pure black. */
+  --shadow-card: 0 8px 24px rgba(17, 17, 24, 0.06), 0 1px 2px rgba(17, 17, 24, 0.04);
+
   --bg-primary: #F5F6FA;
   --bg-secondary: #FFFFFF;
   --bg-card: #FFFFFF;
@@ -78,7 +94,6 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.12);
-  --shadow-glow: 0 0 24px var(--accent-glow);
 
   --overlay-scrim: rgba(0, 0, 0, 0.45);
   --overlay-on-image: rgba(0, 0, 0, 0.55);
@@ -119,6 +134,17 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   --brand-primary: var(--accent-light);
   --primary: var(--accent);
 
+  --tint-accent-04: rgba(245, 166, 35, 0.04);
+  --tint-accent-06: rgba(245, 166, 35, 0.06);
+  --tint-accent-08: rgba(245, 166, 35, 0.08);
+  --tint-accent-10: rgba(245, 166, 35, 0.10);
+  --tint-accent-12: rgba(245, 166, 35, 0.12);
+  --tint-accent-15: rgba(245, 166, 35, 0.15);
+  --tint-accent-20: rgba(245, 166, 35, 0.20);
+  --tint-accent-25: rgba(245, 166, 35, 0.25);
+
+  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
+
   --bg-primary: #0A0A0F;
   --bg-secondary: #111118;
   --bg-card: #18181F;
@@ -139,7 +165,6 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.6);
-  --shadow-glow: 0 0 24px var(--accent-glow);
 
   --overlay-scrim: rgba(0, 0, 0, 0.7);
   --overlay-on-image: rgba(0, 0, 0, 0.75);
@@ -363,13 +388,12 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  background: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.4rem;
-  border: 2px solid var(--accent);
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-sm);
 }
 
 .burger-brand-name {
@@ -431,7 +455,6 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   background: var(--accent);
   color: var(--text-on-accent);
   border-color: var(--accent);
-  box-shadow: var(--shadow-glow);
 }
 
 .burger-nav-icon {
@@ -459,7 +482,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   width: 100%;
   padding: 16px 24px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  background: var(--accent);
   color: var(--text-on-accent);
   font-size: 1rem;
   font-weight: 700;
@@ -467,7 +490,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-sm);
   transition: all 0.2s;
 }
 
@@ -714,7 +737,7 @@ select.input option {
 
 .option-card.selected {
   border-color: var(--accent);
-  background: rgba(245, 166, 35, 0.1);
+  background: var(--tint-accent-10);
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
@@ -748,12 +771,12 @@ select.input option {
 .btn:active { transform: scale(0.97); }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  background: var(--accent);
   color: var(--text-on-accent);
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-sm);
 }
 
-.btn-primary:hover { box-shadow: 0 0 32px var(--accent-glow); }
+.btn-primary:hover { box-shadow: var(--shadow-md); }
 .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
 
 .btn-secondary {
@@ -787,6 +810,7 @@ select.input option {
   background: var(--bg-card);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
   transition: transform 0.2s, box-shadow 0.2s;
 }
@@ -858,9 +882,9 @@ select.input option {
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: capitalize;
-  background: rgba(245, 166, 35, 0.12);
+  background: var(--tint-accent-12);
   color: var(--accent-light);
-  border: 1px solid rgba(245, 166, 35, 0.15);
+  border: 1px solid var(--tint-accent-15);
 }
 
 .category-badge.gym { background: rgba(59,130,246,0.12); color: #60A5FA; border-color: rgba(59,130,246,0.15); }
@@ -971,7 +995,6 @@ select.input option {
   background: var(--accent);
   color: var(--text-on-accent);
   border-color: var(--accent);
-  box-shadow: 0 0 12px var(--accent-glow);
 }
 
 .date-chip {
@@ -1059,7 +1082,7 @@ select.input option {
 .alert-banner {
   padding: 14px 16px;
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, rgba(245,166,35,0.12), rgba(245,166,35,0.04));
+  background: var(--tint-accent-08);
   border: 1px solid var(--border-active);
   margin-bottom: 20px;
   display: flex;
@@ -1099,8 +1122,8 @@ select.input option {
   gap: 6px;
   padding: 6px 14px;
   border-radius: var(--radius-full);
-  background: linear-gradient(135deg, rgba(245,166,35,0.15), rgba(245,166,35,0.05));
-  border: 1px solid rgba(245,166,35,0.25);
+  background: var(--tint-accent-12);
+  border: 1px solid var(--tint-accent-25);
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--accent-light);
@@ -1111,7 +1134,14 @@ select.input option {
 /* ================================================================
    LIVE FEED
    ================================================================ */
-.feed { display: flex; flex-direction: column; gap: 1px; }
+.feed {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
 
 .feed-event {
   display: flex;
@@ -1158,9 +1188,112 @@ select.input option {
   text-overflow: ellipsis;
 }
 
-.feed-action strong { font-weight: 600; color: var(--accent-light); }
+.feed-action strong { font-weight: 600; color: var(--accent-dark); }
 .feed-time { font-size: 0.7rem; color: var(--text-tertiary); margin-top: 1px; }
-.feed-type-icon { font-size: 1rem; flex-shrink: 0; }
+.feed-type-icon { font-size: 1rem; flex-shrink: 0; color: var(--text-tertiary); }
+
+/* ================================================================
+   CIRCLE FEED — posts, avatars, comments, leaderboard, members
+   ================================================================ */
+
+/* Avatar — one consistent circular avatar w/ ring, used everywhere a user
+   photo appears (posts, comments, leaderboard, members). */
+.avatar {
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border: 1.5px solid var(--border-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-xs { width: 20px; height: 20px; }
+.avatar-sm { width: 24px; height: 24px; }
+.avatar-md { width: 36px; height: 36px; }
+.avatar-lg { width: 40px; height: 40px; }
+
+/* Cell — a Telegram-kit-style list row: leading element, body, trailing value */
+.cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.cell-rank {
+  width: 28px;
+  flex-shrink: 0;
+  text-align: center;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--text-secondary);
+}
+.cell-rank.top { color: var(--accent-dark); }
+.cell-body { flex: 1; min-width: 0; }
+.cell-title { font-weight: 600; font-size: 0.92rem; }
+.cell-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.cell-trailing { font-weight: 700; font-size: 0.95rem; color: var(--accent-dark); text-align: right; white-space: nowrap; }
+.cell-trailing-sub { font-size: 0.7rem; font-weight: 400; color: var(--text-secondary); }
+
+.leaderboard-row.leader { background: var(--tint-accent-08); border-color: var(--tint-accent-20); }
+
+/* Post composer */
+.post-composer-toggle { padding: 4px 10px; font-size: 0.8rem; border-radius: var(--radius-full); margin-bottom: 8px; }
+.post-composer-field { margin-bottom: 8px; }
+.post-composer-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.post-composer-row .input { padding: 6px 12px; min-height: unset; font-size: 0.85rem; }
+
+/* Post card */
+.post-card.system-event { background: var(--tint-accent-04); border-left: 3px solid var(--accent); }
+.post-user-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.post-user-name { font-weight: 600; font-size: 0.9rem; }
+.post-system-badge {
+  margin-left: 6px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--tint-accent-15);
+  color: var(--accent-dark);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  vertical-align: middle;
+}
+.post-time { font-size: 0.7rem; color: var(--text-tertiary); }
+.post-content { font-size: 0.95rem; line-height: 1.5; margin-bottom: 12px; }
+.post-content.has-stats { margin-bottom: 8px; }
+.post-stat-strip { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--accent-dark); margin-bottom: 12px; }
+.post-photo { max-width: 100%; border-radius: var(--radius-md); margin-bottom: 12px; display: block; }
+.post-reactions { display: flex; gap: 6px; flex-wrap: wrap; }
+.post-reaction-btn { padding: 4px 10px; font-size: 0.8rem; border-radius: var(--radius-full); }
+.post-reaction-btn.gift-5 { background: var(--tint-accent-10); color: var(--accent-dark); border: 1px solid var(--tint-accent-20); }
+.post-reaction-btn.gift-10 { background: var(--tint-accent-15); color: var(--accent-dark); border: 1px solid var(--tint-accent-25); }
+.post-reaction-btn.gift-50 { background: var(--tint-accent-20); color: var(--accent-dark); border: 1px solid var(--tint-accent-25); }
+.post-gift-note { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--accent-dark); margin-top: 8px; font-weight: 500; }
+
+/* Comments */
+.post-comments { margin-top: 12px; border-top: 1px solid var(--border-subtle); padding-top: 12px; }
+.comment-row { display: flex; gap: 8px; background: var(--bg-elevated); padding: 8px; border-radius: var(--radius-sm); margin-bottom: 8px; }
+.comment-body { flex: 1; min-width: 0; }
+.comment-author { font-weight: 600; font-size: 0.8rem; }
+.comment-meta { font-weight: 400; color: var(--text-tertiary); }
+.comment-text { font-size: 0.85rem; color: var(--text-secondary); }
+.comment-reply-btn { padding: 2px 8px; font-size: 0.7rem; border-radius: var(--radius-full); margin-top: 4px; }
+.replies-list { margin-left: 24px; margin-top: 6px; }
+.reply-row { display: flex; gap: 8px; margin-bottom: 6px; background: var(--bg-elevated); padding: 8px; border-radius: var(--radius-sm); opacity: 0.85; }
+.reply-composer-row { display: flex; gap: 8px; margin-left: 24px; margin-top: 6px; }
+.reply-composer-row .input,
+.comment-composer-row .input { flex: 1; padding: 6px 12px; min-height: unset; font-size: 0.85rem; }
+.comment-composer-row { display: flex; gap: 8px; }
 
 /* ================================================================
    PROVIDER DETAIL
@@ -1253,7 +1386,7 @@ select.input option {
 }
 
 .service-item:hover { border-color: var(--border-active); }
-.service-item.selected { border-color: var(--accent); background: rgba(245,166,35,0.06); }
+.service-item.selected { border-color: var(--accent); background: var(--tint-accent-06); }
 .service-name { font-size: 0.88rem; font-weight: 600; }
 .service-duration { font-size: 0.75rem; color: var(--text-tertiary); margin-top: 2px; }
 .service-price { font-size: 0.95rem; font-weight: 700; color: var(--accent); }
@@ -1370,13 +1503,13 @@ select.input option {
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  background: var(--accent);
   color: var(--text-on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 20px;
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-sm);
 }
 
 .confirmation-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
@@ -1389,6 +1522,7 @@ select.input option {
   text-align: left;
   margin-bottom: 24px;
   border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
 }
 
 .confirmation-row {
@@ -1418,7 +1552,6 @@ select.input option {
   background: var(--bg-elevated);
   overflow: hidden;
   border: 3px solid var(--accent);
-  box-shadow: 0 0 16px var(--accent-glow);
 }
 
 .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -1431,8 +1564,8 @@ select.input option {
   gap: 6px;
   padding: 6px 16px;
   border-radius: var(--radius-full);
-  background: linear-gradient(135deg, rgba(245,166,35,0.15), rgba(245,166,35,0.05));
-  border: 1px solid rgba(245,166,35,0.2);
+  background: var(--tint-accent-12);
+  border: 1px solid var(--tint-accent-20);
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--accent-light);
@@ -1453,6 +1586,7 @@ select.input option {
   background: var(--bg-card);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
   padding: 16px;
 }
 
@@ -1522,6 +1656,7 @@ select.input option {
   background: var(--bg-card);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
   padding: 16px;
 }
 
@@ -1562,7 +1697,7 @@ select.input option {
 }
 
 .status-badge.success { background: rgba(16,185,129,0.15); color: var(--success); }
-.status-badge.pending { background: rgba(245,166,35,0.15); color: var(--accent); }
+.status-badge.pending { background: var(--tint-accent-15); color: var(--accent); }
 .status-badge.failed { background: rgba(239,68,68,0.15); color: var(--danger); }
 
 /* ================================================================
@@ -1660,7 +1795,7 @@ select.input option {
 }
 
 .sheet-option:hover { border-color: var(--border-active); }
-.sheet-option.selected { border-color: var(--accent); background: rgba(245,166,35,0.08); }
+.sheet-option.selected { border-color: var(--accent); background: var(--tint-accent-08); }
 
 /* ================================================================
    EMPTY STATE
@@ -1779,7 +1914,6 @@ select.input option {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--text-inverse);
-  box-shadow: 0 0 12px var(--accent-glow);
 }
 
 .admin-card-list { display: flex; flex-direction: column; gap: 12px; }
@@ -1857,6 +1991,7 @@ select.input option {
   background: var(--bg-card);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.15s;

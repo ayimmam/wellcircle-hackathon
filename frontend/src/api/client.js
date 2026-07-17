@@ -41,6 +41,11 @@ let authToken = null;
 export function setToken(token) { authToken = token; }
 export function getToken() { return authToken; }
 
+// Mock mode has no backend to persist to — bookings created via
+// createBooking() are kept here so getMyBookings() can read them back
+// within the same session (mirrors what a real backend would do).
+const mockBookingsCreatedThisSession = [];
+
 const REQUEST_TIMEOUT_MS = 15000;
 const NETWORK_RETRY_DELAY_MS = 800;
 
@@ -314,9 +319,10 @@ export async function createBooking(data) {
     // per-day rate (mirrors backend create_sibling_bookings — no discount).
     const extraDates = data.additional_slot_datetimes || [];
     const additionalBookingIds = extraDates.map((_, i) => `bk-new-${Date.now()}-${i + 1}`);
-    return {
+    const booking = {
       id: 'bk-new-' + Date.now(),
       ...data,
+      provider_name: provider?.name || '',
       amount_etb: primaryAmount,
       promotion: discountEtb > 0 ? {
         id: promo.id,
@@ -331,6 +337,10 @@ export async function createBooking(data) {
       additional_booking_ids: additionalBookingIds,
       total_amount_etb: primaryAmount + extraDates.length * data.amount_etb,
     };
+    // Mock mode has no backend to persist to — keep it in-session so
+    // getMyBookings() can read it back (see mockBookingsCreatedThisSession).
+    mockBookingsCreatedThisSession.push(booking);
+    return booking;
   }
   return request('POST', '/bookings', data);
 }
@@ -863,7 +873,7 @@ export async function markAllNotificationsRead() {
 }
 
 export async function getMyBookings() {
-  if (USE_MOCK) return { bookings: [] };
+  if (USE_MOCK) return { bookings: mockBookingsCreatedThisSession };
   return request('GET', '/users/me/bookings');
 }
 

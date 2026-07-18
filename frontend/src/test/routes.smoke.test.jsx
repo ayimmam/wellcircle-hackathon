@@ -65,6 +65,14 @@ const ROUTES = [
   ['Admin products', '/admin/products'],
   ['Admin reports', '/admin/reports'],
   ['Admin feedback', '/admin/feedback'],
+  ['Provider portal login', '/provider-portal/login'],
+  ['Provider portal overview (redirects when signed out)', '/provider-portal/overview'],
+  ['Provider portal bookings (redirects when signed out)', '/provider-portal/bookings'],
+  ['Provider portal events (redirects when signed out)', '/provider-portal/events'],
+  ['Provider portal products (redirects when signed out)', '/provider-portal/products'],
+  ['Provider portal customers (redirects when signed out)', '/provider-portal/customers'],
+  ['Provider portal promotions (redirects when signed out)', '/provider-portal/promotions'],
+  ['Provider portal subscriptions (redirects when signed out)', '/provider-portal/subscriptions'],
   ['Unknown route fallback', '/this-does-not-exist'],
 ];
 

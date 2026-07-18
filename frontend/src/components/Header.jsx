@@ -13,7 +13,8 @@ export default function Header({ onMenuOpen }) {
   const { t } = useTranslation();
 
   const hidden = ['/', '/onboarding', '/provider-onboard'].includes(location.pathname)
-    || location.pathname.startsWith('/admin');
+    || location.pathname.startsWith('/admin')
+    || location.pathname.startsWith('/provider-portal');
 
   const refreshUnread = async () => {
     try {

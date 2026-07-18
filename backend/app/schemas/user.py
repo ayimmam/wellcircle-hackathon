@@ -37,6 +37,17 @@ class TelegramAuthRequest(BaseModel):
     init_data: str = Field(..., description="Raw initData string from Telegram.WebApp")
 
 
+class TelegramWidgetLoginRequest(BaseModel):
+    """Telegram Login Widget callback payload (provider website login)."""
+    id: int
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    username: Optional[str] = None
+    photo_url: Optional[str] = None
+    auth_date: int
+    hash: str
+
+
 class BotRegisterRequest(BaseModel):
     """Bot /start registration - minimal user creation."""
     telegram_id: int

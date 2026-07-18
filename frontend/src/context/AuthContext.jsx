@@ -97,8 +97,15 @@ export function AuthProvider({ children }) {
   }, [navigate]);
 
   // Auth must run on every entry route (e.g. /admin from Telegram WebApp), not only on /
+  // — except the provider website, which is a plain browser tab with its own
+  // Telegram-Login-Widget session (ProviderPortalAuthContext) and must never
+  // attempt Mini App initData auth, mock or otherwise.
   useEffect(() => {
     initAnalytics();
+    if (window.location.pathname.startsWith('/provider-portal')) {
+      setLoading(false);
+      return;
+    }
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.expand();
       window.Telegram.WebApp.ready();

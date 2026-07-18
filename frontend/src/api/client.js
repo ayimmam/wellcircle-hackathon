@@ -33,6 +33,8 @@ import {
   MOCK_ADMIN_PROVIDERS, MOCK_ADMIN_PRODUCTS, MOCK_PROVIDER_PRODUCTS,
   MOCK_PROVIDER_CUSTOMERS, MOCK_PRICE_SUGGESTION, MOCK_PROVIDER_POINTS_ANALYTICS,
   MOCK_SOCIAL_PROOF, MOCK_EVENTS, MOCK_RANKS,
+  MOCK_PROVIDER_BOOKINGS, MOCK_PROVIDER_SERVICE_BREAKDOWN, MOCK_PROVIDER_DEMOGRAPHICS,
+  buildMockProviderTimeseries,
 } from '../data/mock';
 
 // ─── Auth helpers ───────────────────────────────────
@@ -128,6 +130,18 @@ export async function authTelegram(initData) {
     await delay(NETWORK_RETRY_DELAY_MS);
     return request('POST', '/auth/telegram', { init_data: initData });
   }
+}
+
+// Provider website login — Telegram Login Widget callback payload
+// ({ id, first_name, last_name?, username?, photo_url?, auth_date, hash }).
+// Distinct from authTelegram(): browser tab, not Mini App, and only ever
+// signs in an existing provider account — never creates a user.
+export async function authTelegramWidget(widgetData) {
+  if (USE_MOCK) {
+    await delay(600);
+    return { token: 'mock-provider-jwt-token', user: { ...MOCK_USER, is_provider: true }, is_new_user: false };
+  }
+  return request('POST', '/auth/telegram-widget', widgetData);
 }
 
 // ─── Users ──────────────────────────────────────────
@@ -701,17 +715,58 @@ export async function createProviderProduct(data) {
   return request('POST', '/providers/me/products', data);
 }
 
-export async function getProviderRedemptions() {
+export async function getProviderRedemptions(params = {}) {
   if (USE_MOCK) {
     await delay();
-    return {
-      redemptions: [
-        { id: 'r1', user_name: 'Meron Tadesse', product_name: 'Private Yoga Session', redemption_code: 'YOGA-ABC123', redeemed_at: new Date().toISOString(), delivery_status: 'pending' }
-      ],
-      count: 1
-    };
+    const redemptions = [
+      { id: 'r1', user_name: 'Meron Tadesse', product_name: 'Private Yoga Session', redemption_code: 'YOGA-ABC123', redeemed_at: new Date().toISOString(), delivery_status: 'pending', provider_notes: null, delivery_address: null, points_spent: 400 }
+    ];
+    return { redemptions, count: redemptions.length, total: redemptions.length, page: 1, per_page: 20 };
   }
-  return request('GET', '/providers/me/redemptions');
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v != null && v !== '') qs.set(k, v); });
+  const query = qs.toString();
+  return request('GET', `/providers/me/redemptions${query ? `?${query}` : ''}`);
+}
+
+// Redeem management — provider confirms/ships/delivers a redemption of their own product.
+export async function updateProviderRedemptionStatus(redemptionId, status, notes = null) {
+  if (USE_MOCK) {
+    await delay(400);
+    return { redemption_id: redemptionId, delivery_status: status, provider_notes: notes };
+  }
+  return request('POST', `/providers/me/redemptions/${redemptionId}/update-status`, { status, notes });
+}
+
+// Full paginated booking list — each row carries the customer's demographics.
+export async function getProviderBookings(params = {}) {
+  if (USE_MOCK) { await delay(); return { ...MOCK_PROVIDER_BOOKINGS }; }
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v != null && v !== '') qs.set(k, v); });
+  const query = qs.toString();
+  return request('GET', `/providers/me/bookings${query ? `?${query}` : ''}`);
+}
+
+// Most-booked-service breakdown (bookings + revenue per service).
+export async function getProviderServiceBreakdown(params = {}) {
+  if (USE_MOCK) { await delay(); return { ...MOCK_PROVIDER_SERVICE_BREAKDOWN }; }
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v != null && v !== '') qs.set(k, v); });
+  const query = qs.toString();
+  return request('GET', `/providers/me/analytics/services${query ? `?${query}` : ''}`);
+}
+
+// Customer demographics — neighborhood / interest / exercise-frequency breakdowns.
+export async function getProviderDemographics() {
+  if (USE_MOCK) { await delay(); return { ...MOCK_PROVIDER_DEMOGRAPHICS }; }
+  return request('GET', '/providers/me/analytics/demographics');
+}
+
+// Custom time metrics — daily bookings/revenue/check-ins over a chosen date range.
+export async function getProviderMetricsTimeseries(startDate, endDate) {
+  if (USE_MOCK) { await delay(); return buildMockProviderTimeseries(startDate, endDate); }
+  const qs = new URLSearchParams({ start_date: startDate, end_date: endDate });
+  return request('GET', `/providers/me/analytics/timeseries?${qs}`);
 }
 
 // ─── Admin API ────────────────────────────────────

@@ -1,5 +1,6 @@
 """Provider routes — browse, detail, dashboard stats, self-onboarding."""
 
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
@@ -15,19 +16,31 @@ from app.crud.provider import (
     get_provider_me, update_provider_me, get_provider_by_owner,
     get_provider_customers, award_customer_points,
     get_price_suggestion, get_provider_points_analytics,
+    get_provider_bookings, get_provider_service_breakdown,
+    get_provider_customer_demographics, get_provider_metrics_timeseries,
 )
 from app.crud.provider_invite import get_valid_invite, create_invite
-from app.crud.product import get_provider_products, create_product, update_product, get_provider_redemptions
+from app.crud.product import (
+    get_provider_products, create_product, update_product,
+    get_provider_redemptions, provider_update_redemption_status,
+)
 from app.schemas.provider_onboarding import (
     SelfOnboardRequest, SelfOnboardResponse,
     InviteCodeGenerateRequest, InviteCodeGenerateResponse,
     ProviderMeResponse, ProviderMeUpdate,
 )
-from app.schemas.product import ProviderProductCreate, ProviderProductUpdate
+from app.schemas.product import (
+    ProviderProductCreate, ProviderProductUpdate,
+    RedemptionStatusUpdateRequest, RedemptionStatusUpdateResponse,
+)
 from app.schemas.promotion import PromotionCreate, PromotionResponse
 from app.models.provider_promotion import ProviderPromotion
 
 router = APIRouter()
+
+# Custom time-range metrics — cap the range so the timeseries endpoint can't
+# be used to force a huge day-by-day scan.
+MAX_TIMESERIES_RANGE_DAYS = 366
 
 
 @router.post("/self-onboard", response_model=SelfOnboardResponse, status_code=201)
@@ -187,14 +200,40 @@ async def create_my_promotion(
 
 @router.get("/me/redemptions")
 async def list_my_redemptions(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    status: Optional[str] = Query(None),
     user: User = Depends(get_current_provider),
     db: Session = Depends(get_db),
 ):
     provider = get_provider_by_owner(db, user.id)
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
-    items = get_provider_redemptions(db, provider.id)
-    return {"redemptions": items, "count": len(items)}
+    items, total = get_provider_redemptions(db, provider.id, page=page, per_page=per_page, status=status)
+    return {"redemptions": items, "count": len(items), "total": total, "page": page, "per_page": per_page}
+
+
+@router.post("/me/redemptions/{redemption_id}/update-status", response_model=RedemptionStatusUpdateResponse)
+async def update_my_redemption_status(
+    redemption_id: str,
+    request: RedemptionStatusUpdateRequest,
+    user: User = Depends(get_current_provider),
+    db: Session = Depends(get_db),
+):
+    """Redeem management — providers confirm/ship/deliver redemptions of their own products."""
+    provider = get_provider_by_owner(db, user.id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    redemption = provider_update_redemption_status(
+        db, provider.id, UUID(redemption_id), request.status, notes=request.notes
+    )
+    if not redemption:
+        raise HTTPException(status_code=404, detail="Redemption not found")
+    return RedemptionStatusUpdateResponse(
+        redemption_id=str(redemption.id),
+        delivery_status=redemption.delivery_status,
+        provider_notes=redemption.provider_notes,
+    )
 
 
 @router.get("")
@@ -297,3 +336,75 @@ async def get_my_points_analytics(
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
     return get_provider_points_analytics(db, provider.id)
+
+
+# ── Provider Website: bookings, service mix, demographics, custom-range metrics ──
+
+@router.get("/me/bookings")
+async def list_my_bookings(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    payment_status: Optional[str] = Query(None),
+    service_name: Optional[str] = Query(None),
+    user: User = Depends(get_current_provider),
+    db: Session = Depends(get_db),
+):
+    """Full paginated booking list — each row includes the customer's
+    demographic fields (neighborhood/interests/exercise frequency)."""
+    provider = get_provider_by_owner(db, user.id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    items, total = get_provider_bookings(
+        db, provider.id, page=page, per_page=per_page,
+        start_date=start_date, end_date=end_date,
+        payment_status=payment_status, service_name=service_name,
+    )
+    return {"bookings": items, "total": total, "page": page, "per_page": per_page}
+
+
+@router.get("/me/analytics/services")
+async def get_my_service_breakdown(
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    user: User = Depends(get_current_provider),
+    db: Session = Depends(get_db),
+):
+    """Most-booked-service breakdown — bookings + revenue per service name."""
+    provider = get_provider_by_owner(db, user.id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    services = get_provider_service_breakdown(db, provider.id, start_date=start_date, end_date=end_date)
+    return {"services": services}
+
+
+@router.get("/me/analytics/demographics")
+async def get_my_customer_demographics(
+    user: User = Depends(get_current_provider),
+    db: Session = Depends(get_db),
+):
+    """Customer demographics — neighborhood / interest category / exercise frequency breakdowns."""
+    provider = get_provider_by_owner(db, user.id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    return get_provider_customer_demographics(db, provider.id)
+
+
+@router.get("/me/analytics/timeseries")
+async def get_my_metrics_timeseries(
+    start_date: datetime = Query(...),
+    end_date: datetime = Query(...),
+    user: User = Depends(get_current_provider),
+    db: Session = Depends(get_db),
+):
+    """Custom time-range metrics — daily bookings/revenue/check-ins for a
+    provider-chosen date range, for the dashboard's date-range picker."""
+    if end_date < start_date:
+        raise HTTPException(status_code=422, detail="end_date must be on or after start_date")
+    if (end_date.date() - start_date.date()).days > MAX_TIMESERIES_RANGE_DAYS:
+        raise HTTPException(status_code=422, detail=f"Date range cannot exceed {MAX_TIMESERIES_RANGE_DAYS} days")
+    provider = get_provider_by_owner(db, user.id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    return get_provider_metrics_timeseries(db, provider.id, start_date, end_date)

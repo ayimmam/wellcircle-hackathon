@@ -14,8 +14,9 @@ from app.crud.user import (
     get_user_joined_community_ids,
 )
 from app.services.points import get_points_tier
-from app.schemas.user import TelegramAuthRequest, AuthResponse, UserResponse
+from app.schemas.user import TelegramAuthRequest, TelegramWidgetLoginRequest, AuthResponse, UserResponse
 from app.services.telegram_auth import validate_init_data, validate_init_data_dev
+from app.services.telegram_login_widget import validate_login_widget_data
 
 router = APIRouter()
 
@@ -105,4 +106,44 @@ async def telegram_auth(request: TelegramAuthRequest, db: Session = Depends(get_
         token=token,
         user=_build_user_response(user, joined),
         is_new_user=is_new,
+    )
+
+
+@router.post("/telegram-widget", response_model=AuthResponse)
+async def telegram_widget_auth(request: TelegramWidgetLoginRequest, db: Session = Depends(get_db)):
+    """
+    Provider website login via the Telegram Login Widget — a normal browser
+    tab, not the Mini App. Only existing provider accounts can sign in this
+    way; unlike /telegram, it never creates a user.
+    """
+    payload = {
+        "id": request.id,
+        "first_name": request.first_name,
+        "last_name": request.last_name,
+        "username": request.username,
+        "photo_url": request.photo_url,
+        "auth_date": request.auth_date,
+        "hash": request.hash,
+    }
+    user_data = validate_login_widget_data(payload)
+    if not user_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired Telegram login",
+        )
+
+    user = get_user_by_telegram_id(db, user_data["telegram_id"])
+    if not user or not user.is_provider:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No provider account found for this Telegram account",
+        )
+
+    token = _create_token(str(user.id))
+    joined = get_user_joined_community_ids(db, user.id)
+
+    return AuthResponse(
+        token=token,
+        user=_build_user_response(user, joined),
+        is_new_user=False,
     )

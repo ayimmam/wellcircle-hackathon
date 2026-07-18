@@ -74,7 +74,7 @@ export default function AskWellCircle() {
     setIsLoading(true);
 
     try {
-      const res = await fetch("https://well-circle-concierge.vercel.app/", {
+      const res = await fetch("https://well-circle-concierge.vercel.app/ai/concierge", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg, is_first_message: isFirstMessage, session_id: sessionId }),

@@ -18,6 +18,7 @@ import FeaturedEventsCarousel from '../components/FeaturedEventsCarousel';
 import Icon from '../components/Icon';
 import { useTranslation } from 'react-i18next';
 import AskWellCircle from '../components/AskWellCircle';
+import PointsInfoSheet from '../components/PointsInfoSheet';
 
 export default function HomeScreen() {
   const { user, setUser } = useAuth();
@@ -28,6 +29,7 @@ export default function HomeScreen() {
   const [allCommunities, setAllCommunities] = useState([]);
   const [events, setEvents] = useState([]);
   const [alertDismissed, setAlertDismissed] = useState(false);
+  const [showPointsInfo, setShowPointsInfo] = useState(false);
   const justOnboarded = Boolean(location.state?.justOnboarded);
 
   useEffect(() => {
@@ -63,6 +65,9 @@ export default function HomeScreen() {
           joined_communities: [...(prev.joined_communities || []), id]
         }));
       }
+      // Land on the circle's Activity tab with a pre-filled intro, same as
+      // joining directly from the detail page (CommunityDetail's justJoined flow).
+      navigate(`/community/${id}`, { state: { justJoined: true } });
     } catch (err) {
       showToast('Already a member');
     }
@@ -93,7 +98,7 @@ export default function HomeScreen() {
               freezeCount={user.freeze_count}
               atRisk={joinedCircles.length > 0 && joinedCircles.every(c => !c.checked_in_today)}
             />
-            <PointsBadge points={user.points_balance || 0} onClick={() => navigate('/products')} />
+            <PointsBadge points={user.points_balance || 0} onClick={() => setShowPointsInfo(true)} />
           </div>
         )}
       </div>
@@ -219,6 +224,8 @@ export default function HomeScreen() {
       )}
 
       <AskWellCircle />
+
+      {showPointsInfo && <PointsInfoSheet onClose={() => setShowPointsInfo(false)} />}
     </div>
   );
 }

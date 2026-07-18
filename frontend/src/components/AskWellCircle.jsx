@@ -353,7 +353,7 @@ export default function AskWellCircle() {
                 />
                 <button
                   className="btn btn-primary"
-                  onClick={handleSend}
+                  onClick={() => handleSend()}
                   disabled={!input.trim() || isLoading}
                   style={{
                     width: '46px',

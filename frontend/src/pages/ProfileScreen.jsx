@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, ACCENTS } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 import { getPointsHistory } from '../api/client';
@@ -15,33 +15,9 @@ import BugReportSheet from '../components/BugReportSheet';
 
 const HEALTH_APPS = ['Apple Health', 'Google Fit', 'Samsung Health', 'Fitbit', 'Garmin', 'Strava', 'Huawei Health', 'Other'];
 
-const PointsTooltip = () => {
-  const [show, setShow] = useState(false);
-  return (
-    <div className="relative inline-block ml-2 align-middle">
-      <button onClick={() => setShow(!show)} className="w-5 h-5 rounded-full bg-secondary text-white text-xs font-bold" style={{ border: 'none', background: 'var(--text-secondary)', color: 'white', width: '20px', height: '20px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>?</button>
-      {show && (
-        <div style={{ position: 'absolute', top: '24px', left: 0, width: '250px', padding: '12px', background: 'var(--bg-surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', borderRadius: '12px', border: '1px solid var(--border)', zIndex: 50, fontSize: '0.85rem' }}>
-          <h4 style={{ fontWeight: 'bold', marginBottom: '8px' }}>Legacy Points Dynamics</h4>
-          {/* Thresholds mirror the backend tier engine (points.get_points_tier) */}
-          <ul style={{ paddingLeft: '16px', margin: 0, listStyleType: 'disc', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <li>🌱 <b>Seed (0+ pts):</b> earn +10 per daily check-in</li>
-            <li>🌿 <b>Sprout (100+ pts):</b> redeem vouchers in the store</li>
-            <li>🌳 <b>Grove (300+ pts):</b> unlock partner merch rewards</li>
-            <li>🌲 <b>Forest (700+ pts):</b> top-tier partner perks</li>
-          </ul>
-          <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            Points pause (−5/day) after 3 days away — a check-in keeps them growing.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-};
-
 export default function ProfileScreen() {
   const { user, updateProfile } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, accent, setAccent } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [pointsHistory, setPointsHistory] = useState(null);
@@ -130,7 +106,7 @@ export default function ProfileScreen() {
       {/* Points Stats */}
       <div className="profile-section">
         <div className="profile-section-title" style={{ display: 'flex', alignItems: 'center' }}>
-          Legacy Points <PointsTooltip />
+          Legacy Points
         </div>
         <div className="profile-card">
           <div className="profile-stat-row">
@@ -209,6 +185,22 @@ export default function ProfileScreen() {
             >
               <Icon name="moon" size={16} /> {t('Dark')}
             </button>
+          </div>
+          <div className="accent-swatches" role="group" aria-label={t('Accent color')}>
+            {ACCENTS.map(({ key, swatch }) => (
+              <button
+                key={key}
+                type="button"
+                className={`accent-swatch ${accent === key ? 'active' : ''}`}
+                style={{ background: swatch }}
+                onClick={() => setAccent(key)}
+                aria-label={key}
+                aria-pressed={accent === key}
+                id={`accent-${key}-btn`}
+              >
+                {accent === key && <Icon name="check" size={16} style={{ color: '#fff' }} />}
+              </button>
+            ))}
           </div>
         </div>
       </div>

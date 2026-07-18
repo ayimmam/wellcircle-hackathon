@@ -5,6 +5,18 @@ const resources = {
   en: {
     translation: {
       "Appearance": "Appearance",
+      "Accent color": "Accent color",
+      "How Legacy Points Work": "How Legacy Points Work",
+      "Close": "Close",
+      "Seed (0+ pts)": "Seed (0+ pts)",
+      "earn +10 per daily check-in": "earn +10 per daily check-in",
+      "Sprout (100+ pts)": "Sprout (100+ pts)",
+      "redeem vouchers in the store": "redeem vouchers in the store",
+      "Grove (300+ pts)": "Grove (300+ pts)",
+      "unlock partner merch rewards": "unlock partner merch rewards",
+      "Forest (700+ pts)": "Forest (700+ pts)",
+      "top-tier partner perks": "top-tier partner perks",
+      "Points pause (−5/day) after 3 days away — a check-in keeps them growing.": "Points pause (−5/day) after 3 days away — a check-in keeps them growing.",
       "Time Format": "Time Format",
       "Contact": "Contact",
       "No phone number saved": "No phone number saved",
@@ -139,6 +151,7 @@ const resources = {
   am: {
     translation: {
       "Appearance": "ዕይታ",
+      "Accent color": "የቀለም ምርጫ",
       "Language": "ቋንቋ",
       "Light": "ቀላል",
       "Dark": "ጨለማ",
@@ -225,6 +238,7 @@ const resources = {
   fr: {
     translation: {
       "Appearance": "Apparence",
+      "Accent color": "Couleur d'accent",
       "Language": "Langue",
       "Light": "Clair",
       "Dark": "Sombre",
@@ -311,6 +325,7 @@ const resources = {
   it: {
     translation: {
       "Appearance": "Aspetto",
+      "Accent color": "Colore principale",
       "Language": "Lingua",
       "Light": "Chiaro",
       "Dark": "Scuro",

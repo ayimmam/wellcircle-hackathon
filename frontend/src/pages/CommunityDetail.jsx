@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getCommunity, getCommunityFeed, joinCommunity, leaveCommunity } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import FeedEvent from '../components/FeedEvent';
@@ -14,6 +14,7 @@ import Icon from '../components/Icon';
 export default function CommunityDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, setUser } = useAuth();
   const [community, setCommunity] = useState(null);
   const [events, setEvents] = useState([]);
@@ -22,6 +23,9 @@ export default function CommunityDetail() {
   const [joining, setJoining] = useState(false);
   const [activeTab, setActiveTab] = useState('feed'); // 'feed' | 'posts'
   const [challengeRefreshKey, setChallengeRefreshKey] = useState(0);
+  // Right after joining, land on Posts with a friendly intro pre-filled —
+  // mirrors CircleDetailScreen's justJoined flow.
+  const [justJoined, setJustJoined] = useState(false);
   const lastTimestamp = useRef(null);
 
   // Load community details and feed
@@ -39,6 +43,19 @@ export default function CommunityDetail() {
       .catch(() => navigate('/community', { replace: true }))
       .finally(() => setLoading(false));
   }, [id, navigate]);
+
+  // Joining from a list card (Home's "Join a Circle" section, Community
+  // Explore tab) already calls joinCommunity before we get here — it can't
+  // re-run handleJoin, so it flags the redirect via nav state instead. Clear
+  // the state after so navigating back doesn't re-trigger it.
+  useEffect(() => {
+    if (location.state?.justJoined) {
+      setActiveTab('posts');
+      setJustJoined(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   // Poll feed every 5 seconds (paused while the app is backgrounded)
   usePolling(async () => {
@@ -69,6 +86,8 @@ export default function CommunityDetail() {
           joined_communities: [...(prev.joined_communities || []), id]
         }));
       }
+      setActiveTab('posts');
+      setJustJoined(true);
     } catch (err) {
       showToast('Already a member');
     } finally {
@@ -217,7 +236,11 @@ export default function CommunityDetail() {
           )}
         </>
       ) : (
-        <PostFeed communityId={id} />
+        <PostFeed
+          communityId={id}
+          initialDraft={justJoined ? `Hi I'm ${user?.name?.split(' ')[0] || 'there'}, I'm glad to join you guys!` : undefined}
+          onDraftConsumed={() => setJustJoined(false)}
+        />
       )}
     </div>
   );

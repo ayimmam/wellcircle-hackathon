@@ -5,6 +5,9 @@ browser, fix it, and verify the fix — **without changing business rules** (boo
 pending/staff-confirmed with no in-app payment; points economy, ranks, and feedback rules
 are untouched).
 
+**Status: Bugs 1–4 fixed and verified (commit `e7e469a` on `feature/ui-revamp`).**
+Bug 5 (the mock-persistence sweep) is still open — see that section for what's left.
+
 ## 0. Environment setup
 
 ```bash
@@ -25,6 +28,12 @@ npm run dev -- --port 5174        # http://localhost:5174
   `npx vitest run src/test/<file>`. Note: the full parallel `npm test` run sometimes
   flakes on a lazy-chunk timeout in `routes.smoke.test.jsx`; re-run that file in
   isolation before concluding a fix broke it.
+- **Mock state resets on hard reload.** Session-persisted mock data (joined circles,
+  new posts, bookings) lives in JS module state (`frontend/src/api/client.js`), not
+  `localStorage`. A hard page reload / typing a URL in the address bar re-evaluates the
+  module and wipes it — that's expected and matches what a real backend wouldn't do.
+  Verify persistence fixes with **in-app SPA navigation** (clicking links, back button,
+  bottom nav), not the browser's reload/address bar.
 
 ## Conventions (do not violate)
 
@@ -39,117 +48,116 @@ npm run dev -- --port 5174        # http://localhost:5174
 - Styling uses the CSS-variable design system in `src/index.css` (accent tint scale
   `--tint-accent-*`, `--shadow-card`, `.cell`/`.avatar`/`.feed` primitives). Reuse these
   instead of inline styles or hardcoded colors.
+- Mock write endpoints that have a matching read endpoint must persist by **mutating the
+  seed record in place** (`c.user_joined = true`, not a copy) or pushing into
+  `MOCK_POSTS`/a session array — see `createBooking`/`getMyBookings` and
+  `joinCommunity`/`getCommunity` in `client.js` for the established pattern.
 
-## Bug 1 — Joining a circle doesn't land on Activity with the pre-filled intro post
+## Bug 1 — Joining a circle doesn't land on Activity with the pre-filled intro post [FIXED]
 
-**Expected:** clicking **Join** on a circle takes the user straight to that circle's
-**Activity (Post)** tab with the composer pre-filled with an intro draft
-("Hi I'm <name>, I'm glad to join you guys!").
+**Actual root cause:** the button labeled **"Join Circle"** that users actually hit on a
+circle/community's own page lives in `frontend/src/pages/CommunityDetail.jsx` —
+`CircleDetailScreen.jsx` (a separate screen, for user-created circles specifically)
+already implemented this correctly and needed no change. `CommunityDetail.handleJoin`
+joined but never switched `activeTab` to `'posts'` and never passed
+`initialDraft`/`onDraftConsumed` to `<PostFeed>` at all. Fixed by mirroring
+`CircleDetailScreen`'s pattern: `setActiveTab('posts'); setJustJoined(true);` on join,
+and wiring `initialDraft`/`onDraftConsumed` into `<PostFeed communityId={id} .../>`.
 
-**What already exists:** `frontend/src/pages/CircleDetailScreen.jsx` implements this
-*within* the detail screen: `handleJoin()` → `joinCircle(id, joinCode)` →
-`setJoined(true); setJustJoined(true); setActiveTab('chat')`, and passes
-`initialDraft` into `<PostFeed>` (which consumes it once via `onDraftConsumed`).
+List-card Join buttons (Home's "Join a Circle" section, `CommunityList.jsx`'s Explore
+tab — both render `CommunityCard`) call `e.stopPropagation()` before joining, so they
+never navigated anywhere after. Fixed by navigating to `/community/${id}` with
+`{ state: { justJoined: true } }` after a successful join; `CommunityDetail` reads that
+nav state in a new effect (mirrors `ProfileScreen`'s `openNeighbourhood` pattern) and
+clears it with `replace: true` so navigating back doesn't re-trigger it.
 
-**Repro steps:**
-1. Go to `/community` → the circles listing (Explore/My Circles tabs) — e.g. "Lifestyle
-   Fit Squad". Click its **Join** button *from the list card*.
-2. Also test: open a circle detail page (`/circle/:id`) as a non-member and click
-   **Join Circle** there.
-3. Also test the Home screen "Join a Circle" section's **Join** buttons.
+Also fixed the mock-persistence bug this exposed: `joinCommunity`, `leaveCommunity`, and
+`joinCircle` in `frontend/src/api/client.js` never mutated `MOCK_COMMUNITIES` /
+`MOCK_CIRCLES`, so a subsequent `getCommunity()`/`getCircles()` reverted the join — same
+root cause as the earlier booking-persistence fix. Now mutates the matching record
+in place.
 
-**Likely root causes to investigate:**
-- List-card Join handlers (Home screen join-a-circle list, `CommunityList.jsx` circles
-  tab) call `joinCircle()` and show a toast but **never navigate** to
-  `/circle/:id`, so the detail-screen intro logic never runs. Fix: after a successful
-  join from any list, `navigate('/circle/' + id, { state: { justJoined: true } })` and
-  have `CircleDetailScreen` read `location.state?.justJoined` to seed its existing
-  `justJoined`/`activeTab('chat')` flow (it currently only sets these from its own
-  button).
-- In mock mode `getCircles()` may return `is_joined` statically, so after joining the
-  detail screen's `loadCircle()` can overwrite `joined` back to `false`. Make the mock
-  layer stateful (see the `mockBookingsCreatedThisSession` pattern in
-  `frontend/src/api/client.js` — `createBooking`/`getMyBookings` — added for exactly
-  this class of bug) so `joinCircle()` flips the circle's `is_joined` for the session.
+**Verified:** joining from `CommunityDetail`'s own button and from both list entry
+points lands on Posts & Reactions with the pre-filled intro draft; the joined state
+survives in-app navigation away and back.
 
-**Verify:** from each Join entry point, you land on the circle's Activity tab, the
-composer contains the intro draft, and the draft appears only once (navigate away and
-back — composer must not re-fill).
+## Bug 2 — Creating a post does nothing [FIXED]
 
-## Bug 2 — Creating a post does nothing
+**Root cause:** in `frontend/src/api/client.js`, `createPost()` returned an unused stub
+object (no `content`/`user`/`created_at`) and never stored it, while `getPosts()` always
+returned the static `MOCK_POSTS` array — so `PostFeed`'s post-submit `loadPosts()`
+refresh wiped the new post immediately. Fixed by building a full post record (id,
+content, `user` from `MOCK_USER`, timestamps, activity/photo fields, empty
+`reactions`/`comments`) and `MOCK_POSTS.unshift(post)`-ing it so it's first in the feed.
+`reactToPost`/`commentOnPost` had the identical bug (mutated nothing) — both now find the
+target post in `MOCK_POSTS` and mutate its `reactions`/`total_points_gifted` or
+`comments`/`replies` in place.
 
-**Expected:** typing in the circle Activity composer and pressing **Post** shows the new
-post at the top of the feed (with optional activity stats) and a success toast.
+**Bonus bug found and fixed in the same spot:** `getPosts(communityId, circleId)` only
+ever filtered on `circleId` — a call with only `communityId` (i.e. every community's
+"Posts & Reactions" tab) returned *every* post in the app, including other circles'
+seed posts, since no post in `MOCK_POSTS` even had a `community_id` field to match
+against. Added the `community_id` filter branch.
 
-**Repro:** join any circle → Activity tab → type text → Post.
+**Verified:** posting in a circle shows the new post at the top immediately, survives
+switching tabs and in-app navigation, and reactions/comments/replies persist the same
+way. `npx vitest run src/test/PostFeed.test.jsx` — 4/4 passing.
 
-**Likely root cause:** same mock-statelessness class as Bug 1: in
-`frontend/src/api/client.js`, `createPost()` in mock mode returns a synthesized post
-object but **never stores it**, and `getPosts()` returns the static `MOCK_POSTS` from
-`frontend/src/data/mock.js` — so `PostFeed.handlePost()`'s `loadPosts()` refresh wipes
-the new post. Fix with a module-level session array exactly like
-`mockBookingsCreatedThisSession`: `createPost` pushes (include `user` object with the
-mock user's name/photo so `PostFeed` renders it), `getPosts` returns session posts merged
-ahead of `MOCK_POSTS`, filtered by the `circleId`/`communityId` argument. Check
-`reactToPost`/`commentOnPost` for the same problem while there — reactions and comments
-should also survive a `loadPosts()` round-trip within the session.
+## Bug 3 — Circler AI concierge can't be started by typing [FIXED]
 
-**Verify:** post appears immediately at the correct position, survives switching tabs
-(Leaderboard → Activity), reactions/comments/replies on it work, and
-`npx vitest run src/test/PostFeed.test.jsx` stays green.
+**Root cause:** `frontend/src/components/AskWellCircle.jsx`'s send button was
+`onClick={handleSend}` — React passes the click's `SyntheticEvent` as the handler's
+first argument, so `handleSend`'s `const raw = override ?? input;` used the **event
+object** (not `null`/`undefined`, so `??` didn't fall back to `input`) as the message
+text, then threw on `raw.trim()` before anything was sent. Pressing **Enter** worked
+fine (`handleKeyDown` calls `handleSend()` with zero arguments), and the suggestion
+chips worked fine (`handleChipTap` calls `handleSend(chip.label)` explicitly) — only
+clicking the paper-plane send button after typing was broken, which is exactly "won't
+start with text from user, needs hitting button first" backwards (chip *buttons*
+worked; the send *button* for typed text didn't). Fixed: `onClick={() => handleSend()}`.
 
-## Bug 3 — Circler AI concierge can't be started by typing
+**Verified:** typing a message and clicking send now appends the user bubble and calls
+the concierge API correctly, with no console error.
 
-**Expected:** opening the AI concierge (floating chat button → `AskWellCircle`
-overlay), the user can immediately type a message and send it. Suggestion chips are a
-shortcut, not a gate.
+## Bug 4 — Tier legend overlaps the avatar header on Profile [FIXED]
 
-**Repro:** click the floating chat button (bottom-right) → try typing into the input and
-sending without clicking any chip/button first.
+This turned out to be the same UI element referenced from an unrelated feature request
+(moving the "How Legacy Points Work" explainer from Profile to Home) rather than a
+layout bug to patch — `frontend/src/pages/ProfileScreen.jsx`'s inline `PointsTooltip`
+used raw `position: absolute` with a fixed 250px width and no collision handling, which
+is what overlapped the header when opened. It's been **removed entirely**: the same
+content now lives in `frontend/src/components/PointsInfoSheet.jsx`, opened from the
+points badge on Home via the shared `.sheet`/`.sheet-overlay` bottom-sheet pattern
+(no absolute-positioning overlap risk), with a close (X) button. See commit `b6781cf`.
 
-**Where to look:** `frontend/src/components/AskWellCircle.jsx` (tests:
-`src/test/AskWellCircle.chips.test.jsx`). Find why free-text input is blocked before a
-button press — likely the input or send button is `disabled` until a conversation-start
-state is set by a chip click, or the submit handler early-returns when no
-conversation/session id exists yet. Fix so a typed message initializes the conversation
-the same way the chips do. Don't change the chips' behavior or the backend contract
-(`docs/API_CONTRACT.md`) — in mock mode the reply can stay mocked.
+## Bug 5 (sweep) — other mock-mode workflow dead-ends [OPEN]
 
-**Verify:** type-first flow works; chip-first flow still works; input auto-focuses when
-the overlay opens.
+The pattern behind Bugs 1–2 (mock write endpoints that don't persist) has now been
+fixed four times independently (bookings, community join/leave, circle join, posts/
+reactions/comments) — it's very likely present elsewhere too. Grep
+`frontend/src/api/client.js` for `if (USE_MOCK) return` on **write** endpoints whose
+data has a matching **read** endpoint, and walk each UI flow with in-app navigation
+(see the hard-reload caveat in section 0):
 
-## Bug 4 — Tier legend overlaps the avatar header on Profile
+- Circle creation (`createCircle` in `CommunityList.jsx`'s My Circles tab) — does the
+  new circle appear in the list afterward, and is it joined?
+- Check-ins (`checkinCommunity`, Home's daily check-in card / `useCheckin` hook) — does
+  the streak/points chip update and stay updated after navigating away and back?
+- Notifications mark-as-read, product redemption history (`redeemProduct` /
+  `getMyRedemptions`), profile edits (`updateProfile` already looked correct in earlier
+  passes — recheck if time allows).
 
-**Repro:** `/profile` — the tier-ladder legend text (SEED/SPROUT/GROVE/FOREST bullets)
-renders on top of the avatar, name, and tier chip at the top of the screen (seen in both
-themes; screenshot evidence from a 375×812 dark-mode run).
-
-**Where to look:** `frontend/src/pages/ProfileScreen.jsx` header region — likely an
-absolutely-positioned tier-legend/tooltip that should be a toggled popover or in normal
-flow. Fix the layout so the legend never overlaps the header (collapse it behind an
-info toggle on the tier chip, or render it as a normal section below the header).
-
-**Verify:** profile header is clean at 375×812 in both themes; the tier information is
-still reachable.
-
-## Bug 5 (sweep) — other mock-mode workflow dead-ends
-
-The Bugs 1–2 root cause (mock write endpoints that don't persist) likely affects other
-flows. Grep `frontend/src/api/client.js` for `if (USE_MOCK) return` on **write**
-endpoints whose data has a matching **read** endpoint, and walk each UI flow:
-
-- Circle creation (`/community` My Circles → create form) — does the new circle appear?
-- Check-ins (Home daily check-in card) — does the streak/points chip update?
-- Notifications mark-as-read, product redemption history, profile edits.
-
-Fix only the ones that break a visible user flow, using the same session-array pattern.
-Keep each fix minimal — no refactor of the mock layer.
+Fix only the ones that break a visible user flow, using the same in-place-mutation
+pattern established above. Keep each fix minimal — no refactor of the mock layer.
 
 ## Final regression pass
 
 1. `npm test` (re-run flaky files in isolation if needed) and `npm run build`.
-2. Browser walkthrough at 375×812, light + dark, blue + one non-default accent:
-   onboarding → home check-in → explore → provider → booking (3 steps → request sent →
-   View My Bookings shows the booking) → community → join circle → post → react →
-   leaderboard → profile → products → redeem → concierge type-first.
+2. Browser walkthrough at 375×812, light + dark, blue + one non-default accent (Profile
+   → Appearance):
+   onboarding → home check-in → points badge (opens/closes the Legacy Points sheet) →
+   explore → provider → booking (3 steps → request sent → View My Bookings shows the
+   booking) → join a community from a list card (lands on Posts, pre-filled) → join a
+   community from its own detail page (same) → post → react → comment/reply →
+   leaderboard → profile → products → redeem → concierge type-first send.
 3. Anything intentionally not fixed: document it in `docs/HANDOFF.md`.

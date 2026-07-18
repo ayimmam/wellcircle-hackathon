@@ -65,6 +65,9 @@ export default function HomeScreen() {
           joined_communities: [...(prev.joined_communities || []), id]
         }));
       }
+      // Land on the circle's Activity tab with a pre-filled intro, same as
+      // joining directly from the detail page (CommunityDetail's justJoined flow).
+      navigate(`/community/${id}`, { state: { justJoined: true } });
     } catch (err) {
       showToast('Already a member');
     }

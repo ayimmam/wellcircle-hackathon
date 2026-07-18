@@ -233,9 +233,16 @@ export async function joinCommunity(id) {
   if (USE_MOCK) {
     await delay(400);
     const c = MOCK_COMMUNITIES.find(c => c.id === id);
+    // Mock mode has no backend to persist to — mutate the seed record so a
+    // subsequent getCommunity()/getCommunities() reflects the join instead
+    // of reverting to the static seed's user_joined value.
+    if (c) {
+      c.user_joined = true;
+      c.member_count = (c.member_count || 0) + 1;
+    }
     return {
       community_id: id,
-      member_count: (c?.member_count || 0) + 1,
+      member_count: c?.member_count ?? 1,
       joined: true,
       feed_event: {
         id: 'evt-new-join-' + Date.now(),
@@ -252,7 +259,11 @@ export async function leaveCommunity(id) {
   if (USE_MOCK) {
     await delay(400);
     const c = MOCK_COMMUNITIES.find(c => c.id === id);
-    return { community_id: id, member_count: (c?.member_count || 1) - 1, left: true };
+    if (c) {
+      c.user_joined = false;
+      c.member_count = Math.max((c.member_count || 1) - 1, 0);
+    }
+    return { community_id: id, member_count: c?.member_count ?? 0, left: true };
   }
   return request('POST', `/communities/${id}/leave`);
 }
@@ -405,6 +416,13 @@ export async function joinCircle(id, joinCode = null) {
   if (USE_MOCK) {
     await delay();
     const circle = MOCK_CIRCLES.find(c => c.id === id);
+    // Mock mode has no backend to persist to — mutate the seed record so a
+    // subsequent getCircles() reflects the join instead of reverting to the
+    // static seed's is_joined value.
+    if (circle) {
+      circle.is_joined = true;
+      circle.member_count = (circle.member_count || 0) + 1;
+    }
     return { id, name: circle?.name || 'Circle', join_code: circle?.join_code || null, message: 'Joined circle successfully' };
   }
   return request('POST', `/circles/${id}/join`, { join_code: joinCode });
@@ -441,7 +459,11 @@ export async function getPosts(communityId = null, circleId = null) {
   if (USE_MOCK) {
     await delay();
     let posts = [...MOCK_POSTS];
+    // Was unconditionally returning every post (including other circles'
+    // seed data) whenever a communityId-only call came through, since only
+    // circleId was ever filtered on.
     if (circleId) posts = posts.filter(p => p.circle_id === circleId);
+    else if (communityId) posts = posts.filter(p => p.community_id === communityId);
     return { posts };
   }
   const params = new URLSearchParams();
@@ -453,7 +475,26 @@ export async function getPosts(communityId = null, circleId = null) {
 export async function createPost(data) {
   if (USE_MOCK) {
     await delay();
-    return { id: 'mock-post-id', message: "Success" };
+    // Mock mode has no backend to persist to — build a real post record and
+    // add it to MOCK_POSTS so the feed's next getPosts() actually shows it,
+    // instead of returning a stub that createPost's caller immediately loses.
+    const post = {
+      id: 'mock-post-' + Date.now(),
+      content: data.content,
+      user: { id: MOCK_USER.id, name: MOCK_USER.name, photo_url: MOCK_USER.photo_url },
+      created_at: new Date().toISOString(),
+      activity_type: data.activity_type || null,
+      distance_km: data.distance_km || null,
+      duration_min: data.duration_min || null,
+      photo_url: data.photo_url || null,
+      reactions: {},
+      total_points_gifted: 0,
+      community_id: data.community_id || null,
+      circle_id: data.circle_id || null,
+      comments: [],
+    };
+    MOCK_POSTS.unshift(post);
+    return post;
   }
   return request('POST', '/posts', data);
 }
@@ -461,6 +502,11 @@ export async function createPost(data) {
 export async function reactToPost(postId, data) {
   if (USE_MOCK) {
     await delay();
+    const post = MOCK_POSTS.find(p => p.id === postId);
+    if (post) {
+      post.reactions = { ...post.reactions, [data.emoji]: (post.reactions?.[data.emoji] || 0) + 1 };
+      if (data.points_gifted > 0) post.total_points_gifted = (post.total_points_gifted || 0) + data.points_gifted;
+    }
     return { message: "Success", points_gifted: data.points_gifted || 0 };
   }
   return request('POST', `/posts/${postId}/react`, data);
@@ -469,7 +515,25 @@ export async function reactToPost(postId, data) {
 export async function commentOnPost(postId, content, parentCommentId = null) {
   if (USE_MOCK) {
     await delay();
-    return { id: 'mock-comment', message: "Success" };
+    const post = MOCK_POSTS.find(p => p.id === postId);
+    const comment = {
+      id: 'mock-comment-' + Date.now(),
+      content,
+      user: { id: MOCK_USER.id, name: MOCK_USER.name, photo_url: MOCK_USER.photo_url },
+      created_at: new Date().toISOString(),
+      replies: [],
+    };
+    if (post) {
+      if (parentCommentId) {
+        const parent = (post.comments || []).find(c => c.id === parentCommentId);
+        if (parent) {
+          parent.replies = [...(parent.replies || []), comment];
+        }
+      } else {
+        post.comments = [...(post.comments || []), comment];
+      }
+    }
+    return { ...comment, message: "Success" };
   }
   return request('POST', `/posts/${postId}/comments`, {
     content,

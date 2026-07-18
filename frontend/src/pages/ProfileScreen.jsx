@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, ACCENTS } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 import { getPointsHistory } from '../api/client';
@@ -41,7 +41,7 @@ const PointsTooltip = () => {
 
 export default function ProfileScreen() {
   const { user, updateProfile } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, accent, setAccent } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [pointsHistory, setPointsHistory] = useState(null);
@@ -209,6 +209,22 @@ export default function ProfileScreen() {
             >
               <Icon name="moon" size={16} /> {t('Dark')}
             </button>
+          </div>
+          <div className="accent-swatches" role="group" aria-label={t('Accent color')}>
+            {ACCENTS.map(({ key, swatch }) => (
+              <button
+                key={key}
+                type="button"
+                className={`accent-swatch ${accent === key ? 'active' : ''}`}
+                style={{ background: swatch }}
+                onClick={() => setAccent(key)}
+                aria-label={key}
+                aria-pressed={accent === key}
+                id={`accent-${key}-btn`}
+              >
+                {accent === key && <Icon name="check" size={16} style={{ color: '#fff' }} />}
+              </button>
+            ))}
           </div>
         </div>
       </div>

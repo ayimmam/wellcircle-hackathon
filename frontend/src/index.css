@@ -41,12 +41,13 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 /* Light theme (default) — WCAG AA contrast on surfaces */
 :root,
 [data-theme="light"] {
-  --accent: #F5A623;
-  --accent-light: #FFD166;
-  --accent-dark: #B45309;
-  --accent-glow: rgba(245, 166, 35, 0.22);
-  --accent-text: #92400E;
-  --text-on-accent: #1A1A1F;
+  /* Telegram Mini Apps UI Kit blue — button_color / link_color #007AFF */
+  --accent: #007AFF;
+  --accent-light: #55A6FF;
+  --accent-dark: #0A5DC2;
+  --accent-glow: rgba(0, 122, 255, 0.22);
+  --accent-text: #0A5DC2;
+  --text-on-accent: #FFFFFF;
 
   --secondary: #059669;
   --secondary-light: #10B981;
@@ -60,15 +61,15 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
   /* Accent tint scale — flat washes of the accent (Telegram UI Kit's
      secondary_fill / plain_background convention), replacing one-off
-     rgba(245,166,35,X) literals scattered through the sheet. */
-  --tint-accent-04: rgba(245, 166, 35, 0.04);
-  --tint-accent-06: rgba(245, 166, 35, 0.06);
-  --tint-accent-08: rgba(245, 166, 35, 0.08);
-  --tint-accent-10: rgba(245, 166, 35, 0.10);
-  --tint-accent-12: rgba(245, 166, 35, 0.12);
-  --tint-accent-15: rgba(245, 166, 35, 0.15);
-  --tint-accent-20: rgba(245, 166, 35, 0.20);
-  --tint-accent-25: rgba(245, 166, 35, 0.25);
+     accent rgba literals scattered through the sheet. */
+  --tint-accent-04: rgba(0, 122, 255, 0.04);
+  --tint-accent-06: rgba(0, 122, 255, 0.06);
+  --tint-accent-08: rgba(0, 122, 255, 0.08);
+  --tint-accent-10: rgba(0, 122, 255, 0.10);
+  --tint-accent-12: rgba(0, 122, 255, 0.12);
+  --tint-accent-15: rgba(0, 122, 255, 0.15);
+  --tint-accent-20: rgba(0, 122, 255, 0.20);
+  --tint-accent-25: rgba(0, 122, 255, 0.25);
 
   /* Card elevation — the kit's diffused two-layer shadow shape, tuned to
      our ink color instead of pure black. */
@@ -89,7 +90,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
   --border-subtle: rgba(0, 0, 0, 0.06);
   --border-card: rgba(0, 0, 0, 0.08);
-  --border-active: rgba(180, 83, 9, 0.35);
+  --border-active: rgba(0, 122, 255, 0.35);
 
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.1);
@@ -117,12 +118,13 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
 /* Dark theme — previous default UI */
 [data-theme="dark"] {
-  --accent: #F5A623;
-  --accent-light: #FFD166;
-  --accent-dark: #D48E10;
-  --accent-glow: rgba(245, 166, 35, 0.25);
-  --accent-text: #FFD166;
-  --text-on-accent: #0A0A0F;
+  /* Telegram Mini Apps UI Kit blue, brightened a step for dark surfaces */
+  --accent: #3395FF;
+  --accent-light: #55A6FF;
+  --accent-dark: #007AFF;
+  --accent-glow: rgba(51, 149, 255, 0.25);
+  --accent-text: #55A6FF;
+  --text-on-accent: #FFFFFF;
 
   --secondary: #10B981;
   --secondary-light: #34D399;
@@ -134,14 +136,14 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   --brand-primary: var(--accent-light);
   --primary: var(--accent);
 
-  --tint-accent-04: rgba(245, 166, 35, 0.04);
-  --tint-accent-06: rgba(245, 166, 35, 0.06);
-  --tint-accent-08: rgba(245, 166, 35, 0.08);
-  --tint-accent-10: rgba(245, 166, 35, 0.10);
-  --tint-accent-12: rgba(245, 166, 35, 0.12);
-  --tint-accent-15: rgba(245, 166, 35, 0.15);
-  --tint-accent-20: rgba(245, 166, 35, 0.20);
-  --tint-accent-25: rgba(245, 166, 35, 0.25);
+  --tint-accent-04: rgba(51, 149, 255, 0.05);
+  --tint-accent-06: rgba(51, 149, 255, 0.07);
+  --tint-accent-08: rgba(51, 149, 255, 0.09);
+  --tint-accent-10: rgba(51, 149, 255, 0.11);
+  --tint-accent-12: rgba(51, 149, 255, 0.13);
+  --tint-accent-15: rgba(51, 149, 255, 0.16);
+  --tint-accent-20: rgba(51, 149, 255, 0.22);
+  --tint-accent-25: rgba(51, 149, 255, 0.28);
 
   --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
 
@@ -160,7 +162,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-card: rgba(255, 255, 255, 0.08);
-  --border-active: rgba(245, 166, 35, 0.4);
+  --border-active: rgba(51, 149, 255, 0.4);
 
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
@@ -184,6 +186,158 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
   --success-soft-bg: rgba(16, 185, 129, 0.12);
   --success-soft-text: #34D399;
+}
+
+/* ---------- Accent palettes ----------
+   Selectable via data-accent on <html> (Profile → Appearance). Each palette
+   redefines the same accent slots + tint scale, so every component keeps the
+   same shade structure regardless of hue. Blue (Telegram UI Kit) is the
+   default and lives in the theme blocks above. Light variants first; the
+   [data-theme="dark"][data-accent] pairs below beat both single-attribute
+   blocks on specificity. */
+
+[data-accent="gold"] {
+  --accent: #F5A623;
+  --accent-light: #FFD166;
+  --accent-dark: #B45309;
+  --accent-glow: rgba(245, 166, 35, 0.22);
+  --accent-text: #92400E;
+  --text-on-accent: #1A1A1F;
+  --border-active: rgba(245, 166, 35, 0.35);
+  --tint-accent-04: rgba(245, 166, 35, 0.04);
+  --tint-accent-06: rgba(245, 166, 35, 0.06);
+  --tint-accent-08: rgba(245, 166, 35, 0.08);
+  --tint-accent-10: rgba(245, 166, 35, 0.10);
+  --tint-accent-12: rgba(245, 166, 35, 0.12);
+  --tint-accent-15: rgba(245, 166, 35, 0.15);
+  --tint-accent-20: rgba(245, 166, 35, 0.20);
+  --tint-accent-25: rgba(245, 166, 35, 0.25);
+}
+
+[data-accent="green"] {
+  --accent: #059669;
+  --accent-light: #34D399;
+  --accent-dark: #047857;
+  --accent-glow: rgba(5, 150, 105, 0.22);
+  --accent-text: #047857;
+  --text-on-accent: #FFFFFF;
+  --border-active: rgba(5, 150, 105, 0.35);
+  --tint-accent-04: rgba(5, 150, 105, 0.04);
+  --tint-accent-06: rgba(5, 150, 105, 0.06);
+  --tint-accent-08: rgba(5, 150, 105, 0.08);
+  --tint-accent-10: rgba(5, 150, 105, 0.10);
+  --tint-accent-12: rgba(5, 150, 105, 0.12);
+  --tint-accent-15: rgba(5, 150, 105, 0.15);
+  --tint-accent-20: rgba(5, 150, 105, 0.20);
+  --tint-accent-25: rgba(5, 150, 105, 0.25);
+}
+
+[data-accent="purple"] {
+  --accent: #8B5CF6;
+  --accent-light: #A78BFA;
+  --accent-dark: #6D28D9;
+  --accent-glow: rgba(139, 92, 246, 0.22);
+  --accent-text: #6D28D9;
+  --text-on-accent: #FFFFFF;
+  --border-active: rgba(139, 92, 246, 0.35);
+  --tint-accent-04: rgba(139, 92, 246, 0.04);
+  --tint-accent-06: rgba(139, 92, 246, 0.06);
+  --tint-accent-08: rgba(139, 92, 246, 0.08);
+  --tint-accent-10: rgba(139, 92, 246, 0.10);
+  --tint-accent-12: rgba(139, 92, 246, 0.12);
+  --tint-accent-15: rgba(139, 92, 246, 0.15);
+  --tint-accent-20: rgba(139, 92, 246, 0.20);
+  --tint-accent-25: rgba(139, 92, 246, 0.25);
+}
+
+[data-accent="rose"] {
+  --accent: #E11D48;
+  --accent-light: #FB7185;
+  --accent-dark: #BE123C;
+  --accent-glow: rgba(225, 29, 72, 0.22);
+  --accent-text: #BE123C;
+  --text-on-accent: #FFFFFF;
+  --border-active: rgba(225, 29, 72, 0.35);
+  --tint-accent-04: rgba(225, 29, 72, 0.04);
+  --tint-accent-06: rgba(225, 29, 72, 0.06);
+  --tint-accent-08: rgba(225, 29, 72, 0.08);
+  --tint-accent-10: rgba(225, 29, 72, 0.10);
+  --tint-accent-12: rgba(225, 29, 72, 0.12);
+  --tint-accent-15: rgba(225, 29, 72, 0.15);
+  --tint-accent-20: rgba(225, 29, 72, 0.20);
+  --tint-accent-25: rgba(225, 29, 72, 0.25);
+}
+
+[data-theme="dark"][data-accent="gold"] {
+  --accent: #F5A623;
+  --accent-light: #FFD166;
+  --accent-dark: #D48E10;
+  --accent-glow: rgba(245, 166, 35, 0.25);
+  --accent-text: #FFD166;
+  --text-on-accent: #0A0A0F;
+  --border-active: rgba(245, 166, 35, 0.4);
+  --tint-accent-04: rgba(245, 166, 35, 0.05);
+  --tint-accent-06: rgba(245, 166, 35, 0.07);
+  --tint-accent-08: rgba(245, 166, 35, 0.09);
+  --tint-accent-10: rgba(245, 166, 35, 0.11);
+  --tint-accent-12: rgba(245, 166, 35, 0.13);
+  --tint-accent-15: rgba(245, 166, 35, 0.16);
+  --tint-accent-20: rgba(245, 166, 35, 0.22);
+  --tint-accent-25: rgba(245, 166, 35, 0.28);
+}
+
+[data-theme="dark"][data-accent="green"] {
+  --accent: #10B981;
+  --accent-light: #34D399;
+  --accent-dark: #059669;
+  --accent-glow: rgba(16, 185, 129, 0.25);
+  --accent-text: #34D399;
+  --text-on-accent: #FFFFFF;
+  --border-active: rgba(16, 185, 129, 0.4);
+  --tint-accent-04: rgba(16, 185, 129, 0.05);
+  --tint-accent-06: rgba(16, 185, 129, 0.07);
+  --tint-accent-08: rgba(16, 185, 129, 0.09);
+  --tint-accent-10: rgba(16, 185, 129, 0.11);
+  --tint-accent-12: rgba(16, 185, 129, 0.13);
+  --tint-accent-15: rgba(16, 185, 129, 0.16);
+  --tint-accent-20: rgba(16, 185, 129, 0.22);
+  --tint-accent-25: rgba(16, 185, 129, 0.28);
+}
+
+[data-theme="dark"][data-accent="purple"] {
+  --accent: #A78BFA;
+  --accent-light: #C4B5FD;
+  --accent-dark: #8B5CF6;
+  --accent-glow: rgba(167, 139, 250, 0.25);
+  --accent-text: #C4B5FD;
+  --text-on-accent: #1A1A1F;
+  --border-active: rgba(167, 139, 250, 0.4);
+  --tint-accent-04: rgba(167, 139, 250, 0.05);
+  --tint-accent-06: rgba(167, 139, 250, 0.07);
+  --tint-accent-08: rgba(167, 139, 250, 0.09);
+  --tint-accent-10: rgba(167, 139, 250, 0.11);
+  --tint-accent-12: rgba(167, 139, 250, 0.13);
+  --tint-accent-15: rgba(167, 139, 250, 0.16);
+  --tint-accent-20: rgba(167, 139, 250, 0.22);
+  --tint-accent-25: rgba(167, 139, 250, 0.28);
+}
+
+[data-theme="dark"][data-accent="rose"] {
+  --accent: #F43F5E;
+  --accent-light: #FB7185;
+  --accent-dark: #E11D48;
+  --accent-glow: rgba(244, 63, 94, 0.25);
+  --accent-text: #FB7185;
+  --text-on-accent: #FFFFFF;
+  --border-active: rgba(244, 63, 94, 0.4);
+  --tint-accent-04: rgba(244, 63, 94, 0.05);
+  --tint-accent-06: rgba(244, 63, 94, 0.07);
+  --tint-accent-08: rgba(244, 63, 94, 0.09);
+  --tint-accent-10: rgba(244, 63, 94, 0.11);
+  --tint-accent-12: rgba(244, 63, 94, 0.13);
+  --tint-accent-15: rgba(244, 63, 94, 0.16);
+  --tint-accent-20: rgba(244, 63, 94, 0.22);
+  --tint-accent-25: rgba(244, 63, 94, 0.28);
 }
 
 /* ---------- Scrollbar ---------- */
@@ -565,7 +719,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   min-height: 100vh;
   min-height: 100dvh;
   gap: 24px;
-  background: radial-gradient(ellipse at 50% 30%, rgba(245,166,35,0.08) 0%, transparent 60%),
+  background: radial-gradient(ellipse at 50% 30%, var(--tint-accent-08) 0%, transparent 60%),
               var(--bg-primary);
 }
 
@@ -623,7 +777,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   display: flex;
   flex-direction: column;
   padding: 40px 24px 32px;
-  background: radial-gradient(ellipse at 50% 0%, rgba(245,166,35,0.06) 0%, transparent 50%),
+  background: radial-gradient(ellipse at 50% 0%, var(--tint-accent-06) 0%, transparent 50%),
               var(--bg-primary);
 }
 
@@ -2103,6 +2257,32 @@ textarea.input { resize: vertical; min-height: 80px; }
   background: var(--bg-card);
   color: var(--text-primary);
   box-shadow: var(--shadow-sm);
+}
+
+/* Accent color picker (Profile → Appearance) */
+.accent-swatches {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.accent-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.accent-swatch:active { transform: scale(0.9); }
+
+.accent-swatch.active {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 3px var(--bg-elevated);
 }
 
 .card-warning {

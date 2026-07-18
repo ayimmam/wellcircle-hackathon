@@ -5,6 +5,7 @@ const resources = {
   en: {
     translation: {
       "Appearance": "Appearance",
+      "Accent color": "Accent color",
       "Time Format": "Time Format",
       "Contact": "Contact",
       "No phone number saved": "No phone number saved",
@@ -139,6 +140,7 @@ const resources = {
   am: {
     translation: {
       "Appearance": "ዕይታ",
+      "Accent color": "የቀለም ምርጫ",
       "Language": "ቋንቋ",
       "Light": "ቀላል",
       "Dark": "ጨለማ",
@@ -225,6 +227,7 @@ const resources = {
   fr: {
     translation: {
       "Appearance": "Apparence",
+      "Accent color": "Couleur d'accent",
       "Language": "Langue",
       "Light": "Clair",
       "Dark": "Sombre",
@@ -311,6 +314,7 @@ const resources = {
   it: {
     translation: {
       "Appearance": "Aspetto",
+      "Accent color": "Colore principale",
       "Language": "Lingua",
       "Light": "Chiaro",
       "Dark": "Scuro",

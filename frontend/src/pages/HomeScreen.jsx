@@ -30,6 +30,7 @@ export default function HomeScreen() {
   const [events, setEvents] = useState([]);
   const [alertDismissed, setAlertDismissed] = useState(false);
   const [showPointsInfo, setShowPointsInfo] = useState(false);
+  const [joiningId, setJoiningId] = useState(null);
   const justOnboarded = Boolean(location.state?.justOnboarded);
 
   useEffect(() => {
@@ -53,6 +54,8 @@ export default function HomeScreen() {
     : null;
 
   const handleJoin = async (id) => {
+    if (joiningId) return;
+    setJoiningId(id);
     try {
       const res = await joinCommunity(id);
       showToast('Joined!', 'success');
@@ -70,6 +73,8 @@ export default function HomeScreen() {
       navigate(`/community/${id}`, { state: { justJoined: true } });
     } catch (err) {
       showToast('Already a member');
+    } finally {
+      setJoiningId(null);
     }
   };
 
@@ -217,7 +222,7 @@ export default function HomeScreen() {
           </div>
           <div className="flex-col gap-12">
             {communities.slice(0, 3).map(c => (
-              <CommunityCard key={c.id} community={c} onJoin={handleJoin} />
+              <CommunityCard key={c.id} community={c} onJoin={handleJoin} joining={joiningId === c.id} />
             ))}
           </div>
         </>

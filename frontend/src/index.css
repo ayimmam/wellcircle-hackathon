@@ -957,6 +957,19 @@ select.input option {
 .btn-block { width: 100%; }
 .btn-icon { padding: 10px; border-radius: var(--radius-full); width: 40px; height: 40px; }
 
+/* In-button loading spinner — Telegram's MainButton keeps the label and adds
+   a small progress ring while a request is in flight; same treatment here.
+   Inherits currentColor so it works on primary/secondary/outline variants. */
+.btn-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: spin 0.7s linear infinite;
+}
+
 /* ================================================================
    CARDS
    ================================================================ */

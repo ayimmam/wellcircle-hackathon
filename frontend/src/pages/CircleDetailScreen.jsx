@@ -18,6 +18,7 @@ export default function CircleDetailScreen() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [joined, setJoined] = useState(false);
+  const [joining, setJoining] = useState(false);
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'leaderboard' | 'members'
   // Right after joining, land on Activity with a friendly intro pre-filled —
   // one less blank-page moment for a brand-new member.
@@ -65,11 +66,13 @@ export default function CircleDetailScreen() {
   const handleInvite = () => shareCircleInvite(circle, { source: 'circle_detail' });
 
   const handleJoin = async () => {
+    if (joining) return;
     let joinCode = null;
     if (circle?.is_private) {
       joinCode = prompt('This circle is private. Please enter the invitation code:');
       if (!joinCode) return;
     }
+    setJoining(true);
     try {
       await joinCircle(id, joinCode);
       setJoined(true);
@@ -79,6 +82,8 @@ export default function CircleDetailScreen() {
       if (circle) setCircle(prev => ({ ...prev, member_count: (prev.member_count || 0) + 1 }));
     } catch (err) {
       showToast('Error joining', 'error');
+    } finally {
+      setJoining(false);
     }
   };
 
@@ -129,7 +134,8 @@ export default function CircleDetailScreen() {
             <Icon name="check" size={16} /> You're a member
           </div>
         ) : (
-          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleJoin}>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleJoin} disabled={joining}>
+            {joining && <span className="btn-spinner" aria-hidden="true" />}
             Join Circle
           </button>
         )}

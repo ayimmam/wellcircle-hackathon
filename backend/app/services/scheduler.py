@@ -11,6 +11,9 @@ from app.models.booking import Booking
 from app.models.community_challenge import CommunityChallenge
 from app.models.community import Community, CommunityMember
 from app.services.notification_service import create_notification
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def decay_points_job():
@@ -129,12 +132,35 @@ def challenge_expiry_job():
         db.close()
 
 
+def phase15_maintenance_job():
+    """Expire trainer/subscription access and escalate stale receipts."""
+    from app.crud.circle_subscription import check_expired_subscriptions, escalate_stale_receipts
+    from app.crud.trainer_verification import check_expired_verifications
+
+    db: Session = SessionLocal()
+    try:
+        result = {
+            "expired_verifications": check_expired_verifications(db),
+            "expired_subscriptions": check_expired_subscriptions(db),
+            "escalated_receipts": escalate_stale_receipts(db, hours=72),
+        }
+        logger.info("Phase 15 maintenance completed: %s", result)
+        return result
+    except Exception:
+        db.rollback()
+        logger.exception("Phase 15 maintenance failed")
+        raise
+    finally:
+        db.close()
+
+
 def start_scheduler():
     """Start the background scheduler."""
     scheduler = BackgroundScheduler()
     scheduler.add_job(decay_points_job, "cron", hour=0, minute=0, id="points_decay")
     scheduler.add_job(booking_reminder_job, "cron", hour="*", minute=0, id="booking_reminders")
     scheduler.add_job(challenge_expiry_job, "cron", hour=0, minute=5, id="challenge_expiry")
+    scheduler.add_job(phase15_maintenance_job, "cron", hour=0, minute=15, id="phase15_maintenance")
     scheduler.start()
     print("[Scheduler] Started — decay, booking reminders, challenge expiry")
     return scheduler

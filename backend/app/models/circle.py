@@ -16,6 +16,11 @@ class Circle(Base):
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     is_private = Column(Boolean, default=False)
     join_code = Column(String(50), nullable=True)
+    is_paid = Column(Boolean, nullable=False, default=False)
+    price_etb = Column(Integer, nullable=True)
+    paid_circle_status = Column(String(20), nullable=False, default="free")
+    paid_circle_applied_at = Column(DateTime(timezone=True), nullable=True)
+    total_revenue_etb = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 class CircleMember(Base):

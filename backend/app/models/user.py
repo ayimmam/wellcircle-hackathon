@@ -79,6 +79,18 @@ class User(Base):
     phone_number = Column(String(20), nullable=True)  # E.164, e.g. +251911234567
     time_format = Column(String(3), nullable=True)    # '12h' | '24h'
 
+    # --- Public profile / trainer / Strava (Phase 15) ---
+    bio = Column(Text, nullable=True)
+    profile_privacy = Column(String(20), nullable=False, default="public")
+    is_verified_trainer = Column(Boolean, nullable=False, default=False)
+    verified_trainer_expires_at = Column(DateTime(timezone=True), nullable=True)
+    strava_athlete_id = Column(BigInteger, nullable=True, unique=True)
+    # Tokens are Fernet-encrypted at rest; plaintext never enters this model.
+    strava_access_token = Column(Text, nullable=True)
+    strava_refresh_token = Column(Text, nullable=True)
+    strava_token_expires_at = Column(DateTime(timezone=True), nullable=True)
+    strava_visible_stats = Column(JSONB, nullable=True)
+
     # --- Timestamps ---
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),

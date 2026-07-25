@@ -74,6 +74,8 @@ class UserProfileUpdate(BaseModel):
     # refuses garbage (max length + loose digit pattern).
     phone_number: Optional[str] = Field(None, max_length=20, pattern=r"^\+?[0-9]{6,15}$")
     time_format: Optional[str] = Field(None, pattern=r"^(12h|24h)$")
+    bio: Optional[str] = Field(None, max_length=300)
+    profile_privacy: Optional[str] = Field(None, pattern=r"^(public|followers|private)$")
 
 
 # --- Response schemas ---
@@ -97,6 +99,12 @@ class UserResponse(BaseModel):
     health_app_connected: bool = False
     phone_number: Optional[str] = None
     time_format: Optional[str] = None
+    bio: Optional[str] = None
+    profile_privacy: str = "public"
+    is_verified_trainer: bool = False
+    follower_count: int = 0
+    following_count: int = 0
+    strava_stats: Optional[dict] = None
     joined_communities: List[str] = []  # Community IDs
     created_at: datetime
 

@@ -1,54 +1,47 @@
 import { describe, it, expect } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { Routes, Route } from 'react-router-dom';
 import ProfileScreen from '../pages/ProfileScreen';
 import { renderWithProviders } from './renderWithProviders';
+import { MOCK_USER } from '../data/mock';
 
-function renderProfile() {
+function renderProfile(route = '/profile') {
   return renderWithProviders(
     <Routes>
       <Route path="/profile" element={<ProfileScreen />} />
     </Routes>,
-    { route: '/profile' }
+    { route }
   );
 }
 
-describe('ProfileScreen — Health App coming-soon wishlist', () => {
-  it('shows a Coming soon badge instead of a connect toggle', async () => {
+describe('ProfileScreen — Strava integration', () => {
+  it('replaces the health-app wishlist with Strava connection UI', async () => {
     renderProfile();
     await screen.findByText('Legacy Points');
-    expect(document.getElementById('health-app-coming-soon')).toBeInTheDocument();
-    expect(document.getElementById('health-app-toggle')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Connect with Strava' })).toBeInTheDocument();
+    expect(document.getElementById('health-app-coming-soon')).toBeNull();
   });
 
-  it('votes for a preset app and collapses to a thank-you message', async () => {
+  it('shows editable bio, follower counts, privacy, and trainer verification', async () => {
     renderProfile();
-    await screen.findByText('Legacy Points');
-
-    fireEvent.change(document.getElementById('health-app-select'), { target: { value: 'Strava' } });
-    fireEvent.click(document.getElementById('health-app-vote-btn'));
-
-    await waitFor(() => {
-      expect(screen.getByText(/Thanks for voting: Strava/)).toBeInTheDocument();
-    });
-    expect(document.getElementById('health-app-select')).toBeNull();
+    expect(await screen.findByLabelText('Profile bio')).toHaveAttribute('maxlength', '300');
+    expect(screen.getByText('Followers only')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Get Verified' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Followers/ })).toBeInTheDocument();
   });
 
-  it('reveals a free-text input for "Other" and requires it before submitting', async () => {
-    renderProfile();
-    await screen.findByText('Legacy Points');
+  it('handles the OAuth callback, visibility updates, and disconnect sync', async () => {
+    renderProfile('/profile?strava=connected');
 
-    fireEvent.change(document.getElementById('health-app-select'), { target: { value: 'Other' } });
-    const otherInput = document.getElementById('health-app-other-input');
-    expect(otherInput).toBeInTheDocument();
-    expect(document.getElementById('health-app-vote-btn')).toBeDisabled();
+    expect(await screen.findByText('Connected to Strava ✓')).toBeInTheDocument();
+    expect(MOCK_USER.health_app_connected).toBe(true);
+    const calories = screen.getByRole('checkbox', { name: 'Calories' });
+    expect(calories).not.toBeChecked();
+    fireEvent.click(calories);
+    await waitFor(() => expect(calories).toBeChecked());
 
-    fireEvent.change(otherInput, { target: { value: 'Whoop' } });
-    expect(document.getElementById('health-app-vote-btn')).not.toBeDisabled();
-
-    fireEvent.click(document.getElementById('health-app-vote-btn'));
-    await waitFor(() => {
-      expect(screen.getByText(/Thanks for voting: Whoop/)).toBeInTheDocument();
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
+    expect(await screen.findByRole('button', { name: 'Connect with Strava' })).toBeInTheDocument();
+    expect(MOCK_USER.health_app_connected).toBe(false);
   });
 });

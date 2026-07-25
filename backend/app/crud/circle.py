@@ -44,16 +44,27 @@ def join_circle(db: Session, circle_id: UUID, user_id: UUID, join_code: str = No
     if not circle:
         return None
         
+    member = db.query(CircleMember).filter(
+        CircleMember.circle_id == circle_id,
+        CircleMember.user_id == user_id
+    ).first()
+
+    # Existing members retain access when a formerly-free circle is monetized.
+    if getattr(circle, "is_paid", False) and not member and circle.owner_id != user_id:
+        from app.crud.circle_subscription import get_user_active_subscription
+        if not get_user_active_subscription(db, circle_id, user_id):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=402, detail={
+                "message": "Paid circle — subscription required",
+                "price_etb": circle.price_etb,
+                "circle_id": str(circle.id),
+            })
+
     if getattr(circle, 'is_private', False):
         if not join_code or getattr(circle, 'join_code', None) != join_code:
             from fastapi import HTTPException
             raise HTTPException(status_code=403, detail="Invalid or missing join code for private circle")
 
-    
-    member = db.query(CircleMember).filter(
-        CircleMember.circle_id == circle_id,
-        CircleMember.user_id == user_id
-    ).first()
     
     if not member:
         member = CircleMember(circle_id=circle_id, user_id=user_id)
@@ -64,13 +75,25 @@ def join_circle(db: Session, circle_id: UUID, user_id: UUID, join_code: str = No
 
 def get_circles(db: Session, user_id: Optional[UUID] = None) -> List[dict]:
     circles = db.query(Circle).all()
+    circle_ids = [c.id for c in circles]
+    counts = dict(
+        db.query(CircleMember.circle_id, func.count(CircleMember.user_id))
+        .filter(CircleMember.circle_id.in_(circle_ids))
+        .group_by(CircleMember.circle_id).all()
+    ) if circle_ids else {}
+    joined = {
+        row[0] for row in db.query(CircleMember.circle_id)
+        .filter(CircleMember.circle_id.in_(circle_ids), CircleMember.user_id == user_id).all()
+    } if user_id and circle_ids else set()
+    verified_owner_ids = {
+        row[0] for row in db.query(User.id).filter(
+            User.id.in_([c.owner_id for c in circles]), User.is_verified_trainer == True
+        ).all()
+    } if circles else set()
     result = []
     for c in circles:
-        member_count = db.query(CircleMember).filter(CircleMember.circle_id == c.id).count()
-        is_joined = False
-        if user_id:
-            m = db.query(CircleMember).filter(CircleMember.circle_id == c.id, CircleMember.user_id == user_id).first()
-            is_joined = m is not None
+        member_count = counts.get(c.id, 0)
+        is_joined = c.id in joined
         result.append({
             "id": c.id,
             "name": c.name,
@@ -83,6 +106,10 @@ def get_circles(db: Session, user_id: Optional[UUID] = None) -> List[dict]:
             # access gate for private circles, so browsers who haven't joined
             # shouldn't see it.
             "join_code": c.join_code if is_joined else None,
+            "is_paid": c.is_paid,
+            "price_etb": c.price_etb,
+            "paid_circle_status": c.paid_circle_status,
+            "owner_is_verified": c.owner_id in verified_owner_ids,
             "created_at": c.created_at
         })
     return result
@@ -138,15 +165,7 @@ def join_circle_by_code(db: Session, join_code: str, user_id: UUID) -> Optional[
     if not circle:
         return None
 
-    member = db.query(CircleMember).filter(
-        CircleMember.circle_id == circle.id,
-        CircleMember.user_id == user_id,
-    ).first()
-    if not member:
-        member = CircleMember(circle_id=circle.id, user_id=user_id)
-        db.add(member)
-        db.commit()
-    return circle
+    return join_circle(db, circle.id, user_id, join_code=join_code)
 
 
 def get_circle_social_proof(db: Session, user_id: UUID) -> dict:

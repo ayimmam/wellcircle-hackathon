@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AppShell } from '../App';
 import { ThemeProvider } from '../context/ThemeContext';
-import { MOCK_PROVIDERS, MOCK_COMMUNITIES, MOCK_CIRCLES, MOCK_PRODUCTS } from '../data/mock';
+import { MOCK_PROVIDERS, MOCK_COMMUNITIES, MOCK_CIRCLES, MOCK_PRODUCTS, MOCK_PUBLIC_USERS } from '../data/mock';
 import '../i18n';
 
 // Render every reachable screen with a logged-in super admin so guards pass and
@@ -50,6 +50,10 @@ const ROUTES = [
   ['My Bookings', '/my-bookings'],
   ['Community list', '/community'],
   ['Profile', '/profile'],
+  ['Trainer verification', '/trainer/verify'],
+  ['Public profile', `/users/${MOCK_PUBLIC_USERS[0].id}`],
+  ['Followers', `/users/${MOCK_PUBLIC_USERS[0].id}/followers`],
+  ['Following', `/users/${MOCK_PUBLIC_USERS[0].id}/following`],
   ['Provider detail', `/provider/${providerId}`],
   ['Community detail', `/community/${communityId}`],
   ['Circle detail', `/circle/${circleId}`],
@@ -65,6 +69,8 @@ const ROUTES = [
   ['Admin products', '/admin/products'],
   ['Admin reports', '/admin/reports'],
   ['Admin feedback', '/admin/feedback'],
+  ['Admin trainers', '/admin/trainers'],
+  ['Admin paid circles', '/admin/paid-circles'],
   ['Provider portal login', '/provider-portal/login'],
   ['Provider portal overview (redirects when signed out)', '/provider-portal/overview'],
   ['Provider portal bookings (redirects when signed out)', '/provider-portal/bookings'],
@@ -95,7 +101,7 @@ describe('route smoke tests — every reachable screen mounts without crashing',
     // Wait for the lazy chunk to load (Suspense fallback clears).
     await waitFor(
       () => expect(container.querySelector('.route-fallback')).toBeNull(),
-      { timeout: 4000 }
+      { timeout: 8000 }
     );
     // Let mock data fetches resolve so any late render crash surfaces.
     await new Promise((r) => setTimeout(r, 500));

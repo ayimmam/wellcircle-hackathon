@@ -46,7 +46,11 @@ export default function CommunityList() {
     }
   }, [tab, category]);
 
+  const [joiningId, setJoiningId] = useState(null);
+
   const handleJoin = async (id) => {
+    if (joiningId) return;
+    setJoiningId(id);
     try {
       const res = await joinCommunity(id);
       showToast('Joined the circle!', 'success');
@@ -64,6 +68,8 @@ export default function CommunityList() {
       navigate(`/community/${id}`, { state: { justJoined: true } });
     } catch (err) {
       showToast('Already a member');
+    } finally {
+      setJoiningId(null);
     }
   };
   const [isPrivate, setIsPrivate] = useState(false);
@@ -293,7 +299,7 @@ export default function CommunityList() {
       ) : tab === 'explore' ? (
         <div className="flex-col gap-12">
           {communities.filter(c => !c.user_joined).map(c => (
-            <CommunityCard key={c.id} community={c} onJoin={handleJoin} />
+            <CommunityCard key={c.id} community={c} onJoin={handleJoin} joining={joiningId === c.id} />
           ))}
           {circles.filter(c => !c.user_joined).length > 0 && (
             <>
@@ -323,7 +329,7 @@ export default function CommunityList() {
       ) : communities.length > 0 ? (
         <div className="flex-col gap-12">
           {communities.map(c => (
-            <CommunityCard key={c.id} community={c} onJoin={handleJoin} />
+            <CommunityCard key={c.id} community={c} onJoin={handleJoin} joining={joiningId === c.id} />
           ))}
         </div>
       ) : (

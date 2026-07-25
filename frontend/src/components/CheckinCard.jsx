@@ -80,7 +80,9 @@ export default function CheckinCard({ circles, onChecked }) {
               >
                 {done ? (
                   <span className="flex items-center gap-4"><Icon name="check" size={13} /> Checked in</span>
-                ) : busyId === c.id ? '…' : 'Check in +10'}
+                ) : busyId === c.id ? (
+                  <span className="btn-spinner" aria-hidden="true" />
+                ) : 'Check in +10'}
               </button>
             </div>
           );

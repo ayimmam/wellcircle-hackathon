@@ -34,7 +34,9 @@ import {
   MOCK_PROVIDER_CUSTOMERS, MOCK_PRICE_SUGGESTION, MOCK_PROVIDER_POINTS_ANALYTICS,
   MOCK_SOCIAL_PROOF, MOCK_EVENTS, MOCK_RANKS,
   MOCK_PROVIDER_BOOKINGS, MOCK_PROVIDER_SERVICE_BREAKDOWN, MOCK_PROVIDER_DEMOGRAPHICS,
-  buildMockProviderTimeseries,
+  MOCK_PUBLIC_USERS, MOCK_FOLLOWERS, MOCK_FOLLOWING, MOCK_STRAVA_STATS,
+  MOCK_TRAINER_VERIFICATIONS, MOCK_PAID_CIRCLE_APPLICATIONS,
+  MOCK_CIRCLE_SUBSCRIPTIONS, MOCK_CIRCLE_REVENUE, buildMockProviderTimeseries,
 } from '../data/mock';
 
 // ─── Auth helpers ───────────────────────────────────
@@ -88,7 +90,8 @@ async function request(method, path, body = null, extraOptions = {}) {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Request failed' }));
-      let msg = err.detail || 'Request failed';
+      const detail = err.detail;
+      let msg = (detail && typeof detail === 'object' ? detail.message : detail) || 'Request failed';
       if (Array.isArray(msg)) {
         msg = msg.map(e => `${e.loc ? e.loc.slice(-1) : 'Field'}: ${e.msg}`).join(', ');
       }
@@ -97,7 +100,44 @@ async function request(method, path, body = null, extraOptions = {}) {
       if (res.status >= 500) {
         console.error(`[WellCircle] Server error ${res.status} on ${method} ${path} (request_id=${reqId || 'n/a'})`);
       }
-      throw new Error(msg);
+      const requestError = new Error(msg);
+      requestError.status = res.status;
+      requestError.payload = detail && typeof detail === 'object'
+        ? { ...err, ...detail }
+        : err;
+      throw requestError;
+    }
+    return res.json();
+  } catch (err) {
+    throw wrapNetworkError(err);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function multipartRequest(path, formData) {
+  const headers = {};
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({ detail: 'Upload failed' }));
+      const detail = payload.detail;
+      const err = new Error(
+        (detail && typeof detail === 'object' ? detail.message : detail) || 'Upload failed'
+      );
+      err.status = res.status;
+      err.payload = detail && typeof detail === 'object'
+        ? { ...payload, ...detail }
+        : payload;
+      throw err;
     }
     return res.json();
   } catch (err) {
@@ -178,9 +218,95 @@ export async function onboardUser(data) {
 export async function updateProfile(data) {
   if (USE_MOCK) {
     await delay();
-    return { ...MOCK_USER, ...data };
+    Object.assign(MOCK_USER, data);
+    return { ...MOCK_USER };
   }
   return request('PATCH', '/users/me', data);
+}
+
+export async function getUserProfile(userId) {
+  if (USE_MOCK) {
+    await delay();
+    if (userId === MOCK_USER.id) {
+      return { ...MOCK_USER, is_following: false, created_circles: MOCK_CIRCLES.filter(c => c.owner_id === MOCK_USER.id), strava_stats: MOCK_USER.strava_connected ? { ...MOCK_STRAVA_STATS } : null };
+    }
+    const profile = MOCK_PUBLIC_USERS.find(u => u.id === userId);
+    if (!profile) throw new Error('User not found');
+    const statsHidden = profile.profile_privacy === 'private'
+      || (profile.profile_privacy === 'followers' && !profile.is_following)
+      || Boolean(profile.stats_hidden);
+    return {
+      ...profile,
+      stats_hidden: statsHidden,
+      created_circles: statsHidden ? [] : (profile.created_circles || []),
+      strava_stats: profile.strava_connected && !statsHidden
+        ? { ...MOCK_STRAVA_STATS, visible_stats: [...MOCK_STRAVA_STATS.visible_stats] }
+        : null,
+    };
+  }
+  const profile = await request('GET', `/users/${userId}/profile`);
+  return {
+    ...profile,
+    created_circles: profile.created_circles || profile.circles || [],
+    stats_hidden: profile.stats_hidden ?? (
+      profile.profile_privacy === 'private'
+      || (profile.profile_privacy === 'followers' && !profile.is_following)
+    ),
+  };
+}
+
+export async function followUser(userId) {
+  if (USE_MOCK) {
+    await delay();
+    const profile = MOCK_PUBLIC_USERS.find(u => u.id === userId);
+    if (profile && !profile.is_following) {
+      profile.is_following = true;
+      if (profile.profile_privacy === 'followers') profile.stats_hidden = false;
+      profile.follower_count = (profile.follower_count || 0) + 1;
+    }
+    return { user_id: userId, is_following: true, follower_count: profile?.follower_count };
+  }
+  return request('POST', `/users/${userId}/follow`);
+}
+
+export async function unfollowUser(userId) {
+  if (USE_MOCK) {
+    await delay();
+    const profile = MOCK_PUBLIC_USERS.find(u => u.id === userId);
+    if (profile?.is_following) {
+      profile.is_following = false;
+      if (profile.profile_privacy === 'followers') profile.stats_hidden = true;
+      profile.follower_count = Math.max((profile.follower_count || 1) - 1, 0);
+    }
+    return { user_id: userId, is_following: false, follower_count: profile?.follower_count };
+  }
+  return request('DELETE', `/users/${userId}/follow`);
+}
+
+export async function getFollowers(userId, page = 1) {
+  if (USE_MOCK) {
+    await delay();
+    return { users: MOCK_FOLLOWERS.map(u => ({ ...u })), followers: MOCK_FOLLOWERS.map(u => ({ ...u })), total: MOCK_FOLLOWERS.length, page, pages: 1 };
+  }
+  const result = await request('GET', `/users/${userId}/followers?page=${page}`);
+  return {
+    ...result,
+    users: result.users || result.items || [],
+    pages: result.pages || Math.max(1, Math.ceil((result.total || 0) / (result.per_page || 20))),
+  };
+}
+
+export async function getFollowing(userId, page = 1) {
+  if (USE_MOCK) {
+    await delay();
+    return { users: MOCK_FOLLOWING.map(u => ({ ...u })), following: MOCK_FOLLOWING.map(u => ({ ...u })), total: MOCK_FOLLOWING.length, page, pages: 1 };
+  }
+  const result = await request('GET', `/users/${userId}/following?page=${page}`);
+  return {
+    ...result,
+    users: result.users || result.items || [],
+    pages: result.pages || Math.max(1, Math.ceil((result.total || 0) / (result.per_page || 20))),
+  };
 }
 
 export async function getPointsHistory() {
@@ -430,6 +556,12 @@ export async function joinCircle(id, joinCode = null) {
   if (USE_MOCK) {
     await delay();
     const circle = MOCK_CIRCLES.find(c => c.id === id);
+    if (circle?.is_paid && !circle.is_joined && _mockCircleStatuses.get(id)?.status !== 'active') {
+      const err = new Error('Paid circle — subscription required');
+      err.status = 402;
+      err.payload = { detail: err.message, price_etb: circle.price_etb, circle_id: id };
+      throw err;
+    }
     // Mock mode has no backend to persist to — mutate the seed record so a
     // subsequent getCircles() reflects the join instead of reverting to the
     // static seed's is_joined value.
@@ -1048,4 +1180,210 @@ export async function getSubscriptionStatus(subscriptionId) {
 export async function createProviderPromotion(data) {
   if (USE_MOCK) return { id: 'promo-mock', ...data, is_active: true };
   return request('POST', '/providers/me/promotions', data);
+}
+
+// ─── Phase 15: uploads, trainers, paid circles, profiles & Strava ────────
+let _mockTrainerStatus = null;
+let _mockStravaConnected = false;
+let _mockVisibleStats = [...MOCK_STRAVA_STATS.visible_stats];
+const _mockCircleStatuses = new Map();
+
+export async function uploadFile(file, folder) {
+  if (USE_MOCK) {
+    await delay(250);
+    if (!file) throw new Error('Choose a file to upload');
+    return {
+      url: URL.createObjectURL ? URL.createObjectURL(file) : `https://mock.local/${folder}/${encodeURIComponent(file.name)}`,
+      public_id: `${folder}/mock-${Date.now()}`,
+    };
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('folder', folder);
+  return multipartRequest('/uploads', formData);
+}
+
+export async function applyForTrainerVerification(data) {
+  if (USE_MOCK) {
+    await delay();
+    _mockTrainerStatus = {
+      id: `verify-${Date.now()}`,
+      status: 'pending',
+      payment_status: 'paid',
+      rejection_reason: null,
+      created_at: new Date().toISOString(),
+      expires_at: null,
+      ...data,
+    };
+    return { ..._mockTrainerStatus };
+  }
+  return request('POST', '/trainer/apply', data);
+}
+
+export async function getTrainerVerificationStatus() {
+  if (USE_MOCK) { await delay(); return _mockTrainerStatus ? { ..._mockTrainerStatus } : null; }
+  const result = await request('GET', '/trainer/status');
+  return result.application ?? result;
+}
+
+export async function getAdminTrainerVerifications(page = 1, status = 'pending') {
+  if (USE_MOCK) {
+    await delay();
+    const items = MOCK_TRAINER_VERIFICATIONS.filter(v => !status || status === 'all' || v.status === status);
+    return { items: items.map(v => ({ ...v })), verifications: items.map(v => ({ ...v })), total: items.length, page };
+  }
+  const qs = new URLSearchParams({ page: String(page) });
+  if (status) qs.set('status', status);
+  return request('GET', `/admin/trainer-verifications?${qs}`);
+}
+
+export async function reviewTrainerVerification(id, action, reason = null) {
+  if (USE_MOCK) {
+    await delay();
+    const item = MOCK_TRAINER_VERIFICATIONS.find(v => v.id === id);
+    if (item) {
+      item.status = action === 'approve' ? 'approved' : 'rejected';
+      item.rejection_reason = action === 'reject' ? reason : null;
+    }
+    return { ...(item || {}), id, status: action === 'approve' ? 'approved' : 'rejected' };
+  }
+  return request('POST', `/admin/trainer-verifications/${id}/review`, { action, rejection_reason: reason || undefined });
+}
+
+export async function applyForPaidCircle(circleId, priceEtb) {
+  if (USE_MOCK) {
+    await delay();
+    const circle = MOCK_CIRCLES.find(c => c.id === circleId);
+    if (circle) Object.assign(circle, { price_etb: priceEtb, paid_circle_status: 'pending_approval' });
+    return { ...circle };
+  }
+  return request('POST', `/circles/${circleId}/apply-paid`, { price_etb: priceEtb });
+}
+
+export async function subscribeToCircle(circleId, receiptUrl, receiptPublicId) {
+  if (USE_MOCK) {
+    await delay();
+    const status = {
+      id: `circle-sub-${Date.now()}`,
+      circle_id: circleId,
+      status: 'pending_approval',
+      receipt_url: receiptUrl,
+      receipt_public_id: receiptPublicId,
+      created_at: new Date().toISOString(),
+    };
+    _mockCircleStatuses.set(circleId, status);
+    return { ...status };
+  }
+  return request('POST', `/circles/${circleId}/subscribe`, { receipt_url: receiptUrl, receipt_public_id: receiptPublicId });
+}
+
+export async function getPendingSubscriptions(circleId) {
+  if (USE_MOCK) {
+    await delay();
+    const subscriptions = MOCK_CIRCLE_SUBSCRIPTIONS.filter(s => s.circle_id === circleId);
+    return { subscriptions: subscriptions.map(s => ({ ...s })), total: subscriptions.length };
+  }
+  const result = await request('GET', `/circles/${circleId}/subscriptions/pending`);
+  return { ...result, subscriptions: result.subscriptions || result.items || [] };
+}
+
+export async function reviewSubscription(subscriptionId, action) {
+  if (USE_MOCK) {
+    await delay();
+    const item = MOCK_CIRCLE_SUBSCRIPTIONS.find(s => s.id === subscriptionId);
+    if (item) item.status = action === 'approve' ? 'active' : 'rejected';
+    return { ...(item || {}), status: action === 'approve' ? 'active' : 'rejected' };
+  }
+  return request('POST', `/circles/subscriptions/${subscriptionId}/review`, { action });
+}
+
+export async function getCircleRevenue(circleId) {
+  if (USE_MOCK) { await delay(); return { ...MOCK_CIRCLE_REVENUE, circle_id: circleId }; }
+  return request('GET', `/circles/${circleId}/revenue`);
+}
+
+export async function getCircleSubscriptionStatus(circleId) {
+  if (USE_MOCK) { await delay(); return _mockCircleStatuses.get(circleId) || { status: null }; }
+  const result = await request('GET', `/circles/${circleId}/subscription-status`);
+  return result.subscription || { status: null };
+}
+
+export async function getAdminPaidCircleApplications(page = 1) {
+  if (USE_MOCK) {
+    await delay();
+    return { applications: MOCK_PAID_CIRCLE_APPLICATIONS.map(c => ({ ...c })), circles: MOCK_PAID_CIRCLE_APPLICATIONS.map(c => ({ ...c })), total: MOCK_PAID_CIRCLE_APPLICATIONS.length, page };
+  }
+  const result = await request('GET', `/admin/paid-circle-applications?page=${page}`);
+  return { ...result, applications: result.applications || result.items || [] };
+}
+
+export async function reviewPaidCircleApplication(circleId, action, reason = null) {
+  if (USE_MOCK) {
+    await delay();
+    const item = MOCK_PAID_CIRCLE_APPLICATIONS.find(c => c.id === circleId);
+    if (item) item.paid_circle_status = action === 'approve' ? 'approved' : 'rejected';
+    return { ...(item || {}), paid_circle_status: action === 'approve' ? 'approved' : 'rejected', rejection_reason: reason };
+  }
+  return request('POST', `/admin/paid-circle-applications/${circleId}/review`, { action, reason: reason || undefined });
+}
+
+export async function getStravaConnectUrl() {
+  if (USE_MOCK) { await delay(); return { url: `${window.location.origin}/profile?strava=connected` }; }
+  return request('GET', '/strava/connect');
+}
+
+export async function disconnectStrava() {
+  if (USE_MOCK) {
+    await delay();
+    _mockStravaConnected = false;
+    MOCK_USER.strava_connected = false;
+    MOCK_USER.health_app_connected = false;
+    return { connected: false };
+  }
+  return request('POST', '/strava/disconnect');
+}
+
+export async function getStravaStats() {
+  if (USE_MOCK) {
+    await delay();
+    const connected = _mockStravaConnected || MOCK_USER.strava_connected;
+    return connected ? { ...MOCK_STRAVA_STATS, connected: true, visible_stats: [..._mockVisibleStats] } : { connected: false, visible_stats: [..._mockVisibleStats] };
+  }
+  const [result, me] = await Promise.all([request('GET', '/strava/stats'), getMe()]);
+  return {
+    ...(result.stats || {}),
+    connected: result.connected,
+    // The backend filters the stats object to exactly the saved visibility
+    // selection. Older UserResponse shapes do not expose strava_visible_stats,
+    // so the returned keys are the authoritative fallback.
+    visible_stats: me.strava_visible_stats || Object.keys(result.stats || {}),
+  };
+}
+
+export async function updateStravaVisibility(visibleStats) {
+  if (USE_MOCK) {
+    await delay();
+    _mockVisibleStats = [...visibleStats];
+    MOCK_USER.strava_visible_stats = [...visibleStats];
+    return { visible_stats: [...visibleStats] };
+  }
+  return request('PATCH', '/strava/visibility', { visible_stats: visibleStats });
+}
+
+export async function getUserStravaStats(userId) {
+  if (USE_MOCK) {
+    await delay();
+    const profile = MOCK_PUBLIC_USERS.find(u => u.id === userId);
+    return profile?.strava_connected && !profile.stats_hidden ? { ...MOCK_STRAVA_STATS } : null;
+  }
+  const profile = await getUserProfile(userId);
+  return profile.strava_stats || null;
+}
+
+// Used by the mock OAuth callback to mirror the backend-synchronized fields.
+export function completeMockStravaConnection() {
+  if (!USE_MOCK) return;
+  _mockStravaConnected = true;
+  MOCK_USER.strava_connected = true;
+  MOCK_USER.health_app_connected = true;
 }

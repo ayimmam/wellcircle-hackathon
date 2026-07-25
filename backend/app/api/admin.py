@@ -45,6 +45,9 @@ from app.schemas.product import (
     RedemptionStatusUpdateRequest, RedemptionStatusUpdateResponse,
     AdminRedemptionListResponse, AdminRedemptionItem,
 )
+from app.schemas.circle_subscription import PaidCircleAdminReviewRequest
+from app.models.circle import Circle, CircleMember
+from app.crud.circle_subscription import owner_lifetime_points, review_paid_circle
 
 router = APIRouter()
 
@@ -451,3 +454,44 @@ def patch_feedback_status(
     if not fb:
         raise HTTPException(status_code=404, detail="Feedback not found")
     return {"id": str(fb.id), "status": fb.status}
+
+
+@router.get("/paid-circle-applications")
+def list_paid_circle_applications(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    admin: User = Depends(get_super_admin),
+    db: Session = Depends(get_db),
+):
+    query = db.query(Circle).filter(Circle.paid_circle_status == "pending_approval")
+    total = query.count()
+    rows = query.order_by(Circle.paid_circle_applied_at).offset((page - 1) * per_page).limit(per_page).all()
+    circle_ids = [c.id for c in rows]
+    counts = dict(db.query(CircleMember.circle_id, func.count(CircleMember.user_id)).filter(
+        CircleMember.circle_id.in_(circle_ids)
+    ).group_by(CircleMember.circle_id).all()) if circle_ids else {}
+    points = {c.owner_id: owner_lifetime_points(db, c.owner_id) for c in rows}
+    return {"items": [
+        {"id": str(c.id), "name": c.name, "owner_id": str(c.owner_id),
+         "price_etb": c.price_etb, "member_count": counts.get(c.id, 0),
+         "owner_lifetime_points": points[c.owner_id],
+         "applied_at": c.paid_circle_applied_at}
+        for c in rows
+    ], "total": total, "page": page}
+
+
+@router.post("/paid-circle-applications/{circle_id}/review")
+def review_paid_circle_application(
+    circle_id: UUID,
+    body: PaidCircleAdminReviewRequest,
+    admin: User = Depends(get_super_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        circle = review_paid_circle(db, circle_id, body.action, body.reason)
+        return {"id": str(circle.id), "is_paid": circle.is_paid,
+                "paid_circle_status": circle.paid_circle_status}
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))

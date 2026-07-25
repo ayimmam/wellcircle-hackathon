@@ -4,28 +4,40 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme, ACCENTS } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
-import { getPointsHistory } from '../api/client';
+import {
+  completeMockStravaConnection, disconnectStrava, getPointsHistory, getStravaConnectUrl,
+  getStravaStats, getTrainerVerificationStatus, updateStravaVisibility,
+} from '../api/client';
 import { getTier, NEIGHBOURHOODS, MOCK_COMMUNITIES } from '../data/mock';
-import { submitFeedback } from '../api/client';
 import { showToast } from '../components/Toast';
 import { effectiveTimeFormat, formatSlot } from '../utils/timeFormat';
 import PhoneInput from '../components/PhoneInput';
 import { parsePhone } from '../utils/phone';
 import BugReportSheet from '../components/BugReportSheet';
+import VerifiedBadge from '../components/VerifiedBadge';
+import StravaStats from '../components/StravaStats';
 
-const HEALTH_APPS = ['Apple Health', 'Google Fit', 'Samsung Health', 'Fitbit', 'Garmin', 'Strava', 'Huawei Health', 'Other'];
+const STRAVA_STATS = [
+  ['distance', 'Distance'],
+  ['calories', 'Calories'],
+  ['moving_time', 'Active time'],
+  ['elevation', 'Elevation'],
+  ['activity_count', 'Activity count'],
+  ['recent_activities', 'Recent activities'],
+];
 
 export default function ProfileScreen() {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, refreshUser } = useAuth();
   const { theme, setTheme, accent, setAccent } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [pointsHistory, setPointsHistory] = useState(null);
   const [showNeighbourhoodSheet, setShowNeighbourhoodSheet] = useState(false);
-  const [healthAppChoice, setHealthAppChoice] = useState(HEALTH_APPS[0]);
-  const [healthAppOther, setHealthAppOther] = useState('');
-  const [healthAppVoted, setHealthAppVoted] = useState(null);
-  const [votingHealthApp, setVotingHealthApp] = useState(false);
+  const [bio, setBio] = useState('');
+  const [savingBio, setSavingBio] = useState(false);
+  const [trainerStatus, setTrainerStatus] = useState(null);
+  const [strava, setStrava] = useState(null);
+  const [stravaBusy, setStravaBusy] = useState(false);
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneEditResult, setPhoneEditResult] = useState({ valid: false, e164: null });
   const [showBugReport, setShowBugReport] = useState(false);
@@ -38,7 +50,24 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     getPointsHistory().then(setPointsHistory);
-  }, []);
+    getTrainerVerificationStatus().then(result => {
+      setTrainerStatus(result);
+      if (result?.status === 'approved') refreshUser?.();
+    }).catch(() => {});
+    getStravaStats().then(setStrava).catch(() => {});
+  }, [refreshUser]);
+
+  useEffect(() => { setBio(user?.bio || ''); }, [user?.bio]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('strava') !== 'connected') return;
+    completeMockStravaConnection();
+    Promise.all([getStravaStats().then(setStrava), refreshUser?.()])
+      .then(() => showToast('Strava connected successfully', 'success'))
+      .catch(err => showToast(err.message, 'error'));
+    navigate('/profile', { replace: true });
+  }, [location.search, navigate, refreshUser]);
 
   // Location nudges (Home's "Near you" section, Explore's "Near me" filter)
   // deep-link here with a flag to auto-open the neighbourhood sheet — clear
@@ -66,22 +95,59 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleHealthAppVote = async () => {
-    const appName = healthAppChoice === 'Other' ? healthAppOther.trim() : healthAppChoice;
-    if (!appName || votingHealthApp) return;
-    setVotingHealthApp(true);
+  const saveBio = async () => {
+    setSavingBio(true);
     try {
-      await submitFeedback({ type: 'health_app_request', message: appName });
-      showToast(t("Noted — we'll prioritize it."), 'success');
-      setHealthAppVoted(appName);
+      await updateProfile({ bio: bio.trim() || null });
+      showToast('Bio updated', 'success');
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
-      setVotingHealthApp(false);
+      setSavingBio(false);
+    }
+  };
+
+  const connectStrava = async () => {
+    setStravaBusy(true);
+    try {
+      const result = await getStravaConnectUrl();
+      const url = result.url || result.authorization_url;
+      if (window.Telegram?.WebApp?.openLink) window.Telegram.WebApp.openLink(url);
+      else window.open(url, '_self');
+    } catch (err) {
+      showToast(err.message, 'error');
+      setStravaBusy(false);
+    }
+  };
+
+  const handleDisconnectStrava = async () => {
+    setStravaBusy(true);
+    try {
+      await disconnectStrava();
+      setStrava({ connected: false, visible_stats: [] });
+      await refreshUser?.();
+      showToast('Strava disconnected', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setStravaBusy(false);
+    }
+  };
+
+  const toggleStravaStat = async (key) => {
+    const current = strava?.visible_stats || [];
+    const next = current.includes(key) ? current.filter(item => item !== key) : [...current, key];
+    setStrava(value => ({ ...value, visible_stats: next }));
+    try {
+      await updateStravaVisibility(next);
+    } catch (err) {
+      setStrava(value => ({ ...value, visible_stats: current }));
+      showToast(err.message, 'error');
     }
   };
 
   if (!user) return null;
+  const verificationExpires = user.verified_trainer_expires_at || trainerStatus?.expires_at;
 
   return (
     <div className="page" id="profile-screen">
@@ -94,8 +160,27 @@ export default function ProfileScreen() {
             <Icon name="user" size={36} strokeWidth={1.5} />
           )}
         </div>
-        <h1 className="profile-name">{user.name}</h1>
+        <h1 className="profile-name">{user.name} {user.is_verified_trainer && <VerifiedBadge compact />}</h1>
         <p className="profile-handle">@{user.telegram_handle}</p>
+        <div className="profile-bio-editor">
+          <textarea
+            className="input"
+            maxLength={300}
+            value={bio}
+            onChange={event => setBio(event.target.value)}
+            placeholder="Share your wellness journey..."
+            aria-label="Profile bio"
+          />
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-secondary">{bio.length}/300</span>
+            <button className="btn btn-primary btn-sm" disabled={savingBio || bio === (user.bio || '')} onClick={saveBio}>{savingBio ? 'Saving…' : 'Save bio'}</button>
+          </div>
+        </div>
+        <div className="profile-connections">
+          <button onClick={() => navigate(`/users/${user.id}/followers`)}><strong>{user.follower_count || 0}</strong> Followers</button>
+          <span>·</span>
+          <button onClick={() => navigate(`/users/${user.id}/following`)}><strong>{user.following_count || 0}</strong> Following</button>
+        </div>
         <div className="profile-tier">
           <span>{tier.emoji}</span>
           <span>{tier.name}</span>
@@ -127,6 +212,52 @@ export default function ProfileScreen() {
               <div className="profile-stat-label">Circles</div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="profile-section">
+        <div className="profile-section-title">Profile Visibility</div>
+        <div className="profile-card">
+          <div className="privacy-options">
+            {[
+              ['public', 'Public', 'Anyone can see your activity'],
+              ['followers', 'Followers only', 'Only followers see activity'],
+              ['private', 'Private', 'Only you see activity'],
+            ].map(([value, label, description]) => (
+              <label className={`privacy-option ${user.profile_privacy === value ? 'selected' : ''}`} key={value}>
+                <input type="radio" name="profile-privacy" value={value} checked={user.profile_privacy === value} onChange={() => updateProfile({ profile_privacy: value }).then(() => showToast('Profile visibility updated', 'success')).catch(err => showToast(err.message, 'error'))} />
+                <span><strong>{label}</strong><small>{description}</small></span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="profile-section">
+        <div className="profile-section-title">Trainer Verification</div>
+        <div className="profile-card">
+          {user.is_verified_trainer ? (
+            <div>
+              <VerifiedBadge />
+              {verificationExpires && <p className="text-sm text-secondary mt-8">Valid until {new Date(verificationExpires).toLocaleDateString()}</p>}
+              {verificationExpires && new Date(verificationExpires).getTime() - Date.now() < 30 * 86400000 && <button className="btn btn-secondary btn-sm mt-12" onClick={() => navigate('/trainer/verify')}>Renew</button>}
+            </div>
+          ) : trainerStatus?.status === 'pending' ? (
+            <div className="flex justify-between items-center"><span>Verification pending</span><span className="status-badge pending">Under review</span></div>
+          ) : trainerStatus?.status === 'approved' ? (
+            <div><VerifiedBadge /><p className="text-sm text-secondary mt-8">Verification approved. Refreshing your profile badge…</p></div>
+          ) : trainerStatus?.status === 'rejected' ? (
+            <div>
+              <strong>Application needs attention</strong>
+              <p className="text-sm text-secondary mt-8">{trainerStatus.rejection_reason || 'Your application was not approved.'}</p>
+              <button className="btn btn-primary btn-sm mt-12" onClick={() => navigate('/trainer/verify')}>Review and apply again</button>
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm text-secondary mb-12">Show your credentials, build trust, and unlock paid-circle eligibility.</p>
+              <button className="btn btn-primary btn-block" onClick={() => navigate('/trainer/verify')}>Get Verified</button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -349,44 +480,33 @@ export default function ProfileScreen() {
         </div>
       </div>
 
-      {/* Health & Activity */}
+      {/* Strava */}
       <div className="profile-section">
-        <div className="profile-section-title flex items-center gap-8">
-          {t('Health & Activity')}
-          <span className="badge badge-muted" id="health-app-coming-soon">{t('Coming soon')}</span>
-        </div>
+        <div className="profile-section-title">Strava Activity</div>
         <div className="profile-card">
-          {healthAppVoted ? (
-            <p style={{ margin: 0 }}>{t('Thanks for voting: {{app}}', { app: healthAppVoted })}</p>
-          ) : (
+          {strava?.connected ? (
             <>
-              <p className="text-sm text-secondary mb-8">{t('Which app should we support first?')}</p>
-              <select
-                className="input mb-8"
-                value={healthAppChoice}
-                onChange={e => setHealthAppChoice(e.target.value)}
-                id="health-app-select"
-              >
-                {HEALTH_APPS.map(app => <option key={app} value={app}>{app}</option>)}
-              </select>
-              {healthAppChoice === 'Other' && (
-                <input
-                  className="input mb-8"
-                  placeholder={t('Which app?')}
-                  value={healthAppOther}
-                  onChange={e => setHealthAppOther(e.target.value)}
-                  id="health-app-other-input"
-                />
-              )}
-              <button
-                className="btn btn-primary btn-block"
-                onClick={handleHealthAppVote}
-                disabled={votingHealthApp || (healthAppChoice === 'Other' && !healthAppOther.trim())}
-                id="health-app-vote-btn"
-              >
-                {t('Submit')}
-              </button>
+              <div className="flex justify-between items-center mb-16">
+                <div><strong>Connected to Strava ✓</strong><p className="text-xs text-secondary">Choose what appears on your public profile.</p></div>
+                <button className="btn btn-secondary btn-sm" disabled={stravaBusy} onClick={handleDisconnectStrava}>Disconnect</button>
+              </div>
+              <div className="strava-toggles">
+                {STRAVA_STATS.map(([key, label]) => (
+                  <label className="checkbox-row" key={key}>
+                    <input type="checkbox" checked={(strava.visible_stats || []).includes(key)} onChange={() => toggleStravaStat(key)} />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
+              <h3 className="text-sm mt-16 mb-8">Public profile preview</h3>
+              <StravaStats stats={strava} preview />
             </>
+          ) : (
+            <div className="strava-connect">
+              <div className="strava-logo" aria-hidden="true">STRAVA</div>
+              <p className="text-sm text-secondary mb-12">Connect Strava to share selected activity totals and recent workouts on your profile.</p>
+              <button className="btn btn-strava btn-block" disabled={stravaBusy} onClick={connectStrava}>Connect with Strava</button>
+            </div>
           )}
         </div>
       </div>

@@ -24,6 +24,14 @@ export const MOCK_USER = {
   is_super_admin: import.meta.env.VITE_MOCK_SUPER_ADMIN === 'true',
   location_neighborhood: null,
   health_app_connected: false,
+  bio: 'Finding balance through yoga, mindful movement, and community.',
+  follower_count: 2,
+  following_count: 2,
+  profile_privacy: 'public',
+  is_verified_trainer: false,
+  verified_trainer_expires_at: null,
+  strava_connected: false,
+  strava_visible_stats: ['distance', 'moving_time', 'elevation', 'activity_count', 'recent_activities'],
   phone_number: null,
   time_format: null,
   joined_communities: [
@@ -427,9 +435,125 @@ export const MOCK_POINTS_HISTORY = {
 // is_joined/is_private mirror the real GET /api/circles shape — used to
 // build the onboarding "Available Circles" join list (not-joined, public).
 export const MOCK_CIRCLES = [
-  { id: '33333333-0000-0000-0000-000000000001', name: 'Addis Morning Runners', description: 'We run every morning at 6 AM around Meskel Square.', member_count: 24, join_code: 'RUN24AM', is_private: false, is_joined: false },
-  { id: '33333333-0000-0000-0000-000000000002', name: 'Zen Seekers', description: 'Mindfulness, yoga, and finding peace in the chaotic city.', member_count: 56, join_code: 'ZEN56', is_private: false, is_joined: false }
+  { id: '33333333-0000-0000-0000-000000000001', name: 'Addis Morning Runners', description: 'We run every morning at 6 AM around Meskel Square.', member_count: 24, join_code: 'RUN24AM', is_private: false, is_joined: false, owner_id: '00000000-0000-0000-0000-000000000097', owner_name: 'Selam Alemu', owner_telegram_handle: 'selam_well', owner_is_verified: false, is_paid: false, price_etb: null, paid_circle_status: 'free', total_revenue_etb: 0 },
+  { id: '33333333-0000-0000-0000-000000000002', name: 'Zen Seekers', description: 'Mindfulness, yoga, and finding peace in the chaotic city.', member_count: 112, join_code: 'ZEN56', is_private: false, is_joined: true, owner_id: MOCK_USER.id, owner_name: MOCK_USER.name, owner_telegram_handle: MOCK_USER.telegram_handle, owner_is_verified: false, is_paid: false, price_etb: null, paid_circle_status: 'free', total_revenue_etb: 0 },
+  { id: '33333333-0000-0000-0000-000000000003', name: 'Hana Endurance Club', description: 'Monthly coached running plans and community accountability.', member_count: 124, join_code: 'HANA124', is_private: false, is_joined: false, owner_id: '00000000-0000-0000-0000-000000000099', owner_name: 'Hana Girma', owner_telegram_handle: 'hana_runs', owner_is_verified: true, is_paid: true, price_etb: 350, paid_circle_status: 'approved', total_revenue_etb: 33250 }
 ];
+
+// ─── Profiles, verification, paid circles & Strava ───────────────────────
+export const MOCK_PUBLIC_USERS = [
+  {
+    id: '00000000-0000-0000-0000-000000000099',
+    name: 'Hana Girma',
+    telegram_handle: 'hana_runs',
+    photo_url: 'https://i.pravatar.cc/150?u=hana',
+    bio: 'Certified running coach helping Addis athletes build joyful, sustainable routines.',
+    follower_count: 148,
+    following_count: 38,
+    profile_privacy: 'public',
+    is_verified_trainer: true,
+    is_following: false,
+    created_circles: [MOCK_CIRCLES[2]],
+    strava_connected: true,
+  },
+  {
+    id: '00000000-0000-0000-0000-000000000098',
+    name: 'Dawit Bekele',
+    telegram_handle: 'dawit_fit',
+    photo_url: 'https://i.pravatar.cc/150?u=dawit',
+    bio: 'Strength, mobility, and good coffee.',
+    follower_count: 76,
+    following_count: 51,
+    profile_privacy: 'followers',
+    is_verified_trainer: false,
+    is_following: true,
+    created_circles: [],
+    stats_hidden: false,
+    strava_connected: false,
+  },
+];
+
+export const MOCK_FOLLOWERS = [
+  { ...MOCK_PUBLIC_USERS[0], is_following: false },
+  { ...MOCK_PUBLIC_USERS[1], is_following: true },
+];
+
+export const MOCK_FOLLOWING = [
+  { ...MOCK_PUBLIC_USERS[1], is_following: true },
+  { id: '00000000-0000-0000-0000-000000000097', name: 'Selam Alemu', telegram_handle: 'selam_well', photo_url: 'https://i.pravatar.cc/150?u=selam', bio: 'Wellness enthusiast', is_verified_trainer: false, is_following: true },
+];
+
+export const MOCK_STRAVA_STATS = {
+  connected: true,
+  athlete_name: 'Hana Girma',
+  visible_stats: ['distance', 'moving_time', 'elevation', 'activity_count', 'recent_activities'],
+  // Backend aggregated stats use kilometres (recent activities do too).
+  distance: 128.43,
+  calories: 4820,
+  moving_time: 36720,
+  elevation: 1860,
+  activity_count: 18,
+  recent_activities: [
+    { id: 'strava-1', name: 'Entoto Morning Run', type: 'Run', distance: 10.24, moving_time: 3260, start_date: new Date(now - 86400000).toISOString() },
+    { id: 'strava-2', name: 'Recovery Walk', type: 'Walk', distance: 4.2, moving_time: 3010, start_date: new Date(now - 3 * 86400000).toISOString() },
+  ],
+};
+
+export const MOCK_TRAINER_VERIFICATIONS = [
+  {
+    id: 'verify-001',
+    user_id: MOCK_PUBLIC_USERS[1].id,
+    user_name: MOCK_PUBLIC_USERS[1].name,
+    user_handle: MOCK_PUBLIC_USERS[1].telegram_handle,
+    user_photo_url: MOCK_PUBLIC_USERS[1].photo_url,
+    certificate_url: 'https://example.com/certificate.pdf',
+    payment_receipt_url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500',
+    status: 'pending',
+    payment_status: 'paid',
+    rejection_reason: null,
+    created_at: new Date(now - 2 * 86400000).toISOString(),
+    expires_at: null,
+  },
+];
+
+export const MOCK_PAID_CIRCLE_APPLICATIONS = [
+  {
+    ...MOCK_CIRCLES[1],
+    member_count: 112,
+    price_etb: 250,
+    paid_circle_status: 'pending_approval',
+    owner_lifetime_points: 1320,
+    applied_at: new Date(now - 86400000).toISOString(),
+  },
+];
+
+export const MOCK_CIRCLE_SUBSCRIPTIONS = [
+  {
+    id: 'circle-sub-001',
+    circle_id: MOCK_CIRCLES[1].id,
+    user_id: MOCK_PUBLIC_USERS[1].id,
+    user_name: MOCK_PUBLIC_USERS[1].name,
+    user_handle: MOCK_PUBLIC_USERS[1].telegram_handle,
+    user_photo_url: MOCK_PUBLIC_USERS[1].photo_url,
+    amount_etb: 250,
+    status: 'pending_approval',
+    receipt_url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500',
+    created_at: new Date(now - 3600000).toISOString(),
+  },
+];
+
+export const MOCK_CIRCLE_REVENUE = {
+  total_revenue_etb: 33250,
+  creator_earnings_etb: 31588,
+  platform_fee_etb: 1662,
+  active_subscribers: 95,
+  pending_receipts: 1,
+  monthly_trend: [
+    { month: 'May', revenue: 21000, subscribers: 60 },
+    { month: 'June', revenue: 28000, subscribers: 80 },
+    { month: 'July', revenue: 33250, subscribers: 95 },
+  ],
+};
 
 export const MOCK_LEADERBOARD = [
   { user_id: '001', name: 'Dawit', photo_url: 'https://i.pravatar.cc/150?u=dawit', weekly_points: 120, total_points: 720 },

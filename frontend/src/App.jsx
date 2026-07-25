@@ -27,6 +27,9 @@ const CommunityDetail = lazy(() => import('./pages/CommunityDetail'));
 const CircleDetailScreen = lazy(() => import('./pages/CircleDetailScreen'));
 const BookingFlow = lazy(() => import('./pages/BookingFlow'));
 const ProfileScreen = lazy(() => import('./pages/ProfileScreen'));
+const PublicProfile = lazy(() => import('./pages/PublicProfile'));
+const FollowersList = lazy(() => import('./pages/FollowersList'));
+const TrainerVerification = lazy(() => import('./pages/TrainerVerification'));
 const ProviderDashboard = lazy(() => import('./pages/ProviderDashboard'));
 const ProviderOnboard = lazy(() => import('./pages/ProviderOnboard'));
 const ProductsStore = lazy(() => import('./pages/ProductsStore'));
@@ -42,6 +45,8 @@ const AdminProviders = lazy(() => import('./pages/admin/AdminProviders'));
 const AdminProducts = lazy(() => import('./pages/admin/AdminProducts'));
 const AdminReports = lazy(() => import('./pages/admin/AdminReports'));
 const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback'));
+const AdminTrainerVerifications = lazy(() => import('./pages/admin/AdminTrainerVerifications'));
+const AdminPaidCircles = lazy(() => import('./pages/admin/AdminPaidCircles'));
 
 // Provider website — standalone Telegram-Login-Widget-authenticated portal,
 // reachable outside the Telegram Mini App. Full-screen landscape layout with
@@ -98,12 +103,16 @@ export function AppShell() {
               <Route path="/users/me/bookings" element={<MyBookings />} />
               <Route path="/community" element={<CommunityList />} />
               <Route path="/profile" element={<ProfileScreen />} />
+              <Route path="/trainer/verify" element={<TrainerVerification />} />
 
               {/* Detail screens */}
               <Route path="/provider/:id" element={<ProviderDetail />} />
               <Route path="/community/:id" element={<CommunityDetail />} />
               <Route path="/circle/:id" element={<CircleDetailScreen />} />
               <Route path="/booking/:providerId" element={<BookingFlow />} />
+              <Route path="/users/:id" element={<PublicProfile />} />
+              <Route path="/users/:id/followers" element={<FollowersList />} />
+              <Route path="/users/:id/following" element={<FollowersList />} />
 
               {/* Provider dashboard (Mini App) */}
               <Route path="/provider-dashboard" element={<ProviderDashboard />} />
@@ -123,6 +132,8 @@ export function AppShell() {
                 <Route path="products" element={<AdminProducts />} />
                 <Route path="reports" element={<AdminReports />} />
                 <Route path="feedback" element={<AdminFeedback />} />
+                <Route path="trainers" element={<AdminTrainerVerifications />} />
+                <Route path="paid-circles" element={<AdminPaidCircles />} />
               </Route>
 
               {/* Provider website — Telegram Login Widget auth, not the Mini App */}

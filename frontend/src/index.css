@@ -957,6 +957,19 @@ select.input option {
 .btn-block { width: 100%; }
 .btn-icon { padding: 10px; border-radius: var(--radius-full); width: 40px; height: 40px; }
 
+/* In-button loading spinner — Telegram's MainButton keeps the label and adds
+   a small progress ring while a request is in flight; same treatment here.
+   Inherits currentColor so it works on primary/secondary/outline variants. */
+.btn-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: spin 0.7s linear infinite;
+}
+
 /* ================================================================
    CARDS
    ================================================================ */
@@ -2444,3 +2457,49 @@ textarea.input { resize: vertical; min-height: 80px; }
   background: var(--success-soft-bg);
   color: var(--success-soft-text);
 }
+
+/* Profile, trainer verification, paid circles and Strava */
+.page-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.page-heading h1 { font-size: 1.2rem; font-weight: 800; }
+.profile-bio { max-width: 330px; margin: 0 auto 12px; color: var(--text-secondary); font-size: 0.88rem; }
+.profile-bio-editor { max-width: 360px; margin: 0 auto 12px; text-align: left; }
+.profile-bio-editor textarea { min-height: 72px; margin-bottom: 6px; }
+.profile-connections { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 10px 0; color: var(--text-secondary); font-size: 0.82rem; }
+.profile-connections button { color: inherit; }
+.profile-connections strong { color: var(--text-primary); }
+.verified-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: var(--radius-full); background: rgba(37,99,235,.12); color: var(--info); font-size: .68rem; font-weight: 800; vertical-align: middle; white-space: nowrap; }
+.privacy-options { display: flex; flex-direction: column; gap: 8px; }
+.privacy-option { display: flex; align-items: flex-start; gap: 10px; padding: 10px; border: 1px solid var(--border-card); border-radius: var(--radius-sm); cursor: pointer; }
+.privacy-option.selected { border-color: var(--accent); background: var(--tint-accent-06); }
+.privacy-option input { margin-top: 4px; accent-color: var(--accent); }
+.privacy-option span { display: flex; flex-direction: column; font-size: .85rem; }
+.privacy-option small { color: var(--text-secondary); }
+.circle-profile-card { display: flex; flex-direction: column; width: 100%; color: var(--text-primary); }
+.circle-profile-card span { color: var(--text-secondary); font-size: .75rem; margin-top: 4px; }
+.step-indicator { display: flex; justify-content: space-between; gap: 4px; margin-bottom: 20px; }
+.step-indicator > span { flex: 1; display: flex; flex-direction: column; align-items: center; color: var(--text-tertiary); font-size: .75rem; padding-top: 6px; border-top: 3px solid var(--border-card); }
+.step-indicator > span.active { color: var(--accent); border-color: var(--accent); }
+.step-indicator small { font-size: .58rem; margin-top: 2px; }
+.feature-list { display: flex; flex-direction: column; gap: 8px; color: var(--text-secondary); }
+.file-drop { min-height: 110px; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--border-card); border-radius: var(--radius-md); background: var(--bg-elevated); cursor: pointer; text-align: center; padding: 16px; }
+.file-drop input { position: absolute; opacity: 0; pointer-events: none; }
+.file-drop span { color: var(--accent-text); font-weight: 700; }
+.verification-status { text-align: center; padding: 28px; }
+.verification-status-icon { width: 56px; height: 56px; display: grid; place-items: center; margin: 0 auto 12px; border-radius: 50%; background: var(--tint-accent-12); color: var(--accent); font-size: 1.6rem; font-weight: 800; }
+.document-links { display: flex; gap: 8px; flex-wrap: wrap; }
+.paid-circle-badge { display: inline-flex; padding: 3px 9px; border-radius: var(--radius-full); background: rgba(16,185,129,.14); color: var(--success); font-size: .7rem; font-weight: 800; }
+.strava-connect { text-align: center; }
+.strava-logo, .strava-mark { color: #fc4c02; font-weight: 900; font-style: italic; letter-spacing: -.04em; }
+.btn-strava { background: #fc4c02; color: #fff; }
+.strava-toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.strava-toggles input { accent-color: #fc4c02; }
+.strava-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.strava-stat { display: flex; flex-direction: column; padding: 12px; border-radius: var(--radius-sm); background: var(--bg-elevated); }
+.strava-stat strong { font-size: 1rem; }
+.strava-stat span { color: var(--text-secondary); font-size: .68rem; }
+.strava-activities { margin-top: 14px; }
+.strava-activities h3 { font-size: .85rem; margin-bottom: 6px; }
+.strava-activity { display: flex; justify-content: space-between; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--border-subtle); font-size: .75rem; }
+.strava-activity div { display: flex; flex-direction: column; }
+.strava-activity span { color: var(--text-secondary); }
+.strava-attribution { margin-top: 12px; text-align: right; color: var(--text-secondary); font-size: .66rem; }

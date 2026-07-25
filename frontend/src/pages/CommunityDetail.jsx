@@ -112,8 +112,11 @@ export default function CommunityDetail() {
   };
 
   const checkin = useCheckin('community_detail');
+  const [checkingIn, setCheckingIn] = useState(false);
 
   const handleCheckin = async () => {
+    if (checkingIn) return;
+    setCheckingIn(true);
     try {
       // Toasts, user points/streak updates, milestone celebration, and
       // analytics all live in useCheckin (shared with the Home check-in card)
@@ -127,6 +130,8 @@ export default function CommunityDetail() {
     } catch (err) {
       showToast('Already checked in today');
       setCheckedIn(true);
+    } finally {
+      setCheckingIn(false);
     }
   };
 
@@ -168,13 +173,18 @@ export default function CommunityDetail() {
             <button
               className={`btn btn-block ${checkedIn ? 'btn-secondary' : 'btn-primary'}`}
               onClick={handleCheckin}
-              disabled={checkedIn}
+              disabled={checkedIn || checkingIn}
               id="checkin-btn"
               style={{ flex: 2 }}
             >
               {checkedIn ? (
                 <span className="flex items-center justify-center gap-6"><Icon name="check" size={16} /> Checked in today</span>
-              ) : 'Check In Today'}
+              ) : (
+                <>
+                  {checkingIn && <span className="btn-spinner" aria-hidden="true" />}
+                  Check In Today
+                </>
+              )}
             </button>
             <button
               className="btn btn-secondary"
@@ -192,7 +202,8 @@ export default function CommunityDetail() {
             disabled={joining}
             id="join-btn"
           >
-            {joining ? 'Joining...' : 'Join Circle'}
+            {joining && <span className="btn-spinner" aria-hidden="true" />}
+            Join Circle
           </button>
         )}
       </div>

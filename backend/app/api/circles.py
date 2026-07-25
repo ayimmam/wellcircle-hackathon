@@ -13,6 +13,13 @@ from app.crud.circle import (
     create_circle, join_circle, get_circles, get_circle_leaderboard,
     join_circle_by_code, get_circle_social_proof,
 )
+from app.crud.circle_subscription import (
+    apply_for_paid_circle, creator_review_subscription, get_circle_revenue,
+    get_pending_subscriptions, get_user_active_subscription, subscribe_to_circle,
+)
+from app.schemas.circle_subscription import (
+    CircleSubscribeRequest, PaidCircleApplyRequest, SubscriptionApprovalRequest,
+)
 
 router = APIRouter()
 
@@ -61,8 +68,105 @@ def api_join_circle(circle_id: str, join_data: CircleJoin = None, user: User = D
 
 @router.get("/{circle_id}/leaderboard")
 def api_get_leaderboard(circle_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.crud.circle_subscription import has_circle_access
+    if not has_circle_access(db, UUID(circle_id), user.id):
+        raise HTTPException(status_code=403, detail="Paid circle access required")
     leaderboard = get_circle_leaderboard(db, UUID(circle_id))
     return {"leaderboard": leaderboard}
+
+
+@router.post("/{circle_id}/apply-paid")
+def api_apply_paid(
+    circle_id: UUID, body: PaidCircleApplyRequest,
+    user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    try:
+        circle = apply_for_paid_circle(db, circle_id, user.id, body.price_etb)
+        return {"id": str(circle.id), "paid_circle_status": circle.paid_circle_status,
+                "price_etb": circle.price_etb}
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/{circle_id}/subscribe", status_code=201)
+def api_subscribe(
+    circle_id: UUID, body: CircleSubscribeRequest,
+    user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    try:
+        row = subscribe_to_circle(db, circle_id, user.id, body.receipt_url, body.receipt_public_id)
+        return {"id": str(row.id), "status": row.status, "period_start": row.period_start,
+                "period_end": row.period_end, "amount_etb": row.amount_etb}
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@router.get("/{circle_id}/subscriptions/pending")
+def api_pending_subscriptions(
+    circle_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    try:
+        rows = get_pending_subscriptions(db, circle_id, user.id)
+        return {"items": [
+            {"id": str(x.id), "user_id": str(x.user_id), "amount_etb": x.amount_etb,
+             "receipt_url": x.receipt_url, "created_at": x.created_at}
+            for x in rows
+        ]}
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+
+
+@router.post("/subscriptions/{subscription_id}/review")
+def api_review_subscription(
+    subscription_id: UUID, body: SubscriptionApprovalRequest,
+    user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    try:
+        row = creator_review_subscription(db, subscription_id, user.id, body.action)
+        return {"id": str(row.id), "status": row.status,
+                "creator_approved_at": row.creator_approved_at}
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@router.get("/{circle_id}/revenue")
+def api_revenue(
+    circle_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    try:
+        return get_circle_revenue(db, circle_id, user.id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+
+
+@router.get("/{circle_id}/subscription-status")
+def api_subscription_status(
+    circle_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    row = get_user_active_subscription(db, circle_id, user.id)
+    if not row:
+        from app.models.circle_subscription import CircleSubscription
+        row = db.query(CircleSubscription).filter_by(
+            circle_id=circle_id, user_id=user.id
+        ).order_by(CircleSubscription.created_at.desc()).first()
+    return {"subscription": None if not row else {
+        "id": str(row.id), "status": row.status, "period_start": row.period_start,
+        "period_end": row.period_end, "amount_etb": row.amount_etb,
+    }}
 
 
 # ── E1: Invite deep-link join ─────────────────────────────────────────────

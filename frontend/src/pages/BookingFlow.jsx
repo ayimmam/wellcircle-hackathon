@@ -46,6 +46,7 @@ export default function BookingFlow() {
   const [phoneResult, setPhoneResult] = useState({ valid: false, e164: null });
   const [booking, setBooking] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   // Kuriftu gap analysis (Jul 15): some services aren't booked in-app at all —
   // no fixed slots, no upfront payment. Selecting one skips straight to a
   // contact screen instead of the date/payment steps.
@@ -207,6 +208,8 @@ export default function BookingFlow() {
   // calls `phoneResult.e164` to confirm the slot — payment is collected in
   // person then, not through the app (see docs/API_CONTRACT.md's pay_on_site note).
   const handleConfirm = async () => {
+    if (submitting) return;
+    setSubmitting(true);
     try {
       const [primaryDate, ...extraDates] = sortedDates;
       const primaryTime = timeFor(primaryDate);
@@ -245,6 +248,8 @@ export default function BookingFlow() {
       }
     } catch (err) {
       showToast(err.message || 'Could not confirm booking. Try again.', 'error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -676,9 +681,10 @@ export default function BookingFlow() {
           <button
             className="btn btn-primary btn-block btn-lg"
             onClick={handleConfirm}
-            disabled={!canNext()}
+            disabled={!canNext() || submitting}
             id="confirm-booking-btn"
           >
+            {submitting && <span className="btn-spinner" aria-hidden="true" />}
             {t('Send Booking Request')}
           </button>
         )}

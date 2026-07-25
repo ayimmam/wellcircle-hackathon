@@ -51,6 +51,17 @@ class Settings(BaseSettings):
     # Bot API Key - shared secret between bot and backend
     BOT_API_KEY: str = ""
 
+    # External integrations
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY: str = ""
+    CLOUDINARY_API_SECRET: str = ""
+    STRAVA_CLIENT_ID: str = ""
+    STRAVA_CLIENT_SECRET: str = ""
+    STRAVA_REDIRECT_URI: str = ""
+
+    # Vercel/serverless maintenance endpoint
+    CRON_SECRET: str = ""
+
     # CORS
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000",

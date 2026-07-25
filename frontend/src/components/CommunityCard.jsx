@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import Icon from './Icon';
 
-export default function CommunityCard({ community, onJoin }) {
+export default function CommunityCard({ community, onJoin, joining = false }) {
   const navigate = useNavigate();
 
   return (
@@ -35,8 +35,10 @@ export default function CommunityCard({ community, onJoin }) {
                 e.stopPropagation();
                 onJoin?.(community.id);
               }}
+              disabled={joining}
               id={`join-btn-${community.id}`}
             >
+              {joining && <span className="btn-spinner" aria-hidden="true" />}
               Join
             </button>
           )}

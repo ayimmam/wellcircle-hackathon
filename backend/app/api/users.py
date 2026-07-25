@@ -17,6 +17,7 @@ from app.schemas.user import (
     UserResponse, UserOnboardingRequest, UserProfileUpdate,
     PointsHistoryResponse,
 )
+from app.crud.follower import get_follower_count, get_following_count
 
 router = APIRouter()
 
@@ -37,6 +38,12 @@ def _build_response(user: User, db: Session) -> UserResponse:
         health_app_connected=user.health_app_connected,
         phone_number=user.phone_number,
         time_format=user.time_format,
+        bio=user.bio,
+        profile_privacy=user.profile_privacy,
+        is_verified_trainer=user.is_verified_trainer,
+        follower_count=get_follower_count(db, user.id),
+        following_count=get_following_count(db, user.id),
+        strava_stats=None,
         joined_communities=joined, created_at=user.created_at,
     )
 
@@ -108,6 +115,9 @@ async def update_my_profile(
     db: Session = Depends(get_db),
 ):
     update_data = request.model_dump(exclude_unset=True)
+    # This compatibility field now reflects the real Strava connection only.
+    if "health_app_connected" in update_data:
+        update_data["health_app_connected"] = bool(user.strava_athlete_id)
     if update_data:
         update_user_profile(db, user, **update_data)
     return _build_response(user, db)

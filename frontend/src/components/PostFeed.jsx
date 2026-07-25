@@ -11,6 +11,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
   const [posts, setPosts] = useState([]);
   const [newPostContent, setNewPostContent] = useState(initialDraft || '');
   const [loading, setLoading] = useState(true);
+  const [posting, setPosting] = useState(false);
   const [commentingOnId, setCommentingOnId] = useState(null); // top-level comment box, keyed by post id
   const [commentContent, setCommentContent] = useState('');
   const [replyingToId, setReplyingToId] = useState(null); // reply box, keyed by comment id
@@ -55,7 +56,8 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
   };
 
   const handlePost = async () => {
-    if (!newPostContent.trim()) return;
+    if (!newPostContent.trim() || posting) return;
+    setPosting(true);
     try {
       await createPost({
         content: newPostContent,
@@ -71,6 +73,8 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
       showToast('Posted successfully!', 'success');
     } catch (err) {
       showToast('Error posting', 'error');
+    } finally {
+      setPosting(false);
     }
   };
 
@@ -192,8 +196,8 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
             </div>
           )}
 
-          <button className="btn btn-primary" onClick={handlePost} disabled={!newPostContent.trim()}>
-            <Icon name="send" size={16} /> Post
+          <button className="btn btn-primary" onClick={handlePost} disabled={!newPostContent.trim() || posting}>
+            {posting ? <span className="btn-spinner" aria-hidden="true" /> : <Icon name="send" size={16} />} Post
           </button>
         </div>
       </div>

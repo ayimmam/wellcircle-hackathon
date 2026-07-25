@@ -558,6 +558,78 @@ export const MOCK_PROVIDER_STATS = {
   recent_feed: MOCK_FEED_EVENTS.slice(0, 5).map(e => ({ ...e, community_name: 'Shanti Yoga Circle' }))
 };
 
+// ─── Provider Website: bookings, service mix, demographics, custom-range metrics ──
+export const MOCK_PROVIDER_BOOKINGS = {
+  bookings: MOCK_PROVIDER_STATS.recent_bookings.map((b, i) => ({
+    ...b,
+    user_name: ['Meron Tadesse', 'Dawit Hailu', 'Sara Alemayehu', 'Abel Kebede'][i] || 'Guest',
+    customer_demographics: [
+      { location_neighborhood: 'Bole', interest_categories: ['yoga', 'nutrition'], exercise_frequency: 'sometimes' },
+      { location_neighborhood: 'CMC', interest_categories: ['gym'], exercise_frequency: 'daily' },
+      { location_neighborhood: 'Sarbet', interest_categories: ['nutrition'], exercise_frequency: 'rarely' },
+      { location_neighborhood: 'Bole', interest_categories: ['running', 'yoga'], exercise_frequency: 'regular' },
+    ][i] || { location_neighborhood: null, interest_categories: [], exercise_frequency: null },
+  })),
+  total: MOCK_PROVIDER_STATS.recent_bookings.length,
+  page: 1,
+  per_page: 20,
+};
+
+export const MOCK_PROVIDER_SERVICE_BREAKDOWN = {
+  services: [
+    { service_name: 'Drop-in Yoga Class', bookings_count: 18, revenue_etb: 9000 },
+    { service_name: 'Monthly Unlimited Pass', bookings_count: 6, revenue_etb: 16800 },
+    { service_name: 'Private 1-on-1 Session', bookings_count: 4, revenue_etb: 7200 },
+  ],
+};
+
+export const MOCK_PROVIDER_DEMOGRAPHICS = {
+  total_customers: 4,
+  by_neighborhood: [
+    { label: 'Bole', count: 2 },
+    { label: 'CMC', count: 1 },
+    { label: 'Sarbet', count: 1 },
+  ],
+  by_interest_category: [
+    { label: 'yoga', count: 2 },
+    { label: 'nutrition', count: 2 },
+    { label: 'gym', count: 1 },
+    { label: 'running', count: 1 },
+  ],
+  by_exercise_frequency: [
+    { label: 'sometimes', count: 1 },
+    { label: 'daily', count: 1 },
+    { label: 'rarely', count: 1 },
+    { label: 'regular', count: 1 },
+  ],
+};
+
+export function buildMockProviderTimeseries(startDate, endDate) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const series = [];
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    series.push({
+      date: d.toISOString().slice(0, 10),
+      bookings: Math.floor(Math.random() * 4),
+      revenue_etb: Math.floor(Math.random() * 4) * 500,
+      checkins: Math.floor(Math.random() * 6),
+    });
+  }
+  return {
+    provider_id: MOCK_PROVIDER_STATS.provider_id,
+    start_date: series[0]?.date || startDate,
+    end_date: series[series.length - 1]?.date || endDate,
+    series,
+    totals: {
+      bookings: series.reduce((s, d) => s + d.bookings, 0),
+      revenue_etb: series.reduce((s, d) => s + d.revenue_etb, 0),
+      checkins: series.reduce((s, d) => s + d.checkins, 0),
+      unique_customers: 4,
+    },
+  };
+}
+
 // ─── Neighbourhood Alerts ───────────────────────────
 export const NEIGHBOURHOOD_ALERTS = {
   "Bole": "New yoga session opening in Bole this Saturday — only 3 spots left. Book now via Well Circle.",

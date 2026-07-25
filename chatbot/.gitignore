@@ -1,0 +1,26 @@
+# Virtual Environment (Crucial - never push this!)
+venv/
+ENV/
+env/
+.venv/
+
+# Environment Variables & Secrets (Crucial for security!)
+.env
+*.env
+
+# Python caching
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# IDE / Editor configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

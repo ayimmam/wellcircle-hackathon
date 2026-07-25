@@ -70,6 +70,12 @@
 | Feedback | POST | `/feedback` | JWT | Frontend |
 | Admin | GET | `/admin/feedback` | JWT (admin) | Frontend |
 | Admin | PATCH | `/admin/feedback/:id` | JWT (admin) | Frontend |
+| Auth | POST | `/auth/telegram-widget` | None | Provider website |
+| Providers | GET | `/providers/me/bookings` | JWT (provider) | Provider website |
+| Providers | GET | `/providers/me/analytics/services` | JWT (provider) | Provider website |
+| Providers | GET | `/providers/me/analytics/demographics` | JWT (provider) | Provider website |
+| Providers | GET | `/providers/me/analytics/timeseries` | JWT (provider) | Provider website |
+| Providers | POST | `/providers/me/redemptions/:id/update-status` | JWT (provider) | Provider website |
 
 ---
 
@@ -1241,6 +1247,115 @@ Now returns `join_code` (previously just a bare message) so the client can build
 **`PATCH /api/admin/feedback/{id}`** — Super admin. `{ "status": "reviewed" }` (`new` | `reviewed` | `resolved`) → `{ "id": "uuid", "status": "reviewed" }`. 404 if the id doesn't exist.
 
 Mock parity: `submitFeedback()`, `getAdminFeedback()`, `updateFeedbackStatus()` in `client.js`.
+
+---
+
+## 9d. Provider Website (`/provider-portal`)
+
+A standalone website for providers, separate from the Telegram Mini App —
+`frontend/src/pages/provider-portal/*`, gated by `ProviderPortalGuard` +
+`ProviderPortalAuthContext` (its own `wc_provider_token` localStorage key,
+independent of the Mini App's `wc_token` session). It reuses
+`ProviderDashboard.jsx` (`hideBackButton` prop) for the actual dashboard, so
+Analytics/Events/Products/Customers/Promotions/Subscriptions tabs are
+unchanged; only the items below are new.
+
+### Login — Telegram Login Widget
+
+**`POST /api/auth/telegram-widget`** — No JWT required. Validates the
+[Telegram Login Widget](https://core.telegram.org/widgets/login) callback
+payload (HMAC-SHA256, secret key = `SHA256(bot_token)` — **not** the Mini App
+`initData` scheme, which prefixes with `"WebAppData"`). Unlike
+`POST /api/auth/telegram`, this **never creates a user** — it only signs in
+an existing account with `is_provider = true`.
+
+```json
+// REQUEST
+{ "id": 123456789, "first_name": "Meron", "username": "meron_fitness", "photo_url": "https://...", "auth_date": 1752800000, "hash": "..." }
+
+// RESPONSE 200 — same AuthResponse shape as POST /auth/telegram
+{ "token": "eyJ...", "user": { ... }, "is_new_user": false }
+
+// RESPONSE 401 — bad/expired/tampered signature
+// RESPONSE 403 — { "detail": "No provider account found for this Telegram account" }
+```
+
+Frontend: `authTelegramWidget()` in `client.js`. The widget itself requires
+the deployed domain to be registered with BotFather (`/setdomain`) and HTTPS
+— it does not render on `localhost`; local/dev and the Vitest mock mode use
+a "Continue as Demo Provider" button instead (`VITE_USE_MOCK=true`).
+
+### Bookings, service mix, demographics, custom time metrics
+
+All **JWT (provider)**, scoped to the caller's own provider via `get_provider_by_owner`.
+
+**`GET /api/providers/me/bookings?page=&per_page=&start_date=&end_date=&payment_status=&service_name=`**
+Full paginated booking list — each row also carries the customer's
+demographic fields, so the table doubles as a lightweight CRM view.
+```json
+{
+  "bookings": [
+    { "id": "uuid", "user_handle": "meron_fitness", "user_name": "Meron Tadesse",
+      "service_name": "Morning Vinyasa Flow", "slot_datetime": "2026-06-07T07:00:00Z",
+      "amount_etb": 800, "payment_status": "success", "created_at": "2026-06-06T10:30:00Z",
+      "customer_demographics": { "location_neighborhood": "Bole", "interest_categories": ["yoga"], "exercise_frequency": "sometimes" } }
+  ],
+  "total": 1, "page": 1, "per_page": 20
+}
+```
+
+**`GET /api/providers/me/analytics/services?start_date=&end_date=`** — Most-booked-service breakdown, sorted by bookings count descending.
+```json
+{ "services": [ { "service_name": "Morning Vinyasa Flow", "bookings_count": 18, "revenue_etb": 9000 } ] }
+```
+
+**`GET /api/providers/me/analytics/demographics`** — Breakdown of this
+provider's customers using only the fields that exist today (no age/gender
+column) — `location_neighborhood`, `interest_categories` (multi-select, so a
+customer can land in more than one bucket), `exercise_frequency`.
+```json
+{
+  "total_customers": 4,
+  "by_neighborhood": [ { "label": "Bole", "count": 2 } ],
+  "by_interest_category": [ { "label": "yoga", "count": 2 } ],
+  "by_exercise_frequency": [ { "label": "sometimes", "count": 1 } ]
+}
+```
+
+**`GET /api/providers/me/analytics/timeseries?start_date=&end_date=`** —
+Custom time metrics: daily bookings/revenue/check-ins for a provider-chosen
+date range (max 366 days; 422 if `end_date < start_date` or range exceeded).
+```json
+{
+  "provider_id": "uuid", "start_date": "2026-07-12", "end_date": "2026-07-18",
+  "series": [ { "date": "2026-07-12", "bookings": 3, "revenue_etb": 0, "checkins": 4 } ],
+  "totals": { "bookings": 8, "revenue_etb": 3500, "checkins": 18, "unique_customers": 4 }
+}
+```
+
+### Redeem management
+
+**`GET /api/providers/me/redemptions?page=&per_page=&status=`** — Now
+paginated (previously a bare 10-item list). Each item also carries
+`provider_notes`, `delivery_address`, `points_spent`.
+```json
+{ "redemptions": [ { "id": "uuid", "user_name": "Meron", "product_name": "Private Yoga Session", "redemption_code": "YOGA-ABC123", "delivery_status": "pending", "provider_notes": null, "delivery_address": null, "points_spent": 400, "redeemed_at": "2026-07-07T09:00:00Z" } ], "count": 1, "total": 1, "page": 1, "per_page": 20 }
+```
+
+**`POST /api/providers/me/redemptions/{redemption_id}/update-status`** —
+Provider-scoped equivalent of the admin redemption-status endpoint; 404 if
+the redemption doesn't belong to one of this provider's products.
+```json
+// REQUEST
+{ "status": "shipped", "notes": "Sent via Bole courier" }   // status: pending|confirmed|shipped|delivered
+
+// RESPONSE 200
+{ "redemption_id": "uuid", "delivery_status": "shipped", "provider_notes": "Sent via Bole courier" }
+```
+
+Mock parity: `getProviderBookings()`, `getProviderServiceBreakdown()`,
+`getProviderDemographics()`, `getProviderMetricsTimeseries()`,
+`updateProviderRedemptionStatus()` in `client.js`.
 
 ---
 

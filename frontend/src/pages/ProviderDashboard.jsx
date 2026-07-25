@@ -5,6 +5,8 @@ import {
   getProviderEvents, createProviderEvent, updateProviderEvent, getSubscriptionPlans,
   initiateSubscription, getSubscriptionStatus, createCommunityChallenge,
   getProviderCustomers, awardCustomerPoints, getPriceSuggestion, getProviderPointsAnalytics,
+  getProviderBookings, getProviderServiceBreakdown, getProviderDemographics,
+  getProviderMetricsTimeseries, updateProviderRedemptionStatus,
 } from '../api/client';
 import FeedEvent from '../components/FeedEvent';
 import PromotionForm from '../components/PromotionForm';
@@ -14,6 +16,16 @@ import { track } from '../analytics';
 import Icon from '../components/Icon';
 
 const PROVIDER_DAILY_AWARD_CAP = 300; // mirrors backend PROVIDER_AWARD_MAX_POINTS_PER_DAY
+const REDEMPTION_STATUSES = ['pending', 'confirmed', 'shipped', 'delivered'];
+
+function isoDateDaysAgo(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export default function ProviderDashboard() {
   const navigate = useNavigate();
@@ -47,6 +59,27 @@ export default function ProviderDashboard() {
   const [awardingId, setAwardingId] = useState(null);
   // D1: price suggestion hint chip on the product form
   const [priceSuggestion, setPriceSuggestion] = useState(null);
+
+  // Bookings & Insights tab: paginated booking list + service mix + demographics
+  const [bookings, setBookings] = useState([]);
+  const [bookingsTotal, setBookingsTotal] = useState(0);
+  const [bookingsPage, setBookingsPage] = useState(1);
+  const [bookingsStatus, setBookingsStatus] = useState('');
+  const [bookingsStartDate, setBookingsStartDate] = useState('');
+  const [bookingsEndDate, setBookingsEndDate] = useState('');
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [serviceBreakdown, setServiceBreakdown] = useState([]);
+  const [demographics, setDemographics] = useState(null);
+
+  // Custom time metrics (Analytics tab date-range picker)
+  const [metricsStartDate, setMetricsStartDate] = useState(isoDateDaysAgo(6));
+  const [metricsEndDate, setMetricsEndDate] = useState(todayIsoDate());
+  const [timeseries, setTimeseries] = useState(null);
+  const [timeseriesLoading, setTimeseriesLoading] = useState(false);
+
+  // Redeem management: per-row status + notes being edited
+  const [redemptionEdits, setRedemptionEdits] = useState({});
+  const [updatingRedemptionId, setUpdatingRedemptionId] = useState(null);
 
   const loadDashboard = (pid) => Promise.all([
     getProviderStats(pid),
@@ -84,6 +117,78 @@ export default function ProviderDashboard() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  const loadBookingsTab = async (page = 1) => {
+    setBookingsLoading(true);
+    try {
+      const filters = {
+        page,
+        per_page: 20,
+        status: bookingsStatus || null,
+        start_date: bookingsStartDate ? `${bookingsStartDate}T00:00:00Z` : null,
+        end_date: bookingsEndDate ? `${bookingsEndDate}T23:59:59Z` : null,
+      };
+      const [bk, svc, demo] = await Promise.all([
+        getProviderBookings(filters),
+        getProviderServiceBreakdown({ start_date: filters.start_date, end_date: filters.end_date }),
+        getProviderDemographics(),
+      ]);
+      setBookings(bk.bookings || []);
+      setBookingsTotal(bk.total || 0);
+      setBookingsPage(page);
+      setServiceBreakdown(svc.services || []);
+      setDemographics(demo);
+    } catch (err) {
+      showToast(err.message || 'Could not load bookings', 'error');
+    } finally {
+      setBookingsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'bookings' && providerId && bookings.length === 0 && !bookingsLoading) {
+      loadBookingsTab(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, providerId]);
+
+  const loadTimeseries = async () => {
+    setTimeseriesLoading(true);
+    try {
+      const ts = await getProviderMetricsTimeseries(
+        `${metricsStartDate}T00:00:00Z`,
+        `${metricsEndDate}T23:59:59Z`,
+      );
+      setTimeseries(ts);
+    } catch (err) {
+      showToast(err.message || 'Could not load custom time metrics', 'error');
+    } finally {
+      setTimeseriesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'analytics' && providerId && !timeseries && !timeseriesLoading) {
+      loadTimeseries();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, providerId]);
+
+  const handleUpdateRedemption = async (redemptionId) => {
+    const edit = redemptionEdits[redemptionId] || {};
+    const status = edit.status || 'confirmed';
+    setUpdatingRedemptionId(redemptionId);
+    try {
+      await updateProviderRedemptionStatus(redemptionId, status, edit.notes || null);
+      showToast('Redemption updated', 'success');
+      const r = await getProviderRedemptions();
+      setRedemptions(r.redemptions || []);
+    } catch (err) {
+      showToast(err.message || 'Could not update redemption', 'error');
+    } finally {
+      setUpdatingRedemptionId(null);
+    }
+  };
 
   const handleAward = async (customerId, points) => {
     setAwardingId(customerId);
@@ -172,6 +277,7 @@ export default function ProviderDashboard() {
 
       <div className="admin-subtabs mb-16" style={{ overflowX: 'auto', whiteSpace: 'nowrap', display: 'flex', gap: '8px' }}>
         <button className={`admin-subtab ${tab === 'analytics' ? 'active' : ''}`} onClick={() => setTab('analytics')}>Analytics</button>
+        <button className={`admin-subtab ${tab === 'bookings' ? 'active' : ''}`} onClick={() => setTab('bookings')}>Bookings & Insights</button>
         <button className={`admin-subtab ${tab === 'events' ? 'active' : ''}`} onClick={() => setTab('events')}>Events</button>
         <button className={`admin-subtab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')}>Products</button>
         <button className={`admin-subtab ${tab === 'customers' ? 'active' : ''}`} onClick={() => setTab('customers')}>Customers</button>
@@ -200,14 +306,51 @@ export default function ProviderDashboard() {
           </div>
           {redemptions.length > 0 && (
             <>
-              <h3 className="section-subtitle mb-12">Recent Redemptions</h3>
-              {redemptions.map(r => (
-                <div key={r.id} className="card mb-8">
-                  <div className="card-body text-sm">
-                    {r.user_name} → {r.redemption_code || r.product_name} | {r.delivery_status}
+              <h3 className="section-subtitle mb-12">Redeem Management</h3>
+              <p className="text-xs text-secondary mb-12">
+                Confirm, ship, or mark a redemption delivered — customers see the status update.
+              </p>
+              {redemptions.map(r => {
+                const edit = redemptionEdits[r.id] || { status: r.delivery_status, notes: r.provider_notes || '' };
+                const setEdit = (patch) => setRedemptionEdits(prev => ({ ...prev, [r.id]: { ...edit, ...patch } }));
+                return (
+                  <div key={r.id} className="card mb-8">
+                    <div className="card-body text-sm">
+                      <div className="flex justify-between items-center mb-8">
+                        <span>{r.user_name} → {r.redemption_code || r.product_name}</span>
+                        <span className={`status-badge ${r.delivery_status}`}>{r.delivery_status}</span>
+                      </div>
+                      {r.delivery_address && (
+                        <p className="text-xs text-secondary mb-8">Ships to: {r.delivery_address}</p>
+                      )}
+                      <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
+                        <select
+                          className="input"
+                          style={{ padding: '4px', width: 'auto' }}
+                          value={edit.status}
+                          onChange={e => setEdit({ status: e.target.value })}
+                        >
+                          {REDEMPTION_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <input
+                          className="input"
+                          style={{ padding: '4px', flex: 1, minWidth: 120 }}
+                          placeholder="Notes for customer (optional)"
+                          value={edit.notes}
+                          onChange={e => setEdit({ notes: e.target.value })}
+                        />
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          disabled={updatingRedemptionId === r.id}
+                          onClick={() => handleUpdateRedemption(r.id)}
+                        >
+                          {updatingRedemptionId === r.id ? '…' : 'Update'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </>
           )}
           {showCreate && (
@@ -547,6 +690,158 @@ export default function ProviderDashboard() {
             </div>
           )}
         </>
+      ) : tab === 'bookings' ? (
+        <>
+          <div className="section-header">
+            <h2 className="section-title">Bookings & Insights</h2>
+          </div>
+
+          <div className="card mb-16">
+            <div className="card-body">
+              <div className="flex gap-8 items-center" style={{ flexWrap: 'wrap' }}>
+                <label className="text-xs text-secondary">From
+                  <input type="date" className="input" style={{ padding: '4px', marginLeft: 6 }}
+                    value={bookingsStartDate} onChange={e => setBookingsStartDate(e.target.value)} />
+                </label>
+                <label className="text-xs text-secondary">To
+                  <input type="date" className="input" style={{ padding: '4px', marginLeft: 6 }}
+                    value={bookingsEndDate} onChange={e => setBookingsEndDate(e.target.value)} />
+                </label>
+                <select className="input" style={{ padding: '4px', width: 'auto' }}
+                  value={bookingsStatus} onChange={e => setBookingsStatus(e.target.value)}>
+                  <option value="">All statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="success">Success</option>
+                  <option value="failed">Failed</option>
+                </select>
+                <button className="btn btn-primary btn-sm" disabled={bookingsLoading} onClick={() => loadBookingsTab(1)}>
+                  {bookingsLoading ? '…' : 'Apply'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Most booked service */}
+          {serviceBreakdown.length > 0 && (
+            <>
+              <h3 className="section-subtitle mb-12">Most Booked Service</h3>
+              <div className="card mb-24">
+                <div className="card-body flex-col gap-8">
+                  {serviceBreakdown.map(s => {
+                    const maxCount = Math.max(1, ...serviceBreakdown.map(x => x.bookings_count));
+                    const pct = Math.round((s.bookings_count / maxCount) * 100);
+                    return (
+                      <div key={s.service_name}>
+                        <div className="flex justify-between items-center mb-4" style={{ fontSize: '0.75rem' }}>
+                          <span>{s.service_name}</span>
+                          <span style={{ fontWeight: 600 }}>{s.bookings_count} bookings · ETB {s.revenue_etb.toLocaleString()}</span>
+                        </div>
+                        <div className="progress-bar">
+                          <div className="progress-fill" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Customer demographics */}
+          {demographics && demographics.total_customers > 0 && (
+            <>
+              <h3 className="section-subtitle mb-12">Customer Demographics ({demographics.total_customers})</h3>
+              <div className="kpi-grid mb-24" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+                {[
+                  { title: 'Neighborhood', buckets: demographics.by_neighborhood },
+                  { title: 'Interests', buckets: demographics.by_interest_category },
+                  { title: 'Exercise Frequency', buckets: demographics.by_exercise_frequency },
+                ].map(group => (
+                  <div key={group.title} className="card">
+                    <div className="card-body">
+                      <h4 className="text-xs text-secondary mb-8">{group.title}</h4>
+                      {group.buckets.length === 0 ? (
+                        <p className="text-xs text-secondary">No data yet</p>
+                      ) : group.buckets.map(b => (
+                        <div key={b.label} className="flex justify-between text-xs mb-4">
+                          <span>{b.label}</span>
+                          <span style={{ fontWeight: 600 }}>{b.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Community (circle) activity */}
+          {stats.communities?.length > 0 && (
+            <>
+              <h3 className="section-subtitle mb-12">Community Activity</h3>
+              <div className="flex-col gap-8 mb-24">
+                {stats.communities.map(c => (
+                  <div key={c.id} className="card">
+                    <div className="card-body flex justify-between items-center">
+                      <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{c.name}</div>
+                      <div className="flex items-center gap-4" style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
+                        <Icon name="users" size={12} /> {c.member_count} · <Icon name="check" size={12} /> {c.checkins_today} check-ins today · {Math.round(c.engagement_rate * 100)}% engagement
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Booking list */}
+          <div className="section-header">
+            <h2 className="section-title">Booking List ({bookingsTotal})</h2>
+          </div>
+          {bookings.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon"><Icon name="calendar" size={32} /></div>
+              <div className="empty-state-text">No bookings match these filters.</div>
+            </div>
+          ) : (
+            <div className="card" style={{ overflow: 'auto' }}>
+              <table className="bookings-table">
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>Service</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Demographics</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bookings.map(bk => (
+                    <tr key={bk.id}>
+                      <td>{bk.user_name || `@${bk.user_handle}`}</td>
+                      <td>{bk.service_name}</td>
+                      <td style={{ fontWeight: 600 }}>ETB {bk.amount_etb?.toLocaleString()}</td>
+                      <td><span className={`status-badge ${bk.payment_status}`}>{bk.payment_status}</span></td>
+                      <td className="text-xs text-secondary">
+                        {bk.customer_demographics?.location_neighborhood || '—'}
+                        {bk.customer_demographics?.exercise_frequency ? ` · ${bk.customer_demographics.exercise_frequency}` : ''}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {bookingsTotal > 20 && (
+            <div className="flex justify-between items-center mt-12">
+              <button className="btn btn-secondary btn-sm" disabled={bookingsPage <= 1 || bookingsLoading}
+                onClick={() => loadBookingsTab(bookingsPage - 1)}>Previous</button>
+              <span className="text-xs text-secondary">Page {bookingsPage}</span>
+              <button className="btn btn-secondary btn-sm" disabled={bookingsPage * 20 >= bookingsTotal || bookingsLoading}
+                onClick={() => loadBookingsTab(bookingsPage + 1)}>Next</button>
+            </div>
+          )}
+        </>
       ) : (
       <>
       {/* KPI Cards */}
@@ -586,6 +881,69 @@ export default function ProviderDashboard() {
               <div className="profile-stat-label">Engagement Rate</div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Custom time metrics — provider-chosen date range */}
+      <div className="section-header">
+        <h2 className="section-title">Custom Time Metrics</h2>
+      </div>
+      <div className="card mb-24">
+        <div className="card-body">
+          <div className="flex gap-8 items-center mb-16" style={{ flexWrap: 'wrap' }}>
+            {[
+              { label: '7d', days: 6 },
+              { label: '30d', days: 29 },
+              { label: '90d', days: 89 },
+            ].map(preset => (
+              <button key={preset.label} className="chip" onClick={() => {
+                setMetricsStartDate(isoDateDaysAgo(preset.days));
+                setMetricsEndDate(todayIsoDate());
+              }}>{preset.label}</button>
+            ))}
+            <label className="text-xs text-secondary">From
+              <input type="date" className="input" style={{ padding: '4px', marginLeft: 6 }}
+                value={metricsStartDate} onChange={e => setMetricsStartDate(e.target.value)} />
+            </label>
+            <label className="text-xs text-secondary">To
+              <input type="date" className="input" style={{ padding: '4px', marginLeft: 6 }}
+                value={metricsEndDate} onChange={e => setMetricsEndDate(e.target.value)} />
+            </label>
+            <button className="btn btn-primary btn-sm" disabled={timeseriesLoading} onClick={loadTimeseries}>
+              {timeseriesLoading ? '…' : 'Apply'}
+            </button>
+          </div>
+
+          {timeseries && (
+            <>
+              <div className="kpi-grid mb-16">
+                <div className="kpi-card">
+                  <div className="kpi-value">{timeseries.totals.bookings}</div>
+                  <div className="kpi-label">Bookings</div>
+                </div>
+                <div className="kpi-card accent">
+                  <div className="kpi-value">{timeseries.totals.revenue_etb.toLocaleString()}</div>
+                  <div className="kpi-label">Revenue (ETB)</div>
+                </div>
+                <div className="kpi-card">
+                  <div className="kpi-value">{timeseries.totals.checkins}</div>
+                  <div className="kpi-label">Check-ins</div>
+                </div>
+                <div className="kpi-card secondary">
+                  <div className="kpi-value">{timeseries.totals.unique_customers}</div>
+                  <div className="kpi-label">Unique Customers</div>
+                </div>
+              </div>
+              <div className="flex-col gap-4" style={{ maxHeight: 220, overflowY: 'auto' }}>
+                {timeseries.series.map(d => (
+                  <div key={d.date} className="flex justify-between text-xs" style={{ padding: '4px 0', borderBottom: '1px solid var(--border, #eee)' }}>
+                    <span>{d.date}</span>
+                    <span>{d.bookings} bookings · ETB {d.revenue_etb.toLocaleString()} · {d.checkins} check-ins</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 

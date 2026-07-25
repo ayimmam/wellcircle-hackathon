@@ -315,6 +315,78 @@ def test_all():
         assert total >= 1
         print("   ✅ browse_products")
 
+        # === 9. PROVIDER WEBSITE — bookings, analytics, demographics, widget auth, redeem mgmt ===
+        print("\n9. Provider Website")
+        from datetime import timedelta
+        import hmac, hashlib, time
+        from app.crud.provider import (
+            get_provider_bookings, get_provider_service_breakdown,
+            get_provider_customer_demographics, get_provider_metrics_timeseries,
+        )
+        from app.crud.product import provider_update_redemption_status, get_provider_redemptions
+        from app.services.telegram_login_widget import validate_login_widget_data
+        from app.config import settings
+
+        bk_items, bk_total = get_provider_bookings(db, provider.id)
+        assert bk_total == 1
+        assert bk_items[0]["service_name"] == "Morning Vinyasa Flow"
+        assert bk_items[0]["customer_demographics"]["location_neighborhood"] == "Bole"
+        assert bk_items[0]["customer_demographics"]["interest_categories"] == ["yoga"]
+        print("   ✅ get_provider_bookings (with customer demographics)")
+
+        services = get_provider_service_breakdown(db, provider.id)
+        assert services[0]["service_name"] == "Morning Vinyasa Flow"
+        assert services[0]["bookings_count"] == 1
+        assert services[0]["revenue_etb"] == 800
+        print("   ✅ get_provider_service_breakdown (most booked service)")
+
+        demo = get_provider_customer_demographics(db, provider.id)
+        assert demo["total_customers"] >= 1
+        assert any(b["label"] == "Bole" for b in demo["by_neighborhood"])
+        assert any(b["label"] == "yoga" for b in demo["by_interest_category"])
+        print("   ✅ get_provider_customer_demographics")
+
+        now = datetime.now(timezone.utc)
+        series = get_provider_metrics_timeseries(db, provider.id, now - timedelta(days=7), now)
+        assert series["totals"]["bookings"] == 1
+        assert len(series["series"]) == 8  # inclusive 7-day range
+        print("   ✅ get_provider_metrics_timeseries (custom time metrics)")
+
+        updated_redemption = provider_update_redemption_status(
+            db, provider.id, uuid.UUID(result["redemption_id"]), "shipped", notes="Sent via Bole courier",
+        )
+        assert updated_redemption.delivery_status == "shipped"
+        assert updated_redemption.provider_notes == "Sent via Bole courier"
+        print("   ✅ provider_update_redemption_status (redeem management)")
+
+        redemption_items, redemption_total = get_provider_redemptions(db, provider.id)
+        assert redemption_total == 1
+        assert redemption_items[0]["delivery_status"] == "shipped"
+        print("   ✅ get_provider_redemptions (paginated)")
+
+        # Telegram Login Widget HMAC — provider website login
+        widget_payload = {
+            "id": str(user.telegram_id),
+            "first_name": "Meron",
+            "username": "test_meron",
+            "auth_date": str(int(time.time())),
+        }
+        check_string = "\n".join(sorted(f"{k}={v}" for k, v in widget_payload.items()))
+        secret_key = hashlib.sha256(settings.TELEGRAM_BOT_TOKEN.encode()).digest()
+        widget_payload["hash"] = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
+        widget_payload["id"] = int(widget_payload["id"])
+        widget_payload["auth_date"] = int(widget_payload["auth_date"])
+
+        validated = validate_login_widget_data(widget_payload)
+        assert validated is not None
+        assert validated["telegram_id"] == user.telegram_id
+        print("   ✅ validate_login_widget_data (valid HMAC)")
+
+        tampered = dict(widget_payload)
+        tampered["first_name"] = "Attacker"
+        assert validate_login_widget_data(tampered) is None
+        print("   ✅ validate_login_widget_data (rejects tampered payload)")
+
         # === DONE ===
         print("\n" + "=" * 50)
         print("  🎉 ALL TESTS PASSED (including Phase 2)")

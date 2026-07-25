@@ -1,11 +1,11 @@
 """Provider CRUD operations."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 from uuid import UUID
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, case
 
 from app.models.provider import Provider
 from app.models.product import Product
@@ -929,5 +929,213 @@ def get_provider_points_analytics(db: Session, provider_id: UUID) -> dict:
     return {
         "provider_id": str(provider_id),
         "weekly_trend": weeks,
+    }
+
+
+# ── Provider Website: booking list, service mix, demographics, custom-range metrics ──
+
+def get_provider_bookings(
+    db: Session,
+    provider_id: UUID,
+    page: int = 1,
+    per_page: int = 20,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    payment_status: Optional[str] = None,
+    service_name: Optional[str] = None,
+) -> tuple[List[dict], int]:
+    """Paginated booking list for the provider website — each row carries the
+    customer's demographic fields (neighborhood/interests/exercise frequency)
+    alongside the booking, so the table doubles as a lightweight CRM view."""
+    query = (
+        db.query(Booking, User)
+        .join(User, Booking.user_id == User.id)
+        .filter(Booking.provider_id == provider_id)
+    )
+    if start_date:
+        query = query.filter(Booking.created_at >= start_date)
+    if end_date:
+        query = query.filter(Booking.created_at <= end_date)
+    if payment_status:
+        query = query.filter(Booking.payment_status == payment_status)
+    if service_name:
+        query = query.filter(Booking.service_name == service_name)
+
+    total = query.count()
+    rows = (
+        query.order_by(Booking.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+
+    items = []
+    for b, user in rows:
+        items.append({
+            "id": str(b.id),
+            "user_handle": user.telegram_handle,
+            "user_name": user.name or user.telegram_handle or "User",
+            "service_name": b.service_name,
+            "slot_datetime": b.slot_datetime.isoformat(),
+            "amount_etb": b.amount_etb,
+            "payment_status": b.payment_status,
+            "created_at": b.created_at.isoformat(),
+            "customer_demographics": {
+                "location_neighborhood": user.location_neighborhood,
+                "interest_categories": user.interest_categories or [],
+                "exercise_frequency": user.exercise_frequency,
+            },
+        })
+    return items, total
+
+
+def get_provider_service_breakdown(
+    db: Session,
+    provider_id: UUID,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+) -> List[dict]:
+    """Bookings + revenue grouped by service name, most-booked first."""
+    revenue_expr = func.sum(
+        case((Booking.payment_status == "success", Booking.amount_etb), else_=0)
+    )
+    query = db.query(
+        Booking.service_name,
+        func.count(Booking.id).label("bookings_count"),
+        revenue_expr.label("revenue_etb"),
+    ).filter(Booking.provider_id == provider_id)
+
+    if start_date:
+        query = query.filter(Booking.created_at >= start_date)
+    if end_date:
+        query = query.filter(Booking.created_at <= end_date)
+
+    rows = (
+        query.group_by(Booking.service_name)
+        .order_by(func.count(Booking.id).desc())
+        .all()
+    )
+    return [
+        {
+            "service_name": service_name,
+            "bookings_count": bookings_count,
+            "revenue_etb": int(revenue_etb or 0),
+        }
+        for service_name, bookings_count, revenue_etb in rows
+    ]
+
+
+def get_provider_customer_demographics(db: Session, provider_id: UUID) -> dict:
+    """Breakdown of this provider's customers by the demographic fields that
+    actually exist today: neighborhood, interest categories, exercise
+    frequency. A customer can land in more than one interest-category bucket
+    (it's a multi-select field on the user), so those counts don't sum to
+    total_customers."""
+    customers = get_provider_customers(db, provider_id)
+    if not customers:
+        return {
+            "total_customers": 0,
+            "by_neighborhood": [],
+            "by_interest_category": [],
+            "by_exercise_frequency": [],
+        }
+
+    user_ids = [UUID(c["user_id"]) for c in customers]
+    users = db.query(User).filter(User.id.in_(user_ids)).all()
+
+    neighborhood_counts: dict = {}
+    interest_counts: dict = {}
+    frequency_counts: dict = {}
+    for u in users:
+        neighborhood = u.location_neighborhood or "Unknown"
+        neighborhood_counts[neighborhood] = neighborhood_counts.get(neighborhood, 0) + 1
+        for category in (u.interest_categories or []):
+            interest_counts[category] = interest_counts.get(category, 0) + 1
+        frequency = u.exercise_frequency or "Unknown"
+        frequency_counts[frequency] = frequency_counts.get(frequency, 0) + 1
+
+    def _sorted_buckets(counts: dict) -> List[dict]:
+        return [
+            {"label": label, "count": count}
+            for label, count in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
+        ]
+
+    return {
+        "total_customers": len(users),
+        "by_neighborhood": _sorted_buckets(neighborhood_counts),
+        "by_interest_category": _sorted_buckets(interest_counts),
+        "by_exercise_frequency": _sorted_buckets(frequency_counts),
+    }
+
+
+def get_provider_metrics_timeseries(
+    db: Session,
+    provider_id: UUID,
+    start_date: datetime,
+    end_date: datetime,
+) -> dict:
+    """Custom time-range metrics — daily bookings, revenue, and community
+    check-ins between start_date and end_date (inclusive), for the provider
+    website's date-range picker."""
+    communities = db.query(Community).filter(Community.provider_id == provider_id).all()
+    community_ids = [c.id for c in communities]
+
+    bookings = (
+        db.query(Booking)
+        .filter(
+            Booking.provider_id == provider_id,
+            Booking.created_at >= start_date,
+            Booking.created_at <= end_date,
+        )
+        .all()
+    )
+
+    checkins = []
+    if community_ids:
+        checkins = (
+            db.query(CommunityFeedEvent)
+            .filter(
+                CommunityFeedEvent.community_id.in_(community_ids),
+                CommunityFeedEvent.event_type == "checkin",
+                CommunityFeedEvent.created_at >= start_date,
+                CommunityFeedEvent.created_at <= end_date,
+            )
+            .all()
+        )
+
+    by_day: dict = {}
+    cursor = start_date.date()
+    last_day = end_date.date()
+    while cursor <= last_day:
+        key = cursor.isoformat()
+        by_day[key] = {"date": key, "bookings": 0, "revenue_etb": 0, "checkins": 0}
+        cursor += timedelta(days=1)
+
+    for b in bookings:
+        key = b.created_at.date().isoformat()
+        if key in by_day:
+            by_day[key]["bookings"] += 1
+            if b.payment_status == "success":
+                by_day[key]["revenue_etb"] += b.amount_etb
+
+    for e in checkins:
+        key = e.created_at.date().isoformat()
+        if key in by_day:
+            by_day[key]["checkins"] += 1
+
+    series = [by_day[key] for key in sorted(by_day.keys())]
+    unique_customers = len({b.user_id for b in bookings})
+
+    return {
+        "provider_id": str(provider_id),
+        "start_date": start_date.date().isoformat(),
+        "end_date": end_date.date().isoformat(),
+        "series": series,
+        "totals": {
+            "bookings": sum(d["bookings"] for d in series),
+            "revenue_etb": sum(d["revenue_etb"] for d in series),
+            "checkins": sum(d["checkins"] for d in series),
+            "unique_customers": unique_customers,
+        },
     }
 

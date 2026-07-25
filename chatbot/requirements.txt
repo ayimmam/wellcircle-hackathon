@@ -1,0 +1,7 @@
+# Runtime dependencies. For tests, also install requirements-dev.txt.
+fastapi
+uvicorn
+pydantic
+groq
+supabase
+python-dotenv

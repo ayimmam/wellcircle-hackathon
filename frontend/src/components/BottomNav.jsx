@@ -15,7 +15,9 @@ export default function BottomNav() {
   const { t } = useTranslation();
 
   const hiddenPaths = ['/', '/onboarding', '/provider-onboard'];
-  const hidden = hiddenPaths.includes(location.pathname) || location.pathname.startsWith('/admin');
+  const hidden = hiddenPaths.includes(location.pathname)
+    || location.pathname.startsWith('/admin')
+    || location.pathname.startsWith('/provider-portal');
   if (hidden) return null;
 
   const current = TABS.find(t => location.pathname.startsWith(t.path))?.path;

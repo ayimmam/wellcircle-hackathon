@@ -2330,6 +2330,129 @@ textarea.input { resize: vertical; min-height: 80px; }
   color: var(--text-on-accent);
 }
 
+/* ================================================================
+   PROVIDER PORTAL — full-screen landscape website (sidebar layout)
+   Breaks out of the app-wide #root max-width:430px mobile constraint;
+   scoped to when the shell adds .provider-portal-active (see
+   ProviderPortalShell.jsx) so every other route stays untouched.
+   ================================================================ */
+#root.provider-portal-active {
+  max-width: 100%;
+}
+
+.portal-shell {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg-primary);
+}
+
+.portal-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border-card);
+  padding: 20px 12px;
+}
+
+.portal-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 20px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.portal-sidebar-brand-name { font-weight: 700; font-size: 0.9rem; line-height: 1.25; }
+.portal-sidebar-brand-sub { font-size: 0.7rem; color: var(--text-tertiary); margin-top: 2px; }
+
+.portal-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.portal-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.portal-nav-link:hover { background: var(--bg-tertiary); }
+.portal-nav-link.active { background: var(--accent); color: var(--text-inverse); }
+
+.portal-sidebar-footer {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+
+.portal-provider-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  padding: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 28px 36px calc(var(--safe-bottom) + 28px);
+}
+
+.portal-content-inner { max-width: 1400px; margin: 0 auto; }
+
+.portal-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.portal-kpi-card {
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.portal-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover, 0 8px 20px rgba(0, 0, 0, 0.1));
+}
+
+.portal-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+.portal-grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+
+@media (max-width: 860px) {
+  .portal-shell { flex-direction: column; }
+  .portal-sidebar {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    border-right: none;
+    border-bottom: 1px solid var(--border-card);
+    padding: 12px;
+    gap: 12px;
+  }
+  .portal-sidebar-brand { border-bottom: none; padding: 0; margin-bottom: 0; }
+  .portal-nav { flex-direction: row; overflow-x: auto; flex: 1; }
+  .portal-sidebar-footer { border-top: none; padding-top: 0; margin-top: 0; display: flex; align-items: center; gap: 8px; }
+  .portal-provider-name { display: none; }
+  .portal-content { padding: 20px; }
+}
+
 .badge-success-soft {
   background: var(--success-soft-bg);
   color: var(--success-soft-text);

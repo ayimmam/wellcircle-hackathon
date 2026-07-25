@@ -26,6 +26,12 @@ export default function AskWellCircle() {
     const saved = localStorage.getItem('concierge_is_first');
     return saved ? JSON.parse(saved) : true;
   });
+
+  // Persisted per-device session id so the backend can remember the last
+  // few turns of this conversation across app opens/reloads.
+  const [sessionId, setSessionId] = useState(() => {
+    return localStorage.getItem('concierge_session_id') || null;
+  });
   
   const [messages, setMessages] = useState(() => {
     const saved = localStorage.getItem('concierge_messages');
@@ -68,12 +74,19 @@ export default function AskWellCircle() {
     setIsLoading(true);
 
     try {
-      const res = await fetch("https://well-circle-concierge.onrender.com/ai/concierge", {
+      const res = await fetch("https://well-circle-concierge.vercel.app/ai/concierge", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg, is_first_message: isFirstMessage }),
+        body: JSON.stringify({ message: userMsg, is_first_message: isFirstMessage, session_id: sessionId }),
       });
       let data = await res.json();
+
+      // Persist whatever session_id the backend assigned/echoed so the
+      // next message keeps using the same remembered conversation.
+      if (data.session_id && data.session_id !== sessionId) {
+        setSessionId(data.session_id);
+        localStorage.setItem('concierge_session_id', data.session_id);
+      }
       
       // Shim for broken external API: replace fallback with real provider
       if (data.data_source === 'fallback') {
@@ -227,8 +240,10 @@ export default function AskWellCircle() {
                         sender: 'assistant'
                       }]);
                       setIsFirstMessage(true);
+                      setSessionId(null);
                       localStorage.removeItem('concierge_messages');
                       localStorage.removeItem('concierge_is_first');
+                      localStorage.removeItem('concierge_session_id');
                     }
                   }}
                   title="Clear Chat"

@@ -1,4 +1,4 @@
-# Well Circle — API Contract v1.1
+# Well Circle — API Contract v1.2
 
 > **Base URL:** `https://<render-host>/api`
 > **Auth:** Bearer JWT token in `Authorization` header (except where noted)
@@ -76,6 +76,30 @@
 | Providers | GET | `/providers/me/analytics/demographics` | JWT (provider) | Provider website |
 | Providers | GET | `/providers/me/analytics/timeseries` | JWT (provider) | Provider website |
 | Providers | POST | `/providers/me/redemptions/:id/update-status` | JWT (provider) | Provider website |
+| Uploads | POST | `/uploads` | JWT | Frontend |
+| Users | POST | `/users/:id/follow` | JWT | Frontend |
+| Users | DELETE | `/users/:id/follow` | JWT | Frontend |
+| Users | GET | `/users/:id/followers` | JWT | Frontend |
+| Users | GET | `/users/:id/following` | JWT | Frontend |
+| Users | GET | `/users/:id/profile` | JWT | Frontend |
+| Trainer | POST | `/trainer/apply` | JWT | Frontend |
+| Trainer | GET | `/trainer/status` | JWT | Frontend |
+| Admin | GET | `/admin/trainer-verifications` | JWT (admin) | Frontend |
+| Admin | POST | `/admin/trainer-verifications/:id/review` | JWT (admin) | Frontend |
+| Circles | POST | `/circles/:id/apply-paid` | JWT (owner) | Frontend |
+| Circles | POST | `/circles/:id/subscribe` | JWT | Frontend |
+| Circles | GET | `/circles/:id/subscriptions/pending` | JWT (owner) | Frontend |
+| Circles | POST | `/circles/subscriptions/:id/review` | JWT (owner) | Frontend |
+| Circles | GET | `/circles/:id/revenue` | JWT (owner) | Frontend |
+| Circles | GET | `/circles/:id/subscription-status` | JWT | Frontend |
+| Admin | GET | `/admin/paid-circle-applications` | JWT (admin) | Frontend |
+| Admin | POST | `/admin/paid-circle-applications/:id/review` | JWT (admin) | Frontend |
+| Strava | GET | `/strava/connect` | JWT | Frontend |
+| Strava | GET | `/strava/callback` | None (OAuth redirect) | Strava |
+| Strava | POST | `/strava/disconnect` | JWT | Frontend |
+| Strava | GET | `/strava/stats` | JWT | Frontend |
+| Strava | PATCH | `/strava/visibility` | JWT | Frontend |
+| Maintenance | POST | `/cron/maintenance` | `X-Cron-Secret` / Bearer `CRON_SECRET` | Vercel Cron |
 
 ---
 
@@ -238,10 +262,25 @@ Get current user's full profile.
   "health_app_connected": false,
   "phone_number": null,
   "time_format": null,
+  "bio": "Yoga instructor & marathon runner 🧘‍♀️",
+  "profile_privacy": "public",
+  "is_verified_trainer": true,
+  "follower_count": 42,
+  "following_count": 18,
+  "strava_stats": null,
   "joined_communities": ["uuid-1", "uuid-2"],
   "created_at": "2026-06-06T10:00:00Z"
 }
 ```
+
+> **Note:** `strava_stats` on `GET /users/me` and `PATCH /users/me` is always
+> `null` — the authenticated user's own Strava data is fetched separately via
+> `GET /api/strava/stats` (§9i), not embedded here. It **is** populated on the
+> public-profile endpoint (`GET /api/users/:id/profile`, §9f) when viewable.
+> `health_app_connected` is a legacy field kept for backward compatibility —
+> it's now derived from Strava connection status (`strava_athlete_id is not
+> null`) and any value sent for it in `PATCH /users/me` is silently
+> overwritten with the real Strava state.
 
 ### `POST /api/users/me/onboard`
 Complete Mini App onboarding. Sets `is_onboarded = true`.
@@ -303,7 +342,9 @@ Update profile fields (personalization, neighborhood opt-in, contact/format pref
   "location_neighborhood": "Bole",
   "health_app_connected": true,
   "phone_number": "+251911234567",   // E.164; backend only checks shape (6-15 digits, optional +)
-  "time_format": "12h"               // '12h' | '24h' — 422 on any other value
+  "time_format": "12h",              // '12h' | '24h' — 422 on any other value
+  "bio": "Yoga instructor & marathon runner 🧘‍♀️",  // max 300 chars — 422 if longer
+  "profile_privacy": "followers"     // 'public' | 'followers' | 'private' — 422 on any other value
 }
 
 // RESPONSE 200 — same as GET /users/me
@@ -1359,6 +1400,278 @@ Mock parity: `getProviderBookings()`, `getProviderServiceBreakdown()`,
 
 ---
 
+## 9e. File Uploads (Phase 15)
+
+Generic upload endpoint backing certificate/receipt uploads for trainer
+verification (§9g) and paid-circle receipts (§9h). Wraps Cloudinary
+(`app/services/cloudinary_service.py`); requires `CLOUDINARY_CLOUD_NAME` /
+`CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` to be set, or every call
+503s.
+
+**`POST /api/uploads`** — JWT required. `multipart/form-data`: `file`
+(binary) + `folder` (`certificates` | `receipts` — any other value is a 422,
+there is no generic/other folder).
+
+| Folder | Max size | Allowed types |
+|--------|----------|---------------|
+| `certificates` | 10 MB | `application/pdf`, `image/jpeg`, `image/png` |
+| `receipts` | 5 MB | `image/jpeg`, `image/png` |
+
+```json
+// RESPONSE 200
+{ "url": "https://res.cloudinary.com/.../wellcircle/certificates/abc123.pdf", "public_id": "wellcircle/certificates/abc123" }
+
+// RESPONSE 422 — wrong folder, wrong content-type, oversized, or empty file
+{ "detail": "File exceeds the 10MB limit for certificates" }
+
+// RESPONSE 503 — Cloudinary env vars not configured
+{ "detail": "Cloudinary is not configured" }
+```
+
+Note: any authenticated user may upload to either folder — the backend does
+not check that the uploader is actually applying for trainer verification or
+subscribing to a circle. Files are stored under `wellcircle/{folder}/` in
+Cloudinary; there is a `delete_file(public_id)` helper in the service but no
+endpoint calls it today (uploaded files are never cleaned up on
+rejection/replacement).
+
+---
+
+## 9f. Followers & Public Profiles (Phase 15)
+
+Instagram-style follow graph plus a privacy-aware public profile. Mounted
+under `/api/users` (`app/api/followers.py`), alongside the `users` router.
+
+| Method | Endpoint | Notes |
+|--------|----------|-------|
+| POST | `/api/users/:id/follow` | Idempotent — following twice returns the same `{following: true}`. 404 if target doesn't exist, 400 on self-follow. |
+| DELETE | `/api/users/:id/follow` | Idempotent — unfollowing when not following returns `{following: false, removed: false}`, not a 404. |
+| GET | `/api/users/:id/followers?page=&per_page=` | `per_page` 1–100, default 20. 404 if `:id` doesn't exist. |
+| GET | `/api/users/:id/following?page=&per_page=` | Same pagination/shape. |
+| GET | `/api/users/:id/profile` | Public profile, privacy-gated (see below). |
+
+```json
+// RESPONSE 200 — GET /api/users/:id/followers
+{
+  "items": [
+    { "id": "uuid", "name": "Hana", "telegram_handle": "hana_runs", "photo_url": "https://...",
+      "bio": "Marathon coach", "is_verified_trainer": true, "follower_count": 340, "following_count": 12 }
+  ],
+  "total": 1, "page": 1, "per_page": 20
+}
+
+// RESPONSE 200 — GET /api/users/:id/profile
+{
+  "id": "uuid", "name": "Hana", "telegram_handle": "hana_runs", "photo_url": "https://...",
+  "bio": "Marathon coach", "is_verified_trainer": true, "follower_count": 340, "following_count": 12,
+  "profile_privacy": "followers",
+  "is_following": true,
+  "strava_stats": { "distance": 42.1, "activity_count": 5, "recent_activities": [ /* ... */ ] },
+  "circles": [
+    { "id": "uuid", "name": "Endurance Club", "description": "...", "is_paid": true, "price_etb": 350 }
+  ]
+}
+```
+
+**Privacy enforcement** (`profile_privacy` on the target user — `public` |
+`followers` | `private`, default `public`):
+- Identity fields (`name`, `handle`, `photo_url`, `bio`, `is_verified_trainer`,
+  follower/following counts) are **always visible to any authenticated
+  viewer**, regardless of privacy setting — privacy only gates `strava_stats`
+  and `circles`.
+- `public`: `strava_stats` + `circles` visible to anyone.
+- `followers`: visible only if the viewer follows the target (or is the
+  target).
+- `private`: visible only to the target themselves; everyone else gets
+  `strava_stats: null` and `circles: []`.
+- `circles` lists **every** circle the target owns (not just ones they're
+  active in) — there's no membership or paid-access filter on this list.
+- If the target has Strava connected but the live fetch fails (rate limit,
+  token issue), `strava_stats` silently falls back to `null` rather than
+  erroring the whole profile request.
+
+---
+
+## 9g. Trainer Verification (Phase 15)
+
+Users apply for a "Verified Trainer" badge by uploading a certificate +
+proof of a 200 ETB/year fee (`app/api/trainer.py`, mounted at `/api`, so
+routes are `/api/trainer/*` and — unusually — the admin routes for this
+feature also live here as `/api/admin/trainer-verifications*`, not on the
+main `admin` router). The 200 ETB fee is enforced only as UI copy — the
+backend just stores whatever receipt URL is submitted; there's no payment
+gateway integration.
+
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| POST | `/api/trainer/apply` | JWT | 201 on success. 409 if an application is already `pending`, or `approved` and not yet expired. |
+| GET | `/api/trainer/status` | JWT | `{ "application": null \| {...} }` |
+| GET | `/api/admin/trainer-verifications?page=&per_page=&status=` | JWT (super admin) | `status`: `pending` (default) \| `approved` \| `rejected` \| `all`. |
+| POST | `/api/admin/trainer-verifications/:id/review` | JWT (super admin) | `{action: "approve"\|"reject", rejection_reason?}`. `rejection_reason` required (max 1000 chars) when rejecting. |
+
+```json
+// REQUEST — POST /api/trainer/apply
+{
+  "certificate_url": "https://res.cloudinary.com/.../cert.pdf",
+  "certificate_public_id": "wellcircle/certificates/cert123",
+  "payment_receipt_url": "https://res.cloudinary.com/.../receipt.png",
+  "payment_receipt_public_id": "wellcircle/receipts/receipt123"
+}
+
+// RESPONSE 201
+{
+  "id": "uuid", "user_id": "uuid", "status": "pending", "payment_status": "pending",
+  "rejection_reason": null, "certificate_url": "https://...", "payment_receipt_url": "https://...",
+  "created_at": "2026-07-26T10:00:00Z", "expires_at": null
+}
+```
+
+- **Approve** sets `user.is_verified_trainer = true`,
+  `verified_trainer_expires_at = approved_at + 365 days`, and
+  `payment_status = "paid"` (approval implicitly confirms payment — there's
+  no separate payment-verification step).
+- **Reject** clears `is_verified_trainer` and stores `rejection_reason`;
+  the user can re-apply immediately (re-applying reuses the same row rather
+  than creating a new one, since `user_id` is unique on this table).
+- A daily scheduler job (`check_expired_verifications`, part of the combined
+  `phase15_maintenance` job — see §5 note in HANDOFF) flips
+  `is_verified_trainer` back to `false` once `verified_trainer_expires_at`
+  passes, and sends a renewal-nudge notification. It does **not** reset the
+  `TrainerVerification.status` field back from `"approved"` — the row stays
+  "approved" even after the badge itself has expired, so `status` alone is
+  not a reliable "is currently verified" check; use `user.is_verified_trainer`
+  for that.
+- Verified trainers get an `owner_is_verified` flag on circles they own
+  (`GET /api/circles`, batched — not N+1) and a `VerifiedBadge` on their
+  profile, follower lists, and public profile.
+
+---
+
+## 9h. Paid Circles (Phase 15)
+
+Circle owners can apply to monetize their circle once it's grown; members
+subscribe by uploading a payment-receipt screenshot that the owner manually
+approves — there's no payment gateway integration, same pattern as trainer
+verification. Well Circle takes a 5% platform fee. Endpoints live on the
+existing `circles` (`/api/circles`) and `admin` (`/api/admin`) routers.
+
+**Eligibility to apply** (checked both on apply and again on admin approval):
+- Circle has **≥ 100 members**
+- Circle owner has **≥ 1000 lifetime points** — sum of positive,
+  non-reversed `point_transactions.amount` rows for the owner (not their
+  current balance, which decays)
+
+**Revenue split** — integer ETB, no fractional currency: platform fee is
+`floor(amount_etb * 5 / 100)`, creator gets the remainder (so creator gets
+slightly *more* than a clean 95% on amounts that don't divide evenly by 20,
+e.g. ETB 101 → platform 5, creator 96).
+
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| POST | `/api/circles/:id/apply-paid` | JWT (circle owner) | `{price_etb}` (1–10000). 403 if not owner, 400 if eligibility not met or already applied/approved. |
+| POST | `/api/circles/:id/subscribe` | JWT | Uploads a receipt; 201. 409 if circle isn't an approved paid circle, caller is the owner, or a current (active/pending) subscription already exists. |
+| GET | `/api/circles/:id/subscriptions/pending` | JWT (owner) | Receipts awaiting the owner's review. |
+| POST | `/api/circles/subscriptions/:id/review` | JWT (owner) | `{action: "approve"\|"reject"}`. Approve creates the revenue-ledger row and adds a `CircleMember` if missing. |
+| GET | `/api/circles/:id/revenue` | JWT (owner) | Lifetime totals + monthly trend. |
+| GET | `/api/circles/:id/subscription-status` | JWT | Caller's own subscription (active one preferred, else most recent of any status). |
+| GET | `/api/admin/paid-circle-applications?page=&per_page=` | JWT (super admin) | Circles with `paid_circle_status = "pending_approval"`. |
+| POST | `/api/admin/paid-circle-applications/:id/review` | JWT (super admin) | `{action, reason?}` — `reason` is optional here (unlike trainer rejection, which requires one). |
+
+```json
+// RESPONSE 201 — POST /api/circles/:id/subscribe
+{ "id": "uuid", "status": "pending_approval", "period_start": "2026-07-26T10:00:00Z", "period_end": "2026-08-25T10:00:00Z", "amount_etb": 350 }
+
+// RESPONSE 200 — GET /api/circles/:id/revenue
+{
+  "total_revenue_etb": 1050, "creator_earnings_etb": 998, "platform_fee_etb": 52,
+  "active_subscribers": 3, "pending_receipts": 1,
+  "monthly_trend": [ { "month": "2026-07", "revenue": 1050, "subscribers": 3 } ]
+}
+```
+
+**Access model — important deviation from a typical "active subscription
+required" gate:** access to a paid circle's activity feed/leaderboard
+(`has_circle_access`) is **membership-based**, not subscription-status-based.
+Once a subscription is approved, the subscriber gets a permanent
+`CircleMember` row; access checks just look for that membership row (or
+circle ownership), not whether a subscription is currently `active`. This is
+intentional for **grandfathering**: members who joined before a circle went
+paid keep access indefinitely. The practical effect is that a subscriber
+whose 30-day period lapses is **not** immediately locked out — a daily
+scheduler job (`check_expired_subscriptions`) marks the subscription
+`expired` and only revokes membership if the member's `joined_at` falls
+within that specific subscription's period (so it won't accidentally evict a
+grandfathered free member).
+
+**Join gate:** `POST /api/circles/:id/join` on a paid, non-member returns
+**402** with a JSON object as the `detail` (not a plain string, which is
+unusual for this codebase's error convention):
+```json
+// RESPONSE 402
+{ "detail": { "message": "Paid circle — subscription required", "price_etb": 350, "circle_id": "uuid" } }
+```
+
+**Stale-receipt escalation:** a receipt sitting in `pending_approval` for
+more than 72 hours is escalated once (an `AdminNotification` is created for
+every super-admin) via the same daily scheduler job — the owner isn't
+blocked from still approving/rejecting it after escalation.
+
+---
+
+## 9i. Strava Integration (Phase 15)
+
+Full OAuth2 flow (`app/api/strava.py`, mounted at `/api/strava`). Users
+connect Strava, choose which stat categories to expose, and stats are
+fetched on-demand (pull model, not a webhook subscription) and cached.
+
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| GET | `/api/strava/connect` | JWT | Returns `{authorization_url}`. 503 if `STRAVA_CLIENT_ID`/`SECRET`/`REDIRECT_URI` aren't all set. |
+| GET | `/api/strava/callback` | None — Strava redirect | `code` + `state` query params. `state` is a short-lived (10 min) signed JWT carrying the user id, not a raw CSRF token. Redirects to `{FRONTEND_URL}/profile?strava=connected` on success; 502 on token-exchange failure. |
+| POST | `/api/strava/disconnect` | JWT | Clears tokens, visibility prefs, and the activity cache. |
+| GET | `/api/strava/stats` | JWT | `{connected, stats}` — refreshes from Strava if the cache is stale (see TTL below); 503 if Strava errors (e.g. rate-limited) and there's nothing usable cached. |
+| PATCH | `/api/strava/visibility` | JWT | `{visible_stats: [...]}`. 422 on unknown or duplicate keys. |
+
+**Valid `visible_stats` keys** (exactly these six):
+`distance`, `calories`, `moving_time`, `elevation`, `activity_count`, `recent_activities`
+
+On first connect, all of these are enabled **except `calories`**
+(`["distance", "moving_time", "elevation", "activity_count", "recent_activities"]`)
+unless the user already had a preference saved from a prior connection.
+
+```json
+// RESPONSE 200 — GET /api/strava/stats
+{
+  "connected": true,
+  "stats": {
+    "distance": 42.1, "moving_time": 14400, "elevation": 320.5,
+    "activity_count": 5,
+    "recent_activities": [
+      { "id": 77, "name": "Morning run", "type": "Run", "distance": 5.0, "moving_time": 1500, "start_date": "2026-07-25T06:00:00Z" }
+    ]
+  }
+}
+```
+
+- Access/refresh tokens are stored **Fernet-encrypted** (key derived from
+  `SHA256(JWT_SECRET)`), never in plaintext, in `strava_access_token` /
+  `strava_refresh_token`.
+- Stats are computed from a **15-minute-TTL cache** of the user's recent
+  activities (`strava_activity_cache` table, `crud/strava.py`) — Strava's
+  dedicated `/athletes/{id}/stats` all-time-totals endpoint is not used;
+  "stats" here means an aggregation over cached recent activities
+  (`distance` in km, `calories`/`elevation` summed, `activity_count` = rows
+  cached, `recent_activities` = latest 5). On a fresh/expired cache, a live
+  call to Strava fetches the 100 most recent activities and re-caches them.
+- `disconnect` sets the legacy `health_app_connected` flag back to `false`;
+  connecting sets it `true` (see the note on `PATCH /users/me` in §3 — this
+  field is no longer independently settable by the client).
+- The public-profile endpoint (§9f) reuses this same cache/refresh logic, so
+  viewing someone's public profile can trigger a live Strava refresh on
+  their behalf if their cache is stale.
+
+---
+
 ## 10. Error Responses
 
 All errors follow this shape:
@@ -1366,6 +1679,9 @@ All errors follow this shape:
 ```json
 // 401 Unauthorized
 { "detail": "Could not validate credentials" }
+
+// 402 Payment Required — paid-circle join gate (§9h); detail is an object, not a string
+{ "detail": { "message": "Paid circle — subscription required", "price_etb": 350, "circle_id": "uuid" } }
 
 // 403 Forbidden
 { "detail": "Provider access required" }
@@ -1386,11 +1702,14 @@ All errors follow this shape:
     { "loc": ["body", "name"], "msg": "Field required", "type": "missing" }
   ]
 }
+
+// 503 Service Unavailable — Cloudinary/Strava not configured, or Strava temporarily erroring
+{ "detail": "Cloudinary is not configured" }
 ```
 
 ---
 
-## 10. Frontend Flow Summary
+## 11. Frontend Flow Summary
 
 ```
 Telegram Bot /start
@@ -1457,7 +1776,7 @@ if user.is_super_admin === true OR telegram_id in SUPER_ADMIN_TELEGRAM_IDS:
 
 ---
 
-## 11. CORS & Headers
+## 12. CORS & Headers
 
 **Allowed origins** (configurable via env):
 - `http://localhost:5173` (dev)

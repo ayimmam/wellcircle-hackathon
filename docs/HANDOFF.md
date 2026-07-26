@@ -1090,5 +1090,111 @@ HANDOFF.md
 
 ---
 
+### Phase 15 — Paid Circles, Verified Trainers & Strava Integration (This Session)
+
+Executed `docs/new_implementation_plan.md` end to end: file uploads (Cloudinary), a follower system with privacy-aware public profiles, a verified-trainer badge flow, paid circle subscriptions with revenue sharing, and real Strava OAuth integration. Landed directly on `main` (no separate feature branch this time). This entry documents what the code actually does today, including several deliberate/organizational deviations from the plan and a couple of real gaps — not just a restatement of the plan.
+
+#### What shipped
+
+**Uploads.** `POST /api/uploads` (`app/api/uploads.py` + `app/services/cloudinary_service.py`) — multipart upload to Cloudinary, two folders only (`certificates` ≤10MB pdf/jpg/png, `receipts` ≤5MB jpg/png), 422 on bad folder/type/size, 503 if `CLOUDINARY_*` env vars aren't set. Any authenticated user can upload to either folder — there's no check that the uploader is actually mid-trainer-application or mid-circle-subscription, and uploaded files are never cleaned up on rejection (a `delete_file()` helper exists but nothing calls it).
+
+**Followers & public profiles.** New `followers` table + `app/api/followers.py` (mounted on the `users` router): follow/unfollow (both idempotent), paginated follower/following lists (counts batched — no N+1), and `GET /api/users/:id/profile`. Privacy (`profile_privacy`: public/followers/private, default public) gates only `strava_stats` and owned `circles` on that response — identity fields (name, bio, badge, counts) are always visible to any authenticated viewer, even on a "private" profile. `ProfileScreen.jsx` grew a bio editor (300 char max), follower/following stat row, and a 3-way privacy selector; `PublicProfile.jsx` and `FollowersList.jsx` are new pages at `/users/:id` and `/users/:id/followers|following`.
+
+**Verified trainer badge.** `trainer_verifications` table + `app/api/trainer.py`: apply with a certificate + a 200 ETB/year payment-receipt screenshot (both just Cloudinary URLs — no payment gateway, no backend fee enforcement beyond "a receipt exists"), super-admin approve/reject. Approval sets `is_verified_trainer=true` and a 1-year expiry; a new daily scheduler job unsets the badge past expiry (but leaves the verification row's `status` as `"approved"` — `status` alone isn't a reliable "currently verified" signal, use `user.is_verified_trainer`). New pages `TrainerVerification.jsx` (`/trainer/verify`, 4-step flow) and `AdminTrainerVerifications.jsx` (`/admin/trainers`). **Deviation:** the plan put the admin review endpoints on the main `admin.py` router; they actually live on the `trainer` router instead, so they're `/api/admin/trainer-verifications*` served from `app/api/trainer.py`, not `app/api/admin.py`.
+
+**Paid circles.** `circle_subscriptions` + `circle_revenue_ledger` tables + new endpoints on the existing `circles`/`admin` routers (`app/crud/circle_subscription.py` has all the business logic). Eligibility to apply: ≥100 members **and** owner ≥1000 lifetime points (sum of positive, non-reversed point-transactions — not current decaying balance). Revenue split is `floor(5%)` platform / remainder creator (so a creator can net slightly over 95% on amounts that don't divide evenly by 20). Subscriptions run 30 days from approval; receipts pending >72h get escalated to admin. **Access is membership-based, not subscription-status-based** — once approved, a subscriber gets a permanent `CircleMember` row and keeps access even after their subscription formally expires unless the expiry job specifically revokes a membership created inside that subscription's window; this is what makes "grandfathered" free members (who joined before a circle went paid) keep access forever, by the same mechanism. Non-member join attempts on a paid circle get a `402` whose `detail` is a JSON object (`{message, price_etb, circle_id}`), not the usual plain string. `has_circle_access` also gates circle-post create/list/react (`app/api/posts.py`), so paid-circle activity feeds are actually protected, not just the join endpoint. Frontend: monetization, subscribe, and revenue-dashboard UI were merged into the existing `CircleDetailScreen.jsx` (no separate pages), plus a new `AdminPaidCircles.jsx` (`/admin/paid-circles`).
+
+**Strava integration.** `app/services/strava_service.py` + `app/api/strava.py` (`/api/strava/*`): OAuth2 connect/callback/disconnect, `PATCH /strava/visibility` to choose which of 6 stat keys (`distance`/`calories`/`moving_time`/`elevation`/`activity_count`/`recent_activities`) show publicly, and `GET /strava/stats`. Tokens are Fernet-encrypted at rest (key derived from `JWT_SECRET`, so rotating `JWT_SECRET` would strand existing connections — not handled). Activity data is cached (`strava_activity_cache` table) with a **15-minute TTL** as planned, refreshed from Strava's recent-activities endpoint (not the all-time `/athletes/{id}/stats` totals endpoint the plan sketched — "stats" here are an aggregation over the cached recent-activity window instead). `ProfileScreen.jsx` got the connect/disconnect/visibility UI; `PublicProfile.jsx` renders the same stats plus the Strava-required "Powered by Strava" attribution via a new `StravaStats.jsx` component.
+
+**Serverless maintenance job.** The plan called for 3 separate scheduler jobs (expired trainer verifications, expired subscriptions, stale-receipt escalation). They're implemented as one combined `phase15_maintenance_job()` in `scheduler.py`, registered as a single daily APScheduler cron **and** exposed as `POST /api/cron/maintenance` (new `app/api/maintenance.py`, new `CRON_SECRET` env var) — needed because, per this repo's existing convention, APScheduler doesn't run on Vercel's serverless functions, so production needs an external cron (e.g. Vercel Cron or a scheduled GitHub Action) hitting this endpoint daily instead of relying on the in-process scheduler.
+
+#### Known deviations from `docs/new_implementation_plan.md`
+
+- **No verified-trainer search-ranking boost.** The plan's Phase 3 called for `crud/provider.py`'s `get_all_providers()` to boost verified trainers in discovery surfaces. This was not built — `crud/provider.py` has no verified-trainer-aware logic at all. Verified trainers only get a visible badge (profile, followers list, circle ownership `owner_is_verified` flag); they get no ranking/priority boost anywhere.
+- **Profile field wiring lives in `app/api/users.py`, not `app/crud/user.py`.** The plan specified `_build_response()` in `crud/user.py` would grow the new fields; in the actual code, `api/users.py` owns that response-building function and `crud/user.py` was left untouched for this phase. Functionally equivalent, just a different file than documented.
+- **Test suite consolidation.** The plan specified 6 separate test files (`test_cloudinary_upload.py`, `test_followers.py`, `test_trainer_verification.py`, `test_paid_circles.py`, `test_strava_integration.py`, `test_cross_feature.py`) totaling ~79 tests. What actually exists is one focused script, `app/tests/test_phase15_backend.py`, that runs a single happy-path scenario across all five features (follow/unfollow + self-follow rejection, trainer apply→approve, paid-circle eligibility→subscribe→approve→95/5 ledger split→grandfathered access, Strava token encrypt/decrypt, activity caching). It's a real, passing regression check, but it is **not** equivalent coverage to the ~79 planned tests — there is, notably, **no automated test at all for the upload endpoint** (no mocked-Cloudinary test exists anywhere in the repo), and no dedicated edge-case coverage (duplicate applications, pagination, admin-list filtering, expiry/escalation scheduler jobs, Strava rate-limit handling, privacy-permutation matrix). Frontend coverage is broader relative to plan: `FollowersList.test.jsx`, `PublicProfile.test.jsx`, `TrainerVerification.test.jsx`, `CircleDetailScreen.paid.test.jsx`, `ProfileScreen.healthApp.test.jsx` (covers the Strava UI despite the name), `AdminLaunchFeatures.test.jsx` (covers both new admin tabs in one file), and `phase15.client.test.js` (client-layer upload/402/Strava-stats tests) — 6 files, not 8, and no separate admin test files, but real assertions rather than a single script.
+- **Admin paid-circle review doesn't require a rejection reason**, unlike trainer-verification rejection which does (schema-level: `reason` is optional on `PaidCircleAdminReviewRequest`, required on `AdminTrainerReviewRequest`). Not necessarily wrong, just inconsistent between the two review flows.
+
+#### Verification
+- Backend: `python -m app.tests.test_phase15_backend` — passes (see script for exact assertions covered, described above). Full regression re-run clean with no failures: `test_integration`, `test_points_economy` (65/65), `test_presale_reentry`, `test_engagement_loop`, `test_circle_activity` (20/20), `test_ranks` (10/10), `test_feedback` (15/15), `test_user_prefs` (7/7), `test_multi_day_booking`, `test_multi_passion_circles`, `test_provider_contact`, `test_bot_security`, and `pytest app/tests/test_sheets.py`. `app.main` imports cleanly — **135 routes** (up from 105 in Phase 14).
+- Frontend: `npm run build` ✅ (clean, no warnings). `npm test` → **176/176 passing** across 37 files, including the new `routes.smoke.test.jsx` entries for `/trainer/verify`, `/users/:id`, `/users/:id/followers`, `/users/:id/following`, `/admin/trainers`, `/admin/paid-circles`.
+- `docs/API_CONTRACT.md` updated: new `## 9e`–`## 9i` sections (File Uploads, Followers & Public Profiles, Trainer Verification, Paid Circles, Strava Integration), `GET`/`PATCH /users/me` examples updated with the new profile fields, Quick Reference table extended, and a pre-existing duplicate-`## 10`-heading bug (two sections both numbered 10) fixed while in the area (`Frontend Flow Summary` → `## 11`, `CORS & Headers` → `## 12`).
+- Not verified live in this sandbox: no headless-browser pass and no real Cloudinary/Strava credentials were available here, so the actual OAuth round-trip and file upload were verified by code review + the unit test's mocked/direct-function-call coverage only, not an end-to-end request against the real Cloudinary/Strava APIs.
+
+#### Post-deploy fix (same session, after the initial push)
+- **Real bug found in production:** the first production deploy 500'd on every request (Vercel logs: `ModuleNotFoundError: No module named 'cloudinary'` on `import cloudinary` inside `app/services/cloudinary_service.py`, raised while importing `app.main`, which crashed the whole Lambda — every route, not just uploads). Root cause: this repo has **two** requirements files for the backend — `backend/requirements.txt` (used by Render) and `backend/api/requirements.txt` (a separate copy Vercel's `@vercel/python` builder actually reads, since it resolves dependencies relative to the `api/index.py` entrypoint). `cloudinary` and `cryptography` had been added to the former when Phase 15 was built, but nobody updated the latter, so Vercel installed a dependency set one release behind. **Fix:** added the two missing packages to `backend/api/requirements.txt`; verified by installing that exact file into a clean venv and confirming `app.main` imports (135 routes). **This is a standing footgun** — any future new dependency must be added to both files, or this exact class of Vercel-only outage will recur; there's no automated check preventing the two files from drifting.
+
+#### Known Gaps / Next Steps
+- **Production Supabase migration status is unconfirmed for this phase.** Per the Phase 14 lesson already in this document, `012_phase15_foundation.py`/`apply_phase15_migration.py` being present in the repo does **not** mean they've been run against the live database — confirm (or (re-)run `apply_phase15_migration.py`) against production before relying on any Phase 15 feature there; if it hasn't been applied, every Phase 15 endpoint that touches `users`/`circles` will 500 with a "column does not exist" error identical in shape to the Phase 14 post-deploy incident.
+- `CLOUDINARY_CLOUD_NAME`/`API_KEY`/`API_SECRET` and `STRAVA_CLIENT_ID`/`CLIENT_SECRET`/`REDIRECT_URI` must be set in the Vercel (and Render, if used) project's environment for uploads/trainer-verification/paid-circle receipts/Strava to work at all — without them, uploads 503 and Strava connect 503s. See `.env.example`, which already documents all of these.
+- No external cron is confirmed wired up to `POST /api/cron/maintenance` in production — without one, expired trainer badges, expired subscriptions, and stale-receipt escalation never run on Vercel (the in-process APScheduler job is Vercel-skipped by design, matching this repo's existing serverless convention).
+- Verified-trainer search-ranking boost (plan Phase 3) is unbuilt, as noted above — a reasonable fast-follow if trainer discoverability becomes a priority.
+- No automated test exists for the upload endpoint itself; worth adding a mocked-Cloudinary test before depending on it further.
+- No live/manual walkthrough of the real Strava OAuth round-trip or an actual file upload was possible in this sandbox (no credentials, no browser) — do a manual pass through connect → grant → visibility toggle → disconnect, and a real certificate/receipt upload, before treating this phase as launch-verified.
+
+#### Files Changed / Added (Phase 15)
+```
+backend/app/services/cloudinary_service.py   (new)
+backend/app/services/strava_service.py   (new)
+backend/app/api/uploads.py   (new)
+backend/app/api/followers.py   (new)
+backend/app/api/trainer.py   (new)
+backend/app/api/strava.py   (new)
+backend/app/api/maintenance.py   (new — not in original plan; serverless cron entry point)
+backend/app/models/follower.py   (new)
+backend/app/models/trainer_verification.py   (new)
+backend/app/models/circle_subscription.py   (new)
+backend/app/models/strava_activity_cache.py   (new)
+backend/app/schemas/trainer_verification.py   (new)
+backend/app/schemas/circle_subscription.py   (new)
+backend/app/crud/follower.py   (new)
+backend/app/crud/trainer_verification.py   (new)
+backend/app/crud/circle_subscription.py   (new)
+backend/app/crud/strava.py   (new)
+backend/alembic/versions/012_phase15_foundation.py   (new)
+backend/apply_phase15_migration.py   (new)
+backend/app/tests/test_phase15_backend.py   (new — consolidated, see deviations above)
+backend/requirements.txt
+backend/api/requirements.txt   (fixed post-deploy — see above)
+backend/.env.example
+backend/app/config.py
+backend/app/main.py
+backend/app/models/user.py
+backend/app/models/circle.py
+backend/app/models/__init__.py
+backend/app/schemas/user.py
+backend/app/crud/circle.py
+backend/app/api/users.py
+backend/app/api/circles.py
+backend/app/api/admin.py
+backend/app/api/posts.py
+backend/app/services/scheduler.py
+frontend/src/pages/FollowersList.jsx   (new)
+frontend/src/pages/PublicProfile.jsx   (new)
+frontend/src/pages/TrainerVerification.jsx   (new)
+frontend/src/pages/admin/AdminTrainerVerifications.jsx   (new)
+frontend/src/pages/admin/AdminPaidCircles.jsx   (new)
+frontend/src/components/StravaStats.jsx   (new)
+frontend/src/components/VerifiedBadge.jsx   (new)
+frontend/src/pages/ProfileScreen.jsx
+frontend/src/pages/CircleDetailScreen.jsx
+frontend/src/pages/admin/AdminLayout.jsx
+frontend/src/App.jsx
+frontend/src/api/client.js
+frontend/src/data/mock.js
+frontend/src/test/FollowersList.test.jsx   (new)
+frontend/src/test/PublicProfile.test.jsx   (new)
+frontend/src/test/TrainerVerification.test.jsx   (new)
+frontend/src/test/CircleDetailScreen.paid.test.jsx   (new)
+frontend/src/test/ProfileScreen.healthApp.test.jsx   (new)
+frontend/src/test/AdminLaunchFeatures.test.jsx   (new)
+frontend/src/test/phase15.client.test.js   (new)
+frontend/src/test/routes.smoke.test.jsx
+docs/API_CONTRACT.md
+HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
 

@@ -7,7 +7,7 @@ doc and the code disagree, trust the code.
 
 ## Reference
 - [API_CONTRACT.md](./API_CONTRACT.md) — full endpoint specification, request/response shapes, and flow diagrams (source of truth across services).
-- [BACKEND_REFERENCE.md](./BACKEND_REFERENCE.md) — backend internals and conventions.
+- [BACKEND_REFERENCE.md](./BACKEND_REFERENCE.md) — backend internals and conventions from the original Phase-1 build. **Stale since Phase 2** (see the warning at the top of that file) — use `API_CONTRACT.md` for current endpoint shapes.
 
 ## Product
 - [PRD.md](./PRD.md) — product requirements document.
@@ -26,6 +26,9 @@ doc and the code disagree, trust the code.
 
 ## Growth / UX
 - [UX_GROWTH_LOOP_PLAN.md](./UX_GROWTH_LOOP_PLAN.md) — 4-stage onboarding → habit-loop → conversion workflow, mapped to specific UX psychology principles and this app's actual features (Phase 8 in `HANDOFF.md`).
+- [FEATURE_PLAN_CIRCLES_AND_POLISH.md](./FEATURE_PLAN_CIRCLES_AND_POLISH.md) — pay-on-site booking, Strava-style circle activity feed, and emoji cleanup plan (Phase 13 in `HANDOFF.md`).
+- [FEATURE_PLAN_V2_UX_UPGRADES.md](./FEATURE_PLAN_V2_UX_UPGRADES.md) — location-aware nearby surfacing, weekly ranks, feedback, and concierge chips plan (Phase 14 in `HANDOFF.md`).
+- [new_implementation_plan.md](./new_implementation_plan.md) — paid circles, verified trainers, and profile/Strava integration plan (Phase 15 in `HANDOFF.md`; see that entry for deviations from this plan as actually built).
 
 ## Implementation history
 - [HANDOFF.md](./HANDOFF.md) — implementation status and change log, by phase.

@@ -40,7 +40,11 @@ export default function Header({ onMenuOpen }) {
   return (
     <header className="top-header" id="top-header">
       <div className="header-brand" onClick={() => navigate('/home')}>
-        {/* Logo and text removed as per request to leave space for Telegram close button */}
+        <img src={newLogo} className="header-logo" alt="Well Circle Logo" />
+        <div className="header-text">
+          <span className="header-name">WELL CIRCLE</span>
+          <span className="header-sub">{t('YOUR WELLNESS TRIBE')}</span>
+        </div>
       </div>
       <div className="header-actions">
         <button

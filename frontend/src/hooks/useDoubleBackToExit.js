@@ -1,52 +1,41 @@
 import { useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { showToast } from '../components/Toast';
+import { useLocation } from 'react-router-dom';
 
-let backPressCount = 0;
-let backPressTimer = null;
+/**
+ * Manages the Telegram native BackButton visibility + closing confirmation.
+ *
+ * - On ROOT screens (/home, /explore, /community, /profile):
+ *   Hides the native BackButton and enables closing confirmation so
+ *   the user gets a "are you sure?" prompt from Telegram instead of
+ *   an instant close.
+ *
+ * - On DETAIL screens (everything else):
+ *   Shows the native BackButton. Individual pages use the
+ *   useTelegramBackButton hook to wire their own back logic.
+ *
+ * This replaces the broken popstate approach which Telegram's WebView
+ * swallows before JavaScript can handle it.
+ */
+const ROOT_PATHS = ['/home', '/explore', '/community', '/profile'];
 
-export default function useDoubleBackToExit() {
+export default function useUniversalBackButton() {
   const location = useLocation();
-  const navigate = useNavigate();
+  const isRoot = ROOT_PATHS.includes(location.pathname);
 
   useEffect(() => {
-    const isRootScreen = ['/home', '/explore', '/community', '/profile'].includes(location.pathname);
-    
-    // Always push a dummy state so we can intercept the physical back button
-    window.history.pushState({ isDummy: true }, '');
+    const tg = window.Telegram?.WebApp;
+    if (!tg) return;
 
-    const handlePopState = (event) => {
-      if (!isRootScreen) {
-        // If not on a root screen, physical back button should just go back in React Router
-        navigate(-1);
-        return;
-      }
-
-      // Root screen logic: Double back to exit
-      backPressCount += 1;
-      
-      if (backPressCount === 1) {
-        showToast('Swipe back again to exit');
-        window.history.pushState({ isDummy: true }, '');
-        
-        backPressTimer = setTimeout(() => {
-          backPressCount = 0;
-        }, 2000);
-      } else if (backPressCount === 2) {
-        clearTimeout(backPressTimer);
-        if (window.Telegram?.WebApp) {
-          window.Telegram.WebApp.close();
-        } else {
-          window.history.back();
-        }
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-      clearTimeout(backPressTimer);
-    };
-  }, [location.pathname, navigate]);
+    if (isRoot) {
+      // On root screens: hide back button, enable close confirmation
+      tg.BackButton?.hide();
+      tg.enableClosingConfirmation?.();
+    } else {
+      // On detail screens: show back button, disable close confirmation.
+      // Each detail page uses useTelegramBackButton() to wire its own
+      // specific navigate(-1) or step-back logic.
+      tg.BackButton?.show();
+      tg.disableClosingConfirmation?.();
+    }
+  }, [isRoot]);
 }

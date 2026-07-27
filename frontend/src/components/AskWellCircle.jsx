@@ -217,7 +217,7 @@ export default function AskWellCircle() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)'
+              paddingTop: 'calc(var(--tg-content-safe-area-inset-top, 0px) + var(--tg-safe-area-inset-top, env(safe-area-inset-top, 0px)) + 16px)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div className="burger-logo" style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

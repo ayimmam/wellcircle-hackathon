@@ -396,7 +396,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   z-index: 100;
 }
 
@@ -405,7 +405,6 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  /* Centered in the header */
 }
 
 .header-logo {
@@ -2538,3 +2537,16 @@ textarea.input { resize: vertical; min-height: 80px; }
 .strava-activity div { display: flex; flex-direction: column; }
 .strava-activity span { color: var(--text-secondary); }
 .strava-attribution { margin-top: 12px; text-align: right; color: var(--text-secondary); font-size: .66rem; }
+
+/* ================================================================
+   TELEGRAM ENVIRONMENT
+   ================================================================ */
+body.in-telegram .btn-icon:has(svg.lucide-chevron-left),
+body.in-telegram .detail-back,
+body.in-telegram button[aria-label="Go back"],
+body.in-telegram button[aria-label="Back"],
+body.in-telegram #community-back-btn,
+body.in-telegram #dashboard-back-btn,
+body.in-telegram #detail-back-btn {
+  display: none !important;
+}

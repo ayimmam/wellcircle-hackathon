@@ -56,6 +56,24 @@ export default function AskWellCircle() {
     localStorage.setItem('concierge_is_first', JSON.stringify(isFirstMessage));
   }, [isFirstMessage]);
 
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    if (isOpen && tg?.BackButton) {
+      tg.BackButton.show();
+      tg.disableClosingConfirmation?.();
+      const handler = () => setIsOpen(false);
+      tg.onEvent('backButtonClicked', handler);
+      return () => {
+        tg.offEvent('backButtonClicked', handler);
+        // Restore visibility logic for the underlying screen
+        if (['/home', '/'].includes(window.location.pathname)) {
+          tg.BackButton.hide();
+          tg.enableClosingConfirmation?.();
+        }
+      };
+    }
+  }, [isOpen]);
+
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -249,9 +267,6 @@ export default function AskWellCircle() {
                   title="Clear Chat"
                 >
                   Clear
-                </button>
-                <button className="burger-close" onClick={() => setIsOpen(false)} aria-label="Close chat">
-                  <Icon name="x" size={18} />
                 </button>
               </div>
             </div>

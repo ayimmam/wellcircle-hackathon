@@ -11,11 +11,13 @@ import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
 import { useAuth } from '../context/AuthContext';
 import { isNearUser, nearbyEvents } from '../utils/nearby';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
 const EMPTY_LIST = [];
 
 export default function ExploreScreen() {
   const navigate = useNavigate();
+  useTelegramBackButton(() => navigate('/home'));
   const { user } = useAuth();
   const [view, setView] = useState('studios');
   const [category, setCategory] = useState('all');

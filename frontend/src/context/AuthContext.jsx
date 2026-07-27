@@ -175,6 +175,7 @@ export function AuthProvider({ children }) {
       return;
     }
     if (window.Telegram?.WebApp) {
+      document.body.classList.add('in-telegram');
       window.Telegram.WebApp.expand();
       window.Telegram.WebApp.requestFullscreen?.();
       window.Telegram.WebApp.ready();

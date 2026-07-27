@@ -18,6 +18,7 @@ import { parsePhone } from '../utils/phone';
 import BugReportSheet from '../components/BugReportSheet';
 import VerifiedBadge from '../components/VerifiedBadge';
 import StravaStats from '../components/StravaStats';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
 const STRAVA_STATS = [
   ['distance', 'Distance'],
@@ -32,6 +33,7 @@ export default function ProfileScreen() {
   const { user, updateProfile, refreshUser } = useAuth();
   const { theme, setTheme, accent, setAccent } = useTheme();
   const navigate = useNavigate();
+  useTelegramBackButton(() => navigate('/home'));
   const location = useLocation();
   const [showNeighbourhoodSheet, setShowNeighbourhoodSheet] = useState(false);
   const [bio, setBio] = useState('');

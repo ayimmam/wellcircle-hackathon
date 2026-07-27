@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 const EMPTY_LIST = [];
@@ -15,6 +16,7 @@ const EMPTY_LIST = [];
 export default function CommunityList() {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
+  useTelegramBackButton(() => navigate('/home'));
   const { t } = useTranslation();
   const [tab, setTab] = useState('explore'); // 'explore' | 'joined' | 'circles' | 'ranks'
   const [category, setCategory] = useState('all');

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import toast from '../utils/toast';
+import { showToast } from '../components/Toast';
 
 let backPressCount = 0;
 let backPressTimer = null;
@@ -21,7 +21,7 @@ export default function useDoubleBackToExit() {
         
         if (backPressCount === 1) {
           // First back press: show toast and push dummy state again to prevent exit
-          toast.success('Swipe back again to exit', { duration: 2000 });
+          showToast('Swipe back again to exit');
           window.history.pushState({ isDummy: true }, '');
           
           backPressTimer = setTimeout(() => {

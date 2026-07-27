@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import { followUser, getUserProfile, unfollowUser } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { showToast } from '../components/Toast';
@@ -11,6 +12,7 @@ import StravaStats from '../components/StravaStats';
 export default function PublicProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAvailable: nativeBack } = useTelegramBackButton(() => navigate(-1));
   const { user } = useAuth();
   const [profile, setProfile] = useState(null);
   const [stats, setStats] = useState(null);
@@ -52,7 +54,9 @@ export default function PublicProfile() {
 
   return (
     <div className="page public-profile" id="public-profile-screen">
-      <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} aria-label="Back"><Icon name="chevron-left" /></button>
+      {!nativeBack && (
+        <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} aria-label="Back"><Icon name="chevron-left" /></button>
+      )}
       <div className="profile-header">
         <div className="profile-avatar">
           <SmartImage

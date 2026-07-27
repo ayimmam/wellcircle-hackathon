@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
+import { useTelegramHeaderColor } from '../hooks/useTelegramHeaderColor';
 import { getProvider, createBooking } from '../api/client';
 import { MOCK_TIME_SLOTS, getNextDays } from '../data/mock';
 import { showToast } from '../components/Toast';
@@ -24,6 +26,13 @@ export default function BookingFlow() {
   const timeFormat = effectiveTimeFormat(user);
   const eventId = searchParams.get('event_id') || location.state?.eventId || null;
   const [step, setStep] = useState(0);
+
+  const handleBack = useCallback(() => {
+    if (step > 0) setStep(s => s - 1);
+    else navigate(-1);
+  }, [step, navigate]);
+  const { isAvailable: nativeBack } = useTelegramBackButton(handleBack);
+  useTelegramHeaderColor('#000000');
   const [provider, setProvider] = useState(location.state?.provider || null);
   const [loading, setLoading] = useState(!provider);
 
@@ -431,9 +440,11 @@ export default function BookingFlow() {
     <div className="page" id="booking-flow-screen">
       {/* Header */}
       <div className="flex items-center gap-12 mb-20">
-        <button className="btn btn-icon btn-secondary" onClick={() => step > 0 ? setStep(s => s - 1) : navigate(-1)} aria-label="Go back">
-          <Icon name="chevron-left" size={20} />
-        </button>
+        {!nativeBack && (
+          <button className="btn btn-icon btn-secondary" onClick={handleBack} aria-label="Go back">
+            <Icon name="chevron-left" size={20} />
+          </button>
+        )}
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Book at {provider.name}</h1>
         </div>

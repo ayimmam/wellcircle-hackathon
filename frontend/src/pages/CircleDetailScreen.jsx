@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import {
   applyForPaidCircle, getCircleRevenue, getCircleSubscriptionStatus, getCircles,
   getCircleLeaderboard, getPendingSubscriptions, joinCircle, reviewSubscription,
@@ -17,6 +18,7 @@ import { shareCircleInvite } from '../utils/circleInvite';
 export default function CircleDetailScreen() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAvailable: nativeBack } = useTelegramBackButton(() => navigate(-1));
   const { user } = useAuth();
 
   const [circle, setCircle] = useState(null);
@@ -206,9 +208,11 @@ export default function CircleDetailScreen() {
     <div className="page" id="circle-detail-screen">
       {/* Header */}
       <div className="flex items-center gap-12 mb-12">
-        <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)}>
-          <Icon name="chevron-left" size={18} />
-        </button>
+        {!nativeBack && (
+          <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)}>
+            <Icon name="chevron-left" size={18} />
+          </button>
+        )}
         <div style={{ flex: 1 }}>
           <h1 className="flex items-center gap-6" style={{ fontSize: '1.2rem', fontWeight: 800 }}>
             {circle.is_private && <Icon name="lock" size={16} />}
@@ -306,6 +310,8 @@ export default function CircleDetailScreen() {
                 <div
                   key={member.user_id}
                   className={`cell leaderboard-row ${idx === 0 ? 'leader' : ''}`}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => navigate(`/users/${member.user_id}`)}
                 >
                   <div className={`cell-rank ${idx < 3 ? 'top' : ''}`}>
                     {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
@@ -336,7 +342,7 @@ export default function CircleDetailScreen() {
       {activeTab === 'members' && (
         <div className="feed">
           {leaderboard.length > 0 ? leaderboard.map(member => (
-            <div key={member.user_id} className="cell">
+            <div key={member.user_id} className="cell" style={{ cursor: 'pointer' }} onClick={() => navigate(`/users/${member.user_id}`)}>
               <div className="avatar avatar-lg">
                 <SmartImage src={member.photo_url} width={40} fallback={<Icon name="user" size={18} />} />
               </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import { followUser, getFollowers, getFollowing, unfollowUser } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { showToast } from '../components/Toast';
@@ -11,6 +12,7 @@ export default function FollowersList() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAvailable: nativeBack } = useTelegramBackButton(() => navigate(-1));
   const { user } = useAuth();
   const mode = location.pathname.endsWith('/following') ? 'following' : 'followers';
   const [items, setItems] = useState([]);
@@ -55,7 +57,9 @@ export default function FollowersList() {
   return (
     <div className="page" id="followers-list-screen">
       <div className="page-heading">
-        <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} aria-label="Back"><Icon name="chevron-left" /></button>
+        {!nativeBack && (
+          <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} aria-label="Back"><Icon name="chevron-left" /></button>
+        )}
         <h1>Connections</h1>
       </div>
       <div className="theme-toggle mb-16" role="tablist">

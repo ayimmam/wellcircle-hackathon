@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import { getCommunity, getCommunityFeed, joinCommunity, leaveCommunity } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import FeedEvent from '../components/FeedEvent';
@@ -14,6 +15,7 @@ import Icon from '../components/Icon';
 export default function CommunityDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAvailable: nativeBack } = useTelegramBackButton(() => navigate(-1));
   const location = useLocation();
   const { user, setUser } = useAuth();
   const [community, setCommunity] = useState(null);
@@ -151,13 +153,15 @@ export default function CommunityDetail() {
     <div className="page" id="community-detail-screen">
       {/* Header */}
       <div className="flex items-center gap-12 mb-20">
-        <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} id="community-back-btn" aria-label="Go back">
-          <Icon name="chevron-left" size={20} />
-        </button>
+        {!nativeBack && (
+          <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} id="community-back-btn" aria-label="Go back">
+            <Icon name="chevron-left" size={20} />
+          </button>
+        )}
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: '1.2rem', fontWeight: 800 }}>{community.name}</h1>
           <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-            by {community.provider?.name || community.provider_name}
+            by <button style={{ display: 'inline', color: 'inherit', fontWeight: 'bold' }} onClick={() => navigate(`/provider/${community.provider_id}`)}>{community.provider?.name || community.provider_name}</button>
           </p>
         </div>
         <div className="points-chip" style={{ background: 'var(--bg-card)' }}>

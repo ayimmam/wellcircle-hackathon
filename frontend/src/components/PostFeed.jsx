@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getPosts, createPost, reactToPost, commentOnPost } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { showToast } from './Toast';
 import Icon from './Icon';
 import SmartImage from './SmartImage';
+import { haptic } from '../utils/haptic';
 
 const ACTIVITY_TYPES = ['run', 'walk', 'ride', 'yoga', 'gym', 'swim'];
 
 export default function PostFeed({ communityId, circleId, initialDraft, onDraftConsumed }) {
+  const navigate = useNavigate();
   const { user, refreshUser } = useAuth();
   const [posts, setPosts] = useState([]);
   const [newPostContent, setNewPostContent] = useState(initialDraft || '');
@@ -17,6 +20,8 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
   const [commentContent, setCommentContent] = useState('');
   const [replyingToId, setReplyingToId] = useState(null); // reply box, keyed by comment id
   const [replyContent, setReplyContent] = useState('');
+  const [showGiftsFor, setShowGiftsFor] = useState(null);
+  const [composerExpanded, setComposerExpanded] = useState(Boolean(initialDraft));
 
   // Activity composer (optional, expandable)
   const [showActivityDetails, setShowActivityDetails] = useState(false);
@@ -54,6 +59,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
     setDistanceKm('');
     setDurationMin('');
     setPhotoUrl('');
+    setComposerExpanded(false);
   };
 
   const handlePost = async () => {
@@ -106,6 +112,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
   };
 
   const handleReact = async (postId, emoji, points) => {
+    haptic('impact.light');
     try {
       await reactToPost(postId, { emoji, points_gifted: points });
       showToast(`Reacted${points ? ' and gifted ' + points + ' points' : ''}`, 'success');
@@ -141,65 +148,80 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
       {/* Compose area */}
       <div className="card mb-16">
         <div className="card-body">
-          <textarea
-            value={newPostContent}
-            onChange={e => setNewPostContent(e.target.value)}
-            placeholder="Share an update, milestone, or encouragement..."
-            className="input post-composer-field"
-            style={{ minHeight: 80, resize: 'none' }}
-            autoFocus={Boolean(initialDraft)}
-            id="post-composer"
-          />
-
-          {!showActivityDetails ? (
-            <button
-              className="btn btn-secondary post-composer-toggle"
-              onClick={() => setShowActivityDetails(true)}
+          {!composerExpanded ? (
+            <div
+              className="input flex items-center"
+              style={{ cursor: 'text', height: 44, color: 'var(--text-secondary)' }}
+              onClick={() => setComposerExpanded(true)}
             >
-              + Add activity details
-            </button>
-          ) : (
-            <div className="mb-8">
-              <div className="flex gap-6 flex-wrap mb-8">
-                {ACTIVITY_TYPES.map(type => (
-                  <button
-                    key={type}
-                    className={`chip ${activityType === type ? 'active' : ''}`}
-                    onClick={() => setActivityType(activityType === type ? null : type)}
-                  >
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </button>
-                ))}
-              </div>
-              <div className="post-composer-row">
-                <input
-                  type="number"
-                  className="input"
-                  placeholder="Distance (km)"
-                  value={distanceKm}
-                  onChange={e => setDistanceKm(e.target.value)}
-                />
-                <input
-                  type="number"
-                  className="input"
-                  placeholder="Duration (min)"
-                  value={durationMin}
-                  onChange={e => setDurationMin(e.target.value)}
-                />
-              </div>
-              <input
-                type="url"
-                className="input post-composer-field"
-                placeholder="Photo URL (optional)"
-                value={photoUrl}
-                onChange={e => setPhotoUrl(e.target.value)}
-              />
+              Share an update, milestone, or encouragement...
             </div>
-          )}
+          ) : (
+            <>
+              <textarea
+                value={newPostContent}
+                onChange={e => setNewPostContent(e.target.value)}
+                placeholder="Share an update, milestone, or encouragement..."
+                className="input post-composer-field"
+                style={{ minHeight: 80, resize: 'none' }}
+                autoFocus
+                id="post-composer"
+              />
 
-          <button className="btn btn-primary" onClick={handlePost} disabled={!newPostContent.trim() || posting}>
-            {posting ? <span className="btn-spinner" aria-hidden="true" /> : <Icon name="send" size={16} />} Post
-          </button>
+              {!showActivityDetails ? (
+                <button
+                  className="btn btn-secondary post-composer-toggle"
+                  onClick={() => setShowActivityDetails(true)}
+                >
+                  + Add activity details
+                </button>
+              ) : (
+                <div className="mb-8">
+                  <div className="flex gap-6 flex-wrap mb-8">
+                    {ACTIVITY_TYPES.map(type => (
+                      <button
+                        key={type}
+                        className={`chip ${activityType === type ? 'active' : ''}`}
+                        onClick={() => setActivityType(activityType === type ? null : type)}
+                      >
+                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="post-composer-row">
+                    <input
+                      type="number"
+                      className="input"
+                      placeholder="Distance (km)"
+                      value={distanceKm}
+                      onChange={e => setDistanceKm(e.target.value)}
+                    />
+                    <input
+                      type="number"
+                      className="input"
+                      placeholder="Duration (min)"
+                      value={durationMin}
+                      onChange={e => setDurationMin(e.target.value)}
+                    />
+                  </div>
+                  <input
+                    type="url"
+                    className="input post-composer-field"
+                    placeholder="Photo URL (optional)"
+                    value={photoUrl}
+                    onChange={e => setPhotoUrl(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-8 mt-12">
+                <button className="btn btn-primary" onClick={handlePost} disabled={!newPostContent.trim() || posting}>
+                  {posting ? <span className="btn-spinner" aria-hidden="true" /> : <Icon name="send" size={16} />} Post
+                </button>
+                <button className="btn btn-secondary" onClick={resetComposer}>Cancel</button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -212,7 +234,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
           >
             <div className="card-body">
               {/* User row */}
-              <div className="post-user-row">
+              <div className="post-user-row" style={{ cursor: 'pointer' }} onClick={() => navigate(`/users/${post.user.id}`)}>
                 <div className="avatar avatar-md">
                   <SmartImage
                     src={post.user.photo_url}
@@ -264,27 +286,21 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                 </button>
                 {/* Point-gifting reactions use the coin icon, not an emoji */}
                 <button
-                  className="btn btn-secondary post-reaction-btn gift-5"
-                  onClick={() => handleReact(post.id, 'coins', 5)}
-                  title="Gift 5 Legacy Points"
+                  className={`btn btn-secondary post-reaction-btn ${showGiftsFor === post.id ? 'active' : ''}`}
+                  onClick={() => setShowGiftsFor(showGiftsFor === post.id ? null : post.id)}
+                  title="Gift Legacy Points"
                 >
-                  <Icon name="coins" size={13} /> Gift 5
-                </button>
-                <button
-                  className="btn btn-secondary post-reaction-btn gift-10"
-                  onClick={() => handleReact(post.id, 'coins', 10)}
-                  title="Gift 10 Legacy Points"
-                >
-                  <Icon name="coins" size={13} /> Gift 10
-                </button>
-                <button
-                  className="btn btn-secondary post-reaction-btn gift-50"
-                  onClick={() => handleReact(post.id, 'coins', 50)}
-                  title="Gift 50 Legacy Points"
-                >
-                  <Icon name="coins" size={13} /> Gift 50
+                  <Icon name="coins" size={13} /> Gift
                 </button>
               </div>
+
+              {showGiftsFor === post.id && (
+                <div className="flex gap-8 mt-8" style={{ background: 'var(--bg-secondary)', padding: '8px 12px', borderRadius: 'var(--radius-md)' }}>
+                  <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => { handleReact(post.id, 'coins', 5); setShowGiftsFor(null); }}>5 pts</button>
+                  <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => { handleReact(post.id, 'coins', 10); setShowGiftsFor(null); }}>10 pts</button>
+                  <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => { handleReact(post.id, 'coins', 50); setShowGiftsFor(null); }}>50 pts</button>
+                </div>
+              )}
 
               {post.total_points_gifted > 0 && (
                 <div className="post-gift-note">
@@ -299,7 +315,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                   <div className="mb-12">
                     {(post.comments || []).map(comment => (
                       <div key={comment.id} className="mb-8">
-                        <div className="comment-row">
+                        <div className="comment-row" style={{ cursor: 'pointer' }} onClick={() => navigate(`/users/${comment.user.id}`)}>
                           <div className="avatar avatar-sm">
                             <SmartImage
                               src={comment.user.photo_url}
@@ -323,7 +339,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                         {(comment.replies || []).length > 0 && (
                           <div className="replies-list">
                             {comment.replies.map(reply => (
-                              <div key={reply.id} className="reply-row">
+                              <div key={reply.id} className="reply-row" style={{ cursor: 'pointer' }} onClick={() => navigate(`/users/${reply.user.id}`)}>
                                 <div className="avatar avatar-xs">
                                   <SmartImage
                                     src={reply.user.photo_url}

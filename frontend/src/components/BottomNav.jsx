@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import Icon from './Icon';
 import { useTranslation } from 'react-i18next';
+import { haptic } from '../utils/haptic';
 
 const TABS = [
   { path: '/home', icon: 'home', label: 'Home' },
@@ -20,7 +21,11 @@ export default function BottomNav() {
     || location.pathname.startsWith('/provider-portal');
   if (hidden) return null;
 
-  const current = TABS.find(t => location.pathname.startsWith(t.path))?.path;
+  let current = TABS.find(t => location.pathname.startsWith(t.path))?.path;
+  if (!current) {
+    if (location.pathname.startsWith('/provider') || location.pathname.startsWith('/booking')) current = '/explore';
+    else if (location.pathname.startsWith('/users')) current = '/profile';
+  }
 
   return (
     <nav className="bottom-nav" id="bottom-nav">
@@ -28,7 +33,10 @@ export default function BottomNav() {
         <button
           key={tab.path}
           className={`nav-item ${current === tab.path ? 'active' : ''}`}
-          onClick={() => navigate(tab.path)}
+          onClick={() => {
+            haptic('selection');
+            navigate(tab.path);
+          }}
           id={`nav-${tab.label.toLowerCase()}`}
         >
           <span className="nav-icon"><Icon name={tab.icon} size={22} /></span>

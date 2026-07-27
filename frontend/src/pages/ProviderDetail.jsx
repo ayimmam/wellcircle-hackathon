@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
+import { useTelegramHeaderColor } from '../hooks/useTelegramHeaderColor';
 import { getProvider, joinCommunity, getProviderEvents } from '../api/client';
 import EventCard from '../components/EventCard';
 import { showToast } from '../components/Toast';
@@ -12,6 +14,8 @@ import { promoApplies, daysLeft, expiryLabel } from '../utils/promo';
 export default function ProviderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAvailable: nativeBack } = useTelegramBackButton(() => navigate(-1));
+  useTelegramHeaderColor('#000000');
   const { t } = useTranslation();
   const [provider, setProvider] = useState(null);
   const [activePhoto, setActivePhoto] = useState(0);
@@ -82,9 +86,11 @@ export default function ProviderDetail() {
           priority
           fallback={<div className="detail-cover" />}
         />
-        <button className="detail-back" onClick={() => navigate(-1)} id="detail-back-btn" aria-label="Go back">
-          <Icon name="chevron-left" size={20} />
-        </button>
+        {!nativeBack && (
+          <button className="detail-back" onClick={() => navigate(-1)} id="detail-back-btn" aria-label="Go back">
+            <Icon name="chevron-left" size={20} />
+          </button>
+        )}
       </div>
 
       {/* Photo gallery */}

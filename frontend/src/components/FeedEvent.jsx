@@ -1,14 +1,16 @@
+import { useNavigate } from 'react-router-dom';
 import Icon from './Icon';
 
 export default function FeedEvent({ event }) {
+  const navigate = useNavigate();
   const timeAgo = getTimeAgo(event.created_at);
 
   const actionText = {
-    join: <><strong>{event.user_name}</strong> joined the circle</>,
-    checkin: <><strong>{event.user_name}</strong> checked in today</>,
+    join: <><strong style={{ cursor: 'pointer' }} onClick={() => navigate(`/users/${event.user_id}`)}>{event.user_name}</strong> joined the circle</>,
+    checkin: <><strong style={{ cursor: 'pointer' }} onClick={() => navigate(`/users/${event.user_id}`)}>{event.user_name}</strong> checked in today</>,
     booking: (
       <>
-        <strong>{event.user_name}</strong> booked{' '}
+        <strong style={{ cursor: 'pointer' }} onClick={() => navigate(`/users/${event.user_id}`)}>{event.user_name}</strong> booked{' '}
         {event.event_metadata?.service_name || 'a service'}
         {event.event_metadata?.amount && ` · ETB ${event.event_metadata.amount.toLocaleString()}`}
       </>
@@ -23,7 +25,7 @@ export default function FeedEvent({ event }) {
 
   return (
     <div className="feed-event" id={`feed-event-${event.id}`}>
-      <div className="feed-avatar">
+      <div className="feed-avatar" style={{ cursor: 'pointer' }} onClick={() => navigate(`/users/${event.user_id}`)}>
         {event.user_photo ? (
           <img src={event.user_photo} alt={event.user_name} />
         ) : (

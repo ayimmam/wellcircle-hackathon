@@ -16,6 +16,7 @@ export function useTelegram() {
     if (tg) {
       tg.ready();
       tg.expand();
+      tg.requestFullscreen?.();
       setWebApp(tg);
       setUser(tg.initDataUnsafe?.user || null);
       setInitData(tg.initData || '');

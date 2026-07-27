@@ -176,6 +176,7 @@ export function AuthProvider({ children }) {
     }
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.expand();
+      window.Telegram.WebApp.requestFullscreen?.();
       window.Telegram.WebApp.ready();
     }
     login({ background: Boolean(restored) }).then(() => handleStartParam()).catch(() => {});

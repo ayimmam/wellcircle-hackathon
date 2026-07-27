@@ -75,9 +75,19 @@ export default function PublicProfile() {
           <span>·</span>
           <button onClick={() => navigate(`/users/${id}/following`)}><strong>{profile.following_count || 0}</strong> Following</button>
         </div>
-        {id !== user?.id && (
-          <button className={`btn mt-16 ${profile.is_following ? 'btn-secondary' : 'btn-primary'}`} onClick={toggleFollow}>
-            {profile.is_following ? 'Unfollow' : 'Follow'}
+        {id !== user?.id && !profile.is_following && (
+          <div className="card mt-16 text-center" style={{ padding: '16px', background: 'var(--bg-glass)' }}>
+            <p style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+              Follow {profile.name.split(' ')[0]} and craft your wellness journey together!
+            </p>
+            <button className="btn btn-primary" onClick={toggleFollow}>
+              Follow
+            </button>
+          </div>
+        )}
+        {id !== user?.id && profile.is_following && (
+          <button className="btn btn-secondary mt-16" onClick={toggleFollow}>
+            Unfollow
           </button>
         )}
       </div>

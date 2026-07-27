@@ -42,7 +42,7 @@ export default function ToastContainer() {
   const displayMessage = toast.count > 1 ? `${toast.message} (+${toast.count - 1} more)` : toast.message;
 
   return (
-    <div className="toast-container" style={{ position: 'fixed', bottom: 24, left: 0, right: 0, zIndex: 1000, display: 'flex', justifyContent: 'center' }}>
+    <div className="toast-container">
       <div className="toast" style={{ animation: 'pageIn 0.2s ease' }}>
         {toast.variant === 'success' && (
           <span className="toast-icon" style={{ color: '#10b981' }}><Icon name="check" size={16} /></span>

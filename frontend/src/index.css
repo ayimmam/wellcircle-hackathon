@@ -365,7 +365,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
 .page {
   flex: 1;
-  padding: calc(var(--header-height) + var(--safe-top) + 16px) 16px calc(var(--nav-height) + var(--safe-bottom) + 16px);
+  padding: calc(var(--header-height) + var(--safe-top) + 40px + 16px) 16px calc(var(--nav-height) + var(--safe-bottom) + 16px);
   overflow-y: auto;
   animation: pageIn 0.3s ease;
 }
@@ -385,8 +385,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   transform: translateX(-50%);
   width: 100%;
   max-width: 430px;
-  height: calc(var(--header-height) + var(--safe-top));
-  padding-top: var(--safe-top);
+  height: calc(var(--header-height) + var(--safe-top) + 40px);
+  padding: calc(var(--safe-top) + 40px) 16px 0 16px;
   background: var(--bg-glass);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -394,7 +394,6 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
   z-index: 100;
 }
 
@@ -515,7 +514,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   z-index: 201;
   display: flex;
   flex-direction: column;
-  padding: calc(20px + var(--safe-top)) 16px calc(var(--nav-height) + 20px);
+  padding: calc(20px + var(--safe-top) + 40px) 16px calc(var(--nav-height) + 20px);
   animation: menuSlide 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   overflow-y: auto;
 }
@@ -720,7 +719,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   justify-content: center;
   min-height: 100vh;
   min-height: 100dvh;
-  padding-top: var(--safe-top);
+  padding-top: calc(var(--safe-top) + 40px);
   gap: 24px;
   background: radial-gradient(ellipse at 50% 30%, var(--tint-accent-08) 0%, transparent 60%),
               var(--bg-primary);
@@ -1875,7 +1874,7 @@ select.input option {
    ================================================================ */
 .toast-container {
   position: fixed;
-  top: calc(var(--header-height) + 8px);
+  top: calc(var(--header-height) + var(--safe-top) + 48px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;

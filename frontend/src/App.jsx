@@ -10,6 +10,7 @@ import ToastContainer from './components/Toast';
 import ErrorBoundary from './components/ErrorBoundary';
 import AdminGuard from './components/AdminGuard';
 import ProviderPortalGuard from './components/ProviderPortalGuard';
+import useDoubleBackToExit from './hooks/useDoubleBackToExit';
 
 // SplashScreen is the entry/landing screen — keep it eager so first paint is
 // instant. Everything else is code-split so the initial bundle stays small,
@@ -105,6 +106,7 @@ export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(prefetchTabs, []);
+  useDoubleBackToExit();
 
   return (
     <ProviderPortalAuthProvider>

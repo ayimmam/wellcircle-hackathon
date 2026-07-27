@@ -10,6 +10,8 @@ from app.models.community import Community, CommunityMember, CommunityFeedEvent
 from app.models.provider import Provider
 from app.models.user import User
 
+MAX_COMMUNITY_LIST = 200
+
 
 def get_all_communities(
     db: Session,
@@ -29,7 +31,9 @@ def get_all_communities(
         )
         query = query.filter(Community.id.in_(joined_ids))
 
-    communities = query.order_by(Community.member_count.desc()).all()
+    # Bounded for the same reason as the provider directory: the client renders
+    # the full list, so this caps the payload without introducing paging.
+    communities = query.order_by(Community.member_count.desc()).limit(MAX_COMMUNITY_LIST).all()
 
     # Batch the per-row lookups below into two queries instead of one per
     # community (was N+1 — under concurrent load each request held its DB
@@ -342,19 +346,26 @@ def get_community_feed(db: Session, community_id: UUID, since: Optional[datetime
     query = db.query(CommunityFeedEvent).filter(CommunityFeedEvent.community_id == community_id)
     if since:
         query = query.filter(CommunityFeedEvent.created_at > since)
-    events = query.order_by(CommunityFeedEvent.created_at.desc()).limit(min(limit, 50)).all()
-    result = []
-    for e in events:
-        user = db.query(User).filter(User.id == e.user_id).first()
-        result.append({
+    # Outer-joined rather than looked up per event: the feed polls every few
+    # seconds, so a per-row User query meant up to 50 round trips per poll.
+    rows = (
+        query.outerjoin(User, User.id == CommunityFeedEvent.user_id)
+        .add_entity(User)
+        .order_by(CommunityFeedEvent.created_at.desc())
+        .limit(min(limit, 50))
+        .all()
+    )
+    return [
+        {
             "id": str(e.id),
             "event_type": e.event_type,
-            "user_name": user.name or user.telegram_handle if user else None,
+            "user_name": (user.name or user.telegram_handle) if user else None,
             "user_photo": user.photo_url if user else None,
             "event_metadata": e.event_metadata,
             "created_at": e.created_at,
-        })
-    return result
+        }
+        for e, user in rows
+    ]
 
 
 def get_suggested_communities(db: Session, interest_categories: List[str], user_id: UUID, limit: int = 5) -> List[dict]:
@@ -364,21 +375,21 @@ def get_suggested_communities(db: Session, interest_categories: List[str], user_
         .filter(CommunityMember.user_id == user_id)
         .subquery()
     )
-    communities = (
-        db.query(Community)
+    rows = (
+        db.query(Community, Provider)
+        .outerjoin(Provider, Provider.id == Community.provider_id)
         .filter(Community.category.in_(interest_categories), ~Community.id.in_(joined_ids))
         .order_by(Community.member_count.desc())
         .limit(limit)
         .all()
     )
-    result = []
-    for c in communities:
-        provider = db.query(Provider).filter(Provider.id == c.provider_id).first()
-        result.append({
+    return [
+        {
             "id": str(c.id),
             "name": c.name,
             "category": c.category,
             "member_count": c.member_count,
             "provider_name": provider.name if provider else None,
-        })
-    return result
+        }
+        for c, provider in rows
+    ]

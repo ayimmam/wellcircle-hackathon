@@ -26,6 +26,8 @@ const API_BASE = resolveApiBase();
 
 export function getApiBase() { return API_BASE; }
 
+import { cached, invalidate, keyOf, write as cacheWrite, setCacheScope, clearAll as clearCache } from './cache';
+
 import {
   MOCK_USER, MOCK_PROVIDERS, MOCK_COMMUNITIES, MOCK_FEED_EVENTS,
   MOCK_POINTS_HISTORY, MOCK_PROVIDER_STATS, MOCK_CIRCLES, MOCK_POSTS, MOCK_LEADERBOARD,
@@ -44,6 +46,10 @@ let authToken = null;
 
 export function setToken(token) { authToken = token; }
 export function getToken() { return authToken; }
+
+// Re-export the cache controls so screens and contexts have a single import
+// site for everything API-related.
+export { invalidate as invalidateCache, setCacheScope, clearCache };
 
 // Mock mode has no backend to persist to — bookings created via
 // createBooking() are kept here so getMyBookings() can read them back
@@ -150,6 +156,63 @@ async function multipartRequest(path, formData) {
 // ─── Simulated delay for mock responses ─────────────
 const delay = (ms = 300) => new Promise(r => setTimeout(r, ms));
 
+/**
+ * Cache keys for every read that goes through the response cache.
+ *
+ * Screens import these to hand `useResource` the same key the client writes
+ * to, which is what lets a screen paint from cache on its first render. Keys
+ * are grouped into a handful of namespaces (see TTL in ./cache) so a mutation
+ * can expire a whole family at once — `invalidate('communities')` covers both
+ * the list and every community detail record.
+ */
+export const cacheKeys = {
+  me: () => 'me',
+  points: () => 'points',
+  bookings: () => 'bookings',
+  redemptions: () => 'redemptions',
+  notifications: () => 'notifications',
+  unread: () => 'unread',
+  social: () => 'social',
+  ranks: () => 'ranks',
+  home: () => 'home',
+  trainer: () => 'trainer',
+  strava: (userId) => keyOf('strava', { userId }),
+  subscriptionPlans: () => 'subscriptions',
+
+  providers: (category, search) => keyOf('providers', { category, search }),
+  provider: (id) => keyOf('providers', { id }),
+  providerEvents: (id) => keyOf('providers', { id, events: 1 }),
+
+  communities: (joined, category) => keyOf('communities', { joined, category }),
+  community: (id) => keyOf('communities', { id }),
+  challenges: (communityId) => keyOf('challenges', { communityId }),
+  leaderboard: (id) => keyOf('leaderboard', { id }),
+
+  circles: () => 'circles',
+  circleLeaderboard: (id) => keyOf('circles', { id, leaderboard: 1 }),
+
+  posts: (communityId, circleId) => keyOf('posts', { communityId, circleId }),
+
+  products: (params) => keyOf('products', params),
+  product: (id) => keyOf('products', { id }),
+
+  events: (params) => keyOf('events', params),
+  featuredEvents: () => keyOf('events', { featured: 1 }),
+
+  profile: (userId) => keyOf('profile', { userId }),
+  followers: (userId, page) => keyOf('followers', { userId, page }),
+  following: (userId, page) => keyOf('followers', { userId, page, dir: 'following' }),
+
+  providerMe: () => 'provider-me',
+  providerProducts: () => keyOf('provider-me', { products: 1 }),
+  providerCustomers: () => keyOf('provider-me', { customers: 1 }),
+  providerPointsAnalytics: () => keyOf('provider-me', { analytics: 'points' }),
+  providerDemographics: () => keyOf('provider-me', { analytics: 'demographics' }),
+  providerRedemptions: (params) => keyOf('provider-me', { redemptions: 1, ...params }),
+  providerBookings: (params) => keyOf('provider-me', { bookings: 1, ...params }),
+  providerServices: (params) => keyOf('provider-me', { analytics: 'services', ...params }),
+};
+
 // ─── Auth ───────────────────────────────────────────
 export async function authTelegram(initData) {
   if (USE_MOCK) {
@@ -186,8 +249,10 @@ export async function authTelegramWidget(widgetData) {
 
 // ─── Users ──────────────────────────────────────────
 export async function getMe() {
-  if (USE_MOCK) { await delay(); return { ...MOCK_USER }; }
-  return request('GET', '/users/me');
+  return cached(cacheKeys.me(), async () => {
+    if (USE_MOCK) { await delay(); return { ...MOCK_USER }; }
+    return request('GET', '/users/me');
+  });
 }
 
 export async function onboardUser(data) {
@@ -212,10 +277,16 @@ export async function onboardUser(data) {
   if (data.goal) payload.goal = data.goal;
   if (data.suggested_circle_ids?.length) payload.suggested_circle_ids = data.suggested_circle_ids;
 
-  return request('POST', '/users/me/onboard', payload);
+  const result = await request('POST', '/users/me/onboard', payload);
+  // Onboarding auto-joins circles and awards welcome points, so the cached
+  // user, circle list and home payload are all out of date.
+  ['me', 'communities', 'circles', 'home'].forEach(invalidate);
+  return result;
 }
 
 export async function updateProfile(data) {
+  invalidate('me');
+  invalidate('profile');
   if (USE_MOCK) {
     await delay();
     Object.assign(MOCK_USER, data);
@@ -225,6 +296,10 @@ export async function updateProfile(data) {
 }
 
 export async function getUserProfile(userId) {
+  return cached(cacheKeys.profile(userId), () => fetchUserProfile(userId));
+}
+
+async function fetchUserProfile(userId) {
   if (USE_MOCK) {
     await delay();
     if (userId === MOCK_USER.id) {
@@ -256,6 +331,8 @@ export async function getUserProfile(userId) {
 }
 
 export async function followUser(userId) {
+  invalidate('profile');
+  invalidate('followers');
   if (USE_MOCK) {
     await delay();
     const profile = MOCK_PUBLIC_USERS.find(u => u.id === userId);
@@ -270,6 +347,8 @@ export async function followUser(userId) {
 }
 
 export async function unfollowUser(userId) {
+  invalidate('profile');
+  invalidate('followers');
   if (USE_MOCK) {
     await delay();
     const profile = MOCK_PUBLIC_USERS.find(u => u.id === userId);
@@ -284,59 +363,69 @@ export async function unfollowUser(userId) {
 }
 
 export async function getFollowers(userId, page = 1) {
-  if (USE_MOCK) {
-    await delay();
-    return { users: MOCK_FOLLOWERS.map(u => ({ ...u })), followers: MOCK_FOLLOWERS.map(u => ({ ...u })), total: MOCK_FOLLOWERS.length, page, pages: 1 };
-  }
-  const result = await request('GET', `/users/${userId}/followers?page=${page}`);
-  return {
-    ...result,
-    users: result.users || result.items || [],
-    pages: result.pages || Math.max(1, Math.ceil((result.total || 0) / (result.per_page || 20))),
-  };
+  return cached(cacheKeys.followers(userId, page), async () => {
+    if (USE_MOCK) {
+      await delay();
+      return { users: MOCK_FOLLOWERS.map(u => ({ ...u })), followers: MOCK_FOLLOWERS.map(u => ({ ...u })), total: MOCK_FOLLOWERS.length, page, pages: 1 };
+    }
+    const result = await request('GET', `/users/${userId}/followers?page=${page}`);
+    return {
+      ...result,
+      users: result.users || result.items || [],
+      pages: result.pages || Math.max(1, Math.ceil((result.total || 0) / (result.per_page || 20))),
+    };
+  });
 }
 
 export async function getFollowing(userId, page = 1) {
-  if (USE_MOCK) {
-    await delay();
-    return { users: MOCK_FOLLOWING.map(u => ({ ...u })), following: MOCK_FOLLOWING.map(u => ({ ...u })), total: MOCK_FOLLOWING.length, page, pages: 1 };
-  }
-  const result = await request('GET', `/users/${userId}/following?page=${page}`);
-  return {
-    ...result,
-    users: result.users || result.items || [],
-    pages: result.pages || Math.max(1, Math.ceil((result.total || 0) / (result.per_page || 20))),
-  };
+  return cached(cacheKeys.following(userId, page), async () => {
+    if (USE_MOCK) {
+      await delay();
+      return { users: MOCK_FOLLOWING.map(u => ({ ...u })), following: MOCK_FOLLOWING.map(u => ({ ...u })), total: MOCK_FOLLOWING.length, page, pages: 1 };
+    }
+    const result = await request('GET', `/users/${userId}/following?page=${page}`);
+    return {
+      ...result,
+      users: result.users || result.items || [],
+      pages: result.pages || Math.max(1, Math.ceil((result.total || 0) / (result.per_page || 20))),
+    };
+  });
 }
 
 export async function getPointsHistory() {
-  if (USE_MOCK) { await delay(); return { ...MOCK_POINTS_HISTORY }; }
-  return request('GET', '/users/me/points-history');
+  return cached(cacheKeys.points(), async () => {
+    if (USE_MOCK) { await delay(); return { ...MOCK_POINTS_HISTORY }; }
+    return request('GET', '/users/me/points-history');
+  });
 }
 
 // ─── Providers ──────────────────────────────────────
 export async function getProviders(category = null, search = null) {
-  if (USE_MOCK) {
-    await delay();
-    let providers = [...MOCK_PROVIDERS];
-    if (category && category !== 'all') providers = providers.filter(p => p.category === category);
-    if (search) providers = providers.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
-    return { providers, count: providers.length };
-  }
-  const params = new URLSearchParams();
-  if (category) params.set('category', category);
-  if (search) params.set('search', search);
-  return request('GET', `/providers?${params}`);
+  return cached(cacheKeys.providers(category, search), async () => {
+    if (USE_MOCK) {
+      await delay();
+      let providers = [...MOCK_PROVIDERS];
+      if (category && category !== 'all') providers = providers.filter(p => p.category === category);
+      if (search) providers = providers.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+      return { providers, count: providers.length };
+    }
+    const params = new URLSearchParams();
+    if (category) params.set('category', category);
+    if (search) params.set('search', search);
+    return request('GET', `/providers?${params}`);
+  });
 }
 
 export async function getProvider(id) {
-  if (USE_MOCK) {
-    await delay();
-    const p = MOCK_PROVIDERS.find(p => p.id === id);
-    if (!p) throw new Error('Provider not found');
-    return { ...p };
-  }
-  return request('GET', `/providers/${id}`);
+  return cached(cacheKeys.provider(id), async () => {
+    if (USE_MOCK) {
+      await delay();
+      const p = MOCK_PROVIDERS.find(p => p.id === id);
+      if (!p) throw new Error('Provider not found');
+      return { ...p };
+    }
+    return request('GET', `/providers/${id}`);
+  });
 }
 
 export async function getProviderStats(id) {
@@ -346,30 +435,40 @@ export async function getProviderStats(id) {
 
 // ─── Communities ────────────────────────────────────
 export async function getCommunities(joined = null, category = null) {
-  if (USE_MOCK) {
-    await delay();
-    let communities = [...MOCK_COMMUNITIES];
-    if (joined) communities = communities.filter(c => c.user_joined);
-    if (category && category !== 'all') communities = communities.filter(c => c.category === category);
-    return { communities, count: communities.length };
-  }
-  const params = new URLSearchParams();
-  if (joined) params.set('joined', 'true');
-  if (category) params.set('category', category);
-  return request('GET', `/communities?${params}`);
+  return cached(cacheKeys.communities(joined, category), async () => {
+    if (USE_MOCK) {
+      await delay();
+      let communities = [...MOCK_COMMUNITIES];
+      if (joined) communities = communities.filter(c => c.user_joined);
+      if (category && category !== 'all') communities = communities.filter(c => c.category === category);
+      return { communities, count: communities.length };
+    }
+    const params = new URLSearchParams();
+    if (joined) params.set('joined', 'true');
+    if (category) params.set('category', category);
+    return request('GET', `/communities?${params}`);
+  });
 }
 
 export async function getCommunity(id) {
-  if (USE_MOCK) {
-    await delay();
-    const c = MOCK_COMMUNITIES.find(c => c.id === id);
-    if (!c) throw new Error('Community not found');
-    return { ...c };
-  }
-  return request('GET', `/communities/${id}`);
+  return cached(cacheKeys.community(id), async () => {
+    if (USE_MOCK) {
+      await delay();
+      const c = MOCK_COMMUNITIES.find(c => c.id === id);
+      if (!c) throw new Error('Community not found');
+      return { ...c };
+    }
+    return request('GET', `/communities/${id}`);
+  });
+}
+
+/** Membership changes shift member counts, join flags and the home payload. */
+function invalidateMembership() {
+  ['communities', 'circles', 'home', 'me', 'social', 'ranks'].forEach(invalidate);
 }
 
 export async function joinCommunity(id) {
+  invalidateMembership();
   if (USE_MOCK) {
     await delay(400);
     const c = MOCK_COMMUNITIES.find(c => c.id === id);
@@ -396,6 +495,7 @@ export async function joinCommunity(id) {
 }
 
 export async function leaveCommunity(id) {
+  invalidateMembership();
   if (USE_MOCK) {
     await delay(400);
     const c = MOCK_COMMUNITIES.find(c => c.id === id);
@@ -409,6 +509,9 @@ export async function leaveCommunity(id) {
 }
 
 export async function checkinCommunity(id) {
+  // A check-in moves points, streak, leaderboards and the social-proof banner.
+  invalidateMembership();
+  ['points', 'leaderboard'].forEach(invalidate);
   if (USE_MOCK) {
     await delay(400);
     return {
@@ -454,6 +557,7 @@ export async function createInteraction(communityId, targetUserId, actionType) {
 
 // ─── Bookings & Payments ────────────────────────────
 export async function createBooking(data) {
+  invalidate('bookings');
   if (USE_MOCK) {
     await delay(500);
     // Mirror the backend's server-side promo application: clients send the
@@ -537,14 +641,17 @@ export async function getPaymentStatus(bookingId) {
 
 // ─── Circles ─────────────────────────────────────────
 export async function getCircles() {
-  if (USE_MOCK) {
-    await delay();
-    return { circles: [...MOCK_CIRCLES] };
-  }
-  return request('GET', '/circles');
+  return cached(cacheKeys.circles(), async () => {
+    if (USE_MOCK) {
+      await delay();
+      return { circles: [...MOCK_CIRCLES] };
+    }
+    return request('GET', '/circles');
+  });
 }
 
 export async function createCircle(data) {
+  invalidateMembership();
   if (USE_MOCK) {
     await delay();
     return { id: 'mock-circle-' + Date.now(), name: data.name, join_code: 'MOCK' + Date.now().toString(36).toUpperCase(), message: 'Circle created successfully' };
@@ -553,6 +660,7 @@ export async function createCircle(data) {
 }
 
 export async function joinCircle(id, joinCode = null) {
+  invalidateMembership();
   if (USE_MOCK) {
     await delay();
     const circle = MOCK_CIRCLES.find(c => c.id === id);
@@ -575,15 +683,18 @@ export async function joinCircle(id, joinCode = null) {
 }
 
 export async function getCircleLeaderboard(id) {
-  if (USE_MOCK) {
-    await delay();
-    return { leaderboard: [...MOCK_LEADERBOARD] };
-  }
-  return request('GET', `/circles/${id}/leaderboard`);
+  return cached(cacheKeys.circleLeaderboard(id), async () => {
+    if (USE_MOCK) {
+      await delay();
+      return { leaderboard: [...MOCK_LEADERBOARD] };
+    }
+    return request('GET', `/circles/${id}/leaderboard`);
+  });
 }
 
 // E1: join a circle via a `?startapp=circle_{code}` deep link
 export async function joinCircleByCode(joinCode) {
+  invalidateMembership();
   if (USE_MOCK) {
     await delay();
     return { id: 'mock-circle-id', name: 'Mock Circle', message: 'Joined circle successfully' };
@@ -593,32 +704,37 @@ export async function joinCircleByCode(joinCode) {
 
 // E2: how many circle-mates checked in today, across all the user's circles
 export async function getCircleSocialProof() {
-  if (USE_MOCK) {
-    await delay();
-    return { ...MOCK_SOCIAL_PROOF };
-  }
-  return request('GET', '/circles/social-proof/today');
+  return cached(cacheKeys.social(), async () => {
+    if (USE_MOCK) {
+      await delay();
+      return { ...MOCK_SOCIAL_PROOF };
+    }
+    return request('GET', '/circles/social-proof/today');
+  });
 }
 
 // ─── Posts & Reactions ────────────────────────────────
 export async function getPosts(communityId = null, circleId = null) {
-  if (USE_MOCK) {
-    await delay();
-    let posts = [...MOCK_POSTS];
-    // Was unconditionally returning every post (including other circles'
-    // seed data) whenever a communityId-only call came through, since only
-    // circleId was ever filtered on.
-    if (circleId) posts = posts.filter(p => p.circle_id === circleId);
-    else if (communityId) posts = posts.filter(p => p.community_id === communityId);
-    return { posts };
-  }
-  const params = new URLSearchParams();
-  if (communityId) params.set('community_id', communityId);
-  if (circleId) params.set('circle_id', circleId);
-  return request('GET', `/posts?${params}`);
+  return cached(cacheKeys.posts(communityId, circleId), async () => {
+    if (USE_MOCK) {
+      await delay();
+      let posts = [...MOCK_POSTS];
+      // Was unconditionally returning every post (including other circles'
+      // seed data) whenever a communityId-only call came through, since only
+      // circleId was ever filtered on.
+      if (circleId) posts = posts.filter(p => p.circle_id === circleId);
+      else if (communityId) posts = posts.filter(p => p.community_id === communityId);
+      return { posts };
+    }
+    const params = new URLSearchParams();
+    if (communityId) params.set('community_id', communityId);
+    if (circleId) params.set('circle_id', circleId);
+    return request('GET', `/posts?${params}`);
+  });
 }
 
 export async function createPost(data) {
+  invalidate('posts');
   if (USE_MOCK) {
     await delay();
     // Mock mode has no backend to persist to — build a real post record and
@@ -646,6 +762,8 @@ export async function createPost(data) {
 }
 
 export async function reactToPost(postId, data) {
+  invalidate('posts');
+  if (data?.points_gifted > 0) invalidate('me');
   if (USE_MOCK) {
     await delay();
     const post = MOCK_POSTS.find(p => p.id === postId);
@@ -659,6 +777,7 @@ export async function reactToPost(postId, data) {
 }
 
 export async function commentOnPost(postId, content, parentCommentId = null) {
+  invalidate('posts');
   if (USE_MOCK) {
     await delay();
     const post = MOCK_POSTS.find(p => p.id === postId);
@@ -717,6 +836,10 @@ export async function generateInviteCode(expiresInDays = 30) {
 }
 
 export async function getProviderMe() {
+  return cached(cacheKeys.providerMe(), () => fetchProviderMe());
+}
+
+async function fetchProviderMe() {
   if (USE_MOCK) {
     await delay();
     return {
@@ -737,15 +860,18 @@ export async function getProviderMe() {
 
 // C1: distinct customers (booking or check-in) with last-visit + lifetime redeemed
 export async function getProviderCustomers() {
-  if (USE_MOCK) {
-    await delay();
-    return { customers: [...MOCK_PROVIDER_CUSTOMERS], count: MOCK_PROVIDER_CUSTOMERS.length };
-  }
-  return request('GET', '/providers/me/customers');
+  return cached(cacheKeys.providerCustomers(), async () => {
+    if (USE_MOCK) {
+      await delay();
+      return { customers: [...MOCK_PROVIDER_CUSTOMERS], count: MOCK_PROVIDER_CUSTOMERS.length };
+    }
+    return request('GET', '/providers/me/customers');
+  });
 }
 
 // D3: one-tap point award to a verified customer (max 50/award, 1/day/customer, 300/day total)
 export async function awardCustomerPoints(customerUserId, points, note = null) {
+  invalidate('provider-me');
   if (USE_MOCK) {
     await delay(400);
     return {
@@ -773,39 +899,47 @@ export async function getPriceSuggestion(category) {
 
 // C5: points redeemed at this provider — weekly trend for the analytics tab
 export async function getProviderPointsAnalytics() {
-  if (USE_MOCK) {
-    await delay();
-    return { ...MOCK_PROVIDER_POINTS_ANALYTICS };
-  }
-  return request('GET', '/providers/me/analytics/points');
+  return cached(cacheKeys.providerPointsAnalytics(), async () => {
+    if (USE_MOCK) {
+      await delay();
+      return { ...MOCK_PROVIDER_POINTS_ANALYTICS };
+    }
+    return request('GET', '/providers/me/analytics/points');
+  });
 }
 
 // ─── Products Store ─────────────────────────────────
 export async function getProducts(params = {}) {
-  if (USE_MOCK) {
-    await delay();
-    let products = [...MOCK_PRODUCTS];
-    if (params.search) products = products.filter(p => p.name.toLowerCase().includes(params.search.toLowerCase()));
-    if (params.type) products = products.filter(p => p.type === params.type);
-    if (params.in_stock_only) products = products.filter(p => p.is_in_stock);
-    return { products, total: products.length, page: 1, per_page: 12 };
-  }
-  const qs = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => { if (v != null && v !== '') qs.set(k, v); });
-  return request('GET', `/products?${qs}`);
+  return cached(cacheKeys.products(params), async () => {
+    if (USE_MOCK) {
+      await delay();
+      let products = [...MOCK_PRODUCTS];
+      if (params.search) products = products.filter(p => p.name.toLowerCase().includes(params.search.toLowerCase()));
+      if (params.type) products = products.filter(p => p.type === params.type);
+      if (params.in_stock_only) products = products.filter(p => p.is_in_stock);
+      return { products, total: products.length, page: 1, per_page: 12 };
+    }
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v != null && v !== '') qs.set(k, v); });
+    return request('GET', `/products?${qs}`);
+  });
 }
 
 export async function getProduct(id) {
-  if (USE_MOCK) {
-    await delay();
-    const p = MOCK_PRODUCTS.find(x => x.id === id);
-    if (!p) throw new Error('Product not found');
-    return { ...p };
-  }
-  return request('GET', `/products/${id}`);
+  return cached(cacheKeys.product(id), async () => {
+    if (USE_MOCK) {
+      await delay();
+      const p = MOCK_PRODUCTS.find(x => x.id === id);
+      if (!p) throw new Error('Product not found');
+      return { ...p };
+    }
+    return request('GET', `/products/${id}`);
+  });
 }
 
 export async function redeemProduct(id, data = {}) {
+  // Spends points and decrements stock.
+  ['products', 'redemptions', 'me', 'points'].forEach(invalidate);
   if (USE_MOCK) {
     await delay(500);
     const p = MOCK_PRODUCTS.find(x => x.id === id);
@@ -832,37 +966,46 @@ export async function redeemProduct(id, data = {}) {
 }
 
 export async function getMyRedemptions() {
-  if (USE_MOCK) { await delay(); return { redemptions: [...MOCK_REDEMPTIONS], count: MOCK_REDEMPTIONS.length }; }
-  return request('GET', '/users/me/redemptions');
+  return cached(cacheKeys.redemptions(), async () => {
+    if (USE_MOCK) { await delay(); return { redemptions: [...MOCK_REDEMPTIONS], count: MOCK_REDEMPTIONS.length }; }
+    return request('GET', '/users/me/redemptions');
+  });
 }
 
 // ─── Provider Products ────────────────────────────
 export async function getProviderProducts() {
-  if (USE_MOCK) { await delay(); return { products: [...MOCK_PROVIDER_PRODUCTS], count: MOCK_PROVIDER_PRODUCTS.length }; }
-  return request('GET', '/providers/me/products');
+  return cached(cacheKeys.providerProducts(), async () => {
+    if (USE_MOCK) { await delay(); return { products: [...MOCK_PROVIDER_PRODUCTS], count: MOCK_PROVIDER_PRODUCTS.length }; }
+    return request('GET', '/providers/me/products');
+  });
 }
 
 export async function createProviderProduct(data) {
+  invalidate('provider-me');
+  invalidate('products');
   if (USE_MOCK) { await delay(); return { id: 'prod-new-' + Date.now(), name: data.name, created: true }; }
   return request('POST', '/providers/me/products', data);
 }
 
 export async function getProviderRedemptions(params = {}) {
-  if (USE_MOCK) {
-    await delay();
-    const redemptions = [
-      { id: 'r1', user_name: 'Meron Tadesse', product_name: 'Private Yoga Session', redemption_code: 'YOGA-ABC123', redeemed_at: new Date().toISOString(), delivery_status: 'pending', provider_notes: null, delivery_address: null, points_spent: 400 }
-    ];
-    return { redemptions, count: redemptions.length, total: redemptions.length, page: 1, per_page: 20 };
-  }
-  const qs = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => { if (v != null && v !== '') qs.set(k, v); });
-  const query = qs.toString();
-  return request('GET', `/providers/me/redemptions${query ? `?${query}` : ''}`);
+  return cached(cacheKeys.providerRedemptions(params), async () => {
+    if (USE_MOCK) {
+      await delay();
+      const redemptions = [
+        { id: 'r1', user_name: 'Meron Tadesse', product_name: 'Private Yoga Session', redemption_code: 'YOGA-ABC123', redeemed_at: new Date().toISOString(), delivery_status: 'pending', provider_notes: null, delivery_address: null, points_spent: 400 }
+      ];
+      return { redemptions, count: redemptions.length, total: redemptions.length, page: 1, per_page: 20 };
+    }
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v != null && v !== '') qs.set(k, v); });
+    const query = qs.toString();
+    return request('GET', `/providers/me/redemptions${query ? `?${query}` : ''}`);
+  });
 }
 
 // Redeem management — provider confirms/ships/delivers a redemption of their own product.
 export async function updateProviderRedemptionStatus(redemptionId, status, notes = null) {
+  invalidate('provider-me');
   if (USE_MOCK) {
     await delay(400);
     return { redemption_id: redemptionId, delivery_status: status, provider_notes: notes };
@@ -872,26 +1015,32 @@ export async function updateProviderRedemptionStatus(redemptionId, status, notes
 
 // Full paginated booking list — each row carries the customer's demographics.
 export async function getProviderBookings(params = {}) {
-  if (USE_MOCK) { await delay(); return { ...MOCK_PROVIDER_BOOKINGS }; }
-  const qs = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => { if (v != null && v !== '') qs.set(k, v); });
-  const query = qs.toString();
-  return request('GET', `/providers/me/bookings${query ? `?${query}` : ''}`);
+  return cached(cacheKeys.providerBookings(params), async () => {
+    if (USE_MOCK) { await delay(); return { ...MOCK_PROVIDER_BOOKINGS }; }
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v != null && v !== '') qs.set(k, v); });
+    const query = qs.toString();
+    return request('GET', `/providers/me/bookings${query ? `?${query}` : ''}`);
+  });
 }
 
 // Most-booked-service breakdown (bookings + revenue per service).
 export async function getProviderServiceBreakdown(params = {}) {
-  if (USE_MOCK) { await delay(); return { ...MOCK_PROVIDER_SERVICE_BREAKDOWN }; }
-  const qs = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => { if (v != null && v !== '') qs.set(k, v); });
-  const query = qs.toString();
-  return request('GET', `/providers/me/analytics/services${query ? `?${query}` : ''}`);
+  return cached(cacheKeys.providerServices(params), async () => {
+    if (USE_MOCK) { await delay(); return { ...MOCK_PROVIDER_SERVICE_BREAKDOWN }; }
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v != null && v !== '') qs.set(k, v); });
+    const query = qs.toString();
+    return request('GET', `/providers/me/analytics/services${query ? `?${query}` : ''}`);
+  });
 }
 
 // Customer demographics — neighborhood / interest / exercise-frequency breakdowns.
 export async function getProviderDemographics() {
-  if (USE_MOCK) { await delay(); return { ...MOCK_PROVIDER_DEMOGRAPHICS }; }
-  return request('GET', '/providers/me/analytics/demographics');
+  return cached(cacheKeys.providerDemographics(), async () => {
+    if (USE_MOCK) { await delay(); return { ...MOCK_PROVIDER_DEMOGRAPHICS }; }
+    return request('GET', '/providers/me/analytics/demographics');
+  });
 }
 
 // Custom time metrics — daily bookings/revenue/check-ins over a chosen date range.
@@ -1012,31 +1161,114 @@ export async function getAdminNotifications(limit = 20, offset = 0) {
 
 // ─── Phase 3 ──────────────────────────────────────
 export async function getEvents(params = {}) {
-  if (USE_MOCK) return { events: [...MOCK_EVENTS], count: MOCK_EVENTS.length };
-  const qs = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => {
-    if (v != null && v !== '') qs.set(k, String(v));
+  return cached(cacheKeys.events(params), async () => {
+    if (USE_MOCK) return { events: [...MOCK_EVENTS], count: MOCK_EVENTS.length };
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v != null && v !== '') qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request('GET', q ? `/events?${q}` : '/events');
   });
-  const q = qs.toString();
-  return request('GET', q ? `/events?${q}` : '/events');
 }
 
 export async function getFeaturedEvents() {
-  if (USE_MOCK) {
-    await delay();
-    return { events: [] };
+  return cached(cacheKeys.featuredEvents(), async () => {
+    if (USE_MOCK) {
+      await delay();
+      return { events: [] };
+    }
+    // The window end is rounded to the day so the cache key stays stable
+    // across calls made seconds apart.
+    const to = new Date();
+    to.setDate(to.getDate() + 7);
+    to.setHours(23, 59, 59, 0);
+    return request('GET', `/events?boosted_only=true&limit=10&to=${to.toISOString()}`);
+  });
+}
+
+// ─── Home bootstrap ───────────────────────────────────
+/**
+ * Everything Home renders, in one request.
+ *
+ * Home used to open with six parallel calls, each of which could land on its
+ * own cold serverless function. `GET /home/bootstrap` answers all of them from
+ * a single warm invocation. The individual endpoints still exist and the
+ * client falls back to them when the aggregate isn't available, so a frontend
+ * deploy that lands ahead of the backend degrades to the old behaviour rather
+ * than breaking Home.
+ */
+export async function getHomeBootstrap() {
+  return cached(cacheKeys.home(), async () => {
+    const payload = USE_MOCK ? await mockHomeBootstrap() : await fetchHomeBootstrap();
+    warmFromBootstrap(payload);
+    return payload;
+  });
+}
+
+async function fetchHomeBootstrap() {
+  try {
+    return await request('GET', '/home/bootstrap');
+  } catch (err) {
+    if (err.status !== 404) throw err;
+    return legacyHomeBootstrap();
   }
-  const to = new Date();
-  to.setDate(to.getDate() + 7);
-  return request('GET', `/events?boosted_only=true&limit=10&to=${to.toISOString()}`);
+}
+
+/** Pre-aggregate assembly, used when the backend has no /home/bootstrap. */
+async function legacyHomeBootstrap() {
+  const [providers, communities, events, featured, social, unread] = await Promise.all([
+    getProviders().catch(() => ({ providers: [] })),
+    getCommunities().catch(() => ({ communities: [] })),
+    getEvents().catch(() => ({ events: [] })),
+    getFeaturedEvents().catch(() => ({ events: [] })),
+    getCircleSocialProof().catch(() => null),
+    getNotificationUnreadCount().catch(() => 0),
+  ]);
+  return {
+    providers: providers.providers || [],
+    communities: communities.communities || [],
+    events: events.events || [],
+    featured_events: featured.events || [],
+    social_proof: social,
+    unread_count: unread,
+  };
+}
+
+async function mockHomeBootstrap() {
+  await delay();
+  return {
+    providers: [...MOCK_PROVIDERS],
+    communities: [...MOCK_COMMUNITIES],
+    events: [...MOCK_EVENTS],
+    featured_events: [],
+    social_proof: { ...MOCK_SOCIAL_PROOF },
+    unread_count: 0,
+  };
+}
+
+/**
+ * Seed the per-endpoint cache keys from the aggregate response, so opening
+ * Explore or the circles tab straight after Home costs no requests at all.
+ */
+function warmFromBootstrap(payload) {
+  if (!payload) return;
+  cacheWrite(cacheKeys.providers(), { providers: payload.providers || [], count: (payload.providers || []).length });
+  cacheWrite(cacheKeys.communities(), { communities: payload.communities || [], count: (payload.communities || []).length });
+  cacheWrite(cacheKeys.events(), { events: payload.events || [], count: (payload.events || []).length });
+  cacheWrite(cacheKeys.featuredEvents(), { events: payload.featured_events || [] });
+  if (payload.social_proof) cacheWrite(cacheKeys.social(), payload.social_proof);
+  if (typeof payload.unread_count === 'number') cacheWrite(cacheKeys.unread(), payload.unread_count);
 }
 
 export async function getRanks() {
-  if (USE_MOCK) {
-    await delay();
-    return MOCK_RANKS;
-  }
-  return request('GET', '/ranks');
+  return cached(cacheKeys.ranks(), async () => {
+    if (USE_MOCK) {
+      await delay();
+      return MOCK_RANKS;
+    }
+    return request('GET', '/ranks');
+  });
 }
 
 // ─── Feedback (V2 UX Phase 6) ───────────────────────
@@ -1088,8 +1320,10 @@ export async function updateFeedbackStatus(id, status) {
 }
 
 export async function getChallenges(communityId) {
-  if (USE_MOCK) return { challenges: [] };
-  return request('GET', `/communities/${communityId}/challenges`);
+  return cached(cacheKeys.challenges(communityId), async () => {
+    if (USE_MOCK) return { challenges: [] };
+    return request('GET', `/communities/${communityId}/challenges`);
+  });
 }
 
 export async function createCommunityChallenge(communityId, data) {
@@ -1098,52 +1332,78 @@ export async function createCommunityChallenge(communityId, data) {
 }
 
 export async function getLeaderboard(communityId) {
-  if (USE_MOCK) return { leaderboard: [] };
-  return request('GET', `/communities/${communityId}/leaderboard`);
+  return cached(cacheKeys.leaderboard(communityId), async () => {
+    if (USE_MOCK) return { leaderboard: [] };
+    return request('GET', `/communities/${communityId}/leaderboard`);
+  });
 }
 
 export async function getNotifications() {
-  if (USE_MOCK) return { notifications: [], unread_count: 0 };
-  return request('GET', '/users/me/notifications');
+  return cached(cacheKeys.notifications(), async () => {
+    if (USE_MOCK) return { notifications: [], unread_count: 0 };
+    return request('GET', '/users/me/notifications');
+  });
 }
 
 export async function getNotificationUnreadCount() {
-  if (USE_MOCK) return 0;
-  const res = await request('GET', '/users/me/notifications?unread=true&limit=1');
-  return res.unread_count ?? 0;
+  // The header re-reads this on every route change; the cache absorbs those
+  // while the 30s poll (just past this key's TTL) still reaches the server.
+  return cached(cacheKeys.unread(), async () => {
+    if (USE_MOCK) return 0;
+    const res = await request('GET', '/users/me/notifications?unread=true&limit=1');
+    return res.unread_count ?? 0;
+  });
 }
 
 export async function markNotificationRead(id) {
+  invalidate('notifications');
+  invalidate('unread');
   if (USE_MOCK) return { is_read: true };
   return request('POST', `/users/me/notifications/${id}/read`);
 }
 
 export async function markAllNotificationsRead() {
+  invalidate('notifications');
+  invalidate('unread');
   if (USE_MOCK) return { marked_read: 0 };
   return request('POST', '/users/me/notifications/read-all');
 }
 
 export async function getMyBookings() {
-  if (USE_MOCK) return { bookings: mockBookingsCreatedThisSession };
-  return request('GET', '/users/me/bookings');
+  return cached(cacheKeys.bookings(), async () => {
+    if (USE_MOCK) return { bookings: mockBookingsCreatedThisSession };
+    return request('GET', '/users/me/bookings');
+  });
 }
 
 export async function getProviderEvents(providerId) {
-  if (USE_MOCK) return { events: [] };
-  return request('GET', `/providers/${providerId}/events`);
+  return cached(cacheKeys.providerEvents(providerId), async () => {
+    if (USE_MOCK) return { events: [] };
+    return request('GET', `/providers/${providerId}/events`);
+  });
 }
 
 export async function createProviderEvent(data) {
+  invalidate('events');
+  invalidate('provider-me');
+  invalidate('providers');
   if (USE_MOCK) return { id: 'evt-new-' + Date.now(), ...data };
   return request('POST', '/providers/me/events', data);
 }
 
 export async function updateProviderEvent(eventId, data) {
+  invalidate('events');
+  invalidate('provider-me');
+  invalidate('providers');
   if (USE_MOCK) return { id: eventId, ...data };
   return request('PATCH', `/providers/me/events/${eventId}`, data);
 }
 
 export async function getSubscriptionPlans() {
+  return cached(cacheKeys.subscriptionPlans(), () => fetchSubscriptionPlans());
+}
+
+async function fetchSubscriptionPlans() {
   if (USE_MOCK) {
     // mirrors backend SUBSCRIPTION_PLANS (subscription_service.py)
     return { plans: [
@@ -1178,6 +1438,10 @@ export async function getSubscriptionStatus(subscriptionId) {
 }
 
 export async function createProviderPromotion(data) {
+  // Promotions ride along on the provider payload the marketplace renders.
+  invalidate('providers');
+  invalidate('provider-me');
+  invalidate('home');
   if (USE_MOCK) return { id: 'promo-mock', ...data, is_active: true };
   return request('POST', '/providers/me/promotions', data);
 }
@@ -1204,6 +1468,7 @@ export async function uploadFile(file, folder) {
 }
 
 export async function applyForTrainerVerification(data) {
+  invalidate('trainer');
   if (USE_MOCK) {
     await delay();
     _mockTrainerStatus = {
@@ -1221,9 +1486,11 @@ export async function applyForTrainerVerification(data) {
 }
 
 export async function getTrainerVerificationStatus() {
-  if (USE_MOCK) { await delay(); return _mockTrainerStatus ? { ..._mockTrainerStatus } : null; }
-  const result = await request('GET', '/trainer/status');
-  return result.application ?? result;
+  return cached(cacheKeys.trainer(), async () => {
+    if (USE_MOCK) { await delay(); return _mockTrainerStatus ? { ..._mockTrainerStatus } : null; }
+    const result = await request('GET', '/trainer/status');
+    return result.application ?? result;
+  });
 }
 
 export async function getAdminTrainerVerifications(page = 1, status = 'pending') {
@@ -1251,6 +1518,7 @@ export async function reviewTrainerVerification(id, action, reason = null) {
 }
 
 export async function applyForPaidCircle(circleId, priceEtb) {
+  invalidate('circles');
   if (USE_MOCK) {
     await delay();
     const circle = MOCK_CIRCLES.find(c => c.id === circleId);
@@ -1261,6 +1529,7 @@ export async function applyForPaidCircle(circleId, priceEtb) {
 }
 
 export async function subscribeToCircle(circleId, receiptUrl, receiptPublicId) {
+  invalidate('circles');
   if (USE_MOCK) {
     await delay();
     const status = {
@@ -1288,6 +1557,7 @@ export async function getPendingSubscriptions(circleId) {
 }
 
 export async function reviewSubscription(subscriptionId, action) {
+  invalidate('circles');
   if (USE_MOCK) {
     await delay();
     const item = MOCK_CIRCLE_SUBSCRIPTIONS.find(s => s.id === subscriptionId);
@@ -1333,6 +1603,8 @@ export async function getStravaConnectUrl() {
 }
 
 export async function disconnectStrava() {
+  invalidate('strava');
+  invalidate('me');
   if (USE_MOCK) {
     await delay();
     _mockStravaConnected = false;
@@ -1344,23 +1616,27 @@ export async function disconnectStrava() {
 }
 
 export async function getStravaStats() {
-  if (USE_MOCK) {
-    await delay();
-    const connected = _mockStravaConnected || MOCK_USER.strava_connected;
-    return connected ? { ...MOCK_STRAVA_STATS, connected: true, visible_stats: [..._mockVisibleStats] } : { connected: false, visible_stats: [..._mockVisibleStats] };
-  }
-  const [result, me] = await Promise.all([request('GET', '/strava/stats'), getMe()]);
-  return {
-    ...(result.stats || {}),
-    connected: result.connected,
-    // The backend filters the stats object to exactly the saved visibility
-    // selection. Older UserResponse shapes do not expose strava_visible_stats,
-    // so the returned keys are the authoritative fallback.
-    visible_stats: me.strava_visible_stats || Object.keys(result.stats || {}),
-  };
+  return cached(cacheKeys.strava(), async () => {
+    if (USE_MOCK) {
+      await delay();
+      const connected = _mockStravaConnected || MOCK_USER.strava_connected;
+      return connected ? { ...MOCK_STRAVA_STATS, connected: true, visible_stats: [..._mockVisibleStats] } : { connected: false, visible_stats: [..._mockVisibleStats] };
+    }
+    const [result, me] = await Promise.all([request('GET', '/strava/stats'), getMe()]);
+    return {
+      ...(result.stats || {}),
+      connected: result.connected,
+      // The backend filters the stats object to exactly the saved visibility
+      // selection. Older UserResponse shapes do not expose strava_visible_stats,
+      // so the returned keys are the authoritative fallback.
+      visible_stats: me.strava_visible_stats || Object.keys(result.stats || {}),
+    };
+  });
 }
 
 export async function updateStravaVisibility(visibleStats) {
+  invalidate('strava');
+  invalidate('me');
   if (USE_MOCK) {
     await delay();
     _mockVisibleStats = [...visibleStats];

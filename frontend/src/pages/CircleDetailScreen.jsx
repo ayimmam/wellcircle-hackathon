@@ -11,6 +11,7 @@ import Leaderboard from '../components/Leaderboard';
 import { showToast } from '../components/Toast';
 import { MOCK_CIRCLES, MOCK_LEADERBOARD } from '../data/mock';
 import Icon from '../components/Icon';
+import SmartImage from '../components/SmartImage';
 import { shareCircleInvite } from '../utils/circleInvite';
 
 export default function CircleDetailScreen() {
@@ -310,10 +311,7 @@ export default function CircleDetailScreen() {
                     {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
                   </div>
                   <div className="avatar avatar-md">
-                    {member.photo_url
-                      ? <img src={member.photo_url} alt="" />
-                      : <Icon name="user" size={16} />
-                    }
+                    <SmartImage src={member.photo_url} width={36} fallback={<Icon name="user" size={16} />} />
                   </div>
                   <div className="cell-body">
                     <div className="cell-title">{member.name}</div>
@@ -340,10 +338,7 @@ export default function CircleDetailScreen() {
           {leaderboard.length > 0 ? leaderboard.map(member => (
             <div key={member.user_id} className="cell">
               <div className="avatar avatar-lg">
-                {member.photo_url
-                  ? <img src={member.photo_url} alt="" />
-                  : <Icon name="user" size={18} />
-                }
+                <SmartImage src={member.photo_url} width={40} fallback={<Icon name="user" size={18} />} />
               </div>
               <div className="cell-body">
                 <div className="cell-title">{member.name}</div>

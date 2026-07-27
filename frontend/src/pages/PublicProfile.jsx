@@ -4,6 +4,7 @@ import { followUser, getUserProfile, unfollowUser } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { showToast } from '../components/Toast';
 import Icon from '../components/Icon';
+import SmartImage from '../components/SmartImage';
 import VerifiedBadge from '../components/VerifiedBadge';
 import StravaStats from '../components/StravaStats';
 
@@ -54,7 +55,13 @@ export default function PublicProfile() {
       <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} aria-label="Back"><Icon name="chevron-left" /></button>
       <div className="profile-header">
         <div className="profile-avatar">
-          {profile.photo_url ? <img src={profile.photo_url} alt={profile.name} /> : <Icon name="user" size={36} />}
+          <SmartImage
+            src={profile.photo_url}
+            alt={profile.name}
+            width={72}
+            priority
+            fallback={<Icon name="user" size={36} />}
+          />
         </div>
         <h1 className="profile-name">{profile.name} {profile.is_verified_trainer && <VerifiedBadge compact />}</h1>
         <p className="profile-handle">@{profile.telegram_handle || 'wellcircle'}</p>

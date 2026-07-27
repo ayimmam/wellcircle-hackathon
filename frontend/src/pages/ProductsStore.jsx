@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { getProducts } from '../api/client';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
+import SmartImage from '../components/SmartImage';
 
 export default function ProductsStore() {
   const { user } = useAuth();
@@ -83,7 +84,12 @@ function ProductCard({ product, onClick }) {
   const { t } = useTranslation();
   return (
     <div className="product-card" onClick={onClick}>
-      {(product.provider_cover_photo_url || product.image_url) && <img src={product.provider_cover_photo_url || product.image_url} alt={product.name} className="product-card-img" />}
+      <SmartImage
+        src={product.provider_cover_photo_url || product.image_url}
+        alt={product.name}
+        className="product-card-img"
+        width={200}
+      />
       <div className="product-card-body">
         <h4 className="product-card-title">{product.name}</h4>
         <p className="text-sm text-secondary">{product.provider_name}</p>

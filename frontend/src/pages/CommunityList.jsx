@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { getCommunities, joinCommunity, getCircles, createCircle, getRanks } from '../api/client';
+import { useState } from 'react';
+import { getCommunities, joinCommunity, getCircles, createCircle, getRanks, cacheKeys } from '../api/client';
+import useResource from '../hooks/useResource';
 import { CATEGORIES } from '../data/mock';
 import CommunityCard from '../components/CommunityCard';
 import { showToast } from '../components/Toast';
@@ -9,42 +10,56 @@ import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
+const EMPTY_LIST = [];
 
 export default function CommunityList() {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [communities, setCommunities] = useState([]);
-  const [circles, setCircles] = useState([]);
   const [tab, setTab] = useState('explore'); // 'explore' | 'joined' | 'circles' | 'ranks'
   const [category, setCategory] = useState('all');
-  const [loading, setLoading] = useState(true);
   const [newCircleName, setNewCircleName] = useState('');
-  const [ranks, setRanks] = useState(null);
   const [ranksView, setRanksView] = useState('communities'); // 'communities' | 'individuals'
 
-  useEffect(() => {
-    setLoading(true);
-    if (tab === 'circles') {
-      getCircles()
-        .then(res => setCircles(res.circles || []))
-        .finally(() => setLoading(false));
-    } else if (tab === 'ranks') {
-      getRanks()
-        .then(res => setRanks(res))
-        .finally(() => setLoading(false));
-    } else {
-      Promise.all([
-        getCommunities(tab === 'joined' ? true : null, category !== 'all' ? category : null),
-        tab === 'explore' ? getCircles() : Promise.resolve({ circles: [] })
-      ])
-        .then(([commRes, circRes]) => {
-          setCommunities(commRes.communities);
-          setCircles(circRes.circles || []);
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [tab, category]);
+  // Each tab reads its own cache key, so switching between them is a render
+  // rather than a refetch — and the lists Home already loaded are reused.
+  const joinedOnly = tab === 'joined' ? true : null;
+  const categoryFilter = category !== 'all' ? category : null;
+  const showsCommunities = tab === 'explore' || tab === 'joined';
+
+  const {
+    data: communities, loading: communitiesLoading, setData: setCommunities,
+  } = useResource(
+    cacheKeys.communities(joinedOnly, categoryFilter),
+    () => getCommunities(joinedOnly, categoryFilter),
+    {
+      enabled: showsCommunities,
+      initialData: EMPTY_LIST,
+      select: res => res.communities || EMPTY_LIST,
+    },
+  );
+
+  const {
+    data: circles, loading: circlesLoading, refresh: refreshCircles,
+  } = useResource(
+    cacheKeys.circles(),
+    getCircles,
+    {
+      enabled: tab === 'circles' || tab === 'explore',
+      initialData: EMPTY_LIST,
+      select: res => res.circles || EMPTY_LIST,
+    },
+  );
+
+  const { data: ranks, loading: ranksLoading } = useResource(
+    cacheKeys.ranks(),
+    getRanks,
+    { enabled: tab === 'ranks' },
+  );
+
+  const loading = tab === 'ranks' ? ranksLoading
+    : tab === 'circles' ? circlesLoading
+      : communitiesLoading;
 
   const [joiningId, setJoiningId] = useState(null);
 
@@ -87,7 +102,7 @@ export default function CommunityList() {
       setJoinCode('');
       setIsPrivate(false);
       showToast('Circle created!', 'success');
-      getCircles().then(res => setCircles(res.circles || []));
+      refreshCircles();
     } catch (err) {
       showToast('Error creating circle', 'error');
     }

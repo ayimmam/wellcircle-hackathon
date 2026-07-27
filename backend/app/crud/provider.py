@@ -17,10 +17,17 @@ from app.services.promotion_service import get_active_promotion, get_eligible_pr
 from app.models.provider_promotion import ProviderPromotion
 
 
+# Explore renders the whole list client-side, so this is a safety valve rather
+# than pagination: it bounds the payload (and the two batched follow-up queries)
+# if the directory ever grows past what one screen can reasonably hold.
+MAX_PROVIDER_LIST = 200
+
+
 def get_all_providers(
     db: Session,
     category: Optional[str] = None,
     search: Optional[str] = None,
+    limit: int = MAX_PROVIDER_LIST,
 ) -> List[dict]:
     """Get all providers with community info (active only for public listing)."""
     query = db.query(Provider).filter(
@@ -40,7 +47,7 @@ def get_all_providers(
         Provider.is_featured.desc(),
         Provider.rating.desc(),
         Provider.name,
-    ).all()
+    ).limit(min(limit, MAX_PROVIDER_LIST)).all()
 
     # Batch what used to be two extra queries per provider (community +
     # active promotion) into two queries total — under concurrent load, each

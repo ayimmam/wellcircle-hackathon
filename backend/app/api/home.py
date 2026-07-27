@@ -1,0 +1,97 @@
+"""Aggregate payload for the Home screen."""
+
+from datetime import datetime, timedelta, timezone
+
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.api.events import query_upcoming_events
+from app.crud.circle import get_circle_social_proof
+from app.crud.community import get_all_communities
+from app.crud.provider import get_all_providers
+from app.database import get_db
+from app.dependencies import get_current_user
+from app.models.user import User
+from app.models.user_notification import UserNotification
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+router = APIRouter()
+
+FEATURED_LIMIT = 10
+EVENTS_LIMIT = 20
+EVENT_WINDOW = timedelta(days=7)
+
+
+@router.get("/home/bootstrap")
+async def home_bootstrap(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Everything Home renders, in one round trip.
+
+    Home previously opened with six parallel requests, each able to hit its own
+    cold serverless function — on a free-tier deploy that is six cold starts for
+    one screen. Collapsing them into a single invocation means the whole screen
+    pays for at most one.
+
+    Each section is independent, so one failing section degrades to an empty
+    list rather than blanking the screen; the client's per-endpoint fallbacks
+    can still fill it in.
+    """
+    now = datetime.now(timezone.utc)
+    window_end = now + EVENT_WINDOW
+
+    def section(name, fn, fallback):
+        try:
+            return fn()
+        except Exception:
+            logger.exception("home bootstrap section %s failed", name)
+            # Postgres aborts the whole transaction on error, so without this
+            # the first failed section would take every later one with it.
+            db.rollback()
+            return fallback
+
+    providers = section("providers", lambda: get_all_providers(db), [])
+    communities = section(
+        "communities",
+        lambda: get_all_communities(db, user_id=user.id, joined_only=False, category=None),
+        [],
+    )
+    events, _ = section(
+        "events",
+        lambda: query_upcoming_events(
+            db, from_date=now, to_date=window_end, limit=EVENTS_LIMIT, with_total=False
+        ),
+        ([], 0),
+    )
+    featured_events, _ = section(
+        "featured_events",
+        lambda: query_upcoming_events(
+            db,
+            from_date=now,
+            to_date=window_end,
+            boosted_only=True,
+            limit=FEATURED_LIMIT,
+            with_total=False,
+        ),
+        ([], 0),
+    )
+    social_proof = section("social_proof", lambda: get_circle_social_proof(db, user.id), None)
+    unread_count = section(
+        "unread_count",
+        lambda: db.query(UserNotification)
+        .filter(UserNotification.user_id == user.id, UserNotification.is_read == False)
+        .count(),
+        0,
+    )
+
+    return {
+        "providers": providers,
+        "communities": communities,
+        "events": events,
+        "featured_events": featured_events,
+        "social_proof": social_proof,
+        "unread_count": unread_count,
+    }

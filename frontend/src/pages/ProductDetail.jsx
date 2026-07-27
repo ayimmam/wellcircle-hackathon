@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getProduct } from '../api/client';
 import Icon from '../components/Icon';
+import SmartImage from '../components/SmartImage';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -27,7 +28,7 @@ export default function ProductDetail() {
       {images.length > 0 && (
         <div className="product-carousel mb-16">
           <button className="carousel-btn" onClick={() => setImgIdx(i => (i - 1 + images.length) % images.length)}>◀</button>
-          <img src={images[imgIdx]} alt={product.name} className="product-detail-img" />
+          <SmartImage src={images[imgIdx]} alt={product.name} className="product-detail-img" width={430} priority />
           <button className="carousel-btn" onClick={() => setImgIdx(i => (i + 1) % images.length)}>▶</button>
         </div>
       )}

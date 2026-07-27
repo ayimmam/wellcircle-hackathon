@@ -1990,6 +1990,30 @@ select.input option {
   100% { background-position: -200% 0; }
 }
 
+/* components/SmartImage — the shimmer is painted as the image element's own
+   background so it needs no wrapper element and can't disturb any layout.
+   An <img> paints its background behind its content, so it shows through
+   while the bytes are still arriving and is dropped once they land. */
+.smart-image[data-loaded="false"] {
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-elevated) 50%, var(--bg-card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.smart-image[data-loaded="true"] {
+  animation: fade-in 0.2s ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .smart-image[data-loaded="false"] { animation: none; }
+  .smart-image[data-loaded="true"] { animation: none; }
+}
+
 /* ================================================================
    UTILITIES
    ================================================================ */

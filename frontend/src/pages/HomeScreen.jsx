@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getProviders, getCommunities, joinCommunity, getEvents } from '../api/client';
+import { getHomeBootstrap, joinCommunity, cacheKeys } from '../api/client';
+import useResource from '../hooks/useResource';
 import NearYouSection from '../components/NearYouSection';
 import { NEIGHBOURHOOD_ALERTS } from '../data/mock';
 import ProviderCard from '../components/ProviderCard';
 import CommunityCard from '../components/CommunityCard';
+import SmartImage from '../components/SmartImage';
 import PointsBadge from '../components/PointsBadge';
 import StreakBadge from '../components/StreakBadge';
 import FirstRewardCard from '../components/FirstRewardCard';
@@ -20,30 +22,39 @@ import { useTranslation } from 'react-i18next';
 import AskWellCircle from '../components/AskWellCircle';
 import PointsInfoSheet from '../components/PointsInfoSheet';
 
+const EMPTY_HOME = { providers: [], communities: [], events: [], featured_events: [] };
+
 export default function HomeScreen() {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
-  const [providers, setProviders] = useState([]);
-  const [allCommunities, setAllCommunities] = useState([]);
-  const [events, setEvents] = useState([]);
   const [alertDismissed, setAlertDismissed] = useState(false);
   const [showPointsInfo, setShowPointsInfo] = useState(false);
   const [joiningId, setJoiningId] = useState(null);
   const justOnboarded = Boolean(location.state?.justOnboarded);
 
-  useEffect(() => {
-    getProviders()
-      .then(res => setProviders(res.providers))
-      .catch(err => showToast(`Providers Error: ${err.message}`, 'error'));
+  // One request for the whole screen, painted from the previous session's copy
+  // while it revalidates. `home` also seeds the providers/communities/events
+  // caches, so Explore and the circles tab open without a request of their own.
+  const { data: home, setData: setHome } = useResource(
+    cacheKeys.home(),
+    getHomeBootstrap,
+    {
+      initialData: EMPTY_HOME,
+      onError: err => showToast(err.message, 'error'),
+    },
+  );
 
-    getCommunities()
-      .then(res => setAllCommunities(res.communities))
-      .catch(err => showToast(`Communities Error: ${err.message}`, 'error'));
+  const providers = home?.providers || [];
+  const allCommunities = home?.communities || [];
+  const events = home?.events || [];
 
-    getEvents().then(res => setEvents(res.events || [])).catch(() => {});
-  }, []);
+  const setAllCommunities = (updater) => setHome(prev => {
+    const base = prev || EMPTY_HOME;
+    const communities = typeof updater === 'function' ? updater(base.communities || []) : updater;
+    return { ...base, communities };
+  });
 
   const isJoined = (c) => c.user_joined || user?.joined_communities?.includes(c.id);
   const communities = allCommunities.filter(c => !isJoined(c)).slice(0, 4);
@@ -153,11 +164,16 @@ export default function HomeScreen() {
           id="hero-banner"
         >
           <div style={{ position: 'relative' }}>
-            <img
+            {/* The one image above the fold on Home — loaded eagerly and at
+                high priority, since it is what the user is looking at. */}
+            <SmartImage
               className="card-cover"
               src={topProvider.cover_photo_url}
               alt={topProvider.name}
+              width={430}
+              priority
               style={{ height: 180, filter: 'brightness(0.55)' }}
+              fallback={<div className="card-cover" style={{ height: 180 }} />}
             />
             {/* Overlay content on image */}
             <div

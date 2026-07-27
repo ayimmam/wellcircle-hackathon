@@ -14,6 +14,7 @@
 | Bot | POST | `/bot/register` | Bot API Key | Bot |
 | Bot | GET | `/bot/inactive-users` | Bot API Key | Bot |
 | Bot | GET | `/bot/streaks-at-risk` | Bot API Key | Bot |
+| Home | GET | `/home/bootstrap` | JWT | Frontend |
 | Users | GET | `/users/me` | JWT | Frontend |
 | Users | PATCH | `/users/me` | JWT | Frontend |
 | Users | POST | `/users/me/onboard` | JWT | Frontend |
@@ -233,6 +234,47 @@ tracks it as `reentry_open` and lands on Home's check-in card).
   "count": 1
 }
 ```
+
+---
+
+## 2a. Home
+
+### `GET /api/home/bootstrap`
+
+Everything the Home screen renders, in one round trip. Home otherwise opens
+with six parallel calls, each able to land on its own cold serverless function.
+
+Each key is assembled independently — a section that fails comes back empty
+rather than failing the whole response.
+
+The arrays are the same shapes the individual endpoints return, so the client
+seeds their caches from this payload and Explore / Circles open without a
+request of their own:
+
+| Key | Equivalent endpoint |
+|-----|---------------------|
+| `providers` | `GET /providers` |
+| `communities` | `GET /communities` |
+| `events` | `GET /events` (next 7 days, limit 20) |
+| `featured_events` | `GET /events?boosted_only=true` (next 7 days, limit 10) |
+| `social_proof` | `GET /circles/social-proof/today` |
+| `unread_count` | `unread_count` from `GET /users/me/notifications` |
+
+```json
+// RESPONSE 200
+{
+  "providers": [ /* ...same objects as GET /providers... */ ],
+  "communities": [ /* ...same objects as GET /communities... */ ],
+  "events": [ /* ...same objects as GET /events... */ ],
+  "featured_events": [ /* ...boosted events... */ ],
+  "social_proof": { "checked_in_today": 4 },
+  "unread_count": 3
+}
+```
+
+Clients should treat this endpoint as optional: on `404` fall back to calling
+the six endpoints individually, so a frontend deploy that lands ahead of the
+backend degrades instead of breaking Home.
 
 ---
 

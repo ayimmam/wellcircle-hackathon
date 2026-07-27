@@ -4,6 +4,7 @@ import { followUser, getFollowers, getFollowing, unfollowUser } from '../api/cli
 import { useAuth } from '../context/AuthContext';
 import { showToast } from '../components/Toast';
 import Icon from '../components/Icon';
+import SmartImage from '../components/SmartImage';
 import VerifiedBadge from '../components/VerifiedBadge';
 
 export default function FollowersList() {
@@ -66,7 +67,7 @@ export default function FollowersList() {
           {items.map(person => (
             <div className="cell" key={person.id}>
               <button className="avatar avatar-lg" onClick={() => navigate(`/users/${person.id}`)}>
-                {person.photo_url ? <img src={person.photo_url} alt="" /> : <Icon name="user" />}
+                <SmartImage src={person.photo_url} width={40} fallback={<Icon name="user" />} />
               </button>
               <button className="cell-body text-left" onClick={() => navigate(`/users/${person.id}`)}>
                 <div className="cell-title">{person.name} {person.is_verified_trainer && <VerifiedBadge compact />}</div>

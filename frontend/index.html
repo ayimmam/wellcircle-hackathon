@@ -7,8 +7,23 @@
   <title>Well Circle</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!--
+    Loaded non-blocking: a stylesheet in the critical path delays first paint by
+    a full round trip to Google's CDN, which on a Telegram in-app connection is
+    the difference between the splash appearing instantly and appearing late.
+    `display=swap` already renders text in the fallback face first, so nothing
+    is hidden while Inter downloads.
+  -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" onload="this.rel='stylesheet'" />
+  <noscript>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  </noscript>
+  <!--
+    `defer` so fetching this off telegram.org doesn't block the parser. Deferred
+    classic scripts run in document order before module scripts, so the SDK is
+    still initialised before main.jsx reads `window.Telegram`.
+  -->
+  <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
     (function () {
       var saved = localStorage.getItem('wellcircle-theme');

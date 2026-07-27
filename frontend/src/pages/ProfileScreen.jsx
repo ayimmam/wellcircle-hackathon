@@ -4,10 +4,12 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme, ACCENTS } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
+import SmartImage from '../components/SmartImage';
 import {
-  completeMockStravaConnection, disconnectStrava, getPointsHistory, getStravaConnectUrl,
+  cacheKeys, completeMockStravaConnection, disconnectStrava, getPointsHistory, getStravaConnectUrl,
   getStravaStats, getTrainerVerificationStatus, updateStravaVisibility,
 } from '../api/client';
+import useResource from '../hooks/useResource';
 import { getTier, NEIGHBOURHOODS, MOCK_COMMUNITIES } from '../data/mock';
 import { showToast } from '../components/Toast';
 import { effectiveTimeFormat, formatSlot } from '../utils/timeFormat';
@@ -31,12 +33,9 @@ export default function ProfileScreen() {
   const { theme, setTheme, accent, setAccent } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  const [pointsHistory, setPointsHistory] = useState(null);
   const [showNeighbourhoodSheet, setShowNeighbourhoodSheet] = useState(false);
   const [bio, setBio] = useState('');
   const [savingBio, setSavingBio] = useState(false);
-  const [trainerStatus, setTrainerStatus] = useState(null);
-  const [strava, setStrava] = useState(null);
   const [stravaBusy, setStravaBusy] = useState(false);
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneEditResult, setPhoneEditResult] = useState({ valid: false, e164: null });
@@ -48,14 +47,23 @@ export default function ProfileScreen() {
     c => user?.joined_communities?.includes(c.id)
   );
 
+  const { data: pointsHistory } = useResource(cacheKeys.points(), getPointsHistory);
+
+  const { data: trainerStatus } = useResource(
+    cacheKeys.trainer(),
+    getTrainerVerificationStatus,
+  );
+
+  const { data: strava, setData: setStrava, refresh: refreshStrava } = useResource(
+    cacheKeys.strava(),
+    getStravaStats,
+  );
+
+  // An approval granted since the last visit only shows up on the user record
+  // after a refresh.
   useEffect(() => {
-    getPointsHistory().then(setPointsHistory);
-    getTrainerVerificationStatus().then(result => {
-      setTrainerStatus(result);
-      if (result?.status === 'approved') refreshUser?.();
-    }).catch(() => {});
-    getStravaStats().then(setStrava).catch(() => {});
-  }, [refreshUser]);
+    if (trainerStatus?.status === 'approved') refreshUser?.();
+  }, [trainerStatus?.status, refreshUser]);
 
   useEffect(() => { setBio(user?.bio || ''); }, [user?.bio]);
 
@@ -63,11 +71,11 @@ export default function ProfileScreen() {
     const params = new URLSearchParams(location.search);
     if (params.get('strava') !== 'connected') return;
     completeMockStravaConnection();
-    Promise.all([getStravaStats().then(setStrava), refreshUser?.()])
+    Promise.all([refreshStrava(), refreshUser?.()])
       .then(() => showToast('Strava connected successfully', 'success'))
       .catch(err => showToast(err.message, 'error'));
     navigate('/profile', { replace: true });
-  }, [location.search, navigate, refreshUser]);
+  }, [location.search, navigate, refreshUser, refreshStrava]);
 
   // Location nudges (Home's "Near you" section, Explore's "Near me" filter)
   // deep-link here with a flag to auto-open the neighbourhood sheet — clear
@@ -154,11 +162,13 @@ export default function ProfileScreen() {
       {/* Profile Header */}
       <div className="profile-header">
         <div className="profile-avatar">
-          {user.photo_url ? (
-            <img src={user.photo_url} alt={user.name} />
-          ) : (
-            <Icon name="user" size={36} strokeWidth={1.5} />
-          )}
+          <SmartImage
+            src={user.photo_url}
+            alt={user.name}
+            width={72}
+            priority
+            fallback={<Icon name="user" size={36} strokeWidth={1.5} />}
+          />
         </div>
         <h1 className="profile-name">{user.name} {user.is_verified_trainer && <VerifiedBadge compact />}</h1>
         <p className="profile-handle">@{user.telegram_handle}</p>

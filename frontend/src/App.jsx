@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -16,17 +16,26 @@ import ProviderPortalGuard from './components/ProviderPortalGuard';
 // which matters a lot on free-tier hosting + slow Telegram in-app networks.
 import SplashScreen from './pages/SplashScreen';
 
+// The bottom-nav destinations are kept as named importers so they can be
+// warmed on idle (see prefetchTabs below). Without that, the first tap on a
+// tab pays for a chunk download over a Telegram in-app connection, which is
+// exactly the pause that makes a Mini App feel like a web page.
+const importHome = () => import('./pages/HomeScreen');
+const importExplore = () => import('./pages/ExploreScreen');
+const importCommunity = () => import('./pages/CommunityList');
+const importProfile = () => import('./pages/ProfileScreen');
+
 const OnboardingFlow = lazy(() => import('./pages/OnboardingFlow'));
-const HomeScreen = lazy(() => import('./pages/HomeScreen'));
-const ExploreScreen = lazy(() => import('./pages/ExploreScreen'));
+const HomeScreen = lazy(importHome);
+const ExploreScreen = lazy(importExplore);
 const NotificationsScreen = lazy(() => import('./pages/NotificationsScreen'));
 const MyBookings = lazy(() => import('./pages/MyBookings'));
 const ProviderDetail = lazy(() => import('./pages/ProviderDetail'));
-const CommunityList = lazy(() => import('./pages/CommunityList'));
+const CommunityList = lazy(importCommunity);
 const CommunityDetail = lazy(() => import('./pages/CommunityDetail'));
 const CircleDetailScreen = lazy(() => import('./pages/CircleDetailScreen'));
 const BookingFlow = lazy(() => import('./pages/BookingFlow'));
-const ProfileScreen = lazy(() => import('./pages/ProfileScreen'));
+const ProfileScreen = lazy(importProfile);
 const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 const FollowersList = lazy(() => import('./pages/FollowersList'));
 const TrainerVerification = lazy(() => import('./pages/TrainerVerification'));
@@ -62,6 +71,20 @@ const ProviderPortalCustomers = lazy(() => import('./pages/provider-portal/Provi
 const ProviderPortalPromotions = lazy(() => import('./pages/provider-portal/ProviderPortalPromotions'));
 const ProviderPortalSubscriptions = lazy(() => import('./pages/provider-portal/ProviderPortalSubscriptions'));
 
+/**
+ * Pull the bottom-nav route chunks down once the browser is idle, so switching
+ * tabs is a render rather than a download. Failures are ignored — the chunk
+ * will simply be fetched on demand as before.
+ */
+function prefetchTabs() {
+  const warm = () => {
+    [importHome, importExplore, importCommunity, importProfile]
+      .forEach(load => { load().catch(() => {}); });
+  };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(warm, { timeout: 4000 });
+  else setTimeout(warm, 2000);
+}
+
 function RouteFallback() {
   return (
     <div className="route-fallback" style={{ padding: 16 }} aria-busy="true">
@@ -80,6 +103,8 @@ function RouteFallback() {
  */
 export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(prefetchTabs, []);
 
   return (
     <ProviderPortalAuthProvider>

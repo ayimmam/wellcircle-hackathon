@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import Icon from './Icon';
+import SmartImage from './SmartImage';
 
 export default function ProviderCard({ provider, compact = false }) {
   const navigate = useNavigate();
@@ -10,11 +11,12 @@ export default function ProviderCard({ provider, compact = false }) {
       onClick={() => navigate(`/provider/${provider.id}`)}
       id={`provider-card-${provider.id}`}
     >
-      <img
+      <SmartImage
         className="card-cover"
         src={provider.cover_photo_url}
         alt={provider.name}
-        loading="lazy"
+        width={300}
+        fallback={<div className="card-cover" />}
       />
       <div className="card-body">
         <div className="provider-card-info">

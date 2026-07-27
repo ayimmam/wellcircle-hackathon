@@ -4,6 +4,7 @@ import { getProvider, joinCommunity, getProviderEvents } from '../api/client';
 import EventCard from '../components/EventCard';
 import { showToast } from '../components/Toast';
 import Icon from '../components/Icon';
+import SmartImage from '../components/SmartImage';
 import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
 import { promoApplies, daysLeft, expiryLabel } from '../utils/promo';
@@ -73,7 +74,14 @@ export default function ProviderDetail() {
     <div className="page" id="provider-detail-screen" style={{ paddingTop: 0 }}>
       {/* Header with cover photo */}
       <div className="detail-header">
-        <img className="detail-cover" src={provider.photos?.[activePhoto] || provider.cover_photo_url} alt={provider.name} />
+        <SmartImage
+          className="detail-cover"
+          src={provider.photos?.[activePhoto] || provider.cover_photo_url}
+          alt={provider.name}
+          width={430}
+          priority
+          fallback={<div className="detail-cover" />}
+        />
         <button className="detail-back" onClick={() => navigate(-1)} id="detail-back-btn" aria-label="Go back">
           <Icon name="chevron-left" size={20} />
         </button>
@@ -83,10 +91,11 @@ export default function ProviderDetail() {
       {provider.photos?.length > 1 && (
         <div className="detail-gallery">
           {provider.photos.map((url, i) => (
-            <img
+            <SmartImage
               key={i}
               src={url}
               alt={`${provider.name} photo ${i + 1}`}
+              width={80}
               className={i === activePhoto ? 'active' : ''}
               onClick={() => setActivePhoto(i)}
             />

@@ -3,6 +3,7 @@ import { getPosts, createPost, reactToPost, commentOnPost } from '../api/client'
 import { useAuth } from '../context/AuthContext';
 import { showToast } from './Toast';
 import Icon from './Icon';
+import SmartImage from './SmartImage';
 
 const ACTIVITY_TYPES = ['run', 'walk', 'ride', 'yoga', 'gym', 'swim'];
 
@@ -213,10 +214,11 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
               {/* User row */}
               <div className="post-user-row">
                 <div className="avatar avatar-md">
-                  {post.user.photo_url
-                    ? <img src={post.user.photo_url} alt="" />
-                    : <Icon name="user" size={16} />
-                  }
+                  <SmartImage
+                    src={post.user.photo_url}
+                    width={36}
+                    fallback={<Icon name="user" size={16} />}
+                  />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div className="post-user-name">
@@ -239,9 +241,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                   <span>{activityLabel(post)}</span>
                 </div>
               )}
-              {post.photo_url && (
-                <img src={post.photo_url} alt="" className="post-photo" />
-              )}
+              <SmartImage src={post.photo_url} className="post-photo" width={430} />
 
               {/* Reactions */}
               <div className="post-reactions">
@@ -301,9 +301,11 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                       <div key={comment.id} className="mb-8">
                         <div className="comment-row">
                           <div className="avatar avatar-sm">
-                            {comment.user.photo_url
-                              ? <img src={comment.user.photo_url} alt="" />
-                              : <Icon name="user" size={12} />}
+                            <SmartImage
+                              src={comment.user.photo_url}
+                              width={24}
+                              fallback={<Icon name="user" size={12} />}
+                            />
                           </div>
                           <div className="comment-body">
                             <div className="comment-author">{comment.user.name} <span className="comment-meta">• {timeAgo(comment.created_at)}</span></div>
@@ -323,9 +325,11 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                             {comment.replies.map(reply => (
                               <div key={reply.id} className="reply-row">
                                 <div className="avatar avatar-xs">
-                                  {reply.user.photo_url
-                                    ? <img src={reply.user.photo_url} alt="" />
-                                    : <Icon name="user" size={10} />}
+                                  <SmartImage
+                                    src={reply.user.photo_url}
+                                    width={20}
+                                    fallback={<Icon name="user" size={10} />}
+                                  />
                                 </div>
                                 <div className="comment-body">
                                   <div style={{ fontWeight: 600, fontSize: '0.75rem' }}>{reply.user.name} <span className="comment-meta">• {timeAgo(reply.created_at)}</span></div>

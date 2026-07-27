@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getLeaderboard, createInteraction } from '../api/client';
 import { showToast } from './Toast';
+import SmartImage from './SmartImage';
 
 const Leaderboard = ({ communityId }) => {
   const [leaderboard, setLeaderboard] = useState([]);
@@ -41,7 +42,11 @@ const Leaderboard = ({ communityId }) => {
           <div key={u.user_id} className="cell">
             <div className={`cell-rank ${i < 3 ? 'top' : ''}`}>{i + 1}</div>
             <div className="avatar avatar-md">
-              <img src={u.photo_url || `https://ui-avatars.com/api/?name=${u.name}&background=random`} alt={u.name} />
+              <SmartImage
+                src={u.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=random`}
+                alt={u.name}
+                width={36}
+              />
             </div>
             <div className="cell-body cell-title">{u.name}</div>
             <div className="cell-trailing" style={{ marginRight: 8 }}>{u.checkins_last_30_days}</div>

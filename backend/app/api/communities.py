@@ -134,16 +134,22 @@ async def community_leaderboard(
         .all()
     )
     
+    user_ids = [r.user_id for r in results]
+    users_by_id = (
+        {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()}
+        if user_ids else {}
+    )
+
     leaderboard = []
     for r in results:
-        u = db.query(User).filter(User.id == r.user_id).first()
+        u = users_by_id.get(r.user_id)
         leaderboard.append({
             "user_id": str(r.user_id),
-            "name": u.name or u.telegram_handle if u else "Unknown",
+            "name": (u.name or u.telegram_handle) if u else "Unknown",
             "photo_url": u.photo_url if u else None,
             "checkins_last_30_days": r.checkins
         })
-        
+
     return {"leaderboard": leaderboard}
 
 from pydantic import BaseModel

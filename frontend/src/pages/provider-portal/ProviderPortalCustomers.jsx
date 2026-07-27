@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getProviderCustomers, awardCustomerPoints } from '../../api/client';
 import { showToast } from '../../components/Toast';
 import Icon from '../../components/Icon';
+import SmartImage from '../../components/SmartImage';
 
 const PROVIDER_DAILY_AWARD_CAP = 300; // mirrors backend PROVIDER_AWARD_MAX_POINTS_PER_DAY
 
@@ -44,9 +45,12 @@ export default function ProviderPortalCustomers() {
           <div key={c.user_id} className="card">
             <div className="card-body flex items-center gap-12">
               <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', background: '#ccc', flexShrink: 0 }}>
-                {c.photo_url
-                  ? <img src={c.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Icon name="user" size={16} /></span>}
+                <SmartImage
+                  src={c.photo_url}
+                  width={36}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  fallback={<span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Icon name="user" size={16} /></span>}
+                />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{c.name}</div>

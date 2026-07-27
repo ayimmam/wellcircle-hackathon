@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getAdminTrainerVerifications, reviewTrainerVerification } from '../../api/client';
 import { showToast } from '../../components/Toast';
+import SmartImage from '../../components/SmartImage';
 
 export default function AdminTrainerVerifications() {
   const [items, setItems] = useState([]);
@@ -47,7 +48,7 @@ export default function AdminTrainerVerifications() {
             <article className="card" key={item.id}>
               <div className="card-body">
                 <div className="flex items-center gap-12 mb-12">
-                  <div className="avatar avatar-lg">{item.user_photo_url ? <img src={item.user_photo_url} alt="" /> : null}</div>
+                  <div className="avatar avatar-lg"><SmartImage src={item.user_photo_url} width={40} /></div>
                   <div>
                     <h2 className="card-title">{item.user_name || `Applicant ${String(item.user_id).slice(0, 8)}`}</h2>
                     {item.user_handle && <p className="text-sm text-secondary">@{item.user_handle}</p>}

@@ -1,26 +1,27 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getProviders, getEvents } from '../api/client';
+import { getProviders, getEvents, cacheKeys } from '../api/client';
+import useResource from '../hooks/useResource';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 import { CATEGORIES } from '../data/mock';
 import EventCard from '../components/EventCard';
 import Icon from '../components/Icon';
+import SmartImage from '../components/SmartImage';
 import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
 import { useAuth } from '../context/AuthContext';
 import { isNearUser, nearbyEvents } from '../utils/nearby';
 
+const EMPTY_LIST = [];
+
 export default function ExploreScreen() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [view, setView] = useState('studios');
-  const [providers, setProviders] = useState([]);
-  const [allProviders, setAllProviders] = useState([]); // unfiltered, for events' near-me matching
-  const [events, setEvents] = useState([]);
   const [category, setCategory] = useState('all');
   const [nearMeActive, setNearMeActive] = useState(false);
   const location = useLocation();
   const [search, setSearch] = useState(location.state?.search || '');
-  const [loading, setLoading] = useState(true);
   const { t } = useTranslation();
   // promo_view fires once per promo-bearing provider per Explore visit,
   // not on every refetch (category/search changes re-list the same cards)
@@ -30,38 +31,59 @@ export default function ExploreScreen() {
     track('explore_view', { view, category });
   }, [view, category]);
 
-  useEffect(() => {
-    // Fetched once regardless of view — events' "near me" matching needs
-    // every provider's location_text, not just the currently-listed ones.
-    getProviders().then(res => setAllProviders(res.providers || [])).catch(() => {});
-  }, []);
+  // The search box drives a query key, so wait for a pause in typing rather
+  // than issuing a request per character.
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const categoryFilter = category !== 'all' ? category : null;
+  const searchFilter = debouncedSearch || null;
+  const eventParams = useMemo(
+    () => (categoryFilter ? { category: categoryFilter } : {}),
+    [categoryFilter],
+  );
+
+  // Unfiltered, for events' "near me" matching, which needs every provider's
+  // location_text rather than just the currently-listed ones. Home's bootstrap
+  // has usually already filled this key, so it costs nothing.
+  const { data: allProviders } = useResource(
+    cacheKeys.providers(),
+    () => getProviders(),
+    { initialData: EMPTY_LIST, select: res => res.providers || EMPTY_LIST },
+  );
+
+  const { data: providers, loading: providersLoading } = useResource(
+    cacheKeys.providers(categoryFilter, searchFilter),
+    () => getProviders(categoryFilter, searchFilter),
+    {
+      enabled: view === 'studios',
+      initialData: EMPTY_LIST,
+      select: res => res.providers || EMPTY_LIST,
+    },
+  );
+
+  const { data: events, loading: eventsLoading } = useResource(
+    cacheKeys.events(eventParams),
+    () => getEvents(eventParams),
+    {
+      enabled: view === 'events',
+      initialData: EMPTY_LIST,
+      select: res => res.events || EMPTY_LIST,
+    },
+  );
+
+  const loading = view === 'studios' ? providersLoading : eventsLoading;
 
   useEffect(() => {
-    setLoading(true);
-    if (view === 'studios') {
-      getProviders(category !== 'all' ? category : null, search || null)
-        .then(res => {
-          setProviders(res.providers);
-          res.providers.forEach(p => {
-            if (!p.active_promotion || promoViewsTracked.current.has(p.id)) return;
-            promoViewsTracked.current.add(p.id);
-            track('promo_view', {
-              provider_id: p.id,
-              surface: 'explore_card',
-              discount_pct: p.active_promotion.discount_pct ?? undefined,
-              audience: p.active_promotion.audience,
-            });
-          });
-        })
-        .finally(() => setLoading(false));
-    } else {
-      const params = {};
-      if (category !== 'all') params.category = category;
-      getEvents(params)
-        .then(res => setEvents(res.events || []))
-        .finally(() => setLoading(false));
-    }
-  }, [view, category, search]);
+    providers.forEach(p => {
+      if (!p.active_promotion || promoViewsTracked.current.has(p.id)) return;
+      promoViewsTracked.current.add(p.id);
+      track('promo_view', {
+        provider_id: p.id,
+        surface: 'explore_card',
+        discount_pct: p.active_promotion.discount_pct ?? undefined,
+        audience: p.active_promotion.audience,
+      });
+    });
+  }, [providers]);
 
   const toggleNearMe = () => {
     if (!user?.location_neighborhood) {
@@ -146,7 +168,14 @@ export default function ExploreScreen() {
               id={`explore-provider-${p.id}`}
             >
               <div style={{ position: 'relative' }}>
-                <img className="card-cover" src={p.cover_photo_url} alt={p.name} loading="lazy" style={{ height: 160, filter: 'brightness(0.5)' }} />
+                <SmartImage
+                  className="card-cover"
+                  src={p.cover_photo_url}
+                  alt={p.name}
+                  width={430}
+                  style={{ height: 160, filter: 'brightness(0.5)' }}
+                  fallback={<div className="card-cover" style={{ height: 160 }} />}
+                />
                 {p.is_featured && (
                   <span className="category-badge" style={{ position: 'absolute', top: 10, left: 10, background: 'var(--accent)' }}>Featured</span>
                 )}

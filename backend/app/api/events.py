@@ -26,6 +26,74 @@ def compute_urgency(spots_remaining: int) -> str:
     return "low"
 
 
+def serialize_event(event: ProviderEvent, provider: Provider) -> dict:
+    return {
+        "id": str(event.id),
+        "provider_id": str(event.provider_id),
+        "service_name": event.service_name,
+        "description": event.description,
+        "starts_at": event.starts_at,
+        "ends_at": event.ends_at,
+        "capacity": event.capacity,
+        "spots_remaining": event.spots_remaining,
+        "price_etb": event.price_etb,
+        "is_cancelled": event.is_cancelled,
+        "is_boosted": event.is_boosted,
+        "created_at": event.created_at,
+        "provider_name": provider.name,
+        "provider_category": provider.category,
+        "provider_cover_photo_url": provider.cover_photo_url,
+        "urgency": compute_urgency(event.spots_remaining),
+    }
+
+
+def query_upcoming_events(
+    db: Session,
+    from_date: Optional[datetime] = None,
+    to_date: Optional[datetime] = None,
+    category: Optional[str] = None,
+    boosted_only: bool = False,
+    limit: int = 20,
+    page: int = 1,
+    with_total: bool = True,
+) -> tuple[list[dict], int]:
+    """Upcoming-event discovery query, shared by /events and /home/bootstrap.
+
+    `with_total` skips the extra COUNT(*) for callers that only need the rows —
+    the aggregate endpoint runs several queries back to back, so halving its
+    round trips to the database is worth the flag.
+    """
+    if not from_date:
+        from_date = datetime.now(timezone.utc)
+    if not to_date:
+        to_date = from_date + timedelta(days=7)
+
+    query = (
+        db.query(ProviderEvent, Provider)
+        .join(Provider, ProviderEvent.provider_id == Provider.id)
+        .filter(
+            ProviderEvent.starts_at >= from_date,
+            ProviderEvent.starts_at < to_date,
+            ProviderEvent.is_cancelled == False,
+        )
+    )
+
+    if category:
+        query = query.filter(Provider.category == category)
+    if boosted_only:
+        query = query.filter(ProviderEvent.is_boosted == True)
+
+    # Sort boosted first, then by date
+    query = query.order_by(ProviderEvent.is_boosted.desc(), ProviderEvent.starts_at.asc())
+
+    total = query.count() if with_total else 0
+    results = query.offset((page - 1) * limit).limit(limit).all()
+    events_list = [serialize_event(event, provider) for event, provider in results]
+    if not with_total:
+        total = len(events_list)
+    return events_list, total
+
+
 @router.get("/events", response_model=EventListResponse)
 def list_all_events(
     db: Session = Depends(get_db),
@@ -38,52 +106,15 @@ def list_all_events(
     page: int = 1
 ):
     """Discovery endpoint for upcoming events."""
-    if not from_date:
-        from_date = datetime.now(timezone.utc)
-    if not to_date:
-        to_date = from_date + timedelta(days=7)
-
-    query = db.query(ProviderEvent, Provider).join(Provider, ProviderEvent.provider_id == Provider.id)
-    
-    query = query.filter(
-        ProviderEvent.starts_at >= from_date,
-        ProviderEvent.starts_at < to_date,
-        ProviderEvent.is_cancelled == False
+    events_list, total = query_upcoming_events(
+        db,
+        from_date=from_date,
+        to_date=to_date,
+        category=category,
+        boosted_only=boosted_only,
+        limit=limit,
+        page=page,
     )
-    
-    if category:
-        query = query.filter(Provider.category == category)
-    if boosted_only:
-        query = query.filter(ProviderEvent.is_boosted == True)
-        
-    # Sort boosted first, then by date
-    query = query.order_by(ProviderEvent.is_boosted.desc(), ProviderEvent.starts_at.asc())
-    
-    total = query.count()
-    results = query.offset((page - 1) * limit).limit(limit).all()
-    
-    events_list = []
-    for event, provider in results:
-        event_dict = {
-            "id": str(event.id),
-            "provider_id": str(event.provider_id),
-            "service_name": event.service_name,
-            "description": event.description,
-            "starts_at": event.starts_at,
-            "ends_at": event.ends_at,
-            "capacity": event.capacity,
-            "spots_remaining": event.spots_remaining,
-            "price_etb": event.price_etb,
-            "is_cancelled": event.is_cancelled,
-            "is_boosted": event.is_boosted,
-            "created_at": event.created_at,
-            "provider_name": provider.name,
-            "provider_category": provider.category,
-            "provider_cover_photo_url": provider.cover_photo_url,
-            "urgency": compute_urgency(event.spots_remaining)
-        }
-        events_list.append(event_dict)
-        
     return {"events": events_list, "count": total, "page": page}
 
 
@@ -107,30 +138,8 @@ def list_provider_events(
         query = query.filter(ProviderEvent.is_cancelled == False)
         
     query = query.order_by(ProviderEvent.starts_at.asc())
-    
-    results = query.all()
-    events_list = []
-    for event, provider in results:
-        event_dict = {
-            "id": str(event.id),
-            "provider_id": str(event.provider_id),
-            "service_name": event.service_name,
-            "description": event.description,
-            "starts_at": event.starts_at,
-            "ends_at": event.ends_at,
-            "capacity": event.capacity,
-            "spots_remaining": event.spots_remaining,
-            "price_etb": event.price_etb,
-            "is_cancelled": event.is_cancelled,
-            "is_boosted": event.is_boosted,
-            "created_at": event.created_at,
-            "provider_name": provider.name,
-            "provider_category": provider.category,
-            "provider_cover_photo_url": provider.cover_photo_url,
-            "urgency": compute_urgency(event.spots_remaining)
-        }
-        events_list.append(event_dict)
-        
+
+    events_list = [serialize_event(event, provider) for event, provider in query.all()]
     return {"events": events_list, "count": len(events_list), "page": 1}
 
 

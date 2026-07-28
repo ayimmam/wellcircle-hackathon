@@ -67,23 +67,40 @@ export default function HomeScreen() {
   const handleJoin = async (id) => {
     if (joiningId) return;
     setJoiningId(id);
+    
+    // Optimistic UI Update
+    setAllCommunities(prev => prev.map(c =>
+      c.id === id ? { ...c, user_joined: true, member_count: (c.member_count || 0) + 1 } : c
+    ));
+    if (user) {
+      setUser(prev => ({
+        ...prev,
+        joined_communities: [...(prev.joined_communities || []), id]
+      }));
+    }
+
     try {
       const res = await joinCommunity(id);
       showToast('Joined!', 'success');
+      // Update with real count
       setAllCommunities(prev => prev.map(c =>
-        c.id === id ? { ...c, user_joined: true, member_count: res.member_count } : c
+        c.id === id ? { ...c, member_count: res.member_count } : c
       ));
-      if (user) {
-        setUser(prev => ({
-          ...prev,
-          joined_communities: [...(prev.joined_communities || []), id]
-        }));
-      }
       // Land on the circle's Activity tab with a pre-filled intro, same as
       // joining directly from the detail page (CommunityDetail's justJoined flow).
       navigate(`/community/${id}`, { state: { justJoined: true } });
     } catch (err) {
       showToast('Already a member');
+      // Revert optimistic update
+      setAllCommunities(prev => prev.map(c =>
+        c.id === id ? { ...c, user_joined: false, member_count: Math.max(0, (c.member_count || 1) - 1) } : c
+      ));
+      if (user) {
+        setUser(prev => ({
+          ...prev,
+          joined_communities: (prev.joined_communities || []).filter(cid => cid !== id)
+        }));
+      }
     } finally {
       setJoiningId(null);
     }

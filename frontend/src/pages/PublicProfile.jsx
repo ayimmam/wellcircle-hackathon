@@ -33,18 +33,33 @@ export default function PublicProfile() {
   }, [id]);
 
   const toggleFollow = async () => {
+    // Optimistic UI Update
+    const next = !profile.is_following;
+    setProfile(prev => ({
+      ...prev,
+      is_following: next,
+      follower_count: Math.max(0, (prev.follower_count || 0) + (next ? 1 : -1))
+    }));
+
     try {
-      const next = !profile.is_following;
       if (next) await followUser(id);
       else await unfollowUser(id);
+      
       // Re-read the privacy-aware profile. Following/unfollowing can reveal or
       // hide Strava stats and created circles, so changing only the count would
-      // leave protected content in the wrong state.
+      // leave protected content in the wrong state. We do this in the background 
+      // now since the follower_count is already updated.
       const refreshed = await getUserProfile(id);
       setProfile(refreshed);
       setStats(refreshed.strava_stats || null);
     } catch (err) {
       showToast(err.message, 'error');
+      // Revert optimistic update on failure
+      setProfile(prev => ({
+        ...prev,
+        is_following: !next,
+        follower_count: Math.max(0, (prev.follower_count || 0) + (!next ? 1 : -1))
+      }));
     }
   };
 

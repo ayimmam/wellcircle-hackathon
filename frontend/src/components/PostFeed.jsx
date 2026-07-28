@@ -113,13 +113,32 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
 
   const handleReact = async (postId, emoji, points) => {
     haptic('impact.light');
+    
+    // Optimistic UI Update
+    setPosts(prev => prev.map(p => {
+      if (p.id === postId) {
+        return {
+          ...p,
+          reactions: {
+            ...p.reactions,
+            [emoji]: (p.reactions?.[emoji] || 0) + 1
+          },
+          total_points_gifted: (p.total_points_gifted || 0) + (points || 0)
+        };
+      }
+      return p;
+    }));
+
+    if (points > 0 && refreshUser) refreshUser(); // This triggers fetching new points balance (partially optimistic but good enough for other screens)
+
     try {
       await reactToPost(postId, { emoji, points_gifted: points });
       showToast(`Reacted${points ? ' and gifted ' + points + ' points' : ''}`, 'success');
+      // The background loadPosts will synchronize any other missing changes
       loadPosts();
-      if (points > 0 && refreshUser) refreshUser();
     } catch (err) {
       showToast('Error reacting. Not enough points?', 'error');
+      loadPosts(); // Revert on failure
     }
   };
 

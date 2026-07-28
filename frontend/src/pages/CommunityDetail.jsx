@@ -74,42 +74,64 @@ export default function CommunityDetail() {
 
   const handleJoin = async () => {
     setJoining(true);
+    // Optimistic UI Update
+    setCommunity(prev => ({ ...prev, user_joined: true, member_count: (prev.member_count || 0) + 1 }));
+    if (user) {
+      setUser(prev => ({
+        ...prev,
+        joined_communities: [...(prev.joined_communities || []), id]
+      }));
+    }
+
     try {
       const res = await joinCommunity(id);
-      setCommunity(prev => ({ ...prev, user_joined: true, member_count: res.member_count }));
+      setCommunity(prev => ({ ...prev, member_count: res.member_count }));
       // Add join event to feed
       if (res.feed_event) {
         setEvents(prev => [{ ...res.feed_event, user_photo: user?.photo_url }, ...prev]);
       }
       showToast('Welcome to the circle!', 'success');
-      if (user) {
-        setUser(prev => ({
-          ...prev,
-          joined_communities: [...(prev.joined_communities || []), id]
-        }));
-      }
       setActiveTab('posts');
       setJustJoined(true);
     } catch (err) {
       showToast('Already a member');
-    } finally {
-      setJoining(false);
-    }
-  };
-
-  const handleLeave = async () => {
-    try {
-      const res = await leaveCommunity(id);
-      setCommunity(prev => ({ ...prev, user_joined: false, member_count: res.member_count }));
-      showToast('Left the circle');
+      // Revert optimistic update
+      setCommunity(prev => ({ ...prev, user_joined: false, member_count: Math.max(0, (prev.member_count || 1) - 1) }));
       if (user) {
         setUser(prev => ({
           ...prev,
           joined_communities: (prev.joined_communities || []).filter(cid => cid !== id)
         }));
       }
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    // Optimistic UI Update
+    setCommunity(prev => ({ ...prev, user_joined: false, member_count: Math.max(0, (prev.member_count || 1) - 1) }));
+    if (user) {
+      setUser(prev => ({
+        ...prev,
+        joined_communities: (prev.joined_communities || []).filter(cid => cid !== id)
+      }));
+    }
+
+    try {
+      const res = await leaveCommunity(id);
+      setCommunity(prev => ({ ...prev, member_count: res.member_count }));
+      showToast('Left the circle');
     } catch (err) {
       showToast('Error leaving community', 'error');
+      // Revert optimistic update
+      setCommunity(prev => ({ ...prev, user_joined: true, member_count: (prev.member_count || 0) + 1 }));
+      if (user) {
+        setUser(prev => ({
+          ...prev,
+          joined_communities: [...(prev.joined_communities || []), id]
+        }));
+      }
     }
   };
 
@@ -119,11 +141,14 @@ export default function CommunityDetail() {
   const handleCheckin = async () => {
     if (checkingIn) return;
     setCheckingIn(true);
+    
+    // Optimistic UI Update
+    setCheckedIn(true);
+    
     try {
       // Toasts, user points/streak updates, milestone celebration, and
       // analytics all live in useCheckin (shared with the Home check-in card)
       const res = await checkin(id);
-      setCheckedIn(true);
       // Add checkin event to feed
       if (res.feed_event) {
         setEvents(prev => [{ ...res.feed_event, user_photo: user?.photo_url }, ...prev]);
@@ -131,7 +156,7 @@ export default function CommunityDetail() {
       setChallengeRefreshKey(k => k + 1);
     } catch (err) {
       showToast('Already checked in today');
-      setCheckedIn(true);
+      // Don't revert checkedIn here because the backend confirmed we are already checked in.
     } finally {
       setCheckingIn(false);
     }

@@ -97,14 +97,21 @@ export default function CircleDetailScreen() {
       if (!joinCode) return;
     }
     setJoining(true);
+    
+    // Optimistic UI Update
+    setJoined(true);
+    if (circle) setCircle(prev => ({ ...prev, member_count: (prev.member_count || 0) + 1 }));
+
     try {
       await joinCircle(id, joinCode);
-      setJoined(true);
       setJustJoined(true);
       setActiveTab('chat');
       showToast('You joined the circle!', 'success');
-      if (circle) setCircle(prev => ({ ...prev, member_count: (prev.member_count || 0) + 1 }));
     } catch (err) {
+      // Revert optimistic updates
+      setJoined(false);
+      if (circle) setCircle(prev => ({ ...prev, member_count: Math.max(0, (prev.member_count || 1) - 1) }));
+
       if (err.status === 402) {
         setCircle(current => ({
           ...current,

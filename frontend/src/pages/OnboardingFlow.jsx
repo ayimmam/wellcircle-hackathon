@@ -296,6 +296,11 @@ export default function OnboardingFlow() {
                       <div style={{ flex: 1 }}>
                         <div className="option-card-label">{c.name}</div>
                         <div className="option-card-desc">by {c.provider_name} · 👥 {c.member_count}</div>
+                        {c.description && (
+                          <div className="option-card-desc" style={{ marginTop: 2, fontSize: '0.75rem', opacity: 0.85 }}>
+                            {c.description}
+                          </div>
+                        )}
                       </div>
                       {formData.suggested_circle_ids.includes(c.id) && (
                         <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✓</span>
@@ -323,6 +328,11 @@ export default function OnboardingFlow() {
                       <div style={{ flex: 1 }}>
                         <div className="option-card-label">{c.name}</div>
                         <div className="option-card-desc">👥 {c.member_count} members</div>
+                        {c.description && (
+                          <div className="option-card-desc" style={{ marginTop: 2, fontSize: '0.75rem', opacity: 0.85 }}>
+                            {c.description}
+                          </div>
+                        )}
                       </div>
                       <button
                         className="btn btn-sm btn-secondary"

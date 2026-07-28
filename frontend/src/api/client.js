@@ -1489,7 +1489,7 @@ export async function getTrainerVerificationStatus() {
   return cached(cacheKeys.trainer(), async () => {
     if (USE_MOCK) { await delay(); return _mockTrainerStatus ? { ..._mockTrainerStatus } : null; }
     const result = await request('GET', '/trainer/status');
-    return result.application ?? result;
+    return result?.application ?? null;
   });
 }
 

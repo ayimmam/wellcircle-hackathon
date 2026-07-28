@@ -43,18 +43,20 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Scheduler disabled on serverless host; run decay via cron/Render instead")
 
-    # Create tables if they don't exist (dev convenience)
-    if settings.ENVIRONMENT == "development":
-        try:
-            from app.database import engine, Base
-            from app.models import (  # noqa: ensure models loaded
-                User, Provider, ProviderInvite, Product, UserRedemption,
-                AdminNotification, Community, Booking, Circle, Post,
-            )
+    # Create tables & ensure columns exist across environments
+    try:
+        from app.database import engine, Base
+        from app.database_schema import ensure_db_schema
+        from app.models import (  # noqa: ensure models loaded
+            User, Provider, ProviderInvite, Product, UserRedemption,
+            AdminNotification, Community, Booking, Circle, Post,
+        )
+        if settings.ENVIRONMENT == "development":
             Base.metadata.create_all(bind=engine)
             logger.info("Database tables ensured")
-        except Exception:
-            logger.exception("DB table creation skipped")
+        ensure_db_schema(engine)
+    except Exception:
+        logger.exception("DB table and column migration check skipped")
 
     yield
 

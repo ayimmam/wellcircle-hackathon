@@ -1198,5 +1198,37 @@ HANDOFF.md
 
 ---
 
+### Phase 16 — Production Schema Auto-Migration & Navigation/Verification Hardening (This Session)
+
+Focus: resolved production database schema column mismatch (`activity_type` in `posts` table) and fixed Telegram Mini App navigation and trainer verification state rendering issues.
+
+#### Backend Schema Auto-Migration (`ensure_db_schema`)
+- **Dynamic Schema Synchronization (`backend/app/database_schema.py`):** Added automated PostgreSQL schema migration utility that issues safe `ALTER TABLE <table_name> ADD COLUMN IF NOT EXISTS ...` SQL statements on server boot.
+- **Coverage:** Ensures `posts` columns (`activity_type`, `distance_km`, `duration_min`, `photo_url`, `circle_id`, `is_system_event`), `users` columns (`bio`, `profile_privacy`, `is_verified_trainer`, `verified_trainer_expires_at`, `strava_*`), and `trainer_verifications` columns (`certificate_public_id`, `payment_receipt_public_id`) are automatically present in PostgreSQL database without requiring manual SQL script execution on Supabase/Neon.
+- **Vercel Lifespan Hook (`backend/app/main.py`):** Updated FastAPI `lifespan` manager so `ensure_db_schema(engine)` runs across all environments (including production on Vercel), eliminating `psycopg2.errors.UndefinedColumn` errors on `POST` and `GET` requests.
+
+#### Frontend Navigation & Trainer Verification UX
+- **API Client Parsing (`frontend/src/api/client.js`):** Fixed `getTrainerVerificationStatus()` return value logic (`result?.application ?? null`). Previously, `result.application ?? result` returned `{ application: null }` when application was null, which JavaScript evaluated as truthy, causing users without applications to see an erroneous status card ("Application needs attention").
+- **Unified Back Navigation (`frontend/src/pages/TrainerVerification.jsx`):** Synchronized native Telegram back-gesture (`useTelegramBackButton`) and top-bar chevron button (`onClick={handleBack}`) to handle multi-step form navigation (`step > 0`) step-by-step before navigating back.
+- **Explicit Status Cards:** Updated status badge rendering to clearly distinguish between Approved (*"You are a verified trainer"*), Pending (*"Application under review"*), and Rejected (*"Application rejected"*) statuses.
+- **Onboarding Mini Circle Descriptions (`frontend/src/pages/OnboardingFlow.jsx`):** Added mini circle descriptions to both "Recommended for you" and "Available Circles" suggestion cards during onboarding.
+
+#### Verification
+- Backend: `PYTHONPATH=. pytest` → **14/14 test suites passing**.
+- Frontend: `npx vitest run` → **176/176 tests passing**, `npm run build` → **Clean build, 0 errors**.
+
+#### Files Changed / Added (Phase 16)
+```
+backend/app/database_schema.py   (new)
+backend/app/main.py
+frontend/src/api/client.js
+frontend/src/pages/TrainerVerification.jsx
+frontend/src/pages/OnboardingFlow.jsx
+docs/HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
+
 

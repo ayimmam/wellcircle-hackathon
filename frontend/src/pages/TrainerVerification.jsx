@@ -14,13 +14,15 @@ export default function TrainerVerification() {
   const [receipt, setReceipt] = useState(null);
   const [status, setStatus] = useState(null);
 
-  useTelegramBackButton(() => {
+  const handleBack = () => {
     if (!status && step > 0) {
       setStep(s => s - 1);
     } else {
       navigate(-1);
     }
-  });
+  };
+
+  useTelegramBackButton(handleBack);
   const [uploading, setUploading] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -63,16 +65,18 @@ export default function TrainerVerification() {
 
   if (status) {
     const rejected = status.status === 'rejected';
+    const approved = status.status === 'approved';
+    const pending = status.status === 'pending';
     return (
       <div className="page" id="trainer-verification-screen">
         <div className="page-heading">
-          <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} aria-label="Back"><Icon name="chevron-left" /></button>
+          <button className="btn btn-icon btn-secondary" onClick={handleBack} aria-label="Back"><Icon name="chevron-left" /></button>
           <h1>Trainer Verification</h1>
         </div>
         <div className={`profile-card verification-status ${status.status}`}>
-          <div className="verification-status-icon">{status.status === 'approved' ? '✓' : status.status === 'pending' ? '…' : '!'}</div>
-          <h2>{status.status === 'approved' ? 'You are a verified trainer' : status.status === 'pending' ? 'Application under review' : 'Application needs attention'}</h2>
-          <p>{status.status === 'pending' ? 'We will notify you after an admin reviews your certificate and payment.' : status.rejection_reason || 'Your verified badge is active.'}</p>
+          <div className="verification-status-icon">{approved ? '✓' : pending ? '…' : '!'}</div>
+          <h2>{approved ? 'You are a verified trainer' : pending ? 'Application under review' : 'Application rejected'}</h2>
+          <p>{pending ? 'We will notify you after an admin reviews your certificate and payment.' : approved ? 'Your verified badge is active.' : status.rejection_reason || 'Your application was not approved.'}</p>
           {status.expires_at && <p className="text-sm text-secondary">Valid until {new Date(status.expires_at).toLocaleDateString()}</p>}
           {rejected && <button className="btn btn-primary mt-16" onClick={() => { setStatus(null); setStep(0); }}>Apply again</button>}
         </div>
@@ -83,7 +87,7 @@ export default function TrainerVerification() {
   return (
     <div className="page" id="trainer-verification-screen">
       <div className="page-heading">
-        <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} aria-label="Back"><Icon name="chevron-left" /></button>
+        <button className="btn btn-icon btn-secondary" onClick={handleBack} aria-label="Back"><Icon name="chevron-left" /></button>
         <h1>Become a Verified Trainer</h1>
       </div>
       <div className="step-indicator">{steps.map((label, index) => <span className={index <= step ? 'active' : ''} key={label}>{index + 1}<small>{label}</small></span>)}</div>

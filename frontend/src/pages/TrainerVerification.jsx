@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { applyForTrainerVerification, getTrainerVerificationStatus, uploadFile } from '../api/client';
 import { showToast } from '../components/Toast';
 import Icon from '../components/Icon';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
 const steps = ['Benefits', 'Certificate', 'Payment', 'Review'];
 
@@ -12,6 +13,14 @@ export default function TrainerVerification() {
   const [certificate, setCertificate] = useState(null);
   const [receipt, setReceipt] = useState(null);
   const [status, setStatus] = useState(null);
+
+  useTelegramBackButton(() => {
+    if (!status && step > 0) {
+      setStep(s => s - 1);
+    } else {
+      navigate(-1);
+    }
+  });
   const [uploading, setUploading] = useState('');
   const [submitting, setSubmitting] = useState(false);
 

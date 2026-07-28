@@ -27,10 +27,10 @@ function getInitialTheme() {
 }
 
 function getInitialAccent() {
-  if (typeof window === 'undefined') return 'blue';
+  if (typeof window === 'undefined') return 'gold';
   const saved = localStorage.getItem(ACCENT_STORAGE_KEY);
   if (ACCENT_KEYS.includes(saved)) return saved;
-  return 'blue';
+  return 'gold';
 }
 
 function syncTelegramChrome(theme) {
@@ -52,7 +52,9 @@ export function ThemeProvider({ children }) {
   }, [theme]);
 
   useEffect(() => {
-    if (accent === 'blue') {
+    if (accent === 'gold') {
+      document.documentElement.dataset.accent = 'gold';
+    } else if (accent === 'blue') {
       delete document.documentElement.dataset.accent;
     } else {
       document.documentElement.dataset.accent = accent;

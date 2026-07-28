@@ -173,8 +173,18 @@ async def create_interaction(
     emoji = "🙌" if interaction.action_type == "high-five" else "👉"
     action_verb = "high-fived" if interaction.action_type == "high-five" else "nudged"
     
+    from app.models.community import Community
+    from app.models.circle import Circle
+    
+    is_community = db.query(Community).filter(Community.id == community_id).first() is not None
+    is_circle = not is_community and db.query(Circle).filter(Circle.id == community_id).first() is not None
+    
+    if not is_community and not is_circle:
+        raise HTTPException(status_code=404, detail="Community or Circle not found")
+
     feed_post = Post(
-        community_id=community_id,
+        community_id=community_id if is_community else None,
+        circle_id=community_id if is_circle else None,
         user_id=user.id,
         content=f"{emoji} {user.name or user.telegram_handle} just {action_verb} {target_user.name or target_user.telegram_handle} to stay accountable!",
         is_system_event=True

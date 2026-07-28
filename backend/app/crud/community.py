@@ -359,6 +359,7 @@ def get_community_feed(db: Session, community_id: UUID, since: Optional[datetime
         {
             "id": str(e.id),
             "event_type": e.event_type,
+            "user_id": str(user.id) if user else None,
             "user_name": (user.name or user.telegram_handle) if user else None,
             "user_photo": user.photo_url if user else None,
             "event_metadata": e.event_metadata,

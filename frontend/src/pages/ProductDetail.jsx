@@ -3,10 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getProduct } from '../api/client';
 import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  useTelegramBackButton(() => navigate(-1));
   const [product, setProduct] = useState(null);
   const [imgIdx, setImgIdx] = useState(0);
   const [loading, setLoading] = useState(true);

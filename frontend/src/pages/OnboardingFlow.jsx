@@ -6,6 +6,7 @@ import { track } from '../analytics';
 import { getCircles, createCircle, joinCircle } from '../api/client';
 import { shareCircleInvite } from '../utils/circleInvite';
 import { showToast } from '../components/Toast';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
 const STEPS = ['name', 'goal', 'interest', 'frequency', 'circles'];
 // Smart default: most users land mid-scale, and a pre-selected card means the
@@ -17,6 +18,10 @@ export default function OnboardingFlow() {
   const { user, onboard } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
+
+  useTelegramBackButton(() => {
+    if (step > 0) setStep(s => s - 1);
+  });
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',

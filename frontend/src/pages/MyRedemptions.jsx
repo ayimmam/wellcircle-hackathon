@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMyRedemptions } from '../api/client';
 import Icon from '../components/Icon';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
 const STATUS_ICONS = {
   pending: '···',
@@ -12,6 +13,7 @@ const STATUS_ICONS = {
 
 export default function MyRedemptions() {
   const navigate = useNavigate();
+  useTelegramBackButton(() => navigate(-1));
   const [redemptions, setRedemptions] = useState([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);

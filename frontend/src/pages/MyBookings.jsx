@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getMyBookings } from '../api/client';
 import Icon from '../components/Icon';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
 export default function MyBookings() {
   const navigate = useNavigate();
+  useTelegramBackButton(() => navigate(-1));
   const { t } = useTranslation();
   const [upcoming, setUpcoming] = useState([]);
   const [past, setPast] = useState([]);

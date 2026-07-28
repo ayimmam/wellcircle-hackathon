@@ -5,12 +5,18 @@ import { INTEREST_CATEGORIES } from '../data/mock';
 import { showToast } from '../components/Toast';
 import usePolling from '../hooks/usePolling';
 import Icon from '../components/Icon';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
 const STEPS = ['Invite Code', 'Basic Info', 'Services & Photos', 'Payment Setup', 'Review'];
 
 export default function ProviderOnboard() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
+
+  useTelegramBackButton(() => {
+    if (step > 0) setStep(s => s - 1);
+    else navigate(-1);
+  });
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [form, setForm] = useState({

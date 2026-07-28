@@ -5,10 +5,12 @@ import { getProducts } from '../api/client';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
 export default function ProductsStore() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  useTelegramBackButton(() => navigate('/home'));
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState('');
   const [type, setType] = useState('');

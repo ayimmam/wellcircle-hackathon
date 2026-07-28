@@ -6,10 +6,12 @@ import { showToast } from '../components/Toast';
 import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
 import Icon from '../components/Icon';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
 export default function ProductRedeem() {
   const { id } = useParams();
   const navigate = useNavigate();
+  useTelegramBackButton(() => navigate(-1));
   const { user, refreshUser } = useAuth();
   const [product, setProduct] = useState(null);
   const [address, setAddress] = useState({ fullName: '', phone: '', line1: '', neighborhood: 'Bole', city: 'Addis Ababa' });

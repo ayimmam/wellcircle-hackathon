@@ -61,7 +61,7 @@ export default function CheckinCard({ circles, onChecked }) {
       <div className="flex items-center gap-6" style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 10 }}>
         {streak === 0 ? <Icon name="star" size={15} /> : <span>🔥</span>}
         {streak === 0
-          ? 'Start your streak — daily check-ins earn +10 pts'
+          ? 'Start your streak — check in daily!'
           : `Keep your ${streak}-day streak going`}
       </div>
       <div className="flex-col gap-8">
@@ -82,7 +82,7 @@ export default function CheckinCard({ circles, onChecked }) {
                   <span className="flex items-center gap-4"><Icon name="check" size={13} /> Checked in</span>
                 ) : busyId === c.id ? (
                   <span className="btn-spinner" aria-hidden="true" />
-                ) : 'Check in +10'}
+                ) : 'Check in'}
               </button>
             </div>
           );

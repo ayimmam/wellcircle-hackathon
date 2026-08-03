@@ -57,6 +57,7 @@ const AdminReports = lazy(() => import('./pages/admin/AdminReports'));
 const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback'));
 const AdminTrainerVerifications = lazy(() => import('./pages/admin/AdminTrainerVerifications'));
 const AdminPaidCircles = lazy(() => import('./pages/admin/AdminPaidCircles'));
+const AdminPointsAward = lazy(() => import('./pages/admin/AdminPointsAward'));
 
 // Provider website — standalone Telegram-Login-Widget-authenticated portal,
 // reachable outside the Telegram Mini App. Full-screen landscape layout with
@@ -161,6 +162,7 @@ export function AppShell() {
                 <Route path="feedback" element={<AdminFeedback />} />
                 <Route path="trainers" element={<AdminTrainerVerifications />} />
                 <Route path="paid-circles" element={<AdminPaidCircles />} />
+                <Route path="award-points" element={<AdminPointsAward />} />
               </Route>
 
               {/* Provider website — Telegram Login Widget auth, not the Mini App */}

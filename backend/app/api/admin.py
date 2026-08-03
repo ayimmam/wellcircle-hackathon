@@ -33,7 +33,11 @@ from app.services.telegram_bot import fetch_telegram_file
 from app.schemas.evidence import EvidenceReviewRequest
 from app.schemas.feedback import FeedbackListResponse, FeedbackStatusUpdate
 from app.schemas.provider import ProviderCreate, ProviderUpdate
-from app.schemas.admin import PlatformAnalytics, AdminUserListResponse, AdminUserItem, AdminBookingListResponse, AdminBookingItem
+from app.schemas.admin import (
+    PlatformAnalytics, AdminUserListResponse, AdminUserItem,
+    AdminBookingListResponse, AdminBookingItem,
+    AdminPointsAwardRequest, AdminPointsAwardResponse
+)
 from app.schemas.provider_onboarding import (
     PendingProvidersResponse, ProviderApproveRequest, ProviderApproveResponse,
     ProviderRejectRequest, ProviderRejectResponse,
@@ -126,6 +130,46 @@ async def get_user_by_tg_id(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return AdminUserItem.model_validate(user)
+
+
+@router.post("/users/award-points", response_model=AdminPointsAwardResponse)
+async def award_points_to_users(
+    request: AdminPointsAwardRequest,
+    admin: User = Depends(get_super_admin),
+    db: Session = Depends(get_db),
+):
+    from app.services.points import apply_transaction, TXN_ADMIN_ADJUST
+    from app.services.notification_service import create_notification
+    from app.crud.user import get_user_by_id
+    
+    if request.amount <= 0 or request.amount > 50:
+        raise HTTPException(status_code=400, detail="Amount must be between 1 and 50")
+        
+    awarded_count = 0
+    for uid_str in request.user_ids:
+        try:
+            uid = UUID(uid_str)
+        except ValueError:
+            continue
+            
+        user = get_user_by_id(db, uid)
+        if user:
+            apply_transaction(
+                db, user, request.amount, TXN_ADMIN_ADJUST, 
+                note=request.note
+            )
+            create_notification(
+                db, str(user.id), "points_awarded", 
+                "Points Awarded", 
+                f"You have been awarded {request.amount} points! Reason: {request.note}"
+            )
+            awarded_count += 1
+            
+    db.commit()
+    return AdminPointsAwardResponse(
+        awarded_count=awarded_count, 
+        total_points=awarded_count * request.amount
+    )
 
 
 @router.post("/providers", status_code=201)

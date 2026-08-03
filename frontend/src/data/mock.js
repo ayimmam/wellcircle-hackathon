@@ -420,11 +420,11 @@ export const MOCK_FEED_EVENTS = [
 // ─── Points History ─────────────────────────────────
 export const MOCK_POINTS_HISTORY = {
   items: [
-    { action: 'checkin', points: 10, community_name: 'Shanti Yoga Circle', created_at: new Date(now - 1 * 3600000).toISOString() },
-    { action: 'checkin', points: 10, community_name: 'Nourish Community', created_at: new Date(now - 25 * 3600000).toISOString() },
-    { action: 'checkin', points: 10, community_name: 'Shanti Yoga Circle', created_at: new Date(now - 49 * 3600000).toISOString() },
+    { action: 'checkin', points: 0, community_name: 'Shanti Yoga Circle', created_at: new Date(now - 1 * 3600000).toISOString() },
+    { action: 'checkin', points: 0, community_name: 'Nourish Community', created_at: new Date(now - 25 * 3600000).toISOString() },
+    { action: 'checkin', points: 0, community_name: 'Shanti Yoga Circle', created_at: new Date(now - 49 * 3600000).toISOString() },
     { action: 'decay', points: -5, community_name: null, created_at: new Date(now - 72 * 3600000).toISOString() },
-    { action: 'checkin', points: 10, community_name: 'Shanti Yoga Circle', created_at: new Date(now - 96 * 3600000).toISOString() }
+    { action: 'checkin', points: 0, community_name: 'Shanti Yoga Circle', created_at: new Date(now - 96 * 3600000).toISOString() }
   ],
   current_balance: 120,
   tier: 'sprout',
@@ -600,7 +600,7 @@ export const MOCK_POSTS = [
   },
   {
     id: '44444444-0000-0000-0000-000000000003',
-    content: "Dawit checked in for their workout today! 💪 Earned 10 Legacy Points.",
+    content: "Dawit checked in for their workout today! 💪 Keep it up!",
     user: { id: '001', name: 'Dawit', photo_url: 'https://i.pravatar.cc/150?u=dawit' },
     created_at: new Date(now - 2 * 3600000).toISOString(),
     reactions: { '🔥': 4, '🙌': 2 },

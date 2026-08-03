@@ -582,7 +582,7 @@ export default function BookingFlow() {
 
       {/* Step 2: Confirm */}
       {step === 2 && (
-        <div>
+        <div style={{ paddingBottom: 260 }}>
           <h2 className="section-title mb-12">{t('Review & Confirm')}</h2>
 
           {/* Order summary */}

@@ -8,7 +8,9 @@ from typing import List, Optional
 class ChallengeCreate(BaseModel):
     title: str
     description: Optional[str] = None
-    target_checkins: int
+    challenge_type: str = "checkin"
+    target_checkins: int = 0
+    target_value: Optional[float] = None
     reward_points: int
     starts_at: datetime
     ends_at: datetime
@@ -16,6 +18,7 @@ class ChallengeCreate(BaseModel):
 
 class ChallengeProgress(BaseModel):
     checkins_this_period: int
+    strava_distance: Optional[float] = None
     completed: bool
 
 
@@ -24,7 +27,9 @@ class ChallengeResponse(BaseModel):
     community_id: str
     title: str
     description: Optional[str] = None
-    target_checkins: int
+    challenge_type: str = "checkin"
+    target_checkins: int = 0
+    target_value: Optional[float] = None
     reward_points: int
     starts_at: datetime
     ends_at: datetime

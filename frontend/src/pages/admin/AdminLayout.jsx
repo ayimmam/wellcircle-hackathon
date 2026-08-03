@@ -9,6 +9,7 @@ const TABS = [
   { path: '/admin/feedback', label: 'Feedback' },
   { path: '/admin/trainers', label: 'Trainers' },
   { path: '/admin/paid-circles', label: 'Paid Circles' },
+  { path: '/admin/award-points', label: 'Award Points' },
 ];
 
 export default function AdminLayout() {

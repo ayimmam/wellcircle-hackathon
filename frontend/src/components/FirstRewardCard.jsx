@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { getProducts } from '../api/client';
 import Icon from './Icon';
 
-const POINTS_PER_CHECKIN = 10;
-
 /**
  * C4: onboarding goal — one concrete near-term redemption target, so points
  * feel less abstract. Loyalty best practice: surface a first reward reachable
@@ -37,7 +35,6 @@ export default function FirstRewardCard({ pointsBalance }) {
   const cost = target.price_etb ?? target.points_cost;
   const remaining = Math.max(0, cost - (pointsBalance || 0));
   const reached = remaining === 0;
-  const checkinsNeeded = Math.ceil(remaining / POINTS_PER_CHECKIN);
   const pct = Math.min(100, Math.round(((pointsBalance || 0) / cost) * 100));
 
   return (
@@ -57,7 +54,7 @@ export default function FirstRewardCard({ pointsBalance }) {
       <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 10 }}>
         {reached
           ? `You have enough for ${target.name} — tap to redeem.`
-          : `Check in ${checkinsNeeded} more time${checkinsNeeded === 1 ? '' : 's'} to unlock ${target.name}.`}
+          : `${remaining} more point${remaining === 1 ? '' : 's'} to unlock ${target.name}.`}
       </p>
       <div className="progress-bar">
         <div className="progress-fill" style={{ width: `${pct}%` }} />

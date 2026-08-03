@@ -1115,6 +1115,14 @@ export async function getAdminUsers(params = {}) {
   return request('GET', `/admin/users?${qs}`);
 }
 
+export async function adminAwardPoints({ user_ids, amount, note }) {
+  if (USE_MOCK) {
+    await delay();
+    return { awarded_count: user_ids.length, total_points: user_ids.length * amount };
+  }
+  return request('POST', '/admin/users/award-points', { user_ids, amount, note });
+}
+
 export async function getAdminRedemptions(params = {}) {
   if (USE_MOCK) {
     await delay();

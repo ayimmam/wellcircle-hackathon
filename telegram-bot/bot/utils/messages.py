@@ -9,7 +9,7 @@ Tap the button below to open Well Circle and complete your profile — it takes 
 
 🏋️ Discover wellness providers near you
 👥 Join community circles for accountability
-🏆 Earn Legacy Points with daily check-ins
+🏆 Earn Legacy Points through challenges & events
 💳 Book and pay — all inside Telegram
 """
 
@@ -18,7 +18,7 @@ REENGAGEMENT_MESSAGE = """
 
 Your wellness circle has been active — new check-ins, new members, and new sessions dropping this week.
 
-Your points paused while you were away — a quick check-in gets them growing again. 🌱
+Your points paused while you were away — complete a challenge or attend an event to earn more. 🌱
 
 Tap /start to jump back in. Your tribe is waiting. 💪
 """

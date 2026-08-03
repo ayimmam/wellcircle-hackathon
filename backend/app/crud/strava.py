@@ -45,7 +45,63 @@ def cache_activities(db: Session, user_id, activities):
         row.fetched_at = fetched_at
         saved.append(row)
     db.commit()
+    check_strava_challenges(db, user_id)
     return saved
+
+
+def check_strava_challenges(db: Session, user_id):
+    from app.models.community_challenge import CommunityChallenge, ChallengeAward
+    from app.models.user import User
+    from app.services.points import apply_transaction, TXN_CHALLENGE
+    from app.services.notification_service import create_notification
+    from sqlalchemy import func
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return
+        
+    active_challenges = db.query(CommunityChallenge).filter(
+        CommunityChallenge.challenge_type == "strava_distance",
+        CommunityChallenge.is_active == True,
+        CommunityChallenge.starts_at <= datetime.now(timezone.utc),
+        CommunityChallenge.ends_at >= datetime.now(timezone.utc)
+    ).all()
+    
+    for challenge in active_challenges:
+        if not challenge.target_value:
+            continue
+            
+        distance_meters = db.query(func.coalesce(func.sum(StravaActivityCache.distance_meters), 0)).filter(
+            StravaActivityCache.user_id == user_id,
+            StravaActivityCache.start_date >= challenge.starts_at,
+            StravaActivityCache.start_date <= challenge.ends_at
+        ).scalar()
+        
+        strava_distance = distance_meters / 1000.0
+        if strava_distance >= challenge.target_value:
+            already_awarded = db.query(ChallengeAward).filter(
+                ChallengeAward.challenge_id == challenge.id,
+                ChallengeAward.user_id == user_id
+            ).first()
+            
+            if not already_awarded:
+                apply_transaction(db, user, challenge.reward_points, TXN_CHALLENGE,
+                                  reference_id=challenge.id,
+                                  note=f"Challenge: {challenge.title}")
+                db.add(ChallengeAward(
+                    challenge_id=challenge.id,
+                    user_id=user_id,
+                    points_given=challenge.reward_points
+                ))
+                create_notification(
+                    db,
+                    user_id=str(user.id),
+                    type="challenge_completed",
+                    title="Challenge Completed! 🏃",
+                    body=f"You completed '{challenge.title}' and earned {challenge.reward_points} pts!",
+                    action_url=f"/community/{challenge.community_id}"
+                )
+    db.commit()
 
 
 def get_cached_activities(db: Session, user_id, limit=10):

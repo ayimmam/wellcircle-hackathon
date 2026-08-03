@@ -189,10 +189,15 @@ def leave_community(db: Session, community_id: UUID, user_id: UUID) -> Optional[
 
 
 def checkin_community(db: Session, community_id: UUID, user: User):
-    """Daily check-in. Returns dict, or string sentinel for errors."""
+    """Daily check-in (streak-only — no points earned).
+
+    Check-in used to mint POINTS_CHECKIN (10) via TXN_CHECKIN; as of the
+    points-economy rework it only maintains streaks/freezes and triggers
+    challenge completion checks. Returns dict, or string sentinel for errors.
+    """
     from app.services.points import (
-        apply_transaction, get_points_tier, POINTS_CHECKIN,
-        TXN_CHECKIN, TXN_CHALLENGE,
+        apply_transaction, get_points_tier,
+        TXN_CHALLENGE,
     )
 
     community = db.query(Community).filter(Community.id == community_id).first()
@@ -219,10 +224,8 @@ def checkin_community(db: Session, community_id: UUID, user: User):
     if existing:
         return "already_checked_in"
 
-    points_earned = POINTS_CHECKIN
-    apply_transaction(db, user, points_earned, TXN_CHECKIN,
-                      reference_id=community.id,
-                      note=f"Check-in: {community.name}")
+    # Check-in no longer earns points — streak-only.
+    points_earned = 0
 
     # E1: Referral credit — fires once, on the invitee's first-ever check-in
     # (not mere signup), to resist farming. last_checkin_at is still None here.
@@ -289,6 +292,9 @@ def checkin_community(db: Session, community_id: UUID, user: User):
     ).all()
     
     for challenge in active_challenges:
+        if challenge.challenge_type != "checkin":
+            continue
+        
         # check user progress
         checkins = db.query(CommunityFeedEvent).filter(
             CommunityFeedEvent.user_id == user.id,

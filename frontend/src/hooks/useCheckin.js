@@ -19,7 +19,7 @@ export default function useCheckin(surface) {
 
   return useCallback(async (communityId) => {
     const res = await checkinCommunity(communityId);
-    showToast(`+${res.points_earned} Legacy Points earned!`, 'success');
+    showToast('Streak continued!', 'success');
     setUser(prev => prev ? {
       ...prev,
       points_balance: res.new_balance,

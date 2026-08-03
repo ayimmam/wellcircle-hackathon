@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { COUNTRY_CODES, validatePhone, normalizeEthiopian } from '../utils/phone';
 
 /**
@@ -6,11 +6,25 @@ import { COUNTRY_CODES, validatePhone, normalizeEthiopian } from '../utils/phone
  * on every keystroke; shows the error message inline once the field has been
  * touched and is invalid (not before, so an empty field on first render isn't
  * red).
+ *
+ * Includes a scrollIntoView on focus to work around Telegram Mini App's
+ * on-screen keyboard covering the input (the keyboard pushes the viewport
+ * but doesn't scroll to the focused element).
  */
 export default function PhoneInput({ value, onChange }) {
   const [code, setCode] = useState(value?.code || '+251');
   const [national, setNational] = useState(value?.national || '');
   const [touched, setTouched] = useState(false);
+  const inputRef = useRef(null);
+
+  const handleFocus = () => {
+    // Delay so the on-screen keyboard has time to animate open and resize
+    // the viewport before we scroll. Without this, scrollIntoView fires
+    // before the layout shift and the input stays hidden.
+    setTimeout(() => {
+      inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  };
 
   useEffect(() => {
     const result = validatePhone(code, national);
@@ -48,11 +62,13 @@ export default function PhoneInput({ value, onChange }) {
           ))}
         </select>
         <input
+          ref={inputRef}
           className="onboarding-input"
           style={{ flex: 1 }}
           placeholder={activeCountry.placeholder}
           value={national}
           onChange={e => setNational(e.target.value)}
+          onFocus={handleFocus}
           onBlur={handleNationalBlur}
           type="tel"
           id="phone-input"

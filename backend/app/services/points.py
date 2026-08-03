@@ -20,6 +20,9 @@ from app.models.point_transaction import PointTransaction
 
 # ── Named constants (B2: moved from points_engine.py + hardcoded values) ────
 
+# NOTE: Check-in no longer earns points as of the points-economy rework.
+# POINTS_CHECKIN is retained for backward compatibility with existing ledger
+# rows of type TXN_CHECKIN. New check-ins mint 0 points.
 POINTS_CHECKIN = 10
 POINTS_BOOKING_BONUS = 50
 POINTS_DECAY_PER_DAY = 5

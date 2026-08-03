@@ -104,35 +104,119 @@ export default function NotificationsScreen() {
             return Object.entries(sections).map(([label, items]) => {
               if (items.length === 0) return null;
               return (
-                <div key={label} className="mb-16">
-                  <h2 className="section-title mb-12" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t(label)}</h2>
-                  <div className="flex-col gap-8">
-                    {items.map(n => (
-                      <div 
-                        key={n.id} 
-                        className={`card ${!n.is_read ? 'notification-unread' : ''}`}
-                        style={{ 
-                          padding: '16px',
-                          cursor: n.action_url ? 'pointer' : 'default',
-                        }}
-                        onClick={() => handleMarkRead(n.id, n.action_url)}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                          <h3
-                            className={`flex items-center gap-6 ${!n.is_read ? 'notification-unread-title' : ''}`}
-                            style={{ fontWeight: 700, fontSize: '1rem', color: n.is_read ? 'var(--text-primary)' : undefined, margin: 0 }}
-                          >
-                            {n.type === 'checkin' && <Icon name="check" size={16} />}
-                            {n.type === 'join' && <Icon name="users" size={16} />}
-                            {n.title}
-                          </h3>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', marginLeft: 8 }}>
-                            {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
+                <div key={label} className="mb-24">
+                  <h2 className="section-title mb-12" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', paddingLeft: '4px' }}>
+                    {t(label)}
+                  </h2>
+                  <div className="flex-col gap-12">
+                    {items.map(n => {
+                      const isUnread = !n.is_read;
+                      // Choose an icon based on the type
+                      let iconName = 'bell';
+                      let iconColor = 'var(--brand-primary)';
+                      let bgSoft = 'rgba(0, 122, 255, 0.1)';
+
+                      if (n.type === 'checkin' || n.type === 'challenge_completed') {
+                        iconName = 'check-circle';
+                        iconColor = '#10b981'; // green
+                        bgSoft = 'rgba(16, 185, 129, 0.1)';
+                      } else if (n.type === 'join' || n.type === 'follower') {
+                        iconName = 'users';
+                        iconColor = '#8b5cf6'; // purple
+                        bgSoft = 'rgba(139, 92, 246, 0.1)';
+                      } else if (n.type === 'points_awarded' || n.type === 'reward') {
+                        iconName = 'star';
+                        iconColor = '#f59e0b'; // yellow/gold
+                        bgSoft = 'rgba(245, 158, 11, 0.1)';
+                      }
+
+                      return (
+                        <div 
+                          key={n.id} 
+                          className="card"
+                          style={{ 
+                            padding: '16px',
+                            cursor: n.action_url ? 'pointer' : 'default',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '16px',
+                            background: isUnread ? 'var(--bg-card)' : 'transparent',
+                            border: isUnread ? '1px solid var(--border-color)' : '1px solid transparent',
+                            boxShadow: isUnread ? '0 4px 12px rgba(0,0,0,0.03)' : 'none',
+                            transition: 'all 0.2s ease',
+                            position: 'relative',
+                            overflow: 'hidden'
+                          }}
+                          onClick={() => handleMarkRead(n.id, n.action_url)}
+                          onMouseEnter={(e) => {
+                            if(n.action_url) e.currentTarget.style.transform = 'translateY(-2px)';
+                          }}
+                          onMouseLeave={(e) => {
+                            if(n.action_url) e.currentTarget.style.transform = 'none';
+                          }}
+                        >
+                          {/* Unread Indicator */}
+                          {isUnread && (
+                            <div style={{
+                              position: 'absolute',
+                              top: 0,
+                              bottom: 0,
+                              left: 0,
+                              width: '3px',
+                              background: 'var(--brand-primary)'
+                            }} />
+                          )}
+
+                          {/* Icon wrapper */}
+                          <div style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: '16px',
+                            background: bgSoft,
+                            color: iconColor,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            <Icon name={iconName} size={24} strokeWidth={1.5} />
+                          </div>
+
+                          {/* Content */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px', gap: '8px' }}>
+                              <h3
+                                style={{ 
+                                  fontWeight: isUnread ? 700 : 600, 
+                                  fontSize: '1rem', 
+                                  color: 'var(--text-primary)', 
+                                  margin: 0,
+                                  lineHeight: 1.3
+                                }}
+                              >
+                                {n.title}
+                              </h3>
+                              <span style={{ 
+                                fontSize: '0.75rem', 
+                                color: isUnread ? 'var(--brand-primary)' : 'var(--text-tertiary)', 
+                                whiteSpace: 'nowrap', 
+                                fontWeight: isUnread ? 600 : 400 
+                              }}>
+                                {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <p style={{ 
+                              fontSize: '0.9rem', 
+                              color: isUnread ? 'var(--text-secondary)' : 'var(--text-tertiary)', 
+                              margin: 0, 
+                              lineHeight: 1.4 
+                            }}>
+                              {n.body}
+                            </p>
+                          </div>
                         </div>
-                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0, marginTop: 4 }}>{n.body}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );

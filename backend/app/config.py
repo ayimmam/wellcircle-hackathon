@@ -68,6 +68,7 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "https://web.telegram.org",
         "https://wellcircle-hackathon.vercel.app",
+        "https://wellcircle.et",
     ]
 
     @property

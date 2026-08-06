@@ -30,28 +30,8 @@ def _create_token(user_id: str) -> str:
     )
 
 
-def _build_user_response(user, joined_communities) -> UserResponse:
-    tier, tier_emoji = get_points_tier(user.points_balance)
-    return UserResponse(
-        id=str(user.id),
-        telegram_id=user.telegram_id,
-        telegram_handle=user.telegram_handle,
-        name=user.name,
-        photo_url=user.photo_url,
-        goal=user.goal,
-        interest_categories=user.interest_categories or [],
-        exercise_frequency=user.exercise_frequency,
-        points_balance=user.points_balance,
-        tier=tier,
-        tier_emoji=tier_emoji,
-        is_onboarded=user.is_onboarded,
-        is_provider=user.is_provider,
-        is_super_admin=user.is_super_admin or user.telegram_id in settings.super_admin_ids,
-        location_neighborhood=user.location_neighborhood,
-        health_app_connected=user.health_app_connected,
-        joined_communities=joined_communities,
-        created_at=user.created_at,
-    )
+from app.api.users import _build_response
+
 
 
 @router.post("/telegram", response_model=AuthResponse)
@@ -104,7 +84,7 @@ async def telegram_auth(request: TelegramAuthRequest, db: Session = Depends(get_
 
     return AuthResponse(
         token=token,
-        user=_build_user_response(user, joined),
+        user=_build_response(user, db),
         is_new_user=is_new,
     )
 
@@ -144,6 +124,6 @@ async def telegram_widget_auth(request: TelegramWidgetLoginRequest, db: Session 
 
     return AuthResponse(
         token=token,
-        user=_build_user_response(user, joined),
+        user=_build_response(user, db),
         is_new_user=False,
     )

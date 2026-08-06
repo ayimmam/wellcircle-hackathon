@@ -333,6 +333,7 @@ async function fetchUserProfile(userId) {
 export async function followUser(userId) {
   invalidate('profile');
   invalidate('followers');
+  invalidate('me');
   if (USE_MOCK) {
     await delay();
     const profile = MOCK_PUBLIC_USERS.find(u => u.id === userId);
@@ -340,6 +341,7 @@ export async function followUser(userId) {
       profile.is_following = true;
       if (profile.profile_privacy === 'followers') profile.stats_hidden = false;
       profile.follower_count = (profile.follower_count || 0) + 1;
+      MOCK_USER.following_count = (MOCK_USER.following_count || 0) + 1;
     }
     return { user_id: userId, is_following: true, follower_count: profile?.follower_count };
   }
@@ -349,6 +351,7 @@ export async function followUser(userId) {
 export async function unfollowUser(userId) {
   invalidate('profile');
   invalidate('followers');
+  invalidate('me');
   if (USE_MOCK) {
     await delay();
     const profile = MOCK_PUBLIC_USERS.find(u => u.id === userId);
@@ -356,6 +359,7 @@ export async function unfollowUser(userId) {
       profile.is_following = false;
       if (profile.profile_privacy === 'followers') profile.stats_hidden = true;
       profile.follower_count = Math.max((profile.follower_count || 1) - 1, 0);
+      MOCK_USER.following_count = Math.max((MOCK_USER.following_count || 1) - 1, 0);
     }
     return { user_id: userId, is_following: false, follower_count: profile?.follower_count };
   }

@@ -61,6 +61,11 @@ export default function ProfileScreen() {
     getStravaStats,
   );
 
+  // Refresh profile on mount to guarantee up-to-date follower/following counts, points balance, etc.
+  useEffect(() => {
+    refreshUser?.();
+  }, [refreshUser]);
+
   // An approval granted since the last visit only shows up on the user record
   // after a refresh.
   useEffect(() => {

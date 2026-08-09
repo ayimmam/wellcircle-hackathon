@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import (
     auth, providers, communities, bookings, payments, users, circles, posts,
     products, events, challenges, notifications, subscriptions, ranks, feedback,
-    followers, maintenance, strava, trainer, uploads, home,
+    followers, maintenance, strava, trainer, uploads, home, feed,
 )
 from app.api.admin import router as admin_router
 from app.api.bot import router as bot_router
@@ -116,6 +116,7 @@ app.include_router(trainer.router, prefix="/api", tags=["Trainer Verification"])
 app.include_router(strava.router, prefix="/api/strava", tags=["Strava"])
 app.include_router(uploads.router, prefix="/api", tags=["Uploads"])
 app.include_router(home.router, prefix="/api", tags=["Home"])
+app.include_router(feed.router, prefix="/api/feed", tags=["Feed"])
 app.include_router(maintenance.router, prefix="/api", tags=["Maintenance"])
 
 

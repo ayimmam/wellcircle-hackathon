@@ -2,15 +2,14 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import {
-  applyForPaidCircle, getCircleRevenue, getCircleSubscriptionStatus, getCircles,
+  applyForPaidCircle, getCircleRevenue, getCircleSubscriptionStatus, getCircle,
   getCircleLeaderboard, getPendingSubscriptions, joinCircle, reviewSubscription,
   subscribeToCircle, uploadFile,
 } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import PostFeed from '../components/PostFeed';
-import Leaderboard from '../components/Leaderboard';
+import ReadOnlyPostFeed from '../components/ReadOnlyPostFeed';
 import { showToast } from '../components/Toast';
-import { MOCK_CIRCLES, MOCK_LEADERBOARD } from '../data/mock';
 import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
 import { shareCircleInvite } from '../utils/circleInvite';
@@ -38,48 +37,35 @@ export default function CircleDetailScreen() {
   // Right after joining, land on Activity with a friendly intro pre-filled —
   // one less blank-page moment for a brand-new member.
   const [justJoined, setJustJoined] = useState(false);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     loadCircle();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadCircle = async () => {
+    setLoading(true);
     try {
-      // Find circle details from mock or API
-      const found = MOCK_CIRCLES.find(c => c.id === id);
-      setCircle(found || { id, name: 'Circle', description: '', member_count: 0 });
+      const detail = await getCircle(id);
+      setCircle(detail);
+      setJoined(Boolean(detail.is_joined));
 
-      const [res, circlesResult, subscriptionResult] = await Promise.allSettled([
-        getCircleLeaderboard(id),
-        getCircles(),
-        getCircleSubscriptionStatus(id),
-      ]);
-      const leaderboardResult = res.status === 'fulfilled' ? res.value : { leaderboard: [] };
-      setLeaderboard(leaderboardResult.leaderboard || []);
-
-      // Fetch the real circle (name/description/member_count/join_code) from
-      // the live list — previously this only merged join_code, so a real
-      // (non-mock) circle always displayed the generic 'Circle' fallback name.
-      try {
-        const circlesRes = circlesResult.status === 'fulfilled' ? circlesResult.value : { circles: [] };
-        const match = (circlesRes.circles || []).find(c => c.id === id);
-        if (match) {
-          setJoined(Boolean(match.is_joined));
-          setCircle(prev => ({
-            ...prev,
-            name: match.name || prev.name,
-            description: match.description ?? prev.description,
-            member_count: match.member_count ?? prev.member_count,
-            ...match,
-          }));
-        }
-      } catch { /* invite link is a bonus, not required for the page to work */ }
-      try {
-        const status = subscriptionResult.status === 'fulfilled' ? subscriptionResult.value : null;
-        if (status?.status) setSubscription(status);
-      } catch { /* free circles and not-yet-supported backends may omit this */ }
+      if (detail.is_paid) {
+        try {
+          const status = await getCircleSubscriptionStatus(id);
+          if (status?.subscription?.status) setSubscription(status.subscription);
+        } catch { /* free circles and not-yet-supported backends may omit this */ }
+      }
+      if (detail.is_joined) {
+        try {
+          const lb = await getCircleLeaderboard(id);
+          setLeaderboard(lb.leaderboard || []);
+        } catch { /* leaderboard is a bonus, not required for the page to work */ }
+      }
     } catch (err) {
-      console.error(err);
+      if (err.status === 404) setNotFound(true);
+      else console.error(err);
     } finally {
       setLoading(false);
     }
@@ -97,7 +83,7 @@ export default function CircleDetailScreen() {
       if (!joinCode) return;
     }
     setJoining(true);
-    
+
     // Optimistic UI Update
     setJoined(true);
     if (circle) setCircle(prev => ({ ...prev, member_count: (prev.member_count || 0) + 1 }));
@@ -107,6 +93,12 @@ export default function CircleDetailScreen() {
       setJustJoined(true);
       setActiveTab('chat');
       showToast('You joined the circle!', 'success');
+      // Flip from preview to full mode in place — no navigation — and pull
+      // the real leaderboard now that membership unlocks it.
+      try {
+        const lb = await getCircleLeaderboard(id);
+        setLeaderboard(lb.leaderboard || []);
+      } catch { /* non-fatal */ }
     } catch (err) {
       // Revert optimistic updates
       setJoined(false);
@@ -189,6 +181,17 @@ export default function CircleDetailScreen() {
     }
   };
 
+  if (notFound) {
+    return (
+      <div className="page" id="circle-detail-screen">
+        <div className="empty-state">
+          <div className="empty-state-icon"><Icon name="lock" size={40} /></div>
+          <div className="empty-state-text">This circle isn't available.</div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading || !circle) {
     return (
       <div className="page">
@@ -201,18 +204,25 @@ export default function CircleDetailScreen() {
     );
   }
 
-  const isOwner = circle.owner_id === user?.id || circle.is_owner;
+  const isOwner = Boolean(circle.is_owner);
+  // Preview mode: a public, free circle the caller hasn't joined. Private
+  // non-members never reach this screen (404 above); paid non-subscribers
+  // use the existing subscribe flow instead.
+  const previewMode = !joined && !circle.is_paid;
+
   const tabs = [
     { key: 'chat', label: 'Activity', icon: 'message-circle' },
-    { key: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
-    { key: 'members', label: 'Members', icon: 'users' },
+    ...(previewMode ? [] : [
+      { key: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
+      { key: 'members', label: 'Members', icon: 'users' },
+    ]),
     ...(isOwner && (circle.is_paid || circle.paid_circle_status === 'approved')
       ? [{ key: 'revenue', label: 'Revenue', icon: 'chart' }]
       : []),
   ];
 
   return (
-    <div className="page" id="circle-detail-screen">
+    <div className="page" id="circle-detail-screen" style={previewMode ? { paddingBottom: 'calc(var(--nav-height) + var(--safe-bottom) + 76px)' } : undefined}>
       {/* Header */}
       <div className="flex items-center gap-12 mb-12">
         {!nativeBack && (
@@ -230,7 +240,7 @@ export default function CircleDetailScreen() {
           </p>
           <div className="flex gap-8 mt-8 flex-wrap">
             {circle.is_paid && <span className="paid-circle-badge">ETB {circle.price_etb}/month</span>}
-            {circle.owner_is_verified && <span className="verified-badge">✓ Verified owner</span>}
+            {(circle.owner?.is_verified_trainer || circle.owner_is_verified) && <span className="verified-badge">✓ Verified owner</span>}
             {circle.paid_circle_status === 'pending_approval' && <span className="status-badge pending">Monetization pending</span>}
           </div>
         </div>
@@ -240,24 +250,27 @@ export default function CircleDetailScreen() {
         </div>
       </div>
 
-      {/* Join / Joined + Invite */}
-      <div className="flex gap-8 mb-16">
-        {joined ? (
-          <div className="btn btn-secondary flex items-center justify-center gap-6" style={{ flex: 1, cursor: 'default', opacity: 0.7 }}>
-            <Icon name="check" size={16} /> You're a member
-          </div>
-        ) : (
-          <button className="btn btn-primary" style={{ flex: 1 }} onClick={circle.is_paid ? () => setShowSubscribe(true) : handleJoin} disabled={joining || subscription?.status === 'pending_approval'}>
-            {joining && <span className="btn-spinner" aria-hidden="true" />}
-            {subscription?.status === 'pending_approval' ? 'Receipt awaiting approval' : circle.is_paid ? `Subscribe (ETB ${circle.price_etb}/mo)` : 'Join Circle'}
-          </button>
-        )}
-        {joined && circle.join_code && (
-          <button className="btn btn-secondary flex items-center justify-center gap-6" style={{ flex: 1 }} onClick={handleInvite}>
-            <Icon name="send" size={15} /> Invite friends
-          </button>
-        )}
-      </div>
+      {/* Join / Joined + Invite — the inline row for the paid-subscribe flow;
+          preview mode uses the sticky bottom CTA instead. */}
+      {!previewMode && (
+        <div className="flex gap-8 mb-16">
+          {joined ? (
+            <div className="btn btn-secondary flex items-center justify-center gap-6" style={{ flex: 1, cursor: 'default', opacity: 0.7 }}>
+              <Icon name="check" size={16} /> You're a member
+            </div>
+          ) : (
+            <button className="btn btn-primary" style={{ flex: 1 }} onClick={circle.is_paid ? () => setShowSubscribe(true) : handleJoin} disabled={joining || subscription?.status === 'pending_approval'}>
+              {joining && <span className="btn-spinner" aria-hidden="true" />}
+              {subscription?.status === 'pending_approval' ? 'Receipt awaiting approval' : circle.is_paid ? `Subscribe (ETB ${circle.price_etb}/mo)` : 'Join Circle'}
+            </button>
+          )}
+          {joined && circle.join_code && (
+            <button className="btn btn-secondary flex items-center justify-center gap-6" style={{ flex: 1 }} onClick={handleInvite}>
+              <Icon name="send" size={15} /> Invite friends
+            </button>
+          )}
+        </div>
+      )}
 
       {subscription?.status && !joined && (
         <div className="profile-card mb-16">
@@ -298,6 +311,8 @@ export default function CircleDetailScreen() {
             initialDraft={justJoined ? `Hi I'm ${user?.name?.split(' ')[0] || 'there'}, I'm glad to join you guys!` : undefined}
             onDraftConsumed={() => setJustJoined(false)}
           />
+        ) : previewMode ? (
+          <ReadOnlyPostFeed posts={circle.preview_posts} id="circle-preview-feed" />
         ) : (
           <div className="card">
             <div className="card-body text-center" style={{ padding: '32px 16px' }}>
@@ -309,7 +324,7 @@ export default function CircleDetailScreen() {
         )
       )}
 
-      {activeTab === 'leaderboard' && (
+      {activeTab === 'leaderboard' && !previewMode && (
         <div className="leaderboard">
           {leaderboard.length > 0 ? (
             <div className="feed">
@@ -346,7 +361,7 @@ export default function CircleDetailScreen() {
         </div>
       )}
 
-      {activeTab === 'members' && (
+      {activeTab === 'members' && !previewMode && (
         <div className="feed">
           {leaderboard.length > 0 ? leaderboard.map(member => (
             <div key={member.user_id} className="cell" style={{ cursor: 'pointer' }} onClick={() => navigate(`/users/${member.user_id}`)}>
@@ -395,6 +410,31 @@ export default function CircleDetailScreen() {
               ))}
             </>
           )}
+        </div>
+      )}
+
+      {/* Sticky bottom Join CTA — preview mode only */}
+      {previewMode && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 'calc(var(--nav-height) + var(--safe-bottom))',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '100%',
+            maxWidth: 430,
+            padding: '12px 16px',
+            background: 'var(--bg-glass)',
+            backdropFilter: 'blur(20px)',
+            borderTop: '1px solid var(--border-subtle)',
+            zIndex: 90,
+          }}
+          id="circle-preview-join-bar"
+        >
+          <button className="btn btn-primary btn-block" onClick={handleJoin} disabled={joining} id="circle-preview-join-btn">
+            {joining && <span className="btn-spinner" aria-hidden="true" />}
+            Join circle
+          </button>
         </div>
       )}
 

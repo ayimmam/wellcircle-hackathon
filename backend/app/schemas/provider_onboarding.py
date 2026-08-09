@@ -5,7 +5,7 @@ from typing import Optional, List
 
 from pydantic import BaseModel, Field
 
-from app.schemas.provider import ServiceItem
+from app.schemas.provider import ServiceItem, NavigationTipItem
 
 
 class SelfOnboardRequest(BaseModel):
@@ -60,6 +60,8 @@ class ProviderMeResponse(BaseModel):
     theme_accent_color: Optional[str] = None
     contact_phone: Optional[str] = None
     contact_email: Optional[str] = None
+    facilities: Optional[List[str]] = None
+    navigation_tips: Optional[List[NavigationTipItem]] = None
     dashboard_stats: ProviderDashboardStats
 
 
@@ -76,6 +78,8 @@ class ProviderMeUpdate(BaseModel):
     theme_accent_color: Optional[str] = Field(None, pattern="^#[0-9A-Fa-f]{6}$")
     contact_phone: Optional[str] = None
     contact_email: Optional[str] = None
+    facilities: Optional[List[str]] = None
+    navigation_tips: Optional[List[NavigationTipItem]] = None
 
 
 class PendingProviderItem(BaseModel):
@@ -175,8 +179,18 @@ class AdminProviderListItem(BaseModel):
     onboarded_by_admin: bool = False
     submitted_at: Optional[datetime] = None
     reviewed_at: Optional[datetime] = None
+    is_coming_soon: bool = True
 
 
 class AdminProviderListResponse(BaseModel):
     providers: List[AdminProviderListItem]
     total: int
+
+
+class ProviderLaunchStateUpdate(BaseModel):
+    is_coming_soon: bool
+
+
+class ProviderLaunchStateResponse(BaseModel):
+    provider_id: str
+    is_coming_soon: bool

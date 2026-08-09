@@ -85,3 +85,39 @@ exist anywhere in the app and was explicitly out of scope for this pass.
   — idempotent, edits the existing row per this doc's own headline finding.
 
 Full file list and test results: `HANDOFF.md`'s **Phase 9** entry.
+
+## 2026-08-09 update: owner reversed the pay-on-site default (For You / Boston Day Spa pilot)
+
+**G3/G6 above record that the partner collects payment on-site, after the
+service — the entire phone-booking flow this doc describes was built around
+that finding.** In the For You / Boston Day Spa pilot planning session, the
+owner reversed this: **in-app payment is back in scope**, Telebirr first,
+because the backend rail (`POST /api/payments/telebirr/initiate`, the
+callback webhook, `GET /api/payments/{booking_id}/status`) already exists
+end-to-end from an earlier build and only needs switching on service-by-service.
+
+**Do not "fix" this back to phone-booking-only** — the reversal is
+deliberate, not a regression. What's still blocking it from shipping (see
+`docs/FEATURE_PLAN_FOR_YOU_AND_PILOT_FOCUS.md` Phase 7):
+
+- **B1 — no confirmed price list for Boston Day Spa.** The official PDF this
+  pilot's data comes from has no prices; all 7 seeded services carry
+  `price: null` and stay `booking_method: "phone"` until the owner confirms
+  a price per service. `BookingFlow.jsx` cannot charge in-app for a null
+  price, so the online-payment step has no real service to exercise yet.
+- **Real Telebirr merchant credentials.** `services/telebirr_payment.py`
+  returns a mock `to_pay_url` whenever `TELEBIRR_MERCHANT_CODE` is unset.
+  Production needs `TELEBIRR_MERCHANT_CODE`, `TELEBIRR_APP_KEY`, and a
+  publicly reachable `TELEBIRR_NOTIFY_URL` — confirm with whoever holds the
+  Telebirr merchant account before wiring these in, since charging upfront
+  changes the partner's on-site collection process operationally, not just
+  in the app.
+
+Once a service's price is confirmed, flip only that service's
+`booking_method` to `"online"` (services can go online one at a time — the
+phone-booking path documented above stays correct for every service that
+hasn't been priced yet) and restore `BookingFlow.jsx`'s payment step:
+create booking → `initiateTelebirr` → `window.Telegram.WebApp.openLink(to_pay_url)`
+→ poll `GET /api/payments/{booking_id}/status` → confirmation, with explicit
+failure/abandoned/timeout states so a stuck `pending` booking stays
+recoverable from `MyBookings` instead of wedging the screen.

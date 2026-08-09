@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProviderPortalData } from '../../context/ProviderPortalDataContext';
-import { getProviderPointsAnalytics, getProviderMetricsTimeseries } from '../../api/client';
+import { getProviderPointsAnalytics, getProviderMetricsTimeseries, getProviderMe, updateProviderMe } from '../../api/client';
 import { showToast } from '../../components/Toast';
 import FeedEvent from '../../components/FeedEvent';
+import Icon from '../../components/Icon';
 
 function isoDateDaysAgo(days) {
   const d = new Date();
@@ -26,9 +27,44 @@ export default function ProviderPortalOverview() {
   const [timeseries, setTimeseries] = useState(null);
   const [timeseriesLoading, setTimeseriesLoading] = useState(false);
 
+  // Getting-there tips + on-site facilities (Phase 8) — shown in
+  // ProviderDetail.jsx's "Getting there" section once at least one exists.
+  const [navigationTips, setNavigationTips] = useState([]);
+  const [facilities, setFacilities] = useState([]);
+  const [savingProfile, setSavingProfile] = useState(false);
+
   useEffect(() => {
     getProviderPointsAnalytics().then(setPointsAnalytics).catch(() => {});
+    getProviderMe().then(p => {
+      setNavigationTips(p.navigation_tips || []);
+      setFacilities(p.facilities || []);
+    }).catch(() => {});
   }, []);
+
+  const addTip = () => setNavigationTips(prev => [...prev, { title: '', detail: '' }]);
+  const updateTip = (i, field, value) => setNavigationTips(prev =>
+    prev.map((tip, idx) => idx === i ? { ...tip, [field]: value } : tip));
+  const removeTip = (i) => setNavigationTips(prev => prev.filter((_, idx) => idx !== i));
+
+  const addFacility = () => setFacilities(prev => [...prev, '']);
+  const updateFacility = (i, value) => setFacilities(prev => prev.map((f, idx) => idx === i ? value : f));
+  const removeFacility = (i) => setFacilities(prev => prev.filter((_, idx) => idx !== i));
+
+  const saveProfileExtras = async () => {
+    setSavingProfile(true);
+    try {
+      const cleanTips = navigationTips.filter(t => t.title.trim() && t.detail.trim());
+      const cleanFacilities = facilities.filter(f => f.trim());
+      await updateProviderMe({ navigation_tips: cleanTips, facilities: cleanFacilities });
+      setNavigationTips(cleanTips);
+      setFacilities(cleanFacilities);
+      showToast('Profile updated', 'success');
+    } catch (err) {
+      showToast(err.message || 'Could not save', 'error');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const loadTimeseries = async () => {
     setTimeseriesLoading(true);
@@ -237,6 +273,76 @@ export default function ProviderPortalOverview() {
           </div>
         </>
       )}
+
+      {/* Getting there + facilities (Phase 8) — rendered on ProviderDetail.jsx
+          only when non-empty, so an untouched provider shows no empty section. */}
+      <div className="section-header" style={{ marginTop: 24 }}>
+        <h2 className="section-title">Getting There & Facilities</h2>
+      </div>
+      <div className="card mb-24">
+        <div className="card-body">
+          <p className="text-sm text-secondary mb-16">
+            Orientation tips (location, parking, "ask for the 2nd floor") and
+            on-site facilities shown on your public profile.
+          </p>
+
+          <strong className="text-sm">Navigation tips</strong>
+          <div className="flex-col gap-8 mt-8 mb-12">
+            {navigationTips.map((tip, i) => (
+              <div key={i} className="flex gap-8 items-center">
+                <input
+                  className="input"
+                  placeholder="Title (e.g. Parking)"
+                  style={{ flex: 1 }}
+                  value={tip.title}
+                  onChange={e => updateTip(i, 'title', e.target.value)}
+                  id={`nav-tip-title-${i}`}
+                />
+                <input
+                  className="input"
+                  placeholder="Detail"
+                  style={{ flex: 2 }}
+                  value={tip.detail}
+                  onChange={e => updateTip(i, 'detail', e.target.value)}
+                  id={`nav-tip-detail-${i}`}
+                />
+                <button className="btn btn-icon btn-secondary" onClick={() => removeTip(i)} aria-label="Remove tip" id={`nav-tip-remove-${i}`}>
+                  <Icon name="x" size={14} />
+                </button>
+              </div>
+            ))}
+            <button className="btn btn-secondary btn-sm" onClick={addTip} id="add-nav-tip-btn" style={{ alignSelf: 'flex-start' }}>
+              + Add tip
+            </button>
+          </div>
+
+          <strong className="text-sm">Facilities</strong>
+          <div className="flex-col gap-8 mt-8 mb-16">
+            {facilities.map((facility, i) => (
+              <div key={i} className="flex gap-8 items-center">
+                <input
+                  className="input"
+                  placeholder="e.g. Free parking"
+                  style={{ flex: 1 }}
+                  value={facility}
+                  onChange={e => updateFacility(i, e.target.value)}
+                  id={`facility-${i}`}
+                />
+                <button className="btn btn-icon btn-secondary" onClick={() => removeFacility(i)} aria-label="Remove facility" id={`facility-remove-${i}`}>
+                  <Icon name="x" size={14} />
+                </button>
+              </div>
+            ))}
+            <button className="btn btn-secondary btn-sm" onClick={addFacility} id="add-facility-btn" style={{ alignSelf: 'flex-start' }}>
+              + Add facility
+            </button>
+          </div>
+
+          <button className="btn btn-primary btn-sm" onClick={saveProfileExtras} disabled={savingProfile} id="save-profile-extras-btn">
+            {savingProfile ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

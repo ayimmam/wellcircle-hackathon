@@ -57,10 +57,19 @@ if not DATABASE_URL:
 conn = psycopg2.connect(DATABASE_URL)
 cur = conn.cursor()
 
-cur.execute("SELECT id, name FROM providers WHERE name ILIKE %s", ("%kuriftu%",))
+cur.execute(
+    "SELECT id, name FROM providers WHERE name ILIKE %s OR name ILIKE %s",
+    ("%kuriftu%", "%boston day spa%"),
+)
 row = cur.fetchone()
 if not row:
-    print("No provider matching 'kuriftu' found — run seed_kuriftu_placeholder.py first.")
+    print("No provider matching 'kuriftu' or 'boston day spa' found — run seed_kuriftu_placeholder.py first.")
+elif row[1].strip().lower() == "boston day spa":
+    # This provider has been renamed to the real Boston Day Spa pilot partner
+    # (see seed_boston_day_spa.py) — these are African Village prices from a
+    # different resort and must not be carried over without owner confirmation.
+    print(f"{row[1]} ({row[0]}) is the Boston Day Spa pilot partner — skipping to avoid "
+          "overwriting confirmed data with unrelated African Village pricing.")
 else:
     provider_id, name = row
     prices = [s["price"] for s in SERVICES]

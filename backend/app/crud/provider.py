@@ -44,6 +44,7 @@ def get_all_providers(
         )
 
     providers = query.order_by(
+        Provider.is_coming_soon.asc(),
         Provider.is_featured.desc(),
         Provider.rating.desc(),
         Provider.name,
@@ -95,6 +96,7 @@ def get_all_providers(
             "member_count": community.member_count if community else 0,
             "community_id": str(community.id) if community else None,
             "is_featured": bool(p.is_featured),
+            "is_coming_soon": bool(p.is_coming_soon),
             "subscription_plan": p.subscription_plan,
             "active_promotion": {
                 "id": str(promo.id),
@@ -154,6 +156,9 @@ def get_provider_detail(db: Session, provider_id: UUID, user_id: Optional[UUID] 
         "cover_photo_url": provider.cover_photo_url,
         "photos": provider.photos or [],
         "services": provider.services or [],
+        "facilities": provider.facilities or [],
+        "navigation_tips": provider.navigation_tips or [],
+        "is_coming_soon": bool(provider.is_coming_soon),
         "community": {
             "id": str(community.id),
             "name": community.name,
@@ -439,6 +444,7 @@ def promote_user_to_provider(
             s.model_dump() if hasattr(s, "model_dump") else s for s in services
         ]
 
+    provider_data.setdefault("is_coming_soon", False)
     provider = Provider(
         owner_user_id=user.id,
         status="active",
@@ -516,8 +522,20 @@ def get_admin_providers(
             "onboarded_by_admin": p.onboarded_by_admin or False,
             "submitted_at": p.submitted_at,
             "reviewed_at": p.reviewed_at,
+            "is_coming_soon": bool(p.is_coming_soon),
         })
     return items
+
+
+def set_provider_launch_state(db: Session, provider_id: UUID, is_coming_soon: bool) -> Optional[Provider]:
+    provider = db.query(Provider).filter(Provider.id == provider_id).first()
+    if not provider:
+        return None
+    provider.is_coming_soon = is_coming_soon
+    provider.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(provider)
+    return provider
 
 
 def get_provider_me(db: Session, user: User) -> Optional[dict]:
@@ -559,6 +577,8 @@ def get_provider_me(db: Session, user: User) -> Optional[dict]:
         "theme_accent_color": provider.theme_accent_color,
         "contact_phone": provider.contact_phone,
         "contact_email": provider.contact_email,
+        "facilities": provider.facilities or [],
+        "navigation_tips": provider.navigation_tips or [],
         "dashboard_stats": {
             "total_members": total_members,
             "new_members_today": new_members_today,
@@ -605,6 +625,10 @@ def create_provider(db: Session, **kwargs) -> Provider:
     kwargs.setdefault("status", "active")
     kwargs.setdefault("onboarded_by_admin", True)
     kwargs.setdefault("reviewed_at", datetime.now(timezone.utc))
+    # Admin-created providers are a deliberate, trusted action — unlike
+    # self-onboarding (where the model default of True gates a new provider
+    # until an admin reviews it), these go live immediately.
+    kwargs.setdefault("is_coming_soon", False)
 
     provider = Provider(owner_user_id=owner_user_id, **kwargs)
     db.add(provider)

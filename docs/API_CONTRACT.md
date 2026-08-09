@@ -259,6 +259,7 @@ request of their own:
 | `featured_events` | `GET /events?boosted_only=true` (next 7 days, limit 10) |
 | `social_proof` | `GET /circles/social-proof/today` |
 | `unread_count` | `unread_count` from `GET /users/me/notifications` |
+| `feed` | first page of `GET /feed/for-you` (Phase 4 — For You screen) |
 
 ```json
 // RESPONSE 200
@@ -268,13 +269,72 @@ request of their own:
   "events": [ /* ...same objects as GET /events... */ ],
   "featured_events": [ /* ...boosted events... */ ],
   "social_proof": { "checked_in_today": 4 },
-  "unread_count": 3
+  "unread_count": 3,
+  "feed": { "items": [ /* ...see GET /feed/for-you... */ ], "next_before": "2026-06-06T10:00:00Z" }
 }
 ```
 
 Clients should treat this endpoint as optional: on `404` fall back to calling
 the six endpoints individually, so a frontend deploy that lands ahead of the
 backend degrades instead of breaking Home.
+
+`feed` calls the same builder `GET /feed/for-you` uses directly (not the HTTP
+route) — the For You screen still opens with exactly one request; scrolling
+past the first page is what hits `GET /feed/for-you?before=...`. Keep this
+payload under the **150 KB working ceiling** (192 KB is the hard cap past
+which `frontend/src/api/cache.js` stops persisting the entry to
+`localStorage`, so it's lost the moment Telegram tears the WebView down) — see
+`backend/check_bootstrap_payload_size.py`.
+
+---
+
+## 2b. For You Feed
+
+### `GET /api/feed/for-you?limit=10&before=<iso8601>`
+
+Discovery feed replacing Home (Phase 4/5). Returns:
+
+```json
+// RESPONSE 200
+{
+  "items": [
+    { "type": "post", "render_cost": "instant", "id": "uuid", "created_at": "2026-06-06T10:00:00Z",
+      "post": { "...": "same shape as GET /posts, but comment_count instead of comments, and content truncated to ~280 chars with truncated: true/false",
+                "source": { "kind": "circle", "id": "uuid", "name": "Addis Morning Runners", "member_count": 24 } } },
+    { "type": "event", "render_cost": "media", "id": "uuid",
+      "event": { "...": "same shape as GET /events" }, "provider": { "id", "name", "category", "cover_photo_url" } },
+    { "type": "service", "render_cost": "media", "id": "<provider_id>:<service_index>",
+      "provider": { "id", "name", "category", "location_text", "rating", "cover_photo_url", "is_coming_soon" },
+      "service": { "name", "price", "duration", "description", "photo_url", "booking_method" } },
+    { "type": "provider", "render_cost": "media", "id": "uuid",
+      "provider": { "...": "same brief shape as the service item's provider" }, "promotion": null }
+  ],
+  "next_before": "2026-06-05T09:00:00Z"
+}
+```
+
+**Ranking is a fixed, deterministic interleave — not a scoring model.** Posts
+newest-first. After every 3rd post, splice in one non-post item, cycling
+`event → service → provider`, skipping a category when empty; any items left
+over once the post stream runs out are appended at the end (so a brand-new
+user with zero posts still sees a non-empty feed built entirely from
+providers/services/events). Only live (`is_coming_soon = false`) providers
+may appear as `service` or `provider` items. An `event` item is emitted only
+for a boosted/featured event.
+
+`render_cost` (`"instant"` or `"media"`) drives the Phase 2 two-tier first
+paint: on a cached first render the client shows `instant` items (no image
+needed to be readable) above `media` items, then settles into server order
+once the revalidated response lands.
+
+`next_before` paginates the **posts** only (keyset on `created_at`); the
+interleaved non-post items are additional and outside that cursor. `null`
+means no more posts.
+
+`post.source` is what makes "tap a post → land in its circle/community" work
+— `kind` is `"circle"` or `"community"`. Posts from private or paid circles,
+and system-generated join/check-in posts (`is_system_event: true`), never
+appear in this feed.
 
 ---
 
@@ -453,12 +513,18 @@ List all providers. Supports filtering.
       "rating": 4.7,
       "cover_photo_url": "https://...",
       "member_count": 45,
-      "community_id": "uuid-comm"
+      "community_id": "uuid-comm",
+      "is_featured": false,
+      "is_coming_soon": false   // true = browsable, not bookable (For You / launch gating, Phase 1)
     }
   ],
   "count": 10
 }
 ```
+
+Coming-soon providers stay in this list (the gate is presentation + a booking
+block, not a listing filter) but sort behind live providers —
+`is_coming_soon ASC` is the first sort key, ahead of `is_featured`/`rating`.
 
 ### `GET /api/providers/:id`
 Full provider detail with services, photos, linked community.
@@ -483,8 +549,10 @@ Full provider detail with services, photos, linked community.
   "services": [
     {
       "name": "Morning Vinyasa Flow",
-      "price": 800,
-      "duration": "60 min"
+      "price": 800,          // null = priced on enquiry (no confirmed price yet)
+      "duration": "60 min",  // null when price is also null
+      "description": null,   // optional descriptive copy
+      "photo_url": null      // optional per-service photo
       // "booking_method" omitted here = "online" (default, in-app booking + payment)
     },
     {
@@ -493,6 +561,11 @@ Full provider detail with services, photos, linked community.
       "duration": "90 min"
     }
   ],
+  "facilities": ["Steam room", "Sauna"],  // optional on-site facility list (Phase 1)
+  "navigation_tips": [       // optional, detail-only (Phase 8) — [] when the provider hasn't set any
+    { "title": "Parking", "detail": "Free parking behind the building." }
+  ],
+  "is_coming_soon": false,   // true = banner shown, booking blocked, service rows non-tappable
   "community": {
     "id": "uuid-comm",
     "name": "Zen Yoga Community",
@@ -605,6 +678,37 @@ Provider dashboard stats. **Provider-only access.**
   ]
 }
 ```
+
+### `GET /api/providers/me` / `PATCH /api/providers/me`
+Provider self-service profile. **Provider-only access** (`get_current_provider`).
+
+```json
+// RESPONSE 200 (GET)
+{
+  "id": "uuid-string",
+  "name": "Zen Yoga Studio",
+  "category": "yoga",
+  "status": "active",
+  "description": "...",
+  "location_text": "Bole, Addis Ababa",
+  "lat": 9.0054, "lng": 38.7636,
+  "services": [ /* same shape as provider detail */ ],
+  "theme_primary_color": "#10B981",
+  "theme_accent_color": "#F59E0B",
+  "contact_phone": null,
+  "contact_email": null,
+  "facilities": ["Free parking", "Wheelchair accessible"],
+  "navigation_tips": [
+    { "title": "Parking", "detail": "Free parking behind the building, ask for the yellow gate." }
+  ],
+  "dashboard_stats": { "total_members": 45, "new_members_today": 3, "total_products": 6, "active_products": 4 }
+}
+```
+
+`PATCH` accepts the same fields (all optional) minus `id`/`status`/`dashboard_stats`.
+`facilities`/`navigation_tips` (Phase 8) are the provider-editable source for
+the "Getting there" section on `GET /api/providers/:id` — repeatable-field UI
+in `pages/provider-portal/ProviderPortalOverview.jsx`.
 
 ---
 
@@ -886,6 +990,10 @@ capped by the giver's balance.
 ### `POST /api/bookings`
 Create a booking.
 
+**Coming-soon providers are rejected.** If `provider.is_coming_soon` is true,
+this returns `400 { "detail": "This provider isn't taking bookings yet." }`
+before any booking row (or its siblings) is written.
+
 **`payment_method: "pay_on_site"` (WP1, consumer booking flow default).** No
 payment gateway is involved — the guest pays the provider in person after the
 service. The backend marks the booking (and every sibling in a multi-day
@@ -1121,6 +1229,21 @@ Update a provider. Same body as POST (all fields optional).
 ### `DELETE /api/admin/providers/:id`
 Delete a provider and its linked community.
 
+### `PATCH /api/admin/providers/:id/launch-state`
+Flip a provider's coming-soon gate. Admin-created providers (`POST
+/api/admin/providers`, promote-user) default `is_coming_soon: false`
+(immediately live); self-onboarded providers default `true` until an admin
+uses this endpoint. `GET /api/admin/providers` list items carry
+`is_coming_soon` so the admin UI can render a Live/Coming soon toggle.
+
+```json
+// REQUEST
+{ "is_coming_soon": false }
+
+// RESPONSE 200
+{ "provider_id": "uuid-string", "is_coming_soon": false }
+```
+
 ```json
 // RESPONSE 200
 { "deleted": true, "provider_id": "uuid" }
@@ -1269,6 +1392,45 @@ Every circle gets a `join_code` — auto-generated (8-char uppercase/digits, uni
 { "id": "uuid-circle", "name": "Morning Yogis", "join_code": "A1B2C3D4", "message": "Joined circle successfully" }
 ```
 Now returns `join_code` (previously just a bare message) so the client can build the invite link immediately after joining, without a second `GET /api/circles` round-trip.
+
+### Circle preview + Join CTA (Phase 6)
+
+**`GET /api/circles/:id`** — JWT. Circle detail for a non-member's preview
+page, replacing `CircleDetailScreen.jsx`'s old hack of fetching the whole
+`GET /circles` list and `.find()`-ing it.
+
+```json
+// RESPONSE 200
+{
+  "id": "uuid-circle",
+  "name": "Addis Morning Runners",
+  "description": "We run every morning at 6 AM around Meskel Square.",
+  "member_count": 24,
+  "is_joined": false,
+  "is_owner": false,
+  "is_private": false,
+  "is_paid": false,
+  "price_etb": null,
+  "paid_circle_status": "free",
+  "join_code": null,           // only exposed once is_joined is true
+  "owner": { "id": "uuid", "name": "Selam Alemu", "telegram_handle": "selam_well", "is_verified_trainer": false },
+  "preview_posts": [ /* up to 5 recent posts, same shape as GET /posts — omitted (null) for paid or private circles */ ]
+}
+```
+
+Access rules:
+- **Private circle, non-member** → `404` (does not leak that the circle exists).
+- **Paid circle, non-subscriber** → metadata only, `preview_posts: null`; the existing subscribe flow takes over.
+- **Public free circle, non-member** → metadata + `preview_posts`.
+- A member or the owner always gets `is_joined`/`is_owner: true` and a non-null `join_code`; `preview_posts` is only ever populated for the non-member preview case (members render the full `PostFeed` instead).
+
+**Frontend:** when `!is_joined` on a public circle, `PostFeed` is replaced by
+a read-only render of `preview_posts` (no composer, no reaction buttons, no
+comment boxes), the `leaderboard`/`members` tabs and invite button are
+hidden, and a sticky bottom **Join circle** CTA takes over. On success the
+screen flips to full mode in place — no navigation. The same read-only
+preview + Join CTA pattern applies to `CommunityDetail.jsx` for provider
+communities (reusing `POST /api/communities/:id/join`).
 
 ### Social proof & streaks (C2 / E2)
 - `POST /api/communities/{id}/checkin` response now also includes `current_streak` and `freeze_count`.

@@ -175,10 +175,12 @@ export default function ExploreScreen() {
                   src={p.cover_photo_url}
                   alt={p.name}
                   width={430}
-                  style={{ height: 160, filter: 'brightness(0.5)' }}
+                  style={{ height: 160, filter: p.is_coming_soon ? 'brightness(0.35)' : 'brightness(0.5)' }}
                   fallback={<div className="card-cover" style={{ height: 160 }} />}
                 />
-                {p.is_featured && (
+                {p.is_coming_soon ? (
+                  <span className="category-badge" style={{ position: 'absolute', top: 10, left: 10, background: 'var(--text-tertiary)' }}>Coming soon</span>
+                ) : p.is_featured && (
                   <span className="category-badge" style={{ position: 'absolute', top: 10, left: 10, background: 'var(--accent)' }}>Featured</span>
                 )}
                 <span className={`category-badge ${p.category}`} style={{ position: 'absolute', top: 10, right: 10 }}>{p.category}</span>
@@ -201,15 +203,21 @@ export default function ExploreScreen() {
                   <span style={{ fontSize: '0.78rem', color: 'var(--accent)' }}>{p.location_text?.split(',')[0]}</span>
                   <span className="inline-icon-text" style={{ fontWeight: 700 }}><Icon name="star" size={14} /> {p.rating}</span>
                 </div>
-                <button
-                  className="btn btn-primary btn-block mt-12"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/booking/${p.id}`, { state: { provider: p } });
-                  }}
-                >
-                  {t('Book Now')}
-                </button>
+                {p.is_coming_soon ? (
+                  <button className="btn btn-secondary btn-block mt-12" disabled>
+                    {t('Coming soon')}
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-primary btn-block mt-12"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/booking/${p.id}`, { state: { provider: p } });
+                    }}
+                  >
+                    {t('Book Now')}
+                  </button>
+                )}
               </div>
             </div>
           ))}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
-  getPendingProviders, getAdminProviders, approveProvider, rejectProvider, promoteProvider, generateInviteCode
+  getPendingProviders, getAdminProviders, approveProvider, rejectProvider, promoteProvider, generateInviteCode,
+  setProviderLaunchState
 } from '../../api/client';
 import { INTEREST_CATEGORIES } from '../../data/mock';
 import { showToast } from '../../components/Toast';
@@ -65,6 +66,14 @@ export default function AdminProviders() {
       await rejectProvider(id, reason);
       showToast('Provider rejected', 'success');
       setSelected(null);
+      load();
+    } catch (err) { showToast(err.message, 'error'); }
+  };
+
+  const handleToggleLaunchState = async (p) => {
+    try {
+      await setProviderLaunchState(p.id, !p.is_coming_soon);
+      showToast(p.is_coming_soon ? 'Provider is now live' : 'Provider set to coming soon', 'success');
       load();
     } catch (err) { showToast(err.message, 'error'); }
   };
@@ -156,6 +165,14 @@ export default function AdminProviders() {
                 {p.location_text && <p className="text-sm">Location: {p.location_text}</p>}
                 {p.submitted_at && <p className="text-sm text-secondary">Submitted: {timeAgo(p.submitted_at)}</p>}
                 {p.member_count != null && <p className="text-sm">{p.member_count} members</p>}
+                {subTab === 'active' && (
+                  <p className="text-sm">
+                    Status:{' '}
+                    <span className={`category-badge ${p.is_coming_soon ? '' : 'badge-success-soft'}`}>
+                      {p.is_coming_soon ? 'Coming soon' : 'Live'}
+                    </span>
+                  </p>
+                )}
                 <div className="flex gap-8 mt-12 flex-wrap">
                   {subTab === 'pending' && (
                     <>
@@ -163,6 +180,11 @@ export default function AdminProviders() {
                       <button className="btn btn-primary btn-sm" onClick={() => handleApprove(p.id)}>Approve</button>
                       <button className="btn btn-danger btn-sm" onClick={() => handleReject(p.id)}>Reject</button>
                     </>
+                  )}
+                  {subTab === 'active' && (
+                    <button className="btn btn-secondary btn-sm" onClick={() => handleToggleLaunchState(p)}>
+                      {p.is_coming_soon ? 'Mark Live' : 'Mark Coming Soon'}
+                    </button>
                   )}
                 </div>
               </div>

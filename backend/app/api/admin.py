@@ -20,6 +20,7 @@ from app.crud.provider import (
     create_provider, update_provider, delete_provider,
     get_pending_providers, approve_provider, reject_provider,
     promote_user_to_provider, user_has_active_provider, get_admin_providers,
+    set_provider_launch_state,
 )
 from app.crud.product import admin_list_products, update_product_stock, update_redemption_status, admin_list_redemptions
 from app.crud.booking import admin_list_bookings
@@ -43,6 +44,7 @@ from app.schemas.provider_onboarding import (
     ProviderRejectRequest, ProviderRejectResponse,
     PromoteUserRequest, PromoteUserResponse,
     AdminNotificationsResponse, AdminProviderListResponse,
+    ProviderLaunchStateUpdate, ProviderLaunchStateResponse,
 )
 from app.schemas.product import (
     AdminProductListResponse, StockUpdateRequest, StockUpdateResponse,
@@ -226,6 +228,19 @@ async def list_all_providers(
 ):
     providers = get_admin_providers(db, status=status, search=search)
     return AdminProviderListResponse(providers=providers, total=len(providers))
+
+
+@router.patch("/providers/{provider_id}/launch-state", response_model=ProviderLaunchStateResponse)
+async def update_provider_launch_state(
+    provider_id: str,
+    request: ProviderLaunchStateUpdate,
+    admin: User = Depends(get_super_admin),
+    db: Session = Depends(get_db),
+):
+    provider = set_provider_launch_state(db, UUID(provider_id), request.is_coming_soon)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    return ProviderLaunchStateResponse(provider_id=str(provider.id), is_coming_soon=provider.is_coming_soon)
 
 
 @router.get("/providers/pending", response_model=PendingProvidersResponse)

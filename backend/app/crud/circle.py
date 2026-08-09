@@ -114,6 +114,66 @@ def get_circles(db: Session, user_id: Optional[UUID] = None) -> List[dict]:
         })
     return result
 
+def get_circle_detail(db: Session, circle_id: UUID, user_id: UUID) -> Optional[dict]:
+    """Circle detail for the preview + Join CTA flow (Phase 6).
+
+    Access rules:
+    - Private circle, non-member -> None (caller returns 404; don't leak existence).
+    - Paid circle, non-subscriber -> metadata only, no preview_posts.
+    - Public free circle, non-member -> metadata + up to 5 preview_posts.
+    """
+    circle = db.query(Circle).filter(Circle.id == circle_id).first()
+    if not circle:
+        return None
+
+    is_owner = circle.owner_id == user_id
+    member = db.query(CircleMember).filter(
+        CircleMember.circle_id == circle_id, CircleMember.user_id == user_id
+    ).first()
+    is_joined = is_owner or member is not None
+
+    if circle.is_private and not is_joined:
+        return None
+
+    member_count = (
+        db.query(func.count(CircleMember.user_id))
+        .filter(CircleMember.circle_id == circle_id)
+        .scalar() or 0
+    )
+
+    owner = db.query(User).filter(User.id == circle.owner_id).first()
+
+    result = {
+        "id": circle.id,
+        "name": circle.name,
+        "description": circle.description,
+        "member_count": member_count,
+        "is_joined": is_joined,
+        "is_owner": is_owner,
+        "is_private": bool(circle.is_private),
+        "is_paid": bool(circle.is_paid),
+        "price_etb": circle.price_etb,
+        "paid_circle_status": circle.paid_circle_status,
+        "join_code": circle.join_code if is_joined else None,
+        "owner": {
+            "id": owner.id,
+            "name": owner.name,
+            "telegram_handle": owner.telegram_handle,
+            "is_verified_trainer": bool(owner.is_verified_trainer),
+        } if owner else None,
+        "owner_is_verified": bool(owner and owner.is_verified_trainer),
+        "preview_posts": None,
+    }
+
+    # Metadata-only for a paid circle the caller hasn't unlocked; a public
+    # free circle gets a read-only preview of recent activity.
+    if not is_joined and not circle.is_paid:
+        from app.crud.post import get_posts
+        result["preview_posts"] = get_posts(db, circle_id=circle_id, limit=5)
+
+    return result
+
+
 def _weekly_points_by_user(db: Session, user_ids: List[UUID]) -> dict:
     """Sum of positive ledger transactions in the trailing 7 days, per user.
 

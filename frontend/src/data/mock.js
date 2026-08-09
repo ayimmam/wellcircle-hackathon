@@ -46,6 +46,11 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000001',
     name: 'Lifestyle Fitness Center',
+    // Kept bookable (unlike the other non-pilot mocks) so the online/promo/
+    // multi-day booking-flow tests still have a live, priced fixture to
+    // exercise — those mechanics are independent of the Boston Day Spa
+    // pilot-exclusivity rule and stay valid once other providers launch.
+    is_coming_soon: false,
     category: 'gym',
     description: "Addis Ababa's premier multi-level fitness club featuring cutting-edge equipment, certified personal trainers, and a rooftop functional training area.",
     location_text: 'Bole Sub-City, near Edna Mall, Addis Ababa',
@@ -83,6 +88,9 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000002',
     name: 'Iron & Soul Gym',
+    // Kept bookable — used as the generic no-promo/multi-day booking fixture
+    // across several tests (see Lifestyle Fitness Center's comment above).
+    is_coming_soon: false,
     category: 'gym',
     description: 'Raw, results-driven strength training facility in the heart of Kazanchis. Powerlifting platforms, Olympic lifting, and no fluff.',
     location_text: 'Kazanchis, Kirkos Sub-City, Addis Ababa',
@@ -108,6 +116,7 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000003',
     name: 'Shanti Yoga Addis',
+    is_coming_soon: true,
     category: 'yoga',
     description: "Addis Ababa's most loved yoga studio, blending Hatha and Vinyasa practices with breathwork and mindfulness rooted in Ethiopian wellness traditions.",
     location_text: 'Bole Medhanialem, Bole Sub-City, Addis Ababa',
@@ -136,6 +145,7 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000004',
     name: 'Zen Flow Studio',
+    is_coming_soon: true,
     category: 'yoga',
     description: 'Boutique hot yoga studio in CMC. Infrared heated rooms, Bikram sequences, and sound bath sessions.',
     location_text: 'CMC Road, Yeka Sub-City, Addis Ababa',
@@ -160,6 +170,7 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000005',
     name: 'Nourish Ethiopia',
+    is_coming_soon: true,
     category: 'nutrition',
     description: 'Registered dietitians specialising in Ethiopian food culture and modern sports nutrition. Meal plans that work with injera, not against it.',
     location_text: 'Sarbet, Nifas Silk-Lafto Sub-City, Addis Ababa',
@@ -185,6 +196,7 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000006',
     name: 'Green Plate Kitchen',
+    is_coming_soon: true,
     category: 'nutrition',
     description: 'Meal prep subscription and nutrition coaching service in Megenagna. Weekly healthy Ethiopian and Mediterranean meal boxes.',
     location_text: 'Megenagna, Yeka Sub-City, Addis Ababa',
@@ -210,6 +222,7 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000007',
     name: 'Haile Spa & Wellness',
+    is_coming_soon: true,
     category: 'spa',
     description: 'Luxury urban spa in Bole offering full-body massages, traditional Ethiopian coffee scrubs, hammam rituals, and facial treatments.',
     location_text: 'Bole Atlas, Bole Sub-City, Addis Ababa',
@@ -237,6 +250,7 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000008',
     name: 'Piassa Heritage Hammam',
+    is_coming_soon: true,
     category: 'spa',
     description: 'Authentic steam and hammam experience in the historic Piassa neighbourhood. Traditional Ethiopian and North African bathing rituals.',
     location_text: 'Piassa (Arada), Arada Sub-City, Addis Ababa',
@@ -262,6 +276,7 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000009',
     name: 'Biruh Mind Wellness',
+    is_coming_soon: true,
     category: 'therapy',
     description: "Addis Ababa's first Telegram-native mental wellness clinic. Licensed psychotherapists and counsellors. Bilingual: Amharic & English.",
     location_text: 'Kazanchis, Kirkos Sub-City, Addis Ababa',
@@ -287,6 +302,7 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000010',
     name: 'MoveMind Running Club',
+    is_coming_soon: true,
     category: 'gym',
     description: 'Community-first running club training at altitude (2,355m). Weekly group runs around Entoto and the ring road.',
     location_text: 'Addis Ababa Stadium, Kirkos Sub-City',
@@ -311,34 +327,46 @@ export const MOCK_PROVIDERS = [
   },
   {
     id: '11111111-0000-0000-0000-000000000011',
-    name: 'Kuriftu Resort & Spa',
+    name: 'Boston Day Spa',
     category: 'spa',
-    description: 'Pilot partner resort offering spa, sauna, and wellness experiences. Wellness services are booked directly with Kuriftu (not paid in-app) — contact them to schedule; payment is collected on-site after your visit.',
-    location_text: 'Bishoftu, Ethiopia',
-    lat: 8.7833, lng: 38.9833,
-    price_range: 'ETB 600 – 5,500',
+    description: 'Boston Day Spa is where the Kuriftu brand was born, a testament to our commitment to community empowerment… What began as a capacity-building project in Addis Ababa has transformed into a sanctuary of well-being, showcasing the work of celebrated Ethiopian artists like Merikokeb Berhanu.',
+    location_text: 'Bole, Addis Ababa',
+    lat: null, lng: null,
+    price_range: 'Price on enquiry',
     rating: 4.9,
     cover_photo_url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
     photos: [
       'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
-      'https://images.unsplash.com/photo-1540541338287-41700207dee6?w=800'
+      'https://images.unsplash.com/photo-1540541338287-41700207dee6?w=800',
+      'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800',
+      'https://images.unsplash.com/photo-1560750133-c09be1a39f87?w=800',
+      'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?w=800',
+      'https://images.unsplash.com/photo-1519823551278-64ac92734fb1?w=800'
     ],
-    // Confirmed Jul 15 gap-analysis call — all booked directly, not in-app
-    // (see docs/kuriftu-gap-analysis.md)
+    // Confirmed from the official Boston Day Spa PDF — no prices yet (B1),
+    // priced-on-enquiry until the owner confirms them (see FEATURE_PLAN).
     services: [
-      { name: 'Aroma Massage (90 min)', price: 5500, duration: '90 min', booking_method: 'phone' },
-      { name: 'Swedish Massage (30 min)', price: 2000, duration: '30 min', booking_method: 'phone' },
-      { name: 'Deep Tissue Massage (50 min)', price: 3000, duration: '50 min', booking_method: 'phone' },
-      { name: 'Steam & Sauna', price: 2500, duration: '2 hours', booking_method: 'phone' },
-      { name: 'Morocco Bath (90 min)', price: 5000, duration: '90 min', booking_method: 'phone' },
-      { name: 'Manicure (Normal)', price: 600, duration: '—', booking_method: 'phone' },
-      { name: 'Swim + Steam & Sauna (package)', price: 3600, duration: '—', booking_method: 'phone' },
-      { name: 'Massage + Steam & Sauna (package)', price: 4950, duration: '—', booking_method: 'phone' }
+      { name: 'Hair Salon', description: 'Professional hair styling and barber studio.', price: null, duration: null, booking_method: 'phone' },
+      { name: 'Steam / Sauna / Jacuzzi', description: 'Steam, sauna, and jacuzzi facilities.', price: null, duration: null, booking_method: 'phone' },
+      { name: 'Massage Cave', description: 'Serene massage room experiences.', price: null, duration: null, booking_method: 'phone' },
+      { name: 'Mani / Pedi', description: 'Dedicated manicure lounge and pedicure space.', price: null, duration: null, booking_method: 'phone' },
+      { name: 'Facial', description: 'Luxury facial suite treatments.', price: null, duration: null, booking_method: 'phone' },
+      { name: 'Wax', description: 'Waxing studio services.', price: null, duration: null, booking_method: 'phone' },
+      { name: 'Barber', description: 'Full-service barber studio.', price: null, duration: null, booking_method: 'phone' }
     ],
-    contact_phone: '+251 98 056 5656',
+    facilities: [
+      'Professional hair styling and barber studio', 'Dedicated manicure lounge', 'Relaxing pedicure space',
+      'Serene massage room', 'Luxury facial suite', 'Waxing studio', 'Full-service spa'
+    ],
+    navigation_tips: [
+      { title: 'Location', detail: 'Located in the heart of Addis Ababa, Bole.' },
+      { title: 'Call ahead', detail: '+251 11 662 3808 or +251 11 663 6557 to confirm your visit.' },
+    ],
+    contact_phone: '+251 11 662 3808',
     contact_email: 'booking@kurifturesorts.com',
     is_featured: true,
-    community: { id: '22222222-0000-0000-0000-000000000011', name: 'Kuriftu Wellness Circle', member_count: 58, user_joined: false },
+    is_coming_soon: false,
+    community: { id: '22222222-0000-0000-0000-000000000011', name: 'Boston Day Spa Circle', member_count: 58, user_joined: false },
     member_count: 58,
     community_id: '22222222-0000-0000-0000-000000000011'
   }
@@ -754,17 +782,6 @@ export function buildMockProviderTimeseries(startDate, endDate) {
   };
 }
 
-// ─── Neighbourhood Alerts ───────────────────────────
-export const NEIGHBOURHOOD_ALERTS = {
-  "Bole": "New yoga session opening in Bole this Saturday — only 3 spots left. Book now via Well Circle.",
-  "Kazanchis": "Iron & Soul Gym is running a 2-for-1 day pass offer in Kazanchis this week.",
-  "Piassa": "Piassa Heritage Hammam is offering a free herbal steam add-on for all bookings today.",
-  "CMC": "Zen Flow Studio in CMC just opened evening slots — hot yoga at 7 PM starting Monday.",
-  "Sarbet": "Nourish Ethiopia is hosting a free nutrition consultation clinic in Sarbet this weekend.",
-  "Megenagna": "Green Plate Kitchen is delivering free trial meal boxes to Megenagna — order by 12 PM.",
-  "Other": "Three new wellness providers just joined Well Circle near you. Tap Explore to discover them."
-};
-
 // ─── Tiers ──────────────────────────────────────────
 export const TIERS = [
   { name: 'Seed',   tier: 'seed',   emoji: '🌱', min: 0,   max: 99 },
@@ -838,6 +855,96 @@ export const MOCK_EVENTS = [
     starts_at: new Date(Date.now() + 4 * 86400000).toISOString(),
   },
 ];
+
+// ─── For You Feed (Phase 4/5) ───────────────────────
+// Mirrors the backend's fixed interleave (see docs/API_CONTRACT.md #2b):
+// posts newest-first, splicing one non-post item after every 3rd post,
+// cycling event -> service -> provider, skipping an empty category, with any
+// leftover items appended at the end so the feed is never empty.
+function buildMockForYouFeed() {
+  const postItems = MOCK_POSTS
+    .filter(p => !p.is_system_event)
+    .map(p => {
+      const circle = MOCK_CIRCLES.find(c => c.id === p.circle_id);
+      return {
+        type: 'post',
+        render_cost: p.photo_url ? 'media' : 'instant',
+        id: p.id,
+        created_at: p.created_at,
+        post: {
+          ...p,
+          comment_count: (p.comments || []).length,
+          truncated: false,
+          source: circle
+            ? { kind: 'circle', id: circle.id, name: circle.name, member_count: circle.member_count }
+            : { kind: 'community', id: null, name: null, member_count: 0 },
+        },
+      };
+    });
+
+  const providerBrief = (p) => ({
+    id: p.id, name: p.name, category: p.category, location_text: p.location_text,
+    rating: p.rating, cover_photo_url: p.cover_photo_url, is_coming_soon: !!p.is_coming_soon,
+  });
+
+  const boston = MOCK_PROVIDERS.find(p => p.name === 'Boston Day Spa');
+  const serviceItems = (boston?.services || []).map((service, idx) => ({
+    type: 'service',
+    render_cost: 'media',
+    id: `${boston.id}:${idx}`,
+    provider: providerBrief(boston),
+    service,
+  }));
+
+  const liveProviders = MOCK_PROVIDERS.filter(p => !p.is_coming_soon);
+  const providerItems = liveProviders.map(p => ({
+    type: 'provider',
+    render_cost: 'media',
+    id: p.id,
+    provider: providerBrief(p),
+    promotion: p.active_promotion || null,
+  }));
+
+  const eventItems = MOCK_EVENTS.filter(e => e.is_boosted).map(e => ({
+    type: 'event',
+    render_cost: 'media',
+    id: e.id,
+    event: e,
+    provider: { id: e.provider_id, name: e.provider_name, category: null, cover_photo_url: null },
+  }));
+
+  const pools = [eventItems, serviceItems, providerItems];
+  const cursors = [0, 0, 0];
+  let cycleIdx = 0;
+  const takeNext = () => {
+    for (let attempt = 0; attempt < pools.length; attempt++) {
+      const chosen = cycleIdx;
+      cycleIdx = (cycleIdx + 1) % pools.length;
+      if (cursors[chosen] < pools[chosen].length) {
+        cursors[chosen] += 1;
+        return pools[chosen][cursors[chosen] - 1];
+      }
+    }
+    return null;
+  };
+
+  const items = [];
+  postItems.forEach((postItem, i) => {
+    items.push(postItem);
+    if ((i + 1) % 3 === 0) {
+      const next = takeNext();
+      if (next) items.push(next);
+    }
+  });
+  let leftover = takeNext();
+  while (leftover) {
+    items.push(leftover);
+    leftover = takeNext();
+  }
+  return items;
+}
+
+export const MOCK_FOR_YOU_FEED = buildMockForYouFeed();
 
 // ─── Ranks (V2 UX Phase 5 — weekly leaderboard) ─────
 export const MOCK_RANKS = {
@@ -1007,8 +1114,9 @@ export const MOCK_PENDING_PROVIDERS = [
 ];
 
 export const MOCK_ADMIN_PROVIDERS = [
-  { id: '11111111-0000-0000-0000-000000000003', name: 'Shanti Yoga Addis', category: 'yoga', status: 'active', location_text: 'Bole', owner_name: 'Sara M.', member_count: 83, onboarded_by_admin: true },
-  { id: '11111111-0000-0000-0000-000000000001', name: 'Lifestyle Fitness Center', category: 'gym', status: 'active', location_text: 'Bole', owner_name: 'Admin', member_count: 47, onboarded_by_admin: true }
+  { id: '11111111-0000-0000-0000-000000000003', name: 'Shanti Yoga Addis', category: 'yoga', status: 'active', location_text: 'Bole', owner_name: 'Sara M.', member_count: 83, onboarded_by_admin: true, is_coming_soon: true },
+  { id: '11111111-0000-0000-0000-000000000001', name: 'Lifestyle Fitness Center', category: 'gym', status: 'active', location_text: 'Bole', owner_name: 'Admin', member_count: 47, onboarded_by_admin: true, is_coming_soon: true },
+  { id: '22222222-0000-0000-0000-000000000010', name: 'Boston Day Spa', category: 'spa', status: 'active', location_text: 'Bole, Addis Ababa', owner_name: 'Kuriftu', member_count: 58, onboarded_by_admin: true, is_coming_soon: false }
 ];
 
 export const MOCK_ADMIN_PRODUCTS = MOCK_PRODUCTS.map(p => ({

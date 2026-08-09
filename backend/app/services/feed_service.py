@@ -120,6 +120,14 @@ def _interleave(post_items: list, event_items: list, service_items: list, provid
         return False
 
     result = []
+    # Pin the top featured/highest-rated provider (the pilot spotlight, e.g.
+    # Boston Day Spa) as the very first feed item instead of leaving it to
+    # the every-3rd-post cadence — otherwise a light post day can push it
+    # past the fold or off the first page entirely.
+    if provider_items:
+        result.append(provider_items[0])
+        cursors[2] = 1
+
     for i, post_item in enumerate(post_items):
         result.append(post_item)
         if (i + 1) % 3 == 0:

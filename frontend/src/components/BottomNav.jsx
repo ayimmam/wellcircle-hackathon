@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Icon from './Icon';
 import { useTranslation } from 'react-i18next';
 import { haptic } from '../utils/haptic';
+import { isProviderPortalDomain } from '../utils/providerPortal';
 
 const TABS = [
   { path: '/home', icon: 'home', label: 'Home' },
@@ -18,7 +19,8 @@ export default function BottomNav() {
   const hiddenPaths = ['/', '/onboarding', '/provider-onboard'];
   const hidden = hiddenPaths.includes(location.pathname)
     || location.pathname.startsWith('/admin')
-    || location.pathname.startsWith('/provider-portal');
+    || location.pathname.startsWith('/provider-portal')
+    || isProviderPortalDomain();
   if (hidden) return null;
 
   let current = TABS.find(t => location.pathname.startsWith(t.path))?.path;

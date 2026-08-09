@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useProviderPortalAuth } from '../../context/ProviderPortalAuthContext';
 import { ProviderPortalDataProvider, useProviderPortalData } from '../../context/ProviderPortalDataContext';
+import { providerPortalBase } from '../../utils/providerPortal';
 import Icon from '../../components/Icon';
 
 const NAV_ITEMS = [
@@ -44,7 +45,7 @@ function ProviderPortalShellInner() {
 
         <div className="portal-sidebar-footer">
           <div className="portal-provider-name">{providerUser?.name || providerUser?.telegram_handle}</div>
-          <button className="btn btn-secondary btn-sm" style={{ width: '100%' }} onClick={() => { logout(); navigate('/provider-portal/login'); }}>
+          <button className="btn btn-secondary btn-sm" style={{ width: '100%' }} onClick={() => { logout(); navigate(`${providerPortalBase()}/login`); }}>
             Logout
           </button>
         </div>

@@ -11,6 +11,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import AdminGuard from './components/AdminGuard';
 import ProviderPortalGuard from './components/ProviderPortalGuard';
 import useDoubleBackToExit from './hooks/useDoubleBackToExit';
+import { isProviderPortalDomain, providerPortalBase } from './utils/providerPortal';
 import { getProviders, getProvider } from './api/client';
 
 // SplashScreen is the entry/landing screen — keep it eager so first paint is
@@ -130,8 +131,9 @@ export function AppShell() {
         <ErrorBoundary>
           <Suspense fallback={<RouteFallback />}>
             <Routes>
-              {/* Auth & Onboarding */}
-              <Route path="/" element={<SplashScreen />} />
+              {/* Auth & Onboarding — the "/" route below is skipped on
+                  provider.wellcircle.et since the portal route claims "/" there */}
+              {!isProviderPortalDomain() && <Route path="/" element={<SplashScreen />} />}
               <Route path="/onboarding" element={<OnboardingFlow />} />
 
               {/* Main tabs */}
@@ -176,9 +178,11 @@ export function AppShell() {
                 <Route path="award-points" element={<AdminPointsAward />} />
               </Route>
 
-              {/* Provider website — Telegram Login Widget auth, not the Mini App */}
-              <Route path="/provider-portal/login" element={<ProviderPortalLogin />} />
-              <Route path="/provider-portal" element={<ProviderPortalGuard><ProviderPortalShell /></ProviderPortalGuard>}>
+              {/* Provider website — Telegram Login Widget auth, not the Mini App.
+                  On provider.wellcircle.et this is the whole site, so it's mounted
+                  at root paths instead of the redundant /provider-portal prefix. */}
+              <Route path={`${providerPortalBase()}/login`} element={<ProviderPortalLogin />} />
+              <Route path={providerPortalBase() || '/'} element={<ProviderPortalGuard><ProviderPortalShell /></ProviderPortalGuard>}>
                 <Route index element={<Navigate to="overview" replace />} />
                 <Route path="overview" element={<ProviderPortalOverview />} />
                 <Route path="bookings" element={<ProviderPortalBookings />} />

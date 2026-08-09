@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { getNotificationUnreadCount } from '../api/client';
 import usePolling from '../hooks/usePolling';
 import Icon from './Icon';
+import { isProviderPortalDomain } from '../utils/providerPortal';
 import newLogo from '../new_logo.png';
 
 export default function Header({ onMenuOpen }) {
@@ -14,7 +15,8 @@ export default function Header({ onMenuOpen }) {
 
   const hidden = ['/', '/onboarding', '/provider-onboard'].includes(location.pathname)
     || location.pathname.startsWith('/admin')
-    || location.pathname.startsWith('/provider-portal');
+    || location.pathname.startsWith('/provider-portal')
+    || isProviderPortalDomain();
 
   const refreshUnread = async () => {
     try {

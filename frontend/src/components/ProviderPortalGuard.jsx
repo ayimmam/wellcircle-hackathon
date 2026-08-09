@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useProviderPortalAuth } from '../context/ProviderPortalAuthContext';
+import { providerPortalBase } from '../utils/providerPortal';
 
 export default function ProviderPortalGuard({ children }) {
   const { providerUser, loading } = useProviderPortalAuth();
@@ -13,7 +14,7 @@ export default function ProviderPortalGuard({ children }) {
   }
 
   if (!providerUser) {
-    return <Navigate to="/provider-portal/login" replace />;
+    return <Navigate to={`${providerPortalBase()}/login`} replace />;
   }
 
   return children;

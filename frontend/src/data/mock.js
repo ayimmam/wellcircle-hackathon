@@ -929,6 +929,13 @@ function buildMockForYouFeed() {
   };
 
   const items = [];
+  // Pin the top featured provider (Boston Day Spa) as the very first feed
+  // item — mirrors the backend's fixed interleave (feed_service.py
+  // _interleave) so it doesn't depend on the every-3rd-post cadence.
+  if (providerItems.length > 0) {
+    items.push(providerItems[0]);
+    cursors[2] = 1;
+  }
   postItems.forEach((postItem, i) => {
     items.push(postItem);
     if ((i + 1) % 3 === 0) {

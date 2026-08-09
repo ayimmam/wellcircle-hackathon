@@ -39,6 +39,7 @@ import {
   MOCK_PUBLIC_USERS, MOCK_FOLLOWERS, MOCK_FOLLOWING, MOCK_STRAVA_STATS,
   MOCK_TRAINER_VERIFICATIONS, MOCK_PAID_CIRCLE_APPLICATIONS,
   MOCK_CIRCLE_SUBSCRIPTIONS, MOCK_CIRCLE_REVENUE, buildMockProviderTimeseries,
+  MOCK_FOR_YOU_FEED,
 } from '../data/mock';
 
 // ─── Auth helpers ───────────────────────────────────
@@ -189,9 +190,11 @@ export const cacheKeys = {
   leaderboard: (id) => keyOf('leaderboard', { id }),
 
   circles: () => 'circles',
+  circle: (id) => keyOf('circles', { id, detail: 1 }),
   circleLeaderboard: (id) => keyOf('circles', { id, leaderboard: 1 }),
 
   posts: (communityId, circleId) => keyOf('posts', { communityId, circleId }),
+  feed: (before) => keyOf('feed', { before }),
 
   products: (params) => keyOf('products', params),
   product: (id) => keyOf('products', { id }),
@@ -654,6 +657,54 @@ export async function getCircles() {
   });
 }
 
+// Phase 6: circle preview + Join CTA — replaces the old hack of fetching the
+// whole GET /circles list and .find()-ing it.
+export async function getCircle(id) {
+  return cached(cacheKeys.circle(id), async () => {
+    if (USE_MOCK) {
+      await delay();
+      const circle = MOCK_CIRCLES.find(c => c.id === id);
+      if (!circle) {
+        const err = new Error('Circle not found');
+        err.status = 404;
+        throw err;
+      }
+      const isOwner = circle.owner_id === MOCK_USER.id;
+      const isJoined = Boolean(circle.is_joined) || isOwner;
+      if (circle.is_private && !isJoined) {
+        const err = new Error('Circle not found');
+        err.status = 404;
+        throw err;
+      }
+      const previewPosts = (!isJoined && !circle.is_paid)
+        ? MOCK_POSTS.filter(p => p.circle_id === id).slice(0, 5)
+        : null;
+      return {
+        id: circle.id,
+        name: circle.name,
+        description: circle.description,
+        member_count: circle.member_count,
+        is_joined: isJoined,
+        is_owner: isOwner,
+        is_private: Boolean(circle.is_private),
+        is_paid: Boolean(circle.is_paid),
+        price_etb: circle.price_etb,
+        paid_circle_status: circle.paid_circle_status,
+        join_code: isJoined ? circle.join_code : null,
+        owner: {
+          id: circle.owner_id,
+          name: circle.owner_name,
+          telegram_handle: circle.owner_telegram_handle,
+          is_verified_trainer: Boolean(circle.owner_is_verified),
+        },
+        owner_is_verified: Boolean(circle.owner_is_verified),
+        preview_posts: previewPosts,
+      };
+    }
+    return request('GET', `/circles/${id}`);
+  });
+}
+
 export async function createCircle(data) {
   invalidateMembership();
   if (USE_MOCK) {
@@ -734,6 +785,22 @@ export async function getPosts(communityId = null, circleId = null) {
     if (communityId) params.set('community_id', communityId);
     if (circleId) params.set('circle_id', circleId);
     return request('GET', `/posts?${params}`);
+  });
+}
+
+// ─── For You Feed (Phase 4/5) ──────────────────────────
+export async function getForYouFeed({ before } = {}) {
+  return cached(cacheKeys.feed(before), async () => {
+    if (USE_MOCK) {
+      await delay();
+      // Mock mode has no real pagination cursor — the first page carries
+      // everything; a `before` request (scroll) has nothing further to add.
+      if (before) return { items: [], next_before: null };
+      return { items: [...MOCK_FOR_YOU_FEED], next_before: null };
+    }
+    const params = new URLSearchParams({ limit: '10' });
+    if (before) params.set('before', before);
+    return request('GET', `/feed/for-you?${params}`);
   });
 }
 
@@ -839,6 +906,25 @@ export async function generateInviteCode(expiresInDays = 30) {
   return request('POST', '/providers/invite-code/generate', { expires_in_days: expiresInDays });
 }
 
+// Mock mode has no backend to persist to — a mutable singleton so
+// updateProviderMe()'s changes survive across getProviderMe() calls.
+const MOCK_PROVIDER_ME = {
+  id: '11111111-0000-0000-0000-000000000003',
+  name: 'Shanti Yoga Addis',
+  category: 'yoga',
+  status: 'active',
+  description: 'Premium yoga studio',
+  location_text: 'Bole, Addis Ababa',
+  services: [],
+  theme_primary_color: '#10B981',
+  theme_accent_color: '#F59E0B',
+  contact_phone: null,
+  contact_email: null,
+  facilities: [],
+  navigation_tips: [],
+  dashboard_stats: { total_members: 83, new_members_today: 3, total_products: 3, active_products: 2 }
+};
+
 export async function getProviderMe() {
   return cached(cacheKeys.providerMe(), () => fetchProviderMe());
 }
@@ -846,20 +932,19 @@ export async function getProviderMe() {
 async function fetchProviderMe() {
   if (USE_MOCK) {
     await delay();
-    return {
-      id: '11111111-0000-0000-0000-000000000003',
-      name: 'Shanti Yoga Addis',
-      category: 'yoga',
-      status: 'active',
-      description: 'Premium yoga studio',
-      location_text: 'Bole, Addis Ababa',
-      services: [],
-      theme_primary_color: '#10B981',
-      theme_accent_color: '#F59E0B',
-      dashboard_stats: { total_members: 83, new_members_today: 3, total_products: 3, active_products: 2 }
-    };
+    return { ...MOCK_PROVIDER_ME };
   }
   return request('GET', '/providers/me');
+}
+
+export async function updateProviderMe(data) {
+  invalidate('provider-me');
+  if (USE_MOCK) {
+    await delay();
+    Object.assign(MOCK_PROVIDER_ME, data);
+    return { ...MOCK_PROVIDER_ME };
+  }
+  return request('PATCH', '/providers/me', data);
 }
 
 // C1: distinct customers (booking or check-in) with last-visit + lifetime redeemed
@@ -1089,6 +1174,11 @@ export async function rejectProvider(id, rejectionReason) {
   return request('POST', `/admin/providers/${id}/reject`, { rejection_reason: rejectionReason });
 }
 
+export async function setProviderLaunchState(id, isComingSoon) {
+  if (USE_MOCK) { await delay(); return { provider_id: id, is_coming_soon: isComingSoon }; }
+  return request('PATCH', `/admin/providers/${id}/launch-state`, { is_coming_soon: isComingSoon });
+}
+
 export async function promoteProvider(data) {
   if (USE_MOCK) { await delay(); return { provider_id: 'prov-new', status: 'active', user_id: 'user-new', message: 'User promoted to provider directly.' }; }
   return request('PUT', '/admin/providers/promote-user', data);
@@ -1237,6 +1327,7 @@ async function legacyHomeBootstrap() {
     getCircleSocialProof().catch(() => null),
     getNotificationUnreadCount().catch(() => 0),
   ]);
+  const feed = await getForYouFeed().catch(() => ({ items: [], next_before: null }));
   return {
     providers: providers.providers || [],
     communities: communities.communities || [],
@@ -1244,6 +1335,7 @@ async function legacyHomeBootstrap() {
     featured_events: featured.events || [],
     social_proof: social,
     unread_count: unread,
+    feed,
   };
 }
 
@@ -1256,6 +1348,7 @@ async function mockHomeBootstrap() {
     featured_events: [],
     social_proof: { ...MOCK_SOCIAL_PROOF },
     unread_count: 0,
+    feed: { items: [...MOCK_FOR_YOU_FEED], next_before: null },
   };
 }
 
@@ -1271,6 +1364,7 @@ function warmFromBootstrap(payload) {
   cacheWrite(cacheKeys.featuredEvents(), { events: payload.featured_events || [] });
   if (payload.social_proof) cacheWrite(cacheKeys.social(), payload.social_proof);
   if (typeof payload.unread_count === 'number') cacheWrite(cacheKeys.unread(), payload.unread_count);
+  if (payload.feed) cacheWrite(cacheKeys.feed(undefined), payload.feed);
 }
 
 export async function getRanks() {

@@ -7,7 +7,7 @@ import { track } from '../analytics';
 /**
  * Shared daily check-in behavior: points/streak toasts, user-state update,
  * 7-day milestone celebration (haptic + freeze copy), and analytics. Used by
- * both CommunityDetail's check-in button and the HomeScreen check-in card so
+ * both CommunityDetail's check-in button and the ForYouScreen check-in card so
  * the habit loop feels identical everywhere.
  *
  * Throws on failure (e.g. already checked in) — callers handle their own

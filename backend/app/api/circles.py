@@ -11,7 +11,7 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.crud.circle import (
     create_circle, join_circle, get_circles, get_circle_leaderboard,
-    join_circle_by_code, get_circle_social_proof,
+    join_circle_by_code, get_circle_social_proof, get_circle_detail,
 )
 from app.crud.circle_subscription import (
     apply_for_paid_circle, creator_review_subscription, get_circle_revenue,
@@ -54,6 +54,16 @@ def api_create_circle(circle_in: CircleCreate, user: User = Depends(get_current_
 def api_get_circles(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     circles = get_circles(db, user_id=user.id)
     return {"circles": circles}
+
+@router.get("/{circle_id}")
+def api_get_circle_detail(circle_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Circle detail for the preview + Join CTA flow. Private circles the
+    caller hasn't joined 404 rather than leak that they exist."""
+    detail = get_circle_detail(db, UUID(circle_id), user.id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Circle not found")
+    return detail
+
 
 @router.post("/{circle_id}/join")
 def api_join_circle(circle_id: str, join_data: CircleJoin = None, user: User = Depends(get_current_user), db: Session = Depends(get_db)):

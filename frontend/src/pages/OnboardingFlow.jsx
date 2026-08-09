@@ -72,13 +72,22 @@ export default function OnboardingFlow() {
     }));
   };
 
-  const suggestedCircles = MOCK_COMMUNITIES.filter(
-    c => formData.interest_categories.includes(c.category)
-  ).slice(0, 4);
-
-  const joinableCircles = availableCircles
-    .filter(c => !c.is_joined && !c.is_private && c.id !== committedCircle?.id)
-    .slice(0, 4);
+  // One merged list, capped at 2 total: real joinable circles first, then
+  // interest-matched community suggestions filling any remaining slots.
+  // Both interaction models render identically (per the plan) even though
+  // they hit different backends — a real circle joins immediately via
+  // joinCircle(), a suggestion just toggles into suggested_circle_ids and is
+  // auto-joined on final submit.
+  const MAX_CIRCLE_SUGGESTIONS = 2;
+  const realJoinableCircles = availableCircles
+    .filter(c => !c.is_joined && !c.is_private && !c.is_paid && c.id !== committedCircle?.id)
+    .slice(0, MAX_CIRCLE_SUGGESTIONS)
+    .map(c => ({ ...c, kind: 'real' }));
+  const communitySuggestions = MOCK_COMMUNITIES
+    .filter(c => formData.interest_categories.includes(c.category))
+    .slice(0, Math.max(0, MAX_CIRCLE_SUGGESTIONS - realJoinableCircles.length))
+    .map(c => ({ ...c, kind: 'suggestion' }));
+  const circleSuggestions = [...realJoinableCircles, ...communitySuggestions].slice(0, MAX_CIRCLE_SUGGESTIONS);
 
   const handleJoinCircle = async (circle) => {
     setJoiningCircleId(circle.id);
@@ -125,7 +134,7 @@ export default function OnboardingFlow() {
         frequency_changed_from_default: formData.exercise_frequency !== DEFAULT_FREQUENCY,
         welcome_points: res?.welcome_points ?? 0,
       });
-      // justOnboarded → HomeScreen shows the one-time completion banner
+      // justOnboarded → ForYouScreen shows the one-time completion banner
       navigate('/home', { replace: true, state: { justOnboarded: true } });
     } catch (err) {
       console.error('Onboarding failed:', err);
@@ -278,74 +287,47 @@ export default function OnboardingFlow() {
               Circles are small accountability groups — check in together, cheer each other on, and stay consistent as a team.
             </p>
 
-            {suggestedCircles.length > 0 && (
-              <>
-                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', margin: '4px 0 8px' }}>
-                  Recommended for you
-                </div>
-                <div className="flex-col gap-8 mb-16">
-                  {suggestedCircles.map(c => (
+            {circleSuggestions.length > 0 && (
+              <div className="flex-col gap-8 mb-16">
+                {circleSuggestions.map(c => {
+                  const isReal = c.kind === 'real';
+                  const selected = isReal
+                    ? committedCircle?.id === c.id
+                    : formData.suggested_circle_ids.includes(c.id);
+                  const joining = isReal && joiningCircleId === c.id;
+                  return (
                     <button
                       key={c.id}
-                      className={`option-card ${formData.suggested_circle_ids.includes(c.id) ? 'selected' : ''}`}
-                      onClick={() => toggleCircle(c.id)}
+                      className={`option-card ${selected ? 'selected' : ''}`}
+                      onClick={() => {
+                        if (joining || selected) return;
+                        isReal ? handleJoinCircle(c) : toggleCircle(c.id);
+                      }}
+                      disabled={joining}
                       style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}
                       id={`circle-${c.id}`}
                     >
                       <span style={{ fontSize: '1.4rem' }}>🌿</span>
                       <div style={{ flex: 1 }}>
                         <div className="option-card-label">{c.name}</div>
-                        <div className="option-card-desc">by {c.provider_name} · 👥 {c.member_count}</div>
+                        <div className="option-card-desc">
+                          {isReal ? `👥 ${c.member_count} members` : `by ${c.provider_name} · 👥 ${c.member_count}`}
+                        </div>
                         {c.description && (
                           <div className="option-card-desc" style={{ marginTop: 2, fontSize: '0.75rem', opacity: 0.85 }}>
                             {c.description}
                           </div>
                         )}
                       </div>
-                      {formData.suggested_circle_ids.includes(c.id) && (
+                      {joining ? (
+                        <span>…</span>
+                      ) : selected && (
                         <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✓</span>
                       )}
                     </button>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {joinableCircles.length > 0 && (
-              <>
-                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', margin: '4px 0 8px' }}>
-                  Available Circles
-                </div>
-                <div className="flex-col gap-8 mb-16">
-                  {joinableCircles.map(c => (
-                    <div
-                      key={c.id}
-                      className="option-card"
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'default' }}
-                      id={`available-circle-${c.id}`}
-                    >
-                      <span style={{ fontSize: '1.4rem' }}>🌀</span>
-                      <div style={{ flex: 1 }}>
-                        <div className="option-card-label">{c.name}</div>
-                        <div className="option-card-desc">👥 {c.member_count} members</div>
-                        {c.description && (
-                          <div className="option-card-desc" style={{ marginTop: 2, fontSize: '0.75rem', opacity: 0.85 }}>
-                            {c.description}
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        className="btn btn-sm btn-secondary"
-                        onClick={() => handleJoinCircle(c)}
-                        disabled={joiningCircleId === c.id}
-                        id={`join-circle-${c.id}-btn`}
-                      >
-                        {joiningCircleId === c.id ? '…' : 'Join'}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </>
+                  );
+                })}
+              </div>
             )}
 
             <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', margin: '4px 0 8px' }}>

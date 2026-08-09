@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
-import { getCommunity, getCommunityFeed, joinCommunity, leaveCommunity } from '../api/client';
+import { getCommunity, getCommunityFeed, getPosts, joinCommunity, leaveCommunity } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import FeedEvent from '../components/FeedEvent';
 import PostFeed from '../components/PostFeed';
+import ReadOnlyPostFeed from '../components/ReadOnlyPostFeed';
 import ChallengesList from '../components/ChallengesList';
 import Leaderboard from '../components/Leaderboard';
 import { showToast } from '../components/Toast';
@@ -28,6 +29,7 @@ export default function CommunityDetail() {
   // Right after joining, land on Posts with a friendly intro pre-filled —
   // mirrors CircleDetailScreen's justJoined flow.
   const [justJoined, setJustJoined] = useState(false);
+  const [previewPosts, setPreviewPosts] = useState([]);
   const lastTimestamp = useRef(null);
 
   // Load community details and feed
@@ -40,6 +42,10 @@ export default function CommunityDetail() {
         setCheckedIn(c.user_checked_in_today || false);
         if (f.events.length > 0) {
           lastTimestamp.current = f.events[0].created_at;
+        }
+        // Non-members get a read-only preview instead of the full composer.
+        if (!c.user_joined) {
+          getPosts(id).then(res => setPreviewPosts(res.posts || [])).catch(() => {});
         }
       })
       .catch(() => navigate('/community', { replace: true }))
@@ -275,12 +281,14 @@ export default function CommunityDetail() {
             </div>
           )}
         </>
-      ) : (
+      ) : community.user_joined ? (
         <PostFeed
           communityId={id}
           initialDraft={justJoined ? `Hi I'm ${user?.name?.split(' ')[0] || 'there'}, I'm glad to join you guys!` : undefined}
           onDraftConsumed={() => setJustJoined(false)}
         />
+      ) : (
+        <ReadOnlyPostFeed posts={previewPosts} id="community-preview-feed" />
       )}
     </div>
   );

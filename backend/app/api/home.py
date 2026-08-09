@@ -13,7 +13,9 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.user_notification import UserNotification
+from app.services.feed_service import build_for_you_feed
 from app.utils.logger import get_logger
+from app.utils.resilient import section as _section
 
 logger = get_logger(__name__)
 
@@ -22,6 +24,7 @@ router = APIRouter()
 FEATURED_LIMIT = 10
 EVENTS_LIMIT = 20
 EVENT_WINDOW = timedelta(days=7)
+FEED_LIMIT = 10
 
 
 @router.get("/home/bootstrap")
@@ -44,14 +47,7 @@ async def home_bootstrap(
     window_end = now + EVENT_WINDOW
 
     def section(name, fn, fallback):
-        try:
-            return fn()
-        except Exception:
-            logger.exception("home bootstrap section %s failed", name)
-            # Postgres aborts the whole transaction on error, so without this
-            # the first failed section would take every later one with it.
-            db.rollback()
-            return fallback
+        return _section(db, name, fn, fallback)
 
     providers = section("providers", lambda: get_all_providers(db), [])
     communities = section(
@@ -86,6 +82,10 @@ async def home_bootstrap(
         .count(),
         0,
     )
+    # For You feed's first page — the screen paints from this bootstrap on
+    # open (one request, per Phase 2) and only hits GET /api/feed/for-you on
+    # scroll for subsequent pages.
+    feed = section("feed", lambda: build_for_you_feed(db, limit=FEED_LIMIT), {"items": [], "next_before": None})
 
     return {
         "providers": providers,
@@ -94,4 +94,5 @@ async def home_bootstrap(
         "featured_events": featured_events,
         "social_proof": social_proof,
         "unread_count": unread_count,
+        "feed": feed,
     }

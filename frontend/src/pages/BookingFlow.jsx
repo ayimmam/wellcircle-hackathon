@@ -83,7 +83,14 @@ export default function BookingFlow() {
     // state: Explore cards carry the list shape, which lacks the per-user
     // `active_promotion.user_eligible` flag the pricing below depends on.
     getProvider(providerId)
-      .then(p => setProvider(p))
+      .then(p => {
+        if (p.is_coming_soon) {
+          showToast("This provider isn't taking bookings yet.");
+          navigate(`/provider/${providerId}`, { replace: true });
+          return;
+        }
+        setProvider(p);
+      })
       .catch(() => {
         // keep the route-state copy if the refresh fails; bail out only when
         // there is nothing at all to render
@@ -491,7 +498,9 @@ export default function BookingFlow() {
                     )}
                   </div>
                 </div>
-                <div className="service-price">ETB {service.price?.toLocaleString()}</div>
+                <div className="service-price">
+                  {service.price != null ? `ETB ${service.price.toLocaleString()}` : t('Price on enquiry')}
+                </div>
               </div>
             ))}
           </div>

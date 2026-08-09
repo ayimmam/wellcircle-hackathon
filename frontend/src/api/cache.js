@@ -51,6 +51,7 @@ export const TTL = {
   circles: 2 * 60_000,
   challenges: 2 * 60_000,
   posts: 60_000,
+  feed: 60_000,
   profile: 2 * 60_000,
   followers: 2 * 60_000,
   home: 60_000,

@@ -11,6 +11,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import AdminGuard from './components/AdminGuard';
 import ProviderPortalGuard from './components/ProviderPortalGuard';
 import useDoubleBackToExit from './hooks/useDoubleBackToExit';
+import { getProviders, getProvider } from './api/client';
 
 // SplashScreen is the entry/landing screen — keep it eager so first paint is
 // instant. Everything else is code-split so the initial bundle stays small,
@@ -21,17 +22,18 @@ import SplashScreen from './pages/SplashScreen';
 // warmed on idle (see prefetchTabs below). Without that, the first tap on a
 // tab pays for a chunk download over a Telegram in-app connection, which is
 // exactly the pause that makes a Mini App feel like a web page.
-const importHome = () => import('./pages/HomeScreen');
+const importHome = () => import('./pages/ForYouScreen');
 const importExplore = () => import('./pages/ExploreScreen');
 const importCommunity = () => import('./pages/CommunityList');
 const importProfile = () => import('./pages/ProfileScreen');
+const importProviderDetail = () => import('./pages/ProviderDetail');
 
 const OnboardingFlow = lazy(() => import('./pages/OnboardingFlow'));
-const HomeScreen = lazy(importHome);
+const ForYouScreen = lazy(importHome);
 const ExploreScreen = lazy(importExplore);
 const NotificationsScreen = lazy(() => import('./pages/NotificationsScreen'));
 const MyBookings = lazy(() => import('./pages/MyBookings'));
-const ProviderDetail = lazy(() => import('./pages/ProviderDetail'));
+const ProviderDetail = lazy(importProviderDetail);
 const CommunityList = lazy(importCommunity);
 const CommunityDetail = lazy(() => import('./pages/CommunityDetail'));
 const CircleDetailScreen = lazy(() => import('./pages/CircleDetailScreen'));
@@ -80,8 +82,17 @@ const ProviderPortalSubscriptions = lazy(() => import('./pages/provider-portal/P
  */
 function prefetchTabs() {
   const warm = () => {
-    [importHome, importExplore, importCommunity, importProfile]
+    [importHome, importExplore, importCommunity, importProfile, importProviderDetail]
       .forEach(load => { load().catch(() => {}); });
+    // A single live provider (Boston Day Spa) is the most probable next
+    // screen after Explore/Home — warm its detail payload into the cache so
+    // the tap feels free (Phase 2: instant open).
+    getProviders()
+      .then(res => {
+        const live = (res.providers || []).find(p => !p.is_coming_soon);
+        if (live) return getProvider(live.id);
+      })
+      .catch(() => {});
   };
   if (typeof requestIdleCallback === 'function') requestIdleCallback(warm, { timeout: 4000 });
   else setTimeout(warm, 2000);
@@ -124,7 +135,7 @@ export function AppShell() {
               <Route path="/onboarding" element={<OnboardingFlow />} />
 
               {/* Main tabs */}
-              <Route path="/home" element={<HomeScreen />} />
+              <Route path="/home" element={<ForYouScreen />} />
               <Route path="/explore" element={<ExploreScreen />} />
               <Route path="/notifications" element={<NotificationsScreen />} />
               <Route path="/my-bookings" element={<MyBookings />} />

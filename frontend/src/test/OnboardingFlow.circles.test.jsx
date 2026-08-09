@@ -68,10 +68,10 @@ describe('OnboardingFlow — circles step', () => {
     await goToCirclesStep();
 
     const firstCircle = MOCK_CIRCLES[0];
-    await waitFor(() => expect(document.getElementById(`available-circle-${firstCircle.id}`)).toBeInTheDocument());
+    await waitFor(() => expect(document.getElementById(`circle-${firstCircle.id}`)).toBeInTheDocument());
 
     expect(document.getElementById('onboarding-circle-invite-card')).toBeNull();
-    fireEvent.click(document.getElementById(`join-circle-${firstCircle.id}-btn`));
+    fireEvent.click(document.getElementById(`circle-${firstCircle.id}`));
 
     await waitFor(() => expect(document.getElementById('onboarding-circle-invite-card')).toBeInTheDocument());
     expect(document.getElementById('onboarding-circle-invite-card').textContent).toContain(firstCircle.name);
@@ -93,12 +93,28 @@ describe('OnboardingFlow — circles step', () => {
     expect(document.getElementById('new-circle-name-input').value).toBe('');
   });
 
-  it('recommended-for-you suggestions match ANY selected interest', async () => {
+  it('shows at most 2 circle suggestions total, merged into one unlabelled list', async () => {
     renderWithProviders(<OnboardingFlow />, { route: '/onboarding' });
     await screen.findByText("What's your name?");
     await goToCirclesStep();
 
-    // yoga + gym were both selected — at least one matching community should render
-    await waitFor(() => expect(screen.getByText('Recommended for you')).toBeInTheDocument());
+    await waitFor(() => {
+      const cards = document.querySelectorAll('[id^="circle-"]');
+      expect(cards.length).toBeGreaterThan(0);
+      expect(cards.length).toBeLessThanOrEqual(2);
+    });
+
+    // No section headers — a single merged list
+    expect(screen.queryByText('Recommended for you')).not.toBeInTheDocument();
+    expect(screen.queryByText('Available Circles')).not.toBeInTheDocument();
+  });
+
+  it('the create-your-own input is still present alongside the capped suggestions', async () => {
+    renderWithProviders(<OnboardingFlow />, { route: '/onboarding' });
+    await screen.findByText("What's your name?");
+    await goToCirclesStep();
+
+    expect(document.getElementById('new-circle-name-input')).toBeInTheDocument();
+    expect(document.getElementById('create-circle-btn')).toBeInTheDocument();
   });
 });

@@ -7,6 +7,7 @@ import {
 import { peek, write, invalidate, setCacheScope, clearAll as clearCache } from '../api/cache';
 import { showToast } from '../components/Toast';
 import { initAnalytics, identifyUser, track } from '../analytics';
+import { isProviderPortalDomain } from '../utils/providerPortal';
 
 const AuthContext = createContext(null);
 
@@ -21,7 +22,7 @@ function restoreSession() {
   if (typeof window === 'undefined') return null;
   // The provider website runs its own Telegram-Login-Widget session and must
   // never adopt a Mini App one.
-  if (window.location.pathname.startsWith('/provider-portal')) return null;
+  if (window.location.pathname.startsWith('/provider-portal') || isProviderPortalDomain()) return null;
 
   let savedToken = null;
   try {
@@ -170,7 +171,7 @@ export function AuthProvider({ children }) {
   // attempt Mini App initData auth, mock or otherwise.
   useEffect(() => {
     initAnalytics();
-    if (window.location.pathname.startsWith('/provider-portal')) {
+    if (window.location.pathname.startsWith('/provider-portal') || isProviderPortalDomain()) {
       setLoading(false);
       return;
     }

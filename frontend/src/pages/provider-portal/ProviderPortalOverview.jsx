@@ -5,6 +5,7 @@ import { getProviderPointsAnalytics, getProviderMetricsTimeseries, getProviderMe
 import { showToast } from '../../components/Toast';
 import FeedEvent from '../../components/FeedEvent';
 import Icon from '../../components/Icon';
+import { providerPortalBase } from '../../utils/providerPortal';
 
 function isoDateDaysAgo(days) {
   const d = new Date();
@@ -99,29 +100,29 @@ export default function ProviderPortalOverview() {
 
       {/* KPI cards — click through to the detail page */}
       <div className="portal-kpi-grid">
-        <button className="kpi-card portal-kpi-card accent" onClick={() => navigate('/provider-portal/customers')}>
+        <button className="kpi-card portal-kpi-card accent" onClick={() => navigate(`${providerPortalBase()}/customers`)}>
           <div className="kpi-value">{stats.stats.total_members}</div>
           <div className="kpi-label">Total Members</div>
         </button>
-        <button className="kpi-card portal-kpi-card" onClick={() => navigate('/provider-portal/customers')}>
+        <button className="kpi-card portal-kpi-card" onClick={() => navigate(`${providerPortalBase()}/customers`)}>
           <div className="kpi-value" style={{ color: 'var(--info)' }}>{stats.stats.new_members_today}</div>
           <div className="kpi-label">New Today</div>
         </button>
-        <button className="kpi-card portal-kpi-card secondary" onClick={() => navigate('/provider-portal/bookings')}>
+        <button className="kpi-card portal-kpi-card secondary" onClick={() => navigate(`${providerPortalBase()}/bookings`)}>
           <div className="kpi-value">{stats.stats.bookings_this_week}</div>
           <div className="kpi-label">Bookings (Week)</div>
         </button>
-        <button className="kpi-card portal-kpi-card" onClick={() => navigate('/provider-portal/bookings')}>
+        <button className="kpi-card portal-kpi-card" onClick={() => navigate(`${providerPortalBase()}/bookings`)}>
           <div className="kpi-value" style={{ color: 'var(--accent-light)' }}>
             {(stats.stats.estimated_revenue_etb || 0).toLocaleString()}
           </div>
           <div className="kpi-label">Revenue (ETB)</div>
         </button>
-        <button className="kpi-card portal-kpi-card" onClick={() => navigate('/provider-portal/bookings')}>
+        <button className="kpi-card portal-kpi-card" onClick={() => navigate(`${providerPortalBase()}/bookings`)}>
           <div className="kpi-value">{stats.stats.checkins_today}</div>
           <div className="kpi-label">Check-ins Today</div>
         </button>
-        <button className="kpi-card portal-kpi-card" onClick={() => navigate('/provider-portal/bookings')}>
+        <button className="kpi-card portal-kpi-card" onClick={() => navigate(`${providerPortalBase()}/bookings`)}>
           <div className="kpi-value" style={{ color: 'var(--accent)' }}>{Math.round((stats.stats.engagement_rate || 0) * 100)}%</div>
           <div className="kpi-label">Engagement Rate</div>
         </button>
@@ -245,7 +246,7 @@ export default function ProviderPortalOverview() {
         <>
           <div className="section-header">
             <h2 className="section-title">Recent Bookings</h2>
-            <button className="text-accent underline text-sm" style={{ background: 'none', border: 'none' }} onClick={() => navigate('/provider-portal/bookings')}>
+            <button className="text-accent underline text-sm" style={{ background: 'none', border: 'none' }} onClick={() => navigate(`${providerPortalBase()}/bookings`)}>
               View all →
             </button>
           </div>

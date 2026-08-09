@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProviderPortalAuth } from '../../context/ProviderPortalAuthContext';
 import { showToast } from '../../components/Toast';
+import { providerPortalBase } from '../../utils/providerPortal';
 import newLogo from '../../new_logo.png';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
@@ -15,14 +16,14 @@ export default function ProviderPortalLogin() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (providerUser) navigate('/provider-portal/overview', { replace: true });
+    if (providerUser) navigate(`${providerPortalBase()}/overview`, { replace: true });
   }, [providerUser, navigate]);
 
   const handleWidgetAuth = async (telegramUser) => {
     setSubmitting(true);
     try {
       await loginWithWidget(telegramUser);
-      navigate('/provider-portal/overview', { replace: true });
+      navigate(`${providerPortalBase()}/overview`, { replace: true });
     } catch (err) {
       showToast(err.message || 'Login failed — is this Telegram account linked to a provider?', 'error');
     } finally {

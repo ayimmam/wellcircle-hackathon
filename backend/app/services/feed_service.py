@@ -5,9 +5,11 @@ docs/API_CONTRACT.md — not a scoring model:
 
     Posts newest-first. After every 3rd post, splice in one non-post item,
     cycling event -> service -> provider, skipping a category when empty.
-    Only live (is_coming_soon = false) providers may appear as `service` or
-    `provider` items. An `event` item is emitted only for a boosted/featured
-    event.
+    Both live and coming-soon providers may appear as `service` or
+    `provider` items (coming-soon ones render with a "Coming soon" badge and
+    no booking CTA — see FeedProviderCard/FeedServiceCard — so the pilot
+    stays visible in the feed pre-launch). An `event` item is emitted only
+    for a boosted/featured event.
 """
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -38,11 +40,10 @@ def _provider_brief(p: Provider) -> dict:
     }
 
 
-def _live_providers(db: Session):
+def _feed_providers(db: Session):
     return (
         db.query(Provider)
         .filter(
-            Provider.is_coming_soon == False,  # noqa: E712
             or_(Provider.status == "active", Provider.status.is_(None)),
         )
         .order_by(Provider.is_featured.desc(), Provider.rating.desc())
@@ -148,7 +149,7 @@ def build_for_you_feed(db: Session, limit: int = 10, before: Optional[datetime] 
     now = datetime.now(timezone.utc)
 
     posts = section(db, "feed_posts", lambda: get_public_feed_posts(db, limit=limit, before=before), [])
-    providers = section(db, "feed_providers", lambda: _live_providers(db), [])
+    providers = section(db, "feed_providers", lambda: _feed_providers(db), [])
     event_items = section(db, "feed_events", lambda: _build_event_items(db, now), [])
     service_items = section(db, "feed_service_items", lambda: _build_service_items(providers), [])
     provider_items = section(db, "feed_provider_items", lambda: _build_provider_items(db, providers), [])

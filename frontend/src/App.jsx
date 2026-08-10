@@ -118,7 +118,7 @@ function RouteFallback() {
 export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
 
-  useEffect(prefetchTabs, []);
+  useEffect(() => { if (!isProviderPortalDomain()) prefetchTabs(); }, []);
   useDoubleBackToExit();
 
   return (

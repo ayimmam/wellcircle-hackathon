@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { authTelegramWidget, setToken, getMe } from '../api/client';
+import { authTelegramWidget, authProviderPassword, setToken, getMe } from '../api/client';
 
 // Provider website session — deliberately independent of AuthContext (the
 // Mini App's Telegram-initData flow). Uses its own localStorage key so a
@@ -47,6 +47,20 @@ export function ProviderPortalAuthProvider({ children }) {
     }
   }, []);
 
+  const loginWithPassword = useCallback(async (username, password) => {
+    setError(null);
+    try {
+      const res = await authProviderPassword(username, password);
+      localStorage.setItem(STORAGE_KEY, res.token);
+      setToken(res.token);
+      setProviderUser(res.user);
+      return res.user;
+    } catch (err) {
+      setError(err.message || 'Login failed');
+      throw err;
+    }
+  }, []);
+
   const logout = useCallback(() => {
     setProviderUser(null);
     setToken(null);
@@ -54,7 +68,7 @@ export function ProviderPortalAuthProvider({ children }) {
   }, []);
 
   return (
-    <ProviderPortalAuthContext.Provider value={{ providerUser, loading, error, loginWithWidget, logout }}>
+    <ProviderPortalAuthContext.Provider value={{ providerUser, loading, error, loginWithWidget, loginWithPassword, logout }}>
       {children}
     </ProviderPortalAuthContext.Provider>
   );

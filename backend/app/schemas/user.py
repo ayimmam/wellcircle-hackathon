@@ -48,6 +48,12 @@ class TelegramWidgetLoginRequest(BaseModel):
     hash: str
 
 
+class ProviderPasswordLoginRequest(BaseModel):
+    """Provider portal username/password login (alt to the Telegram widget)."""
+    username: str
+    password: str
+
+
 class BotRegisterRequest(BaseModel):
     """Bot /start registration - minimal user creation."""
     telegram_id: int

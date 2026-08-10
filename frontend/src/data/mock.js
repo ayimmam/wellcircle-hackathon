@@ -896,8 +896,10 @@ function buildMockForYouFeed() {
     service,
   }));
 
-  const liveProviders = MOCK_PROVIDERS.filter(p => !p.is_coming_soon);
-  const providerItems = liveProviders.map(p => ({
+  // Coming-soon providers are included too — FeedProviderCard shows a
+  // "Coming soon" badge and hides the booking CTA for them, so they stay
+  // visible in the feed pre-launch instead of being invisible until then.
+  const providerItems = MOCK_PROVIDERS.map(p => ({
     type: 'provider',
     render_cost: 'media',
     id: p.id,

@@ -318,9 +318,13 @@ newest-first. After every 3rd post, splice in one non-post item, cycling
 `event → service → provider`, skipping a category when empty; any items left
 over once the post stream runs out are appended at the end (so a brand-new
 user with zero posts still sees a non-empty feed built entirely from
-providers/services/events). Only live (`is_coming_soon = false`) providers
-may appear as `service` or `provider` items. An `event` item is emitted only
-for a boosted/featured event.
+providers/services/events). The top featured/highest-rated provider is
+additionally pinned as the very first feed item, ahead of any posts. Both
+live and coming-soon providers may appear as `service` or `provider` items —
+coming-soon ones render with a "Coming soon" badge and no booking CTA (see
+`is_coming_soon` on the embedded `provider` object) rather than being
+excluded from the feed. An `event` item is emitted only for a
+boosted/featured event.
 
 `render_cost` (`"instant"` or `"media"`) drives the Phase 2 two-tier first
 paint: on a cached first render the client shows `instant` items (no image

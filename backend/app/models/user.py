@@ -71,6 +71,13 @@ class User(Base):
     is_provider = Column(Boolean, default=False)
     is_super_admin = Column(Boolean, default=False)
 
+    # --- Provider portal username/password login (alt to Telegram widget) ---
+    # Lets a provider staff account sign in without a linked Telegram login
+    # (e.g. Boston Day Spa's front-desk account). Both nullable — only set
+    # for accounts that use this login path.
+    login_username = Column(String(100), unique=True, nullable=True, index=True)
+    password_hash = Column(String(255), nullable=True)
+
     # --- Personalized Engagement (v1.1) ---
     location_neighborhood = Column(String(100), nullable=True)   # Bole, Kazanchis, etc.
     health_app_connected = Column(Boolean, default=False)

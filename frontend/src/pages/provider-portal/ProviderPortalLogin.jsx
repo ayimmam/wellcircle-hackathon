@@ -10,10 +10,13 @@ const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 const BOT_USERNAME = import.meta.env.VITE_BOT_USERNAME || '';
 
 export default function ProviderPortalLogin() {
-  const { providerUser, loginWithWidget } = useProviderPortalAuth();
+  const { providerUser, loginWithWidget, loginWithPassword } = useProviderPortalAuth();
   const navigate = useNavigate();
   const widgetContainerRef = useRef(null);
   const [submitting, setSubmitting] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
 
   useEffect(() => {
     if (providerUser) navigate(`${providerPortalBase()}/overview`, { replace: true });
@@ -53,6 +56,20 @@ export default function ProviderPortalLogin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handlePasswordLogin = async (e) => {
+    e.preventDefault();
+    if (!username.trim() || !password) return;
+    setPasswordSubmitting(true);
+    try {
+      await loginWithPassword(username.trim(), password);
+      navigate(`${providerPortalBase()}/overview`, { replace: true });
+    } catch (err) {
+      showToast(err.message || 'Incorrect username or password', 'error');
+    } finally {
+      setPasswordSubmitting(false);
+    }
+  };
+
   const handleMockLogin = () => {
     handleWidgetAuth({
       id: 100000001,
@@ -81,8 +98,46 @@ export default function ProviderPortalLogin() {
         </p>
       )}
 
+      <div className="flex items-center gap-8 mt-24 mb-24" style={{ color: 'var(--text-secondary)' }}>
+        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        <span className="text-xs">or</span>
+        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+      </div>
+
+      <form onSubmit={handlePasswordLogin} style={{ textAlign: 'left' }}>
+        <label className="text-xs text-secondary" htmlFor="provider-portal-username">Username</label>
+        <input
+          id="provider-portal-username"
+          className="input mb-8"
+          style={{ width: '100%', marginTop: 4 }}
+          type="text"
+          autoComplete="username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+        <label className="text-xs text-secondary" htmlFor="provider-portal-password">Password</label>
+        <input
+          id="provider-portal-password"
+          className="input mb-16"
+          style={{ width: '100%', marginTop: 4 }}
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <button
+          type="submit"
+          className="btn btn-secondary"
+          style={{ width: '100%' }}
+          disabled={passwordSubmitting || !username.trim() || !password}
+        >
+          {passwordSubmitting ? 'Signing in…' : 'Sign in with username & password'}
+        </button>
+      </form>
+
       <p className="text-xs text-secondary mt-24">
-        Only Telegram accounts already linked to an approved provider can sign in here.
+        Only Telegram accounts already linked to an approved provider — or an
+        approved provider login — can sign in here.
       </p>
     </div>
   );

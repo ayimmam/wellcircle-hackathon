@@ -13,6 +13,11 @@ const BACKEND_ORIGIN = 'https://wellcircle-hackathon-backend.vercel.app';
 function resolveApiBase() {
   const configured = import.meta.env.VITE_API_BASE_URL;
   if (import.meta.env.PROD) {
+    // The provider portal is hosted outside Vercel (cPanel), so there's no
+    // same-origin /api proxy there — always call the backend directly.
+    if (typeof window !== 'undefined' && window.location.hostname === 'provider.wellcircle.et') {
+      return `${BACKEND_ORIGIN}/api`;
+    }
     // Same-origin /api proxy avoids CORS blocks in Telegram WebView
     if (!configured || configured.startsWith(BACKEND_ORIGIN)) {
       return '/api';
@@ -248,6 +253,16 @@ export async function authTelegramWidget(widgetData) {
     return { token: 'mock-provider-jwt-token', user: { ...MOCK_USER, is_provider: true }, is_new_user: false };
   }
   return request('POST', '/auth/telegram-widget', widgetData);
+}
+
+// Provider website login — username/password, an alt path to the Telegram
+// Login Widget for provider staff accounts without a linked Telegram login.
+export async function authProviderPassword(username, password) {
+  if (USE_MOCK) {
+    await delay(600);
+    return { token: 'mock-provider-jwt-token', user: { ...MOCK_USER, is_provider: true }, is_new_user: false };
+  }
+  return request('POST', '/auth/provider-login', { username, password });
 }
 
 // ─── Users ──────────────────────────────────────────

@@ -8,15 +8,20 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
+from app.models.user import User
 from app.crud.user import (
     get_user_by_telegram_id,
     create_user_from_telegram_auth,
     get_user_joined_community_ids,
 )
 from app.services.points import get_points_tier
-from app.schemas.user import TelegramAuthRequest, TelegramWidgetLoginRequest, AuthResponse, UserResponse
+from app.schemas.user import (
+    TelegramAuthRequest, TelegramWidgetLoginRequest, ProviderPasswordLoginRequest,
+    AuthResponse, UserResponse,
+)
 from app.services.telegram_auth import validate_init_data, validate_init_data_dev
 from app.services.telegram_login_widget import validate_login_widget_data
+from app.utils.password import verify_password
 
 router = APIRouter()
 
@@ -121,6 +126,34 @@ async def telegram_widget_auth(request: TelegramWidgetLoginRequest, db: Session 
 
     token = _create_token(str(user.id))
     joined = get_user_joined_community_ids(db, user.id)
+
+    return AuthResponse(
+        token=token,
+        user=_build_response(user, db),
+        is_new_user=False,
+    )
+
+
+@router.post("/provider-login", response_model=AuthResponse)
+async def provider_password_login(request: ProviderPasswordLoginRequest, db: Session = Depends(get_db)):
+    """
+    Provider website login via username/password — an alt path to the
+    Telegram Login Widget for provider staff accounts with no linked
+    Telegram login (e.g. a front-desk account).
+    """
+    user = db.query(User).filter(User.login_username == request.username).first()
+    if not user or not user.password_hash or not verify_password(request.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+        )
+    if not user.is_provider:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No provider account found for this login",
+        )
+
+    token = _create_token(str(user.id))
 
     return AuthResponse(
         token=token,

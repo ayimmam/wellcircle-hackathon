@@ -333,6 +333,7 @@ export const MOCK_PROVIDERS = [
     description: 'Boston Day Spa is where the Kuriftu brand was born, a testament to our commitment to community empowerment… What began as a capacity-building project in Addis Ababa has transformed into a sanctuary of well-being, showcasing the work of celebrated Ethiopian artists like Merikokeb Berhanu.',
     location_text: 'Bole, Addis Ababa',
     lat: null, lng: null,
+    map_url: 'https://maps.app.goo.gl/sXa4uMEJKqGmmmZC7',
     price_range: 'Price on enquiry',
     rating: 4.9,
     cover_photo_url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',

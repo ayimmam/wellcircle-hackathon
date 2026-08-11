@@ -33,6 +33,13 @@ export default function ProviderDetail() {
       .catch(() => setEvents([]));
   }, [id, navigate]);
 
+  // Prefer the provider's shared Google Maps place link — short links carry no
+  // coordinates, so fall back to a lat/lng search only when there's no link.
+  const mapsHref = provider?.map_url
+    || (provider?.lat != null && provider?.lng != null
+      ? `https://www.google.com/maps/search/?api=1&query=${provider.lat},${provider.lng}`
+      : null);
+
   const promo = provider?.active_promotion;
   useEffect(() => {
     if (!promo) return;
@@ -200,10 +207,10 @@ export default function ProviderDetail() {
                   </div>
                 </div>
               ))}
-              {provider.lat != null && provider.lng != null && (
+              {mapsHref && (
                 <a
                   className="btn btn-secondary btn-sm"
-                  href={`https://www.google.com/maps/search/?api=1&query=${provider.lat},${provider.lng}`}
+                  href={mapsHref}
                   target="_blank"
                   rel="noreferrer"
                   id="open-in-maps-link"

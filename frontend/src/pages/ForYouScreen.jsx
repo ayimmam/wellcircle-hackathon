@@ -15,10 +15,15 @@ import FeedPostCard from '../components/feed/FeedPostCard';
 import FeedServiceCard from '../components/feed/FeedServiceCard';
 import FeedEventBanner from '../components/feed/FeedEventBanner';
 import FeedProviderCard from '../components/feed/FeedProviderCard';
+import ShareCard from '../components/ShareCard';
 import { showToast } from '../components/Toast';
 import { useTranslation } from 'react-i18next';
+import { daysSinceJoin } from '../utils/milestones';
 
 const EMPTY_HOME = { providers: [], communities: [], feed: { items: [], next_before: null } };
+// Bumping the suffix (v1 -> v2) would re-show the card to everyone once —
+// only do that intentionally.
+const JOIN_CARD_SEEN_KEY = 'wc_join_card_seen_v1';
 
 function FeedItem({ item, priority }) {
   switch (item.type) {
@@ -36,6 +41,18 @@ export default function ForYouScreen() {
   const { t } = useTranslation();
   const [showPointsInfo, setShowPointsInfo] = useState(false);
   const justOnboarded = Boolean(location.state?.justOnboarded);
+
+  // "Never show a new user a zero" extended to sharing: everyone — brand new
+  // or long-time — gets exactly one shareable "Day N on WellCircle" moment,
+  // the first time this screen loads for them.
+  const [joinMilestone, setJoinMilestone] = useState(null);
+  useEffect(() => {
+    if (!user?.id) return;
+    const key = `${JOIN_CARD_SEEN_KEY}_${user.id}`;
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, '1');
+    setJoinMilestone({ type: 'joined', day: daysSinceJoin(user.created_at) });
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // One request for the whole screen, painted from the previous session's
   // copy while it revalidates — this also seeds providers/communities/events
@@ -178,6 +195,7 @@ export default function ForYouScreen() {
       <AskWellCircle />
 
       {showPointsInfo && <PointsInfoSheet onClose={() => setShowPointsInfo(false)} />}
+      {joinMilestone && <ShareCard milestone={joinMilestone} onClose={() => setJoinMilestone(null)} />}
     </div>
   );
 }

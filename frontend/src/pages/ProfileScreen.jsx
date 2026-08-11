@@ -19,6 +19,7 @@ import BugReportSheet from '../components/BugReportSheet';
 import VerifiedBadge from '../components/VerifiedBadge';
 import StravaStats from '../components/StravaStats';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
+import { getEarnedMilestoneBadges } from '../utils/milestones';
 
 const STRAVA_STATS = [
   ['distance', 'Distance'],
@@ -45,6 +46,7 @@ export default function ProfileScreen() {
   const { t, i18n } = useTranslation();
 
   const tier = getTier(user?.points_balance || 0);
+  const milestoneBadges = getEarnedMilestoneBadges(user);
   const joinedCommunities = MOCK_COMMUNITIES.filter(
     c => user?.joined_communities?.includes(c.id)
   );
@@ -228,6 +230,27 @@ export default function ProfileScreen() {
               </div>
               <div className="profile-stat-label">Circles</div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Milestone badges — derived from existing fields (join date, tier,
+          longest streak), not a separate achievements table. */}
+      <div className="profile-section">
+        <div className="profile-section-title">{t('Milestones')}</div>
+        <div className="profile-card" style={{ padding: '12px 14px' }}>
+          <div className="flex gap-8" style={{ flexWrap: 'wrap' }} id="profile-milestone-badges">
+            {milestoneBadges.map(badge => (
+              <span
+                key={badge.id}
+                className="points-chip"
+                id={`milestone-badge-${badge.id}`}
+                title={badge.label}
+              >
+                <span className="points-chip-emoji">{badge.emoji}</span>
+                <span>{badge.label}</span>
+              </span>
+            ))}
           </div>
         </div>
       </div>

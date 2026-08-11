@@ -3,15 +3,17 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { showToast } from './Toast';
 import { track } from '../analytics';
+import { getNextMilestone } from '../utils/milestones';
 import Icon from './Icon';
 
 const SIZE = 1080;
 
 /**
- * Renders a shareable milestone image (streak, tier, personal best) so a
- * proof-of-progress card users actually want to post — "people don't share
- * app features, they share proof." Triggered by useCheckin's `onMilestone`
- * callback on 7-day streak multiples and new personal bests.
+ * Renders a shareable milestone image (joined, streak, tier, personal best)
+ * so a proof-of-progress card users actually want to post — "people don't
+ * share app features, they share proof." Triggered by useCheckin's
+ * `onMilestone` callback (streak/personal-best) or shown once per user on
+ * their first Home load (joined — see ForYouScreen's JOIN_CARD_SEEN_KEY).
  *
  * Draws onto a canvas rather than a screenshot-able DOM node so the same
  * asset works for both the Web Share API (as a File) and a plain download,
@@ -23,13 +25,20 @@ export default function ShareCard({ milestone, onClose }) {
   const canvasRef = useRef(null);
   const [busy, setBusy] = useState(false);
 
-  const { type, streak, tier, tierEmoji } = milestone;
-  const headline = type === 'personal_best'
-    ? t('New personal best!')
-    : t('{{streak}}-day streak!', { streak });
-  const subline = type === 'personal_best'
-    ? t('{{streak}} days — my longest yet', { streak })
-    : t('Every {{streak}} days earns a streak freeze', { streak });
+  const { type, streak, day, tier, tierEmoji } = milestone;
+  const headline = type === 'joined'
+    ? (day <= 1 ? t('Just joined WellCircle!') : t('Day {{day}} on WellCircle', { day }))
+    : type === 'personal_best'
+      ? t('New personal best!')
+      : t('{{streak}}-day streak!', { streak });
+  const subline = type === 'joined'
+    ? t('Day {{day}} of my wellness journey', { day })
+    : type === 'personal_best'
+      ? t('{{streak}} days — my longest yet', { streak })
+      : t('Every {{streak}} days earns a streak freeze', { streak });
+  const bigEmoji = type === 'joined' ? '🌱' : (tierEmoji || '🔥');
+  const nextMilestone = getNextMilestone(user);
+  const analyticsProps = type === 'joined' ? { type, day } : { type, streak };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -54,7 +63,7 @@ export default function ShareCard({ milestone, onClose }) {
     ctx.globalAlpha = 1;
 
     ctx.font = '800 180px system-ui, sans-serif';
-    ctx.fillText(`${tierEmoji || '🔥'}`, SIZE / 2, 440);
+    ctx.fillText(bigEmoji, SIZE / 2, 440);
 
     ctx.font = '800 88px system-ui, sans-serif';
     ctx.fillText(headline, SIZE / 2, 620);
@@ -75,7 +84,7 @@ export default function ShareCard({ milestone, onClose }) {
     ctx.globalAlpha = 0.7;
     ctx.fillText(user?.name ? `${user.name} · wellcircle.app` : 'wellcircle.app', SIZE / 2, SIZE - 80);
     ctx.globalAlpha = 1;
-  }, [headline, subline, tier, tierEmoji, user?.name, t]);
+  }, [headline, subline, tier, bigEmoji, user?.name, t]);
 
   const toBlob = () => new Promise(resolve => canvasRef.current.toBlob(resolve, 'image/png'));
 
@@ -83,10 +92,10 @@ export default function ShareCard({ milestone, onClose }) {
     setBusy(true);
     try {
       const blob = await toBlob();
-      const file = new File([blob], 'wellcircle-streak.png', { type: 'image/png' });
+      const file = new File([blob], `wellcircle-${type}.png`, { type: 'image/png' });
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title: 'Well Circle', text: headline });
-        track('share_card_shared', { type, streak });
+        track('share_card_shared', analyticsProps);
       } else {
         await handleDownload(blob);
       }
@@ -104,17 +113,17 @@ export default function ShareCard({ milestone, onClose }) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'wellcircle-streak.png';
+      a.download = `wellcircle-${type}.png`;
       a.click();
       URL.revokeObjectURL(url);
-      track('share_card_downloaded', { type, streak });
+      track('share_card_downloaded', analyticsProps);
     } finally {
       setBusy(false);
     }
   };
 
   useEffect(() => {
-    track('share_card_shown', { type, streak });
+    track('share_card_shown', analyticsProps);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -142,8 +151,11 @@ export default function ShareCard({ milestone, onClose }) {
           style={{ width: '100%', borderRadius: 16, display: 'block', marginBottom: 8 }}
         />
         {/* Canvas text isn't screen-reader accessible — mirror it visibly too */}
-        <p id="share-card-caption" className="text-secondary text-sm" style={{ textAlign: 'center', marginBottom: 16 }}>
+        <p id="share-card-caption" className="text-secondary text-sm" style={{ textAlign: 'center', marginBottom: 4 }}>
           {headline} — {subline}
+        </p>
+        <p id="share-card-next-milestone" className="text-secondary text-xs" style={{ textAlign: 'center', marginBottom: 16 }}>
+          {t('Next up')}: {nextMilestone.emoji} {nextMilestone.label}
         </p>
         <div className="flex gap-8">
           <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleShare} disabled={busy} id="share-card-share-btn">

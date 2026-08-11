@@ -162,6 +162,29 @@ def test_all():
         check(me_dave["rank"] is None and me_dave["weekly_points"] == 0,
               "Dave earned 0 this week — rank is null, not 0 or last place")
 
+        # === League bucketing (small groups, not one global list) =========
+        league_alice = ranks_crud.get_my_league(db, u1.id)
+        check(len(league_alice) == 4, "League includes everyone when population < LEAGUE_SIZE (4 users)")
+        check(any(e["is_me"] and e["user_id"] == str(u1.id) for e in league_alice),
+              "Alice is flagged is_me in her own league")
+        check(league_alice[0]["weekly_points"] >= league_alice[-1]["weekly_points"],
+              "League entries are ordered by weekly points, descending")
+
+        league_dave = ranks_crud.get_my_league(db, u4.id)
+        dave_entry = next(e for e in league_dave if e["is_me"])
+        check(dave_entry["weekly_points"] == 0, "Dave (0 pts) still gets a league — never excluded outright")
+
+        # Many users spread across a wide points range: Alice's league should
+        # be a bounded window near her own score, not the whole population.
+        many_users = [_create_user(db, 1000 + i, f"Bulk{i}") for i in range(40)]
+        for i, u in enumerate(many_users):
+            _add_points(db, u.id, i * 10, days_ago=1)  # 0..390, spread wide
+        league_alice_2 = ranks_crud.get_my_league(db, u1.id)
+        check(len(league_alice_2) == ranks_crud.LEAGUE_SIZE,
+              f"League caps at LEAGUE_SIZE ({ranks_crud.LEAGUE_SIZE}) once the population is large")
+        check(any(e["is_me"] and e["user_id"] == str(u1.id) for e in league_alice_2),
+              "Alice still appears in her own bucket after the population grows")
+
         print("=" * 60)
         print(f"  RESULTS: {passed} passed, {failed} failed")
         print("=" * 60)

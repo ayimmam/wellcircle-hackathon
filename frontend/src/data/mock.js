@@ -19,6 +19,7 @@ export const MOCK_USER = {
   tier_emoji: '🌿',
   current_streak: 3,
   freeze_count: 0,
+  longest_streak: 3,
   is_onboarded: true,
   is_provider: false,
   is_super_admin: import.meta.env.VITE_MOCK_SUPER_ADMIN === 'true',
@@ -964,12 +965,18 @@ export const MOCK_RANKS = {
     { community_id: '22222222-0000-0000-0000-000000000004', name: 'Zen Flow Hot Yoga', member_count: 35, weekly_points: 860, rank: 4 },
   ],
   users: [
+    // Top 20 stops well above "me" (rank 8 of many) — this is exactly the
+    // "nobody wants to see they're #82,491" case the league section covers.
     { user_id: '00000000-0000-0000-0000-000000000099', name: 'Hana Girma', photo_url: 'https://i.pravatar.cc/150?u=hana', weekly_points: 340, rank: 1 },
     { user_id: '00000000-0000-0000-0000-000000000098', name: 'Dawit Bekele', photo_url: 'https://i.pravatar.cc/150?u=dawit', weekly_points: 295, rank: 2 },
     { user_id: '00000000-0000-0000-0000-000000000097', name: 'Selam Alemu', photo_url: 'https://i.pravatar.cc/150?u=selam', weekly_points: 210, rank: 3 },
-    { user_id: '00000000-0000-0000-0000-000000000001', name: 'Meron Tadesse', photo_url: 'https://i.pravatar.cc/150?u=meron', weekly_points: 120, rank: 8 },
   ],
   me: { rank: 8, weekly_points: 120 },
+  league: [
+    { user_id: '00000000-0000-0000-0000-000000000050', name: 'Bereket Assefa', photo_url: 'https://i.pravatar.cc/150?u=bereket', weekly_points: 140, rank: 1, is_me: false },
+    { user_id: '00000000-0000-0000-0000-000000000001', name: 'Meron Tadesse', photo_url: 'https://i.pravatar.cc/150?u=meron', weekly_points: 120, rank: 2, is_me: true },
+    { user_id: '00000000-0000-0000-0000-000000000051', name: 'Liya Fikru', photo_url: 'https://i.pravatar.cc/150?u=liya', weekly_points: 100, rank: 3, is_me: false },
+  ],
 };
 
 // ─── Time Slots ─────────────────────────────────────

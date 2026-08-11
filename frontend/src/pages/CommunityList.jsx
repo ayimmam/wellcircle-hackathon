@@ -265,12 +265,30 @@ export default function CommunityList() {
                   </div>
                 );
               })}
-              {ranks?.me && !ranks.users.some(u => u.user_id === user?.id) && (
-                <div className="card" id="rank-me-footer" style={{ border: '2px dashed var(--brand-primary)' }}>
-                  <div className="card-body flex items-center justify-between">
-                    <div style={{ fontWeight: 700 }}>
-                      {t('You')} — {ranks.me.rank != null ? `#${ranks.me.rank} · ${ranks.me.weekly_points} pts` : t('Unranked')}
-                    </div>
+              {ranks?.league?.length > 0 && !ranks.users.some(u => u.user_id === user?.id) && (
+                <div id="rank-my-league" style={{ marginTop: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.85rem', margin: '4px 0 8px' }}>
+                    {t('Your League — this week')}
+                  </div>
+                  <div className="flex-col gap-8">
+                    {ranks.league.map((u) => (
+                      <div
+                        key={u.user_id}
+                        className="card"
+                        id={`league-user-${u.user_id}`}
+                        style={u.is_me ? { border: '2px solid var(--brand-primary)' } : undefined}
+                      >
+                        <div className="card-body flex items-center justify-between">
+                          <div className="flex items-center gap-12">
+                            <span style={{ fontSize: '1.1rem', fontWeight: 800, width: 28 }}>
+                              {MEDALS[u.rank - 1] || `#${u.rank}`}
+                            </span>
+                            <div style={{ fontWeight: 700 }}>{u.name}{u.is_me ? ` (${t('You')})` : ''}</div>
+                          </div>
+                          <div style={{ fontWeight: 800 }}>{u.weekly_points} pts</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

@@ -536,11 +536,16 @@ export async function checkinCommunity(id) {
   ['points', 'leaderboard'].forEach(invalidate);
   if (USE_MOCK) {
     await delay(400);
+    const nextStreak = (MOCK_USER.current_streak || 0) + 1;
     return {
       points_earned: 10,
       new_balance: MOCK_USER.points_balance + 10,
-      current_streak: (MOCK_USER.current_streak || 0) + 1,
+      current_streak: nextStreak,
       freeze_count: MOCK_USER.freeze_count || 0,
+      freeze_used: false,
+      comeback_bonus: false,
+      longest_streak: Math.max(MOCK_USER.longest_streak || 0, nextStreak),
+      is_personal_best: nextStreak > (MOCK_USER.longest_streak || 0),
       tier: 'sprout',
       tier_emoji: '🌿',
       feed_event: {

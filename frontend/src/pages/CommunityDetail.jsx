@@ -11,6 +11,7 @@ import Leaderboard from '../components/Leaderboard';
 import { showToast } from '../components/Toast';
 import usePolling from '../hooks/usePolling';
 import useCheckin from '../hooks/useCheckin';
+import ShareCard from '../components/ShareCard';
 import Icon from '../components/Icon';
 
 export default function CommunityDetail() {
@@ -141,7 +142,8 @@ export default function CommunityDetail() {
     }
   };
 
-  const checkin = useCheckin('community_detail');
+  const [shareMilestone, setShareMilestone] = useState(null);
+  const checkin = useCheckin('community_detail', setShareMilestone);
   const [checkingIn, setCheckingIn] = useState(false);
 
   const handleCheckin = async () => {
@@ -290,6 +292,7 @@ export default function CommunityDetail() {
       ) : (
         <ReadOnlyPostFeed posts={previewPosts} id="community-preview-feed" />
       )}
+      {shareMilestone && <ShareCard milestone={shareMilestone} onClose={() => setShareMilestone(null)} />}
     </div>
   );
 }

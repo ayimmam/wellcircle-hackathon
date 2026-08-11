@@ -569,6 +569,7 @@ Full provider detail with services, photos, linked community.
   "navigation_tips": [       // optional, detail-only (Phase 8) — [] when the provider hasn't set any
     { "title": "Parking", "detail": "Free parking behind the building." }
   ],
+  "map_url": "https://maps.app.goo.gl/xxxx",  // optional Google Maps place link; drives "Open in Maps" (falls back to lat/lng when null)
   "is_coming_soon": false,   // true = banner shown, booking blocked, service rows non-tappable
   "community": {
     "id": "uuid-comm",
@@ -705,6 +706,7 @@ Provider self-service profile. **Provider-only access** (`get_current_provider`)
   "navigation_tips": [
     { "title": "Parking", "detail": "Free parking behind the building, ask for the yellow gate." }
   ],
+  "map_url": "https://maps.app.goo.gl/xxxx",
   "dashboard_stats": { "total_members": 45, "new_members_today": 3, "total_products": 6, "active_products": 4 }
 }
 ```

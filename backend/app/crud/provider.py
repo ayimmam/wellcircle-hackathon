@@ -158,6 +158,7 @@ def get_provider_detail(db: Session, provider_id: UUID, user_id: Optional[UUID] 
         "services": provider.services or [],
         "facilities": provider.facilities or [],
         "navigation_tips": provider.navigation_tips or [],
+        "map_url": provider.map_url,
         "is_coming_soon": bool(provider.is_coming_soon),
         "community": {
             "id": str(community.id),
@@ -579,6 +580,7 @@ def get_provider_me(db: Session, user: User) -> Optional[dict]:
         "contact_email": provider.contact_email,
         "facilities": provider.facilities or [],
         "navigation_tips": provider.navigation_tips or [],
+        "map_url": provider.map_url,
         "dashboard_stats": {
             "total_members": total_members,
             "new_members_today": new_members_today,

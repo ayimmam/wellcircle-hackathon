@@ -20,10 +20,13 @@ describe('CommunityList — Ranks tab', () => {
     fireEvent.click(document.getElementById('tab-ranks'));
 
     await screen.findByText('Shanti Yoga Circle');
-    expect(screen.getByText('🥇')).toBeInTheDocument();
-    expect(screen.getByText('🥈')).toBeInTheDocument();
-    expect(screen.getByText('🥉')).toBeInTheDocument();
-    expect(screen.getByText('#4')).toBeInTheDocument();
+    // Ranks are plain numerals; the top three are marked with the accent
+    // colour rather than medal emoji.
+    ['1', '2', '3', '4'].forEach(rank => {
+      expect(screen.getByText(rank)).toBeInTheDocument();
+    });
+    const topRow = document.getElementById('rank-community-22222222-0000-0000-0000-000000000003');
+    expect(topRow.querySelector('span').getAttribute('style')).toContain('--accent');
   });
 
   it('navigates to the community detail page when a ranked community row is tapped', async () => {

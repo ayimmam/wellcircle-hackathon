@@ -24,7 +24,8 @@ export default function useCheckin(surface, onMilestone) {
 
   return useCallback(async (communityId) => {
     const res = await checkinCommunity(communityId);
-    showToast('Streak continued!', 'success');
+    // A first-ever check-in has nothing to continue — don't claim it does.
+    showToast(res.current_streak > 1 ? 'Streak continued' : 'Checked in', 'success');
     setUser(prev => prev ? {
       ...prev,
       points_balance: res.new_balance,
@@ -54,14 +55,14 @@ export default function useCheckin(surface, onMilestone) {
         'success'
       ), 2400);
       track('streak_milestone', { streak: res.current_streak, freezes: res.freeze_count });
-      onMilestone?.({ type: 'streak', streak: res.current_streak, tier: res.tier, tierEmoji: res.tier_emoji });
+      onMilestone?.({ type: 'streak', streak: res.current_streak, tier: res.tier });
     } else if (res.is_personal_best && res.current_streak > 1) {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success');
-      setTimeout(() => showToast(`🏆 New personal best — ${res.current_streak} days!`, 'success'), 2400);
+      setTimeout(() => showToast(`New personal best — ${res.current_streak} days`, 'success'), 2400);
       track('streak_personal_best', { streak: res.current_streak });
-      onMilestone?.({ type: 'personal_best', streak: res.current_streak, tier: res.tier, tierEmoji: res.tier_emoji });
+      onMilestone?.({ type: 'personal_best', streak: res.current_streak, tier: res.tier });
     } else if (res.current_streak > 1) {
-      setTimeout(() => showToast(`🔥 ${res.current_streak}-day streak!`, 'success'), 1200);
+      setTimeout(() => showToast(`${res.current_streak}-day streak`, 'success'), 1200);
     }
     return res;
   }, [surface, setUser, onMilestone]);

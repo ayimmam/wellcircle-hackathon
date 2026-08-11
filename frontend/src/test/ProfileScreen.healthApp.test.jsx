@@ -33,7 +33,7 @@ describe('ProfileScreen — Strava integration', () => {
   it('handles the OAuth callback, visibility updates, and disconnect sync', async () => {
     renderProfile('/profile?strava=connected');
 
-    expect(await screen.findByText('Connected to Strava ✓')).toBeInTheDocument();
+    expect(await screen.findByText('Connected to Strava')).toBeInTheDocument();
     expect(MOCK_USER.health_app_connected).toBe(true);
     const calories = screen.getByRole('checkbox', { name: 'Calories' });
     expect(calories).not.toBeChecked();

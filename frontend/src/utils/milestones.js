@@ -12,6 +12,8 @@ export function daysSinceJoin(createdAt) {
 /**
  * The single next thing worth chasing — a live streak takes priority
  * (it's the nearer, more concrete goal), otherwise the next points tier.
+ * `icon` is an Icon component name, not an emoji: milestones should read as
+ * progress, not decoration.
  */
 export function getNextMilestone(user) {
   const streak = user?.current_streak || 0;
@@ -22,7 +24,7 @@ export function getNextMilestone(user) {
     const daysAway = nextStreakGoal - streak;
     if (daysAway > 0) {
       return {
-        emoji: '🔥',
+        icon: 'flame',
         label: `${daysAway} more day${daysAway === 1 ? '' : 's'} to a ${nextStreakGoal}-day streak freeze`,
       };
     }
@@ -32,27 +34,27 @@ export function getNextMilestone(user) {
   if (nextTier) {
     const remaining = nextTier.min - points;
     return {
-      emoji: nextTier.emoji,
+      icon: 'leaf',
       label: `${remaining} more point${remaining === 1 ? '' : 's'} to ${nextTier.name} tier`,
     };
   }
 
-  return { emoji: '🔥', label: 'Keep checking in to build your streak' };
+  return { icon: 'flame', label: 'Keep checking in to build your streak' };
 }
 
 /** Derived, not stored — badges are computed from existing user fields. */
 export function getEarnedMilestoneBadges(user) {
-  const badges = [{ id: 'joined', emoji: '🎉', label: 'Joined' }];
+  const badges = [{ id: 'joined', icon: 'check', label: 'Joined' }];
 
   const longest = user?.longest_streak || 0;
   const bestStreak = [...STREAK_BADGE_THRESHOLDS].reverse().find(t => longest >= t);
   if (bestStreak) {
-    badges.push({ id: `streak-${bestStreak}`, emoji: '🔥', label: `${bestStreak}-Day Streak` });
+    badges.push({ id: `streak-${bestStreak}`, icon: 'flame', label: `${bestStreak}-Day Streak` });
   }
 
   const tier = getTier(user?.points_balance || 0);
   if (tier.tier !== 'seed') {
-    badges.push({ id: `tier-${tier.tier}`, emoji: tier.emoji, label: `${tier.name} Tier` });
+    badges.push({ id: `tier-${tier.tier}`, icon: 'leaf', label: `${tier.name} Tier` });
   }
 
   return badges;

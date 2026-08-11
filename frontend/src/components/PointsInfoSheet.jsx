@@ -25,11 +25,11 @@ export default function PointsInfoSheet({ onClose }) {
             <Icon name="x" size={16} />
           </button>
         </div>
-        <ul style={{ paddingLeft: 18, margin: 0, listStyleType: 'disc', display: 'flex', flexDirection: 'column', gap: 8, fontSize: '0.88rem' }}>
-          <li>🌱 <strong>{t('Seed (0+ pts)')}:</strong> {t('start here — check in daily to build your streak')}</li>
-          <li>🌿 <strong>{t('Sprout (100+ pts)')}:</strong> {t('redeem vouchers in the store')}</li>
-          <li>🌳 <strong>{t('Grove (300+ pts)')}:</strong> {t('unlock partner merch rewards')}</li>
-          <li>🌲 <strong>{t('Forest (700+ pts)')}:</strong> {t('top-tier partner perks')}</li>
+        <ul style={{ padding: 0, margin: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.88rem' }}>
+          <li><strong>{t('Seed (0+ pts)')}</strong><br />{t('start here — check in daily to build your streak')}</li>
+          <li><strong>{t('Sprout (100+ pts)')}</strong><br />{t('redeem vouchers in the store')}</li>
+          <li><strong>{t('Grove (300+ pts)')}</strong><br />{t('unlock partner merch rewards')}</li>
+          <li><strong>{t('Forest (700+ pts)')}</strong><br />{t('top-tier partner perks')}</li>
         </ul>
         <p className="text-secondary text-sm mt-12">
           {t('Points pause (−5/day) after 3 days away — stay active to keep them growing.')}

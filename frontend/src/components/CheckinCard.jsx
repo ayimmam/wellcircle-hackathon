@@ -65,7 +65,7 @@ export default function CheckinCard({ circles, onChecked }) {
   return (
     <div className="card mb-24" style={{ padding: 16 }} id="home-checkin-card">
       <div className="flex items-center gap-6" style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 10 }}>
-        {streak === 0 ? <Icon name="star" size={15} /> : <span>🔥</span>}
+        <Icon name={streak === 0 ? 'star' : 'flame'} size={15} />
         {streak === 0
           ? 'Start your streak — check in daily!'
           : `Keep your ${streak}-day streak going`}

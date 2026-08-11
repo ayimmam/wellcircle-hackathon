@@ -247,7 +247,7 @@ export default function ProfileScreen() {
                 id={`milestone-badge-${badge.id}`}
                 title={badge.label}
               >
-                <span className="points-chip-emoji">{badge.emoji}</span>
+                <Icon name={badge.icon} size={13} />
                 <span>{badge.label}</span>
               </span>
             ))}
@@ -527,7 +527,7 @@ export default function ProfileScreen() {
           {strava?.connected ? (
             <>
               <div className="flex justify-between items-center mb-16">
-                <div><strong>Connected to Strava ✓</strong><p className="text-xs text-secondary">Choose what appears on your public profile.</p></div>
+                <div><strong className="inline-icon-text"><Icon name="check" size={14} /> Connected to Strava</strong><p className="text-xs text-secondary">Choose what appears on your public profile.</p></div>
                 <button className="btn btn-secondary btn-sm" disabled={stravaBusy} onClick={handleDisconnectStrava}>Disconnect</button>
               </div>
               <div className="strava-toggles">

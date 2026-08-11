@@ -25,18 +25,25 @@ export default function ShareCard({ milestone, onClose }) {
   const canvasRef = useRef(null);
   const [busy, setBusy] = useState(false);
 
-  const { type, streak, day, tier, tierEmoji } = milestone;
+  const { type, streak, day, tier } = milestone;
+  // The hero is a single number with a quiet caps label under it — the stat
+  // carries the message, so the card reads as a record rather than a sticker.
+  const statValue = type === 'joined' ? day : streak;
+  const statLabel = type === 'joined'
+    ? (day <= 1 ? t('Day one') : t('Days in'))
+    : type === 'personal_best'
+      ? t('Day personal best')
+      : t('Day streak');
   const headline = type === 'joined'
-    ? (day <= 1 ? t('Just joined WellCircle!') : t('Day {{day}} on WellCircle', { day }))
+    ? (day <= 1 ? t('Just joined Well Circle') : t('Day {{day}} on Well Circle', { day }))
     : type === 'personal_best'
-      ? t('New personal best!')
-      : t('{{streak}}-day streak!', { streak });
+      ? t('New personal best')
+      : t('{{streak}}-day streak', { streak });
   const subline = type === 'joined'
-    ? t('Day {{day}} of my wellness journey', { day })
+    ? t('The start of my wellness journey')
     : type === 'personal_best'
-      ? t('{{streak}} days — my longest yet', { streak })
-      : t('Every {{streak}} days earns a streak freeze', { streak });
-  const bigEmoji = type === 'joined' ? '🌱' : (tierEmoji || '🔥');
+      ? t('My longest streak yet')
+      : t('Showing up, one day at a time');
   const nextMilestone = getNextMilestone(user);
   const analyticsProps = type === 'joined' ? { type, day } : { type, streak };
 
@@ -48,43 +55,67 @@ export default function ShareCard({ milestone, onClose }) {
     canvas.width = SIZE;
     canvas.height = SIZE;
 
+    // Deep, low-chroma gradient — reads closer to a premium training app than
+    // the brighter in-product accent does.
     const gradient = ctx.createLinearGradient(0, 0, SIZE, SIZE);
-    gradient.addColorStop(0, '#0A5DC2');
-    gradient.addColorStop(1, '#55A6FF');
+    gradient.addColorStop(0, '#0B1220');
+    gradient.addColorStop(1, '#0A5DC2');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, SIZE, SIZE);
 
     ctx.textAlign = 'center';
     ctx.fillStyle = '#FFFFFF';
 
-    ctx.font = '600 44px system-ui, sans-serif';
-    ctx.globalAlpha = 0.9;
-    ctx.fillText('Well Circle', SIZE / 2, 140);
+    // letterSpacing is ignored on engines that don't support it (falls back to
+    // normal tracking) — worth setting for the caps lines where it matters most.
+    const caps = (text, y, size, alpha, spacing) => {
+      ctx.font = `600 ${size}px system-ui, -apple-system, sans-serif`;
+      ctx.letterSpacing = `${spacing}px`;
+      ctx.globalAlpha = alpha;
+      ctx.fillText(text.toUpperCase(), SIZE / 2, y);
+      ctx.letterSpacing = '0px';
+      ctx.globalAlpha = 1;
+    };
+
+    caps('Well Circle', 130, 34, 0.7, 6);
+
+    // Hairline rule under the wordmark
+    ctx.globalAlpha = 0.25;
+    ctx.fillRect(SIZE / 2 - 60, 168, 120, 2);
     ctx.globalAlpha = 1;
 
-    ctx.font = '800 180px system-ui, sans-serif';
-    ctx.fillText(bigEmoji, SIZE / 2, 440);
+    ctx.font = '800 340px system-ui, -apple-system, sans-serif';
+    ctx.fillText(String(statValue), SIZE / 2, 560);
 
-    ctx.font = '800 88px system-ui, sans-serif';
-    ctx.fillText(headline, SIZE / 2, 620);
+    caps(statLabel, 640, 40, 0.85, 8);
 
-    ctx.font = '500 40px system-ui, sans-serif';
-    ctx.globalAlpha = 0.85;
-    ctx.fillText(subline, SIZE / 2, 690);
+    ctx.font = '500 40px system-ui, -apple-system, sans-serif';
+    ctx.globalAlpha = 0.75;
+    ctx.fillText(subline, SIZE / 2, 740);
     ctx.globalAlpha = 1;
 
     if (tier) {
-      ctx.font = '600 36px system-ui, sans-serif';
-      ctx.globalAlpha = 0.8;
-      ctx.fillText(t('{{tier}} tier', { tier: tier.charAt(0).toUpperCase() + tier.slice(1) }), SIZE / 2, 800);
+      caps(t('{{tier}} tier', { tier }), 830, 30, 0.6, 5);
+    }
+
+    if (user?.name) {
+      ctx.font = '600 36px system-ui, -apple-system, sans-serif';
+      ctx.globalAlpha = 0.9;
+      // Keep a long name from running off the card edges
+      let name = user.name;
+      const maxWidth = SIZE - 160;
+      while (name.length > 4 && ctx.measureText(name).width > maxWidth) {
+        name = `${name.slice(0, -2).trimEnd()}…`;
+      }
+      ctx.fillText(name, SIZE / 2, SIZE - 130);
       ctx.globalAlpha = 1;
     }
 
-    ctx.font = '500 32px system-ui, sans-serif';
-    ctx.globalAlpha = 0.7;
-    ctx.fillText(user?.name ? `${user.name} · wellcircle.app` : 'wellcircle.app', SIZE / 2, SIZE - 80);
+    ctx.font = '500 30px system-ui, -apple-system, sans-serif';
+    ctx.globalAlpha = 0.65;
+    ctx.fillText('@wellcirclebot on Telegram', SIZE / 2, SIZE - 72);
     ctx.globalAlpha = 1;
-  }, [headline, subline, tier, bigEmoji, user?.name, t]);
+  }, [statValue, statLabel, subline, tier, user?.name, t]);
 
   const toBlob = () => new Promise(resolve => canvasRef.current.toBlob(resolve, 'image/png'));
 
@@ -94,7 +125,11 @@ export default function ShareCard({ milestone, onClose }) {
       const blob = await toBlob();
       const file = new File([blob], `wellcircle-${type}.png`, { type: 'image/png' });
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'Well Circle', text: headline });
+        await navigator.share({
+          files: [file],
+          title: 'Well Circle',
+          text: `${headline} — @wellcirclebot on Telegram`,
+        });
         track('share_card_shared', analyticsProps);
       } else {
         await handleDownload(blob);
@@ -154,8 +189,13 @@ export default function ShareCard({ milestone, onClose }) {
         <p id="share-card-caption" className="text-secondary text-sm" style={{ textAlign: 'center', marginBottom: 4 }}>
           {headline} — {subline}
         </p>
-        <p id="share-card-next-milestone" className="text-secondary text-xs" style={{ textAlign: 'center', marginBottom: 16 }}>
-          {t('Next up')}: {nextMilestone.emoji} {nextMilestone.label}
+        <p
+          id="share-card-next-milestone"
+          className="text-secondary text-xs"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 16 }}
+        >
+          <Icon name={nextMilestone.icon} size={13} />
+          {t('Next up')}: {nextMilestone.label}
         </p>
         <div className="flex gap-8">
           <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleShare} disabled={busy} id="share-card-share-btn">

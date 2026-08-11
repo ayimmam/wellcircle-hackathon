@@ -22,7 +22,7 @@ function renderForYou() {
   );
 }
 
-describe('ForYouScreen — one-time "Day N on WellCircle" share card', () => {
+describe('ForYouScreen — one-time "Day N on Well Circle" share card', () => {
   beforeEach(() => {
     localStorage.removeItem(SEEN_KEY);
   });
@@ -30,7 +30,7 @@ describe('ForYouScreen — one-time "Day N on WellCircle" share card', () => {
   it('shows the join ShareCard once on first load, for both new and existing accounts', async () => {
     renderForYou();
     await waitFor(() => expect(document.getElementById('share-card-sheet')).toBeInTheDocument());
-    expect(document.getElementById('share-card-caption').textContent).toContain('on WellCircle');
+    expect(document.getElementById('share-card-caption').textContent).toContain('Well Circle');
     expect(localStorage.getItem(SEEN_KEY)).toBe('1');
   });
 

@@ -137,8 +137,14 @@ export default function ShareCard({ milestone, onClose }) {
         <canvas
           ref={canvasRef}
           id="share-card-canvas"
-          style={{ width: '100%', borderRadius: 16, display: 'block', marginBottom: 16 }}
+          role="img"
+          aria-label={`${headline} ${subline}`}
+          style={{ width: '100%', borderRadius: 16, display: 'block', marginBottom: 8 }}
         />
+        {/* Canvas text isn't screen-reader accessible — mirror it visibly too */}
+        <p id="share-card-caption" className="text-secondary text-sm" style={{ textAlign: 'center', marginBottom: 16 }}>
+          {headline} — {subline}
+        </p>
         <div className="flex gap-8">
           <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleShare} disabled={busy} id="share-card-share-btn">
             <Icon name="share" size={15} /> {t('Share')}

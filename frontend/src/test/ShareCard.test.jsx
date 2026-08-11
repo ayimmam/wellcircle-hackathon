@@ -25,13 +25,13 @@ describe('ShareCard', () => {
   it('renders streak-milestone copy and fires the shown analytics event', () => {
     renderWithProviders(<ShareCard milestone={{ type: 'streak', streak: 7, tier: 'sprout', tierEmoji: '🌿' }} onClose={vi.fn()} />);
     expect(document.getElementById('share-card-sheet')).toBeInTheDocument();
-    expect(screen.getByText('7-day streak!')).toBeInTheDocument();
+    expect(document.getElementById('share-card-caption').textContent).toContain('7-day streak!');
     expect(track).toHaveBeenCalledWith('share_card_shown', { type: 'streak', streak: 7 });
   });
 
   it('renders personal-best copy for that milestone type', () => {
     renderWithProviders(<ShareCard milestone={{ type: 'personal_best', streak: 12, tier: 'grove', tierEmoji: '🌳' }} onClose={vi.fn()} />);
-    expect(screen.getByText('New personal best!')).toBeInTheDocument();
+    expect(document.getElementById('share-card-caption').textContent).toContain('New personal best!');
   });
 
   it('closing calls onClose', () => {

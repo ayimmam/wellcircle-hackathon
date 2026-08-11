@@ -252,13 +252,27 @@ def test_all():
                      exercise_frequency="daily")
         join_community(db, community.id, pb_user)
 
+        def backdate_last_checkin(user, days_ago):
+            # Rewinds both the streak timestamp AND today's just-created feed
+            # event — checkin_community's duplicate guard checks the feed
+            # event's created_at, not last_checkin_at, so only moving the
+            # latter would still hit "already_checked_in" on the next call.
+            user.last_checkin_at = datetime.now(timezone.utc) - timedelta(days=days_ago)
+            latest_event = (
+                db.query(CommunityFeedEvent)
+                .filter(CommunityFeedEvent.community_id == community.id, CommunityFeedEvent.user_id == user.id)
+                .order_by(CommunityFeedEvent.created_at.desc())
+                .first()
+            )
+            latest_event.created_at = user.last_checkin_at
+            db.commit()
+
         res = checkin_community(db, community.id, pb_user)
         assert res["current_streak"] == 1
         assert res["longest_streak"] == 1
         assert res["is_personal_best"] is True  # first ever checkin is trivially a "best"
 
-        pb_user.last_checkin_at = datetime.now(timezone.utc) - timedelta(days=1)
-        db.commit()
+        backdate_last_checkin(pb_user, 1)
         res = checkin_community(db, community.id, pb_user)
         assert res["current_streak"] == 2
         assert res["longest_streak"] == 2
@@ -266,8 +280,7 @@ def test_all():
         print("   ✅ longest_streak tracks new records as the streak grows")
 
         # Break the streak without a freeze — longest_streak must not regress
-        pb_user.last_checkin_at = datetime.now(timezone.utc) - timedelta(days=3)
-        db.commit()
+        backdate_last_checkin(pb_user, 3)
         res = checkin_community(db, community.id, pb_user)
         assert res["current_streak"] == 1
         assert res["longest_streak"] == 2, "longest_streak is monotonic — resetting current_streak must not lower it"

@@ -164,7 +164,9 @@ def test_all():
 
         # === League bucketing (small groups, not one global list) =========
         league_alice = ranks_crud.get_my_league(db, u1.id)
-        check(len(league_alice) == 4, "League includes everyone when population < LEAGUE_SIZE (4 users)")
+        # Only Alice, Bob, and Carol earned points this week — Dave (0 pts)
+        # isn't part of anyone else's population, only his own league below.
+        check(len(league_alice) == 3, "League includes everyone when population < LEAGUE_SIZE (3 earners)")
         check(any(e["is_me"] and e["user_id"] == str(u1.id) for e in league_alice),
               "Alice is flagged is_me in her own league")
         check(league_alice[0]["weekly_points"] >= league_alice[-1]["weekly_points"],

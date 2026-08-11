@@ -63,7 +63,14 @@ def main():
     if existing:
         user_id = existing[0]
         cur.execute(
-            "UPDATE users SET password_hash = %s, is_provider = TRUE WHERE id = %s",
+            """
+            UPDATE users
+            SET password_hash = %s, is_provider = TRUE,
+                points_balance = COALESCE(points_balance, 0),
+                created_at = COALESCE(created_at, now()),
+                updated_at = now()
+            WHERE id = %s
+            """,
             (password_hash, user_id),
         )
         print(f"Updated existing login user {user_id} ({LOGIN_USERNAME}) with a new password.")
@@ -71,8 +78,11 @@ def main():
         user_id = uuid.uuid4()
         cur.execute(
             """
-            INSERT INTO users (id, telegram_id, name, login_username, password_hash, is_provider, is_onboarded)
-            VALUES (%s, %s, %s, %s, %s, TRUE, TRUE)
+            INSERT INTO users (
+                id, telegram_id, name, login_username, password_hash,
+                is_provider, is_onboarded, points_balance, created_at, updated_at
+            )
+            VALUES (%s, %s, %s, %s, %s, TRUE, TRUE, 0, now(), now())
             """,
             (str(user_id), SYNTHETIC_TELEGRAM_ID, "Boston Day Spa (Aman)", LOGIN_USERNAME, password_hash),
         )

@@ -29,6 +29,7 @@ def ensure_db_schema(engine):
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS strava_refresh_token TEXT;",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS strava_token_expires_at TIMESTAMP WITH TIME ZONE;",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS strava_visible_stats JSONB;",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS longest_streak INTEGER DEFAULT 0;",
         # Trainer Verifications table
         "ALTER TABLE trainer_verifications ADD COLUMN IF NOT EXISTS certificate_public_id VARCHAR(255);",
         "ALTER TABLE trainer_verifications ADD COLUMN IF NOT EXISTS payment_receipt_public_id VARCHAR(255);",

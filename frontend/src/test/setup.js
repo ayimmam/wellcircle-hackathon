@@ -3,6 +3,29 @@ import { afterEach, beforeEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import { clearAll as clearApiCache } from '../api/cache';
 
+// Node 22+ ships its own `localStorage`/`sessionStorage` globals, but leaves
+// them `undefined` unless the process was started with --localstorage-file.
+// Those undefined globals shadow the ones happy-dom installs, so on a modern
+// Node every component that reads a saved token, theme, or seen-flag throws
+// on mount — which takes down almost the whole suite. Install a working
+// in-memory implementation when the environment didn't provide one.
+function installWebStorage(name) {
+  if (globalThis[name]) return;
+  const store = new Map();
+  const storage = {
+    getItem: (key) => (store.has(String(key)) ? store.get(String(key)) : null),
+    setItem: (key, value) => { store.set(String(key), String(value)); },
+    removeItem: (key) => { store.delete(String(key)); },
+    clear: () => { store.clear(); },
+    key: (index) => [...store.keys()][index] ?? null,
+  };
+  Object.defineProperty(storage, 'length', { get: () => store.size });
+  Object.defineProperty(globalThis, name, { configurable: true, writable: true, value: storage });
+}
+
+installWebStorage('localStorage');
+installWebStorage('sessionStorage');
+
 // Unmount React trees between tests to avoid cross-test DOM/state leakage.
 afterEach(() => {
   cleanup();

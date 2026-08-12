@@ -24,7 +24,13 @@ describe('ProfileScreen — Strava integration', () => {
 
   it('shows editable bio, follower counts, privacy, and trainer verification', async () => {
     renderProfile();
+    // The bio is read-only until Edit is tapped — a permanently open textarea
+    // made the top of the profile read as a form.
+    await screen.findByText('Legacy Points');
+    expect(screen.queryByLabelText('Profile bio')).toBeNull();
+    fireEvent.click(document.getElementById('edit-bio-btn'));
     expect(await screen.findByLabelText('Profile bio')).toHaveAttribute('maxlength', '300');
+
     expect(screen.getByText('Followers only')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Get Verified' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Followers/ })).toBeInTheDocument();

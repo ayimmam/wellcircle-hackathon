@@ -39,7 +39,7 @@ import {
   MOCK_PRODUCTS, MOCK_REDEMPTIONS, MOCK_ADMIN_ANALYTICS, MOCK_PENDING_PROVIDERS,
   MOCK_ADMIN_PROVIDERS, MOCK_ADMIN_PRODUCTS, MOCK_PROVIDER_PRODUCTS,
   MOCK_PROVIDER_CUSTOMERS, MOCK_PRICE_SUGGESTION, MOCK_PROVIDER_POINTS_ANALYTICS,
-  MOCK_SOCIAL_PROOF, MOCK_EVENTS, MOCK_RANKS,
+  MOCK_SOCIAL_PROOF, MOCK_EVENTS, MOCK_PAST_EVENTS, MOCK_RANKS,
   MOCK_PROVIDER_BOOKINGS, MOCK_PROVIDER_SERVICE_BREAKDOWN, MOCK_PROVIDER_DEMOGRAPHICS,
   MOCK_PUBLIC_USERS, MOCK_FOLLOWERS, MOCK_FOLLOWING, MOCK_STRAVA_STATS,
   MOCK_TRAINER_VERIFICATIONS, MOCK_PAID_CIRCLE_APPLICATIONS,
@@ -206,6 +206,7 @@ export const cacheKeys = {
 
   events: (params) => keyOf('events', params),
   featuredEvents: () => keyOf('events', { featured: 1 }),
+  pastEvents: (params) => keyOf('events', { ...params, past: 1 }),
 
   profile: (userId) => keyOf('profile', { userId }),
   followers: (userId, page) => keyOf('followers', { userId, page }),
@@ -1291,6 +1292,32 @@ export async function getEvents(params = {}) {
     });
     const q = qs.toString();
     return request('GET', q ? `/events?${q}` : '/events');
+  });
+}
+
+/**
+ * Events that have already started, newest first — the Events screen's "Past"
+ * tab and the For You feed's recap cards. Backends without `past=true` return
+ * upcoming events for the same query, so the result is filtered client-side
+ * too rather than trusting the flag to have been honoured.
+ */
+export async function getPastEvents(params = {}) {
+  return cached(cacheKeys.pastEvents(params), async () => {
+    if (USE_MOCK) {
+      await delay();
+      const events = MOCK_PAST_EVENTS.filter(
+        e => !params.provider_id || e.provider_id === params.provider_id,
+      );
+      return { events, count: events.length };
+    }
+    const qs = new URLSearchParams({ past: 'true', limit: String(params.limit || 20) });
+    Object.entries(params).forEach(([k, v]) => {
+      if (v != null && v !== '' && k !== 'limit') qs.set(k, String(v));
+    });
+    const res = await request('GET', `/events?${qs.toString()}`);
+    const now = Date.now();
+    const events = (res.events || []).filter(e => new Date(e.starts_at).getTime() < now);
+    return { ...res, events, count: events.length };
   });
 }
 

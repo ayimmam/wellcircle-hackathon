@@ -685,6 +685,69 @@ export const MOCK_POSTS = [
     total_points_gifted: 0,
     circle_id: '33333333-0000-0000-0000-000000000001',
     is_system_event: true
+  },
+  // Organic member posts. The For You feed splices provider/service/event
+  // cards between posts, so it needs enough member content for those cards to
+  // read as punctuation rather than as the feed itself.
+  {
+    id: '44444444-0000-0000-0000-000000000008',
+    content: "Booked the sauna at Boston Day Spa after leg day. Genuinely the best recovery decision I've made all month.",
+    user: { id: '007', name: 'Kalkidan', photo_url: 'https://i.pravatar.cc/150?u=kalkidan' },
+    created_at: new Date(now - 3 * 3600000).toISOString(),
+    photo_url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800',
+    reactions: { '🔥': 9, '💆': 4 },
+    total_points_gifted: 10,
+    circle_id: '33333333-0000-0000-0000-000000000001'
+  },
+  {
+    id: '44444444-0000-0000-0000-000000000009',
+    content: "Week 3 of showing up at 6am. It stopped being hard around day 11. Whoever needs to hear that today — keep going.",
+    user: { id: '008', name: 'Selam', photo_url: 'https://i.pravatar.cc/150?u=selam' },
+    created_at: new Date(now - 8 * 3600000).toISOString(),
+    reactions: { '🔥': 14, '👏': 6 },
+    total_points_gifted: 20,
+    circle_id: '33333333-0000-0000-0000-000000000002'
+  },
+  {
+    id: '44444444-0000-0000-0000-000000000010',
+    content: "Ran Entoto this morning with two people from this circle. Met them here three weeks ago. Wild.",
+    user: { id: '009', name: 'Bereket', photo_url: 'https://i.pravatar.cc/150?u=bereket' },
+    created_at: new Date(now - 15 * 3600000).toISOString(),
+    activity_type: 'run',
+    distance_km: 8.4,
+    duration_min: 52,
+    photo_url: 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800',
+    reactions: { '🔥': 11, '🏃': 5 },
+    total_points_gifted: 15,
+    circle_id: '33333333-0000-0000-0000-000000000001'
+  },
+  {
+    id: '44444444-0000-0000-0000-000000000011',
+    content: "Does anyone know a good physio around Bole? Tweaked my shoulder on the bench and don't want to guess at it.",
+    user: { id: '010', name: 'Nahom', photo_url: 'https://i.pravatar.cc/150?u=nahom' },
+    created_at: new Date(now - 30 * 3600000).toISOString(),
+    reactions: { '🙏': 3 },
+    total_points_gifted: 0,
+    circle_id: '33333333-0000-0000-0000-000000000002'
+  },
+  {
+    id: '44444444-0000-0000-0000-000000000012',
+    content: "Meal prepped for the whole week for the first time. Sunday me is going to be very smug about this.",
+    user: { id: '011', name: 'Rahel', photo_url: 'https://i.pravatar.cc/150?u=rahel' },
+    created_at: new Date(now - 40 * 3600000).toISOString(),
+    photo_url: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800',
+    reactions: { '🥗': 8, '👏': 4 },
+    total_points_gifted: 5,
+    circle_id: '33333333-0000-0000-0000-000000000001'
+  },
+  {
+    id: '44444444-0000-0000-0000-000000000013',
+    content: "Missed two days and my streak froze instead of resetting. Small thing but it genuinely kept me from quitting.",
+    user: { id: '012', name: 'Tsion', photo_url: 'https://i.pravatar.cc/150?u=tsion' },
+    created_at: new Date(now - 60 * 3600000).toISOString(),
+    reactions: { '❤️': 16, '🔥': 3 },
+    total_points_gifted: 0,
+    circle_id: '33333333-0000-0000-0000-000000000002'
   }
 ];
 
@@ -833,6 +896,23 @@ export const NEIGHBOURHOODS = ['Bole', 'Kazanchis', 'Piassa', 'CMC', 'Sarbet', '
 // both needed at least one real event to have anything to show in mock mode.
 export const MOCK_EVENTS = [
   {
+    // Pilot spotlight — the boosted Boston Day Spa event that leads the For
+    // You feed alongside the provider card and one of its services.
+    id: 'evt-boston-01',
+    provider_id: '11111111-0000-0000-0000-000000000011',
+    provider_name: 'Boston Day Spa',
+    provider_category: 'spa',
+    provider_cover_photo_url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
+    service_name: 'Sunset Hammam & Massage Evening',
+    description: 'An evening of steam, sauna, and a 45-minute massage, hosted by the Boston Day Spa Circle.',
+    price_etb: 1800,
+    capacity: 16,
+    spots_remaining: 5,
+    urgency: 'medium',
+    is_boosted: true,
+    starts_at: new Date(Date.now() + 3 * 86400000).toISOString(),
+  },
+  {
     id: 'evt-shanti-01',
     provider_id: '11111111-0000-0000-0000-000000000003', // Shanti Yoga Addis, Bole
     provider_name: 'Shanti Yoga Addis',
@@ -858,10 +938,48 @@ export const MOCK_EVENTS = [
   },
 ];
 
+// Events that have already happened. They can't be booked, so they carry an
+// `attendee_count` instead of `spots_remaining` — the recap card uses it as
+// social proof ("22 members went") and converts the interest it creates into
+// the provider's next session rather than a dead end.
+export const MOCK_PAST_EVENTS = [
+  {
+    id: 'evt-boston-past-01',
+    provider_id: '11111111-0000-0000-0000-000000000011',
+    provider_name: 'Boston Day Spa',
+    provider_category: 'spa',
+    provider_cover_photo_url: 'https://images.unsplash.com/photo-1540541338287-41700207dee6?w=800',
+    service_name: 'Members Facial & Sauna Morning',
+    description: 'A morning of facials, steam, and sauna for the Boston Day Spa Circle.',
+    price_etb: 1500,
+    capacity: 24,
+    attendee_count: 22,
+    is_past: true,
+    is_boosted: true,
+    starts_at: new Date(Date.now() - 6 * 86400000).toISOString(),
+  },
+  {
+    id: 'evt-shanti-past-01',
+    provider_id: '11111111-0000-0000-0000-000000000003',
+    provider_name: 'Shanti Yoga Addis',
+    provider_category: 'yoga',
+    provider_cover_photo_url: null,
+    service_name: 'Full Moon Rooftop Flow',
+    price_etb: 350,
+    capacity: 20,
+    attendee_count: 18,
+    is_past: true,
+    is_boosted: false,
+    starts_at: new Date(Date.now() - 13 * 86400000).toISOString(),
+  },
+];
+
 // ─── For You Feed (Phase 4/5) ───────────────────────
 // Mirrors the backend's fixed interleave (see docs/API_CONTRACT.md #2b):
-// posts newest-first, splicing one non-post item after every 3rd post,
-// cycling event -> service -> provider, skipping an empty category, with any
+// a four-item lead-in (spotlight provider, one of its services, its next
+// event, its last event's recap) spaced one post apart, then the steady
+// cadence of one non-post item after every 3rd post, cycling
+// event -> service -> provider and skipping empty categories, with any
 // leftover items appended at the end so the feed is never empty.
 function buildMockForYouFeed() {
   const postItems = MOCK_POSTS
@@ -901,52 +1019,77 @@ function buildMockForYouFeed() {
   // Coming-soon providers are included too — FeedProviderCard shows a
   // "Coming soon" badge and hides the booking CTA for them, so they stay
   // visible in the feed pre-launch instead of being invisible until then.
-  const providerItems = MOCK_PROVIDERS.map(p => ({
-    type: 'provider',
-    render_cost: 'media',
-    id: p.id,
-    provider: providerBrief(p),
-    promotion: p.active_promotion || null,
-  }));
+  // Featured first, then by rating, matching the backend's ordering — the
+  // lead-in below takes providerItems[0] as the spotlight, so this is what
+  // makes that Boston Day Spa rather than whatever happens to be first in
+  // the array.
+  const providerItems = [...MOCK_PROVIDERS]
+    .sort((a, b) => (Number(!!b.is_featured) - Number(!!a.is_featured)) || ((b.rating || 0) - (a.rating || 0)))
+    .map(p => ({
+      type: 'provider',
+      render_cost: 'media',
+      id: p.id,
+      provider: providerBrief(p),
+      promotion: p.active_promotion || null,
+    }));
 
-  const eventItems = MOCK_EVENTS.filter(e => e.is_boosted).map(e => ({
-    type: 'event',
+  const toEventItem = (e) => ({
+    type: e.is_past ? 'past_event' : 'event',
     render_cost: 'media',
     id: e.id,
     event: e,
-    provider: { id: e.provider_id, name: e.provider_name, category: null, cover_photo_url: null },
-  }));
+    provider: {
+      id: e.provider_id,
+      name: e.provider_name,
+      category: e.provider_category || null,
+      cover_photo_url: e.provider_cover_photo_url || null,
+    },
+  });
 
-  const pools = [eventItems, serviceItems, providerItems];
-  const cursors = [0, 0, 0];
+  const eventItems = MOCK_EVENTS.filter(e => e.is_boosted).map(toEventItem);
+  const pastEventItems = MOCK_PAST_EVENTS.map(toEventItem);
+
+  const pools = [eventItems, serviceItems, providerItems, pastEventItems];
+  const cursors = [0, 0, 0, 0];
   let cycleIdx = 0;
+  const takeFrom = (poolIdx) => {
+    const pool = pools[poolIdx];
+    if (cursors[poolIdx] >= pool.length) return null;
+    cursors[poolIdx] += 1;
+    return pool[cursors[poolIdx] - 1];
+  };
   const takeNext = () => {
     for (let attempt = 0; attempt < pools.length; attempt++) {
       const chosen = cycleIdx;
       cycleIdx = (cycleIdx + 1) % pools.length;
-      if (cursors[chosen] < pools[chosen].length) {
-        cursors[chosen] += 1;
-        return pools[chosen][cursors[chosen] - 1];
-      }
+      const item = takeFrom(chosen);
+      if (item) return item;
     }
     return null;
   };
 
+  // The lead-in: the spotlight provider, one of its services, its next event,
+  // and the recap of its last one — each separated by a member post so the
+  // top of the feed reads as a community rather than as a storefront. Anything
+  // the lead-in doesn't consume falls through to the every-3rd-post cadence.
+  const leadIn = [takeFrom(2), takeFrom(1), takeFrom(0), takeFrom(3)].filter(Boolean);
+
   const items = [];
-  // Pin the top featured provider (Boston Day Spa) as the very first feed
-  // item — mirrors the backend's fixed interleave (feed_service.py
-  // _interleave) so it doesn't depend on the every-3rd-post cadence.
-  if (providerItems.length > 0) {
-    items.push(providerItems[0]);
-    cursors[2] = 1;
-  }
+  if (leadIn.length > 0) items.push(leadIn.shift());
   postItems.forEach((postItem, i) => {
     items.push(postItem);
+    if (leadIn.length > 0) {
+      items.push(leadIn.shift());
+      return;
+    }
     if ((i + 1) % 3 === 0) {
       const next = takeNext();
       if (next) items.push(next);
     }
   });
+  // Whatever the post stream didn't reach — a feed with two posts would
+  // otherwise hide every provider in the directory.
+  items.push(...leadIn);
   let leftover = takeNext();
   while (leftover) {
     items.push(leftover);

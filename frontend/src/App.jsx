@@ -34,6 +34,8 @@ const ForYouScreen = lazy(importHome);
 const ExploreScreen = lazy(importExplore);
 const NotificationsScreen = lazy(() => import('./pages/NotificationsScreen'));
 const MyBookings = lazy(() => import('./pages/MyBookings'));
+const EventsScreen = lazy(() => import('./pages/EventsScreen'));
+const AboutScreen = lazy(() => import('./pages/AboutScreen'));
 const ProviderDetail = lazy(importProviderDetail);
 const CommunityList = lazy(importCommunity);
 const CommunityDetail = lazy(() => import('./pages/CommunityDetail'));
@@ -144,6 +146,11 @@ export function AppShell() {
               <Route path="/users/me/bookings" element={<MyBookings />} />
               <Route path="/community" element={<CommunityList />} />
               <Route path="/profile" element={<ProfileScreen />} />
+
+              {/* Burger-menu destinations — the screens with no permanent
+                  entry point on the bottom nav or header. */}
+              <Route path="/events" element={<EventsScreen />} />
+              <Route path="/about" element={<AboutScreen />} />
               <Route path="/trainer/verify" element={<TrainerVerification />} />
 
               {/* Detail screens */}

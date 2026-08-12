@@ -26,8 +26,8 @@ def compute_urgency(spots_remaining: int) -> str:
     return "low"
 
 
-def serialize_event(event: ProviderEvent, provider: Provider) -> dict:
-    return {
+def serialize_event(event: ProviderEvent, provider: Provider, is_past: bool = False) -> dict:
+    payload = {
         "id": str(event.id),
         "provider_id": str(event.provider_id),
         "service_name": event.service_name,
@@ -45,6 +45,42 @@ def serialize_event(event: ProviderEvent, provider: Provider) -> dict:
         "provider_cover_photo_url": provider.cover_photo_url,
         "urgency": compute_urgency(event.spots_remaining),
     }
+    if is_past:
+        # Seats that were taken, which is the only number that means anything
+        # once the session is over — "3 spots left" on a finished event reads
+        # as a live booking prompt.
+        payload["is_past"] = True
+        payload["attendee_count"] = max(0, (event.capacity or 0) - (event.spots_remaining or 0))
+    return payload
+
+
+def query_past_events(
+    db: Session,
+    provider_id: Optional[str] = None,
+    category: Optional[str] = None,
+    limit: int = 20,
+    page: int = 1,
+) -> tuple[list[dict], int]:
+    """Events that have already started, newest first — the Events screen's
+    "Past" tab and the For You feed's recap cards. Cancelled events are
+    excluded: they never happened, so there is nothing to recap."""
+    now = datetime.now(timezone.utc)
+    query = (
+        db.query(ProviderEvent, Provider)
+        .join(Provider, ProviderEvent.provider_id == Provider.id)
+        .filter(
+            ProviderEvent.starts_at < now,
+            ProviderEvent.is_cancelled == False,
+        )
+    )
+    if provider_id:
+        query = query.filter(ProviderEvent.provider_id == provider_id)
+    if category:
+        query = query.filter(Provider.category == category)
+
+    query = query.order_by(ProviderEvent.starts_at.desc())
+    results = query.offset((page - 1) * limit).limit(limit).all()
+    return [serialize_event(event, provider, is_past=True) for event, provider in results], len(results)
 
 
 def query_upcoming_events(
@@ -102,10 +138,20 @@ def list_all_events(
     to_date: Optional[datetime] = Query(None, alias="to"),
     category: Optional[str] = None,
     boosted_only: bool = False,
+    past: bool = False,
+    provider_id: Optional[str] = None,
     limit: int = 20,
     page: int = 1
 ):
-    """Discovery endpoint for upcoming events."""
+    """Discovery endpoint for events. `past=true` switches to already-started
+    events, newest first, carrying `is_past`/`attendee_count` instead of
+    booking urgency."""
+    if past:
+        events_list, total = query_past_events(
+            db, provider_id=provider_id, category=category, limit=limit, page=page,
+        )
+        return {"events": events_list, "count": total, "page": page}
+
     events_list, total = query_upcoming_events(
         db,
         from_date=from_date,

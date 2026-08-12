@@ -14,6 +14,7 @@ import PointsInfoSheet from '../components/PointsInfoSheet';
 import FeedPostCard from '../components/feed/FeedPostCard';
 import FeedServiceCard from '../components/feed/FeedServiceCard';
 import FeedEventBanner from '../components/feed/FeedEventBanner';
+import FeedPastEventCard from '../components/feed/FeedPastEventCard';
 import FeedProviderCard from '../components/feed/FeedProviderCard';
 import ShareCard from '../components/ShareCard';
 import { showToast } from '../components/Toast';
@@ -30,6 +31,7 @@ function FeedItem({ item, priority }) {
     case 'post': return <FeedPostCard item={item} priority={priority} />;
     case 'service': return <FeedServiceCard item={item} priority={priority} />;
     case 'event': return <FeedEventBanner item={item} priority={priority} />;
+    case 'past_event': return <FeedPastEventCard item={item} priority={priority} />;
     case 'provider': return <FeedProviderCard item={item} priority={priority} />;
     default: return null;
   }

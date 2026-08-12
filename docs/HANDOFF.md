@@ -3,45 +3,26 @@
 This document tracks implementation status against `PRD.md`, `IMPLEMENTATION_PROMPT.md`, and `PHASE3_IMPLEMENTATION_PLAN.md`.  
 
 
-**Last updated:** July 2026 — after Phase 11 (multi-passion onboarding + real circle creation, `feature/multi-passion-onboarding-circles`). Phase 9 (Kuriftu direct-contact booking fix) is detailed in `kuriftu-gap-analysis.md`; Phase 8 (UX Psychology Growth Loop) in `UX_GROWTH_LOOP_PLAN.md`; Phase 7 (Biniyam's presale/re-entry sprint track) in `BINIYAM_SPRINT_PLAN.md`. **Note:** a separate Phase 10 (booking UX polish + multi-day booking) exists on the not-yet-merged `feature/booking-ux-polish` branch, forked before this one — the two haven't been reconciled yet.
-
+**Last updated:** August 2026 — after Phase 20 (navigation & UX audit). Phase 9
+(Kuriftu direct-contact booking fix) is detailed in `kuriftu-gap-analysis.md`;
+Phase 8 (UX Psychology Growth Loop) in `UX_GROWTH_LOOP_PLAN.md`; Phase 7
+(Biniyam's presale/re-entry sprint track) in `BINIYAM_SPRINT_PLAN.md`; the For
+You feed and pilot focus in `FEATURE_PLAN_FOR_YOU_AND_PILOT_FOCUS.md`.
 
 For Phase 3 detail and LLM continuation notes, see also **`PHASE3_HANDOFF.md`**.
+For the planned non-Telegram web app, see **`WEB_APP_PLAN.md`**.
 
 ---
 
+## Branch status
 
-`main` does **not** yet include the two most recent features. Both are complete,
-tested, and pushed to `origin`, but not merged — **check these branches before
-assuming `main` is the full story**, and before starting new work that might
-overlap with either.
-
-### `feature/booking-ux-polish` (commits `726aae5` on top of `1fe390d`)
-Booking UX polish + **multi-day booking**: date-chip selection is now
-multi-select (one real `Booking` row per day, one combined payment via a new
-`booking_group_id` correlation key); a fixed CSS overflow bug on date chips;
-a swapped onboarding emoji; Kuriftu's confirmed phone number wired into the
-direct-contact screen's Call button (now primary, ahead of Email); and a new
-`backend/.vercelignore` (the Vercel Python builder was bundling every test/
-loadtest/maintenance script into the production Lambda). Full detail: that
-branch's own `HANDOFF.md` **Phase 10** entry (not visible from `main` until
-merged).
-
-### `feature/multi-passion-onboarding-circles` (commit `8415faa` on top of `1fe390d`)
-**Multi-select passions** at onboarding (`User.interest_category` → `interest_categories`,
-a full-replacement refactor across ~15 backend/frontend consumers — community
-suggestions, product personalization, admin analytics all now OR-match across
-every selected interest) + a rebuilt circles onboarding step: a one-sentence
-explainer, an "Available Circles" list to join an existing real `Circle`
-directly, and a "create your own circle" form — either path shows an inline
-Telegram invite-friends action. Full detail: that branch's own `HANDOFF.md`
-**Phase 11** entry (not visible from `main` until merged).
-
-**Both branches fork independently from the same `main` commit (`1fe390d`) and
-have not been reconciled with each other** — they touch almost entirely
-different files, so a normal merge/rebase of both into `main` (in either
-order) should be low-conflict, but this hasn't been verified. Do that check
-before merging.
+The two branches this document previously flagged as unmerged —
+`feature/booking-ux-polish` (Phase 10, multi-day booking) and
+`feature/multi-passion-onboarding-circles` (Phase 11, multi-select passions +
+real circle creation) — **are both in `main` now**. `Booking.booking_group_id`
+and `User.interest_categories` are present in the models, and
+`backend/app/tests/test_multi_day_booking.py` runs against `main`. The
+reconciliation warning that used to live here no longer applies.
 
 ---
 
@@ -1225,6 +1206,187 @@ frontend/src/api/client.js
 frontend/src/pages/TrainerVerification.jsx
 frontend/src/pages/OnboardingFlow.jsx
 docs/HANDOFF.md
+```
+
+---
+
+### Phase 17 — For You Feed, Boston Day Spa Pilot & Instant Open
+
+Focus: replaced the Home dashboard with a single ranked feed, made the pilot
+provider impossible to miss, and cut perceived load time to near zero.
+
+#### For You feed
+- **`GET /api/feed/for-you?limit&before`** (`backend/app/services/feed_service.py`)
+  — one feed of mixed item types: `post`, `event`, `service`, `provider`.
+  Ranking is a **fixed deterministic interleave**, not a scoring model (see
+  `API_CONTRACT.md` §2b): posts newest-first with one non-post item spliced in
+  after every 3rd, cycling categories and skipping empty ones. Leftovers drain
+  at the end so a user with zero posts still sees a populated feed.
+- **Card components** `frontend/src/components/feed/` — `FeedPostCard`,
+  `FeedServiceCard`, `FeedEventBanner`, `FeedProviderCard`.
+- `post.source` carries the owning circle/community, which is what makes
+  "tap a post → land in its circle" work. Private/paid-circle posts and
+  system-generated join/check-in posts never enter the public feed.
+
+#### Boston Day Spa pilot
+- **Direct-contact booking** — services with `booking_method: 'phone'` skip
+  the date/payment steps entirely and show Call (primary) and Email actions.
+- **Coming-soon providers stay visible** — they render with a "Coming soon"
+  badge and no booking CTA (`is_coming_soon`) instead of being filtered out,
+  so the pilot has company in the feed pre-launch.
+- **`Provider.map_url`** — an explicit Google Maps link, used by
+  ProviderDetail's navigation tips where lat/lng is absent.
+
+#### Instant open
+- **`GET /api/home/bootstrap`** — Home used to open with six parallel calls,
+  each able to land on its own cold serverless function. One aggregate
+  request now answers all of them from a single warm invocation, and
+  `warmFromBootstrap()` seeds the per-endpoint cache keys so Explore and the
+  circles tab open with no request at all. The individual endpoints still
+  exist; the client falls back to them on 404, so a frontend deploy landing
+  ahead of the backend degrades rather than breaks.
+- **`useResource`** (`frontend/src/hooks/useResource.js`) — stale-while-
+  revalidate rendering: screens paint from the last known value on first
+  render, so `loading` is only ever true on a genuine cold miss.
+- **`prefetchTabs()`** (`App.jsx`) — warms the bottom-nav route chunks and the
+  live provider's detail payload on idle, so a tab tap is a render rather than
+  a download over a Telegram in-app connection.
+- **`usePolling`** — pauses while the tab is hidden and refreshes on return,
+  so background tabs stop waking cold functions.
+
+---
+
+### Phase 18 — Provider Web Portal (`provider.wellcircle.et`)
+
+Focus: gave providers a real desktop back office, reachable outside Telegram.
+
+- **Separate auth path** — the portal authenticates with the **Telegram Login
+  Widget** (`backend/app/services/telegram_login_widget.py`), not Mini App
+  `initData`. Same HMAC-over-bot-token idea, different payload shape.
+- **Landscape shell** — `ProviderPortalShell` with a sidebar nav and one page
+  per section: Overview, Bookings, Events, Products, Customers, Promotions,
+  Subscriptions. Independent of the Mini App's mobile-tabbed
+  `ProviderDashboard`, which still exists.
+- **Domain-aware routing** (`frontend/src/utils/providerPortal.js`) — on
+  `provider.wellcircle.et` the portal claims the root paths (`/`, `/login`,
+  `/overview`); everywhere else it lives under `/provider-portal`. The Mini
+  App chrome (Header, BottomNav, BurgerMenu) hides itself on that domain.
+- `ProviderPortalGuard` + `ProviderPortalAuthContext` hold the portal session
+  separately from the Mini App's `AuthContext`.
+
+---
+
+### Phase 19 — Retention Loop: Streaks, Ranks, Sharing & Milestones
+
+Focus: gave people a reason to come back tomorrow rather than only today.
+
+- **Streak freezes** (`backend/app/crud/community.py`) — a 7-day streak earns
+  a freeze (`User.freeze_count`); missing a single day spends one instead of
+  resetting the streak. `User.longest_streak` tracks the personal best so a
+  reset isn't a total loss. Migration: `alembic/versions/016_longest_streak.py`
+  (plus the idempotent `backend/apply_retention_migration.py`).
+- **Weekly ranks** — `GET /api/ranks` (`app/api/ranks.py`, `app/crud/ranks.py`)
+  behind the circles list.
+- **Check-in card** (`CheckinCard` + `useCheckin`) — the Home habit loop:
+  per-circle state, at-risk styling when nothing has been checked in today.
+- **Share card** (`ShareCard`) — one shareable "Day N on Well Circle" moment
+  per user, shown once on first Home load for new and existing accounts alike.
+- **Milestone badges** (`frontend/src/utils/milestones.js`) — derived from
+  fields that already exist (join date, tier, longest streak) rather than a
+  separate achievements table.
+- **`PointsInfoSheet`** — explains where points come from, opened from the
+  points badge.
+
+---
+
+### Phase 20 — Navigation & UX Audit (This Session)
+
+Focus: removed duplicated navigation, gave the orphaned screens a home, and
+reordered the feed so the pilot leads it.
+
+#### Navigation
+- **Burger menu trimmed to four items** (`BurgerMenu.jsx`): Points Store,
+  Bookings, Events, About — each with a one-line description. Home, Explore,
+  Communities, Profile and Notifications were removed because they are
+  already permanent on the bottom nav and header; repeating them made the
+  menu longer to scan without making anything reachable. The menu no longer
+  reads `useAuth` at all.
+- **New `/about`** (`AboutScreen.jsx`) — what the app is, the four-step loop
+  (join a circle → check in → earn points → book), get-started links, and the
+  **provider pitch** ("List your business") that used to sit in the burger.
+  Role-gated **Provider Dashboard** and **Admin** rows live here too.
+- **New `/events`** (`EventsScreen.jsx`) — events previously existed only as a
+  carousel inside Explore: no URL of their own, no way to see past the first
+  few. Now an Upcoming tab (grouped *This week* / *Later*, 90-day window) and
+  a **Past** tab of recaps. Supports `?tab=past` and `?provider=<id>`.
+
+#### Feed
+- **Lead-in ordering** (`feed_service.py` `_interleave`, mirrored in
+  `frontend/src/data/mock.js`): the feed now opens with the spotlight provider,
+  one of its services, its next event, and its last event's recap — each
+  separated by a member post, so the top reads as a community rather than a
+  storefront. The mock previously pinned `MOCK_PROVIDERS[0]` (Lifestyle
+  Fitness Center) while claiming to pin Boston Day Spa; provider items are now
+  sorted featured-first, matching the backend.
+- **New `past_event` item type** + `FeedPastEventCard` — a recap with
+  attendance as social proof and no booking CTA, linking instead to that
+  provider's upcoming sessions.
+- **`GET /api/events?past=true`** (`app/api/events.py` `query_past_events`) —
+  already-started, non-cancelled events, newest first, carrying `is_past` and
+  `attendee_count` (`capacity - spots_remaining`) instead of booking urgency.
+
+#### Profile
+- Header restyled as a card; the bio moved **behind an explicit Edit action**
+  (a permanently open textarea made the top of the screen read as a form).
+- **Appearance moved directly below Milestones** — it is the one setting
+  people change for fun, and it was buried under five preference panels.
+- **Pink accent added** (`ThemeContext` `ACCENTS` + light/dark
+  `[data-accent="pink"]` blocks in `index.css`).
+- A `Settings` divider separates profile content from configuration.
+- Removed the duplicated "My Bookings", "Redeem Points" and "Provider
+  Dashboard" entries — all three now have a permanent home elsewhere.
+
+#### Test infrastructure
+- **Fixed the whole suite** (`src/test/setup.js`): Node 22+ defines
+  `localStorage`/`sessionStorage` globals that are `undefined` unless the
+  process is started with `--localstorage-file`. Those shadowed the ones
+  happy-dom installs, so every component reading a saved token, theme, or
+  seen-flag threw on mount. On Node 26 that was **155 of 207 tests failing**
+  before any of this session's changes. Setup now installs an in-memory
+  implementation when the environment didn't provide one.
+
+#### Verification
+- Frontend: `npm test` → **232/232 passing** (46 files), `npm run build` clean.
+- Backend: the new `_interleave` was verified in isolation against the mock's
+  output plus empty-pool edge cases. **`python -m app.tests.test_integration`
+  was not run — `psycopg2-binary` fails to build in this environment's venv.**
+  Run it before merging.
+
+#### Files Changed / Added (Phase 20)
+```
+backend/app/api/events.py
+backend/app/schemas/event.py
+backend/app/services/feed_service.py
+docs/API_CONTRACT.md
+docs/HANDOFF.md
+docs/UX_AUDIT_2026_08.md              (new)
+docs/WEB_APP_PLAN.md                  (new)
+frontend/src/App.jsx
+frontend/src/api/client.js
+frontend/src/components/BurgerMenu.jsx
+frontend/src/components/Icon.jsx
+frontend/src/components/feed/FeedPastEventCard.jsx   (new)
+frontend/src/context/ThemeContext.jsx
+frontend/src/data/mock.js
+frontend/src/index.css
+frontend/src/pages/AboutScreen.jsx    (new)
+frontend/src/pages/EventsScreen.jsx   (new)
+frontend/src/pages/ForYouScreen.jsx
+frontend/src/pages/ProfileScreen.jsx
+frontend/src/test/setup.js
+frontend/src/test/{AboutScreen,EventsScreen,accents}.test.jsx  (new)
+frontend/src/test/feedLeadIn.test.js  (new)
+frontend/src/test/{BurgerMenu,ForYouScreen,ProfileScreen.healthApp,routes.smoke}.test.jsx
 ```
 
 ---

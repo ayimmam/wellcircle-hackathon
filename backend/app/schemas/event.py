@@ -44,6 +44,12 @@ class EventResponse(BaseModel):
     provider_cover_photo_url: Optional[str] = None
     urgency: Optional[str] = None
 
+    # Past-event recaps: an event that has already started can't be booked, so
+    # the client shows how many people turned up instead of how many spots are
+    # left. See GET /events?past=true.
+    is_past: Optional[bool] = None
+    attendee_count: Optional[int] = None
+
     class Config:
         from_attributes = True
 

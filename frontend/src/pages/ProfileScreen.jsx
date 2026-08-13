@@ -19,6 +19,7 @@ import BugReportSheet from '../components/BugReportSheet';
 import VerifiedBadge from '../components/VerifiedBadge';
 import StravaStats from '../components/StravaStats';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
+import { getEarnedMilestoneBadges } from '../utils/milestones';
 
 const STRAVA_STATS = [
   ['distance', 'Distance'],
@@ -37,6 +38,7 @@ export default function ProfileScreen() {
   const location = useLocation();
   const [showNeighbourhoodSheet, setShowNeighbourhoodSheet] = useState(false);
   const [bio, setBio] = useState('');
+  const [editingBio, setEditingBio] = useState(false);
   const [savingBio, setSavingBio] = useState(false);
   const [stravaBusy, setStravaBusy] = useState(false);
   const [editingPhone, setEditingPhone] = useState(false);
@@ -45,6 +47,7 @@ export default function ProfileScreen() {
   const { t, i18n } = useTranslation();
 
   const tier = getTier(user?.points_balance || 0);
+  const milestoneBadges = getEarnedMilestoneBadges(user);
   const joinedCommunities = MOCK_COMMUNITIES.filter(
     c => user?.joined_communities?.includes(c.id)
   );
@@ -115,6 +118,7 @@ export default function ProfileScreen() {
     try {
       await updateProfile({ bio: bio.trim() || null });
       showToast('Bio updated', 'success');
+      setEditingBio(false);
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
@@ -166,7 +170,10 @@ export default function ProfileScreen() {
 
   return (
     <div className="page" id="profile-screen">
-      {/* Profile Header */}
+      {/* Profile Header — identity, tier, and the two social counts, on one
+          card. The bio sits behind an explicit Edit action: a permanently
+          open textarea made the top of the screen read as a form rather than
+          as a profile. */}
       <div className="profile-header">
         <div className="profile-avatar">
           <SmartImage
@@ -179,29 +186,63 @@ export default function ProfileScreen() {
         </div>
         <h1 className="profile-name">{user.name} {user.is_verified_trainer && <VerifiedBadge compact />}</h1>
         <p className="profile-handle">@{user.telegram_handle}</p>
-        <div className="profile-bio-editor">
-          <textarea
-            className="input"
-            maxLength={300}
-            value={bio}
-            onChange={event => setBio(event.target.value)}
-            placeholder="Share your wellness journey..."
-            aria-label="Profile bio"
-          />
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-secondary">{bio.length}/300</span>
-            <button className="btn btn-primary btn-sm" disabled={savingBio || bio === (user.bio || '')} onClick={saveBio}>{savingBio ? 'Saving…' : 'Save bio'}</button>
-          </div>
+
+        <div className="profile-tier">
+          <span>{tier.emoji}</span>
+          <span>{tier.name}</span>
         </div>
+
+        {editingBio ? (
+          <div className="profile-bio-editor">
+            <textarea
+              className="input"
+              maxLength={300}
+              value={bio}
+              onChange={event => setBio(event.target.value)}
+              placeholder="Share your wellness journey..."
+              aria-label="Profile bio"
+              autoFocus
+            />
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-secondary">{bio.length}/300</span>
+              <div className="flex gap-8">
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => { setBio(user.bio || ''); setEditingBio(false); }}
+                >
+                  {t('Cancel')}
+                </button>
+                <button
+                  className="btn btn-primary btn-sm"
+                  disabled={savingBio || bio === (user.bio || '')}
+                  onClick={saveBio}
+                  id="save-bio-btn"
+                >
+                  {savingBio ? 'Saving…' : 'Save bio'}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="profile-bio-display">
+            {user.bio
+              ? <p className="profile-bio-text">{user.bio}</p>
+              : <p className="profile-bio-text empty">{t('Share your wellness journey…')}</p>}
+            <button
+              className="profile-bio-edit-btn"
+              onClick={() => setEditingBio(true)}
+              id="edit-bio-btn"
+              aria-label="Edit bio"
+            >
+              <Icon name="pencil" size={14} /> {user.bio ? t('Edit') : t('Add a bio')}
+            </button>
+          </div>
+        )}
+
         <div className="profile-connections">
           <button onClick={() => navigate(`/users/${user.id}/followers`)}><strong>{user.follower_count || 0}</strong> Followers</button>
           <span>·</span>
           <button onClick={() => navigate(`/users/${user.id}/following`)}><strong>{user.following_count || 0}</strong> Following</button>
-        </div>
-        <div className="profile-tier">
-          <span>{tier.emoji}</span>
-          <span>{tier.name}</span>
-          <span style={{ color: 'var(--text-tertiary)', fontWeight: 500 }}>· {user.points_balance || 0} pts</span>
         </div>
       </div>
 
@@ -232,49 +273,68 @@ export default function ProfileScreen() {
         </div>
       </div>
 
+      {/* Milestone badges — derived from existing fields (join date, tier,
+          longest streak), not a separate achievements table. */}
       <div className="profile-section">
-        <div className="profile-section-title">Profile Visibility</div>
-        <div className="profile-card">
-          <div className="privacy-options">
-            {[
-              ['public', 'Public', 'Anyone can see your activity'],
-              ['followers', 'Followers only', 'Only followers see activity'],
-              ['private', 'Private', 'Only you see activity'],
-            ].map(([value, label, description]) => (
-              <label className={`privacy-option ${user.profile_privacy === value ? 'selected' : ''}`} key={value}>
-                <input type="radio" name="profile-privacy" value={value} checked={user.profile_privacy === value} onChange={() => updateProfile({ profile_privacy: value }).then(() => showToast('Profile visibility updated', 'success')).catch(err => showToast(err.message, 'error'))} />
-                <span><strong>{label}</strong><small>{description}</small></span>
-              </label>
+        <div className="profile-section-title">{t('Milestones')}</div>
+        <div className="profile-card" style={{ padding: '12px 14px' }}>
+          <div className="flex gap-8" style={{ flexWrap: 'wrap' }} id="profile-milestone-badges">
+            {milestoneBadges.map(badge => (
+              <span
+                key={badge.id}
+                className="points-chip"
+                id={`milestone-badge-${badge.id}`}
+                title={badge.label}
+              >
+                <Icon name={badge.icon} size={13} />
+                <span>{badge.label}</span>
+              </span>
             ))}
           </div>
         </div>
       </div>
 
+      {/* Appearance — deliberately high on the page, straight after
+          Milestones. It is the one setting people change for fun rather than
+          out of need, and burying it under five preference sections meant
+          almost nobody found it. */}
       <div className="profile-section">
-        <div className="profile-section-title">Trainer Verification</div>
+        <div className="profile-section-title">{t('Appearance')}</div>
         <div className="profile-card">
-          {user.is_verified_trainer ? (
-            <div>
-              <VerifiedBadge />
-              {verificationExpires && <p className="text-sm text-secondary mt-8">Valid until {new Date(verificationExpires).toLocaleDateString()}</p>}
-              {verificationExpires && new Date(verificationExpires).getTime() - Date.now() < 30 * 86400000 && <button className="btn btn-secondary btn-sm mt-12" onClick={() => navigate('/trainer/verify')}>Renew</button>}
-            </div>
-          ) : trainerStatus?.status === 'pending' ? (
-            <div className="flex justify-between items-center"><span>Verification pending</span><span className="status-badge pending">Under review</span></div>
-          ) : trainerStatus?.status === 'approved' ? (
-            <div><VerifiedBadge /><p className="text-sm text-secondary mt-8">Verification approved. Refreshing your profile badge…</p></div>
-          ) : trainerStatus?.status === 'rejected' ? (
-            <div>
-              <strong>Application needs attention</strong>
-              <p className="text-sm text-secondary mt-8">{trainerStatus.rejection_reason || 'Your application was not approved.'}</p>
-              <button className="btn btn-primary btn-sm mt-12" onClick={() => navigate('/trainer/verify')}>Review and apply again</button>
-            </div>
-          ) : (
-            <div>
-              <p className="text-sm text-secondary mb-12">Show your credentials, build trust, and unlock paid-circle eligibility.</p>
-              <button className="btn btn-primary btn-block" onClick={() => navigate('/trainer/verify')}>Get Verified</button>
-            </div>
-          )}
+          <div className="theme-toggle" role="group" aria-label="Theme">
+            <button
+              type="button"
+              className={`theme-toggle-btn ${theme === 'light' ? 'active' : ''}`}
+              onClick={() => setTheme('light')}
+              id="theme-light-btn"
+            >
+              <Icon name="sun" size={16} /> {t('Light')}
+            </button>
+            <button
+              type="button"
+              className={`theme-toggle-btn ${theme === 'dark' ? 'active' : ''}`}
+              onClick={() => setTheme('dark')}
+              id="theme-dark-btn"
+            >
+              <Icon name="moon" size={16} /> {t('Dark')}
+            </button>
+          </div>
+          <div className="accent-swatches" role="group" aria-label={t('Accent color')}>
+            {ACCENTS.map(({ key, swatch }) => (
+              <button
+                key={key}
+                type="button"
+                className={`accent-swatch ${accent === key ? 'active' : ''}`}
+                style={{ background: swatch }}
+                onClick={() => setAccent(key)}
+                aria-label={key}
+                aria-pressed={accent === key}
+                id={`accent-${key}-btn`}
+              >
+                {accent === key && <Icon name="check" size={16} style={{ color: '#fff' }} />}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -312,42 +372,79 @@ export default function ProfileScreen() {
         </div>
       )}
 
-      {/* Appearance */}
-      <div className="profile-section">
-        <div className="profile-section-title">{t('Appearance')}</div>
-        <div className="profile-card">
-          <div className="theme-toggle" role="group" aria-label="Theme">
-            <button
-              type="button"
-              className={`theme-toggle-btn ${theme === 'light' ? 'active' : ''}`}
-              onClick={() => setTheme('light')}
-              id="theme-light-btn"
-            >
-              <Icon name="sun" size={16} /> {t('Light')}
-            </button>
-            <button
-              type="button"
-              className={`theme-toggle-btn ${theme === 'dark' ? 'active' : ''}`}
-              onClick={() => setTheme('dark')}
-              id="theme-dark-btn"
-            >
-              <Icon name="moon" size={16} /> {t('Dark')}
-            </button>
-          </div>
-          <div className="accent-swatches" role="group" aria-label={t('Accent color')}>
-            {ACCENTS.map(({ key, swatch }) => (
-              <button
-                key={key}
-                type="button"
-                className={`accent-swatch ${accent === key ? 'active' : ''}`}
-                style={{ background: swatch }}
-                onClick={() => setAccent(key)}
-                aria-label={key}
-                aria-pressed={accent === key}
-                id={`accent-${key}-btn`}
+      {/* Joined Circles — the strongest re-entry hook on this screen, so it
+          sits with the other "what you're part of" content rather than below
+          five preference panels. */}
+      {joinedCommunities.length > 0 && (
+        <div className="profile-section">
+          <div className="profile-section-title">{t('Joined Circles')}</div>
+          <div className="flex-col gap-8">
+            {joinedCommunities.map(c => (
+              <div
+                key={c.id}
+                className="profile-card"
+                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
+                onClick={() => navigate(`/community/${c.id}`)}
               >
-                {accent === key && <Icon name="check" size={16} style={{ color: '#fff' }} />}
-              </button>
+                <Icon name="leaf" size={20} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>{c.name}</div>
+                  <div className="inline-icon-text" style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}><Icon name="users" size={12} /> {c.member_count}</div>
+                </div>
+                <Icon name="chevron-right" size={16} className="text-tertiary" style={{ color: 'var(--text-tertiary)' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="profile-section">
+        <div className="profile-section-title">Trainer Verification</div>
+        <div className="profile-card">
+          {user.is_verified_trainer ? (
+            <div>
+              <VerifiedBadge />
+              {verificationExpires && <p className="text-sm text-secondary mt-8">Valid until {new Date(verificationExpires).toLocaleDateString()}</p>}
+              {verificationExpires && new Date(verificationExpires).getTime() - Date.now() < 30 * 86400000 && <button className="btn btn-secondary btn-sm mt-12" onClick={() => navigate('/trainer/verify')}>Renew</button>}
+            </div>
+          ) : trainerStatus?.status === 'pending' ? (
+            <div className="flex justify-between items-center"><span>Verification pending</span><span className="status-badge pending">Under review</span></div>
+          ) : trainerStatus?.status === 'approved' ? (
+            <div><VerifiedBadge /><p className="text-sm text-secondary mt-8">Verification approved. Refreshing your profile badge…</p></div>
+          ) : trainerStatus?.status === 'rejected' ? (
+            <div>
+              <strong>Application needs attention</strong>
+              <p className="text-sm text-secondary mt-8">{trainerStatus.rejection_reason || 'Your application was not approved.'}</p>
+              <button className="btn btn-primary btn-sm mt-12" onClick={() => navigate('/trainer/verify')}>Review and apply again</button>
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm text-secondary mb-12">Show your credentials, build trust, and unlock paid-circle eligibility.</p>
+              <button className="btn btn-primary btn-block" onClick={() => navigate('/trainer/verify')}>Get Verified</button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Settings ─────────────────────────────────────────────────
+          Everything below is configuration. It was previously interleaved
+          with the content above, which is why the screen felt like a
+          settings page with a profile stapled to the top. */}
+      <div className="profile-settings-heading">{t('Settings')}</div>
+
+      <div className="profile-section">
+        <div className="profile-section-title">Profile Visibility</div>
+        <div className="profile-card">
+          <div className="privacy-options">
+            {[
+              ['public', 'Public', 'Anyone can see your activity'],
+              ['followers', 'Followers only', 'Only followers see activity'],
+              ['private', 'Private', 'Only you see activity'],
+            ].map(([value, label, description]) => (
+              <label className={`privacy-option ${user.profile_privacy === value ? 'selected' : ''}`} key={value}>
+                <input type="radio" name="profile-privacy" value={value} checked={user.profile_privacy === value} onChange={() => updateProfile({ profile_privacy: value }).then(() => showToast('Profile visibility updated', 'success')).catch(err => showToast(err.message, 'error'))} />
+                <span><strong>{label}</strong><small>{description}</small></span>
+              </label>
             ))}
           </div>
         </div>
@@ -460,43 +557,6 @@ export default function ProfileScreen() {
         </div>
       </div>
 
-      {/* Joined Communities */}
-      {joinedCommunities.length > 0 && (
-        <div className="profile-section">
-          <div className="profile-section-title">{t('Joined Circles')}</div>
-          <div className="flex-col gap-8">
-            {joinedCommunities.map(c => (
-              <div
-                key={c.id}
-                className="profile-card"
-                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
-                onClick={() => navigate(`/community/${c.id}`)}
-              >
-                <Icon name="leaf" size={20} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>{c.name}</div>
-                  <div className="inline-icon-text" style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}><Icon name="users" size={12} /> {c.member_count}</div>
-                </div>
-                <Icon name="chevron-right" size={16} className="text-tertiary" style={{ color: 'var(--text-tertiary)' }} />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Bookings & History */}
-      <div className="profile-section">
-        <div className="profile-section-title">{t('My Bookings')}</div>
-        <div className="profile-card" onClick={() => navigate('/my-bookings')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Icon name="ticket" size={20} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>View Booking History</div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>Upcoming & Past classes</div>
-          </div>
-          <Icon name="chevron-right" size={16} className="text-tertiary" style={{ color: 'var(--text-tertiary)' }} />
-        </div>
-      </div>
-
       {/* Strava */}
       <div className="profile-section">
         <div className="profile-section-title">Strava Activity</div>
@@ -504,7 +564,7 @@ export default function ProfileScreen() {
           {strava?.connected ? (
             <>
               <div className="flex justify-between items-center mb-16">
-                <div><strong>Connected to Strava ✓</strong><p className="text-xs text-secondary">Choose what appears on your public profile.</p></div>
+                <div><strong className="inline-icon-text"><Icon name="check" size={14} /> Connected to Strava</strong><p className="text-xs text-secondary">Choose what appears on your public profile.</p></div>
                 <button className="btn btn-secondary btn-sm" disabled={stravaBusy} onClick={handleDisconnectStrava}>Disconnect</button>
               </div>
               <div className="strava-toggles">
@@ -543,29 +603,10 @@ export default function ProfileScreen() {
         </div>
       </div>
 
-      {/* Redeem Points */}
-      <div className="profile-section">
-        <button 
-          className="btn btn-secondary btn-block" 
-          onClick={() => navigate('/products')} 
-          id="redeem-btn"
-        >
-          <Icon name="ticket" size={16} /> {t('Redeem Points')}
-        </button>
-      </div>
-
-      {/* Provider Dashboard Link (if provider) */}
-      {user.is_provider && (
-        <div className="profile-section">
-          <button
-            className="btn btn-primary btn-block"
-            onClick={() => navigate('/provider-dashboard')}
-            id="provider-dashboard-link"
-          >
-            <Icon name="chart" size={18} /> Provider Dashboard
-          </button>
-        </div>
-      )}
+      {/* "Redeem Points", "My Bookings", and the Provider Dashboard button
+          used to live here. All three now have a permanent home — the first
+          two in the menu (Points Store, Bookings), the third on About — and
+          repeating them at the bottom of a long screen only added scroll. */}
 
       {/* Neighbourhood Bottom Sheet */}
       {showNeighbourhoodSheet && (

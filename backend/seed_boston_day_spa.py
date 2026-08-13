@@ -58,6 +58,9 @@ SERVICES = [
     ("Barber", "service-barber"),
 ]
 
+# Official Google Maps place link (Boston Day Spa, Africa Avenue, Addis Ababa).
+MAP_URL = "https://maps.app.goo.gl/sXa4uMEJKqGmmmZC7"
+
 NAVIGATION_TIPS = [
     {"title": "Location", "detail": "Located in the heart of Addis Ababa, Bole."},
     {"title": "Call ahead", "detail": f"{CONTACT_PHONE} or +251 11 663 6557 to confirm your visit."},
@@ -123,7 +126,7 @@ def main():
                contact_phone = %s, contact_email = %s,
                cover_photo_url = %s, photos = %s,
                facilities = %s, services = %s,
-               price_range = %s, navigation_tips = %s
+               price_range = %s, navigation_tips = %s, map_url = %s
            WHERE id = %s""",
         (
             "Boston Day Spa",
@@ -138,6 +141,7 @@ def main():
             json.dumps(services),
             "Price on enquiry",
             json.dumps(NAVIGATION_TIPS),
+            MAP_URL,
             str(provider_id),
         ),
     )

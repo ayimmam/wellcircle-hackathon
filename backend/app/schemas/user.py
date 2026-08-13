@@ -98,6 +98,9 @@ class UserResponse(BaseModel):
     points_balance: int = 0
     tier: str = "seed"
     tier_emoji: str = "🌱"
+    current_streak: int = 0
+    freeze_count: int = 0
+    longest_streak: int = 0
     is_onboarded: bool = False
     is_provider: bool = False
     is_super_admin: bool = False

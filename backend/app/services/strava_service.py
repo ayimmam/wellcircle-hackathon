@@ -36,14 +36,15 @@ def decrypt_token(token):
 
 
 def get_authorization_url(state):
-    return f"{STRAVA_AUTH_URL}?{urlencode({
+    params = {
         'client_id': settings.STRAVA_CLIENT_ID,
         'redirect_uri': settings.STRAVA_REDIRECT_URI,
         'response_type': 'code',
         'approval_prompt': 'auto',
         'scope': 'read,activity:read_all',
         'state': state,
-    })}"
+    }
+    return f"{STRAVA_AUTH_URL}?{urlencode(params)}"
 
 
 def _post_token(data):

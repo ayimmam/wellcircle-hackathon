@@ -5,6 +5,7 @@ import ExploreScreen from '../pages/ExploreScreen';
 import ProfileScreen from '../pages/ProfileScreen';
 import { renderWithProviders } from './renderWithProviders';
 import { MOCK_USER } from '../data/mock';
+import { useAuth } from '../context/AuthContext';
 
 vi.mock('../analytics', () => ({
   initAnalytics: vi.fn(),
@@ -12,12 +13,26 @@ vi.mock('../analytics', () => ({
   track: vi.fn(),
 }));
 
+/**
+ * The mock provider fetch (~300ms) resolves well before the mock auth login
+ * (~800ms), so without an explicit wait a click can land while `user` is
+ * still null — which sends Near me down its "no neighbourhood set" path
+ * regardless of the fixture. This probe gives the tests something to wait on.
+ */
+function AuthProbe() {
+  const { user } = useAuth();
+  return user ? <div data-testid="auth-ready" /> : null;
+}
+
 function renderExplore() {
   return renderWithProviders(
-    <Routes>
-      <Route path="/explore" element={<ExploreScreen />} />
-      <Route path="/profile" element={<ProfileScreen />} />
-    </Routes>,
+    <>
+      <AuthProbe />
+      <Routes>
+        <Route path="/explore" element={<ExploreScreen />} />
+        <Route path="/profile" element={<ProfileScreen />} />
+      </Routes>
+    </>,
     { route: '/explore' }
   );
 }
@@ -30,6 +45,7 @@ describe('ExploreScreen — Near me filter', () => {
   it('navigates to Profile and opens the neighbourhood sheet when no neighbourhood is set yet', async () => {
     renderExplore(); // MOCK_USER.location_neighborhood is null by default
     await screen.findByText('Lifestyle Fitness Center');
+    await screen.findByTestId('auth-ready');
 
     fireEvent.click(document.getElementById('filter-near-me'));
 
@@ -41,6 +57,7 @@ describe('ExploreScreen — Near me filter', () => {
     MOCK_USER.location_neighborhood = 'Bole';
     renderExplore();
     await screen.findByText('Lifestyle Fitness Center'); // Bole — stays
+    await screen.findByTestId('auth-ready');
     expect(screen.getByText('Iron & Soul Gym')).toBeInTheDocument(); // Kazanchis — present before filtering
 
     fireEvent.click(document.getElementById('filter-near-me'));

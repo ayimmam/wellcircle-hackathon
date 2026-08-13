@@ -307,24 +307,40 @@ Discovery feed replacing Home (Phase 4/5). Returns:
       "provider": { "id", "name", "category", "location_text", "rating", "cover_photo_url", "is_coming_soon" },
       "service": { "name", "price", "duration", "description", "photo_url", "booking_method" } },
     { "type": "provider", "render_cost": "media", "id": "uuid",
-      "provider": { "...": "same brief shape as the service item's provider" }, "promotion": null }
+      "provider": { "...": "same brief shape as the service item's provider" }, "promotion": null },
+    { "type": "past_event", "render_cost": "media", "id": "uuid",
+      "event": { "...": "same shape as GET /events?past=true, incl. is_past and attendee_count" },
+      "provider": { "id", "name", "category", "cover_photo_url" } }
   ],
   "next_before": "2026-06-05T09:00:00Z"
 }
 ```
 
-**Ranking is a fixed, deterministic interleave — not a scoring model.** Posts
-newest-first. After every 3rd post, splice in one non-post item, cycling
-`event → service → provider`, skipping a category when empty; any items left
-over once the post stream runs out are appended at the end (so a brand-new
-user with zero posts still sees a non-empty feed built entirely from
-providers/services/events). The top featured/highest-rated provider is
-additionally pinned as the very first feed item, ahead of any posts. Both
-live and coming-soon providers may appear as `service` or `provider` items —
-coming-soon ones render with a "Coming soon" badge and no booking CTA (see
-`is_coming_soon` on the embedded `provider` object) rather than being
-excluded from the feed. An `event` item is emitted only for a
-boosted/featured event.
+**Ranking is a fixed, deterministic interleave — not a scoring model.**
+
+A four-item **lead-in** opens the feed: the spotlight provider (top featured,
+then highest rated), one of its services, its next boosted event, and the
+recap of its most recent past one — each separated by a member post, so the
+top of the feed reads as a community rather than as a storefront. Leaving
+these to the cadence below meant a light post day pushed them past the fold
+or off the first page entirely.
+
+After the lead-in, posts continue newest-first with one non-post item spliced
+in after every 3rd, cycling `event → service → provider → past_event` and
+skipping a category when empty. Any items left over once the post stream runs
+out are appended at the end, so a brand-new user with zero posts still sees a
+non-empty feed built entirely from providers/services/events.
+
+Both live and coming-soon providers may appear as `service` or `provider`
+items — coming-soon ones render with a "Coming soon" badge and no booking CTA
+(see `is_coming_soon` on the embedded `provider` object) rather than being
+excluded from the feed. An `event` item is emitted only for a boosted/featured
+event.
+
+A **`past_event`** item is a recap of a session that already ran. It carries
+`attendee_count` instead of booking urgency and never renders a booking CTA —
+its CTA links to that provider's upcoming sessions (`/events?provider=<id>`),
+which turns "I'd have gone to that" into intent rather than a dead end.
 
 `render_cost` (`"instant"` or `"media"`) drives the Phase 2 two-tier first
 paint: on a cached first render the client shows `instant` items (no image
@@ -569,6 +585,7 @@ Full provider detail with services, photos, linked community.
   "navigation_tips": [       // optional, detail-only (Phase 8) — [] when the provider hasn't set any
     { "title": "Parking", "detail": "Free parking behind the building." }
   ],
+  "map_url": "https://maps.app.goo.gl/xxxx",  // optional Google Maps place link; drives "Open in Maps" (falls back to lat/lng when null)
   "is_coming_soon": false,   // true = banner shown, booking blocked, service rows non-tappable
   "community": {
     "id": "uuid-comm",
@@ -705,6 +722,7 @@ Provider self-service profile. **Provider-only access** (`get_current_provider`)
   "navigation_tips": [
     { "title": "Parking", "detail": "Free parking behind the building, ask for the yellow gate." }
   ],
+  "map_url": "https://maps.app.goo.gl/xxxx",
   "dashboard_stats": { "total_members": 45, "new_members_today": 3, "total_products": 6, "active_products": 4 }
 }
 ```
@@ -1307,7 +1325,13 @@ Bole | Kazanchis | Piassa | CMC | Sarbet | Megenagna | Other
 ## 9. Phase 2 & 3 Endpoints (Overview)
 
 ### Events & Booking
-- `GET /api/events` — Discover events
+- `GET /api/events` — Discover upcoming events
+- `GET /api/events?past=true[&provider_id=&category=]` — Events that already
+  started, newest first. Cancelled events are excluded (they never happened,
+  so there is nothing to recap). Each row swaps booking urgency for
+  `is_past: true` and `attendee_count` (`capacity - spots_remaining`), because
+  "3 spots left" on a finished session reads as a live booking prompt. Backs
+  the Events screen's **Past** tab and the feed's `past_event` recap cards.
 - `GET /api/events/{id}` — Event details
 - `GET /api/providers/me/events` — Provider dashboard events
 - `POST /api/providers/me/events` — Provider create event

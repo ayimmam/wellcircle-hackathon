@@ -25,7 +25,17 @@ class MyRank(BaseModel):
     weekly_points: int
 
 
+class LeagueEntry(BaseModel):
+    user_id: str
+    name: str
+    photo_url: Optional[str] = None
+    weekly_points: int
+    rank: int
+    is_me: bool
+
+
 class RanksResponse(BaseModel):
     communities: List[CommunityRank]
     users: List[UserRank]
     me: MyRank
+    league: List[LeagueEntry]

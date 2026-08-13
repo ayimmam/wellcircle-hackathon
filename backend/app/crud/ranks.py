@@ -10,6 +10,7 @@ from app.models.user import User
 from app.models.community import Community, CommunityMember
 
 TOP_N = 20
+LEAGUE_SIZE = 25
 
 
 def _since():
@@ -112,3 +113,58 @@ def get_my_rank(db: Session, user_id):
         .scalar()
     )
     return {"rank": int(higher_count or 0) + 1, "weekly_points": my_points}
+
+
+def get_my_league(db: Session, user_id, size: int = LEAGUE_SIZE):
+    """A ~`size`-person league centered on the caller's weekly points,
+    instead of one global ranking — nobody should open the app to see
+    they're #82,491. Ties broken by user_id for a stable ordering.
+    """
+    since = _since()
+    my_points = int(
+        db.query(func.coalesce(func.sum(PointTransaction.amount), 0))
+        .filter(
+            PointTransaction.user_id == user_id,
+            PointTransaction.amount > 0,
+            PointTransaction.created_at >= since,
+        )
+        .scalar()
+        or 0
+    )
+
+    rows = (
+        db.query(
+            PointTransaction.user_id,
+            func.sum(PointTransaction.amount).label("weekly_points"),
+        )
+        .filter(PointTransaction.amount > 0, PointTransaction.created_at >= since)
+        .group_by(PointTransaction.user_id)
+        .all()
+    )
+    points_by_user = {r.user_id: int(r.weekly_points) for r in rows}
+    if user_id not in points_by_user:
+        points_by_user[user_id] = my_points
+
+    ordered = sorted(points_by_user.items(), key=lambda kv: (-kv[1], str(kv[0])))
+    my_index = next(i for i, (uid, _) in enumerate(ordered) if uid == user_id)
+
+    start = max(0, my_index - size // 2)
+    end = min(len(ordered), start + size)
+    start = max(0, end - size)
+    bucket = ordered[start:end]
+
+    user_ids = [uid for uid, _ in bucket]
+    users_by_id = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()}
+
+    results = []
+    for i, (uid, points) in enumerate(bucket, start=1):
+        user = users_by_id.get(uid)
+        results.append({
+            "user_id": str(uid),
+            "name": user.name if user else "Unknown",
+            "photo_url": user.photo_url if user else None,
+            "weekly_points": points,
+            "rank": i,
+            "is_me": uid == user_id,
+        })
+    return results

@@ -31,6 +31,10 @@ POINTS_REFERRAL = 30
 # Endowed progress: onboarding completion seeds the balance so the first-reward
 # progress bar never starts at zero
 POINTS_WELCOME = 20
+# Returning after a broken streak (3+ days built up, no freeze available)
+# should feel like a win, not just a reset — "reward the comeback."
+POINTS_COMEBACK = 15
+COMEBACK_MIN_PREVIOUS_STREAK = 3
 
 # D3 caps
 PROVIDER_AWARD_MAX_PER_CUSTOMER_PER_DAY = 1  # awards
@@ -51,12 +55,13 @@ TXN_PROVIDER_AWARD = "provider_award"
 TXN_ADMIN_ADJUST = "admin_adjust"
 TXN_REFERRAL = "referral"
 TXN_WELCOME = "welcome"
+TXN_COMEBACK = "comeback"
 
 VALID_TXN_TYPES = {
     TXN_CHECKIN, TXN_BOOKING_BONUS, TXN_CHALLENGE,
     TXN_GIFT_SENT, TXN_GIFT_RECEIVED, TXN_REDEMPTION,
     TXN_DECAY, TXN_EVENT_PARTICIPATION, TXN_PROVIDER_AWARD,
-    TXN_ADMIN_ADJUST, TXN_REFERRAL, TXN_WELCOME,
+    TXN_ADMIN_ADJUST, TXN_REFERRAL, TXN_WELCOME, TXN_COMEBACK,
 }
 
 

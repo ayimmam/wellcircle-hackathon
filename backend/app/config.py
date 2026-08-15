@@ -66,9 +66,11 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:5173",
+        "http://localhost:5174",
         "https://web.telegram.org",
         "https://wellcircle-hackathon.vercel.app",
         "https://wellcircle.et",
+        "https://app.wellcircle.et",
     ]
 
     @property

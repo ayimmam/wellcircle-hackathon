@@ -54,6 +54,28 @@ class ProviderPasswordLoginRequest(BaseModel):
     password: str
 
 
+class WhatsAppStartRequest(BaseModel):
+    """Start WhatsApp OTP flow — sends a 6-digit code via WhatsApp (BSP) or SMS."""
+    phone: str = Field(..., pattern=r"^\+?[0-9]{6,15}$", description="E.164 phone number")
+
+
+class WhatsAppVerifyRequest(BaseModel):
+    """Verify the OTP code from a WhatsApp/SMS delivery."""
+    request_id: str
+    code: str = Field(..., min_length=6, max_length=6)
+
+
+class GoogleAuthRequest(BaseModel):
+    """Google Identity Services — ID token from the Sign In With Google flow."""
+    credential: str = Field(..., description="Google ID token (JWT)")
+
+
+class WhatsAppStartResponse(BaseModel):
+    """Response after starting the OTP flow."""
+    request_id: str
+    expires_in: int = 600  # seconds
+
+
 class BotRegisterRequest(BaseModel):
     """Bot /start registration - minimal user creation."""
     telegram_id: int
@@ -88,7 +110,7 @@ class UserProfileUpdate(BaseModel):
 class UserResponse(BaseModel):
     """Full user profile response."""
     id: str
-    telegram_id: int
+    telegram_id: Optional[int] = None
     telegram_handle: Optional[str] = None
     name: Optional[str] = None
     photo_url: Optional[str] = None

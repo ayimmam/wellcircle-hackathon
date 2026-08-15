@@ -24,6 +24,7 @@ from app.models.follower import Follower
 from app.models.trainer_verification import TrainerVerification
 from app.models.circle_subscription import CircleSubscription, CircleRevenueLedger
 from app.models.strava_activity_cache import StravaActivityCache
+from app.models.auth_identity import AuthIdentity
 
 __all__ = [
     "User",
@@ -55,5 +56,6 @@ __all__ = [
     "CircleSubscription",
     "CircleRevenueLedger",
     "StravaActivityCache",
+    "AuthIdentity",
 ]
 

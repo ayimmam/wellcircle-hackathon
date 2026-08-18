@@ -55,8 +55,9 @@ class ProviderPasswordLoginRequest(BaseModel):
 
 
 class WhatsAppStartRequest(BaseModel):
-    """Start WhatsApp OTP flow — sends a 6-digit code via WhatsApp (BSP) or SMS."""
+    """Start WhatsApp/SMS OTP flow — sends a 6-digit code."""
     phone: str = Field(..., pattern=r"^\+?[0-9]{6,15}$", description="E.164 phone number")
+    channel: Optional[str] = Field("whatsapp", description="'whatsapp' or 'sms'")
 
 
 class WhatsAppVerifyRequest(BaseModel):

@@ -73,11 +73,11 @@ def _check_rate_limit(phone: str) -> bool:
     return len(timestamps) < RATE_LIMIT_MAX_PER_WINDOW
 
 
-def start_otp(phone_raw: str) -> Optional[dict]:
-    """Generate and 'send' an OTP. Returns {request_id, expires_in} or None if rate-limited.
+def start_otp(phone_raw: str, channel: str = "whatsapp") -> Optional[dict]:
+    """Generate and send an OTP. Returns {request_id, expires_in} or None if rate-limited.
 
-    In production the code is delivered via the BSP (Twilio Verify /
-    WhatsApp Business Cloud API). For development the code is logged.
+    If Twilio Verify credentials are configured in settings, delivers via Twilio Verify
+    (channel='whatsapp' or 'sms'). Otherwise uses the secure in-process hashed store.
     """
     phone = _normalize_phone(phone_raw)
 
@@ -87,6 +87,82 @@ def start_otp(phone_raw: str) -> Optional[dict]:
     # Record rate-limit hit
     _rate_limits.setdefault(phone, []).append(time.time())
 
+    from app.config import settings
+
+    # Check if Meta WhatsApp Cloud API is configured
+    if settings.WHATSAPP_PHONE_NUMBER_ID and settings.WHATSAPP_API_TOKEN:
+        try:
+            import httpx
+            clean_to = phone.lstrip("+")
+            url = f"https://graph.facebook.com/v18.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+            headers = {
+                "Authorization": f"Bearer {settings.WHATSAPP_API_TOKEN}",
+                "Content-Type": "application/json",
+            }
+            if getattr(settings, "WHATSAPP_OTP_TEMPLATE_NAME", ""):
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "recipient_type": "individual",
+                    "to": clean_to,
+                    "type": "template",
+                    "template": {
+                        "name": settings.WHATSAPP_OTP_TEMPLATE_NAME,
+                        "language": {"code": "en_US"},
+                        "components": [
+                            {
+                                "type": "body",
+                                "parameters": [{"type": "text", "text": code}],
+                            },
+                        ],
+                    },
+                }
+            else:
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "recipient_type": "individual",
+                    "to": clean_to,
+                    "type": "text",
+                    "text": {
+                        "preview_url": False,
+                        "body": f"Your Well Circle verification code is: {code}\n\nValid for 10 minutes. Do not share this code.",
+                    },
+                }
+
+            resp = httpx.post(url, json=payload, headers=headers, timeout=10.0)
+            if resp.status_code in (200, 201):
+                logger.info("Sent WhatsApp OTP to %s via Meta Cloud API", phone)
+            else:
+                logger.error("Meta WhatsApp Cloud API error (%s): %s", resp.status_code, resp.text)
+        except Exception as e:
+            logger.exception("Failed to send WhatsApp message via Meta Cloud API: %s", e)
+
+    # Check if Twilio Verify is configured
+    elif settings.TWILIO_ACCOUNT_SID and settings.TWILIO_AUTH_TOKEN and settings.TWILIO_VERIFY_SERVICE_SID:
+        try:
+            import httpx
+            url = f"https://verify.twilio.com/v2/Services/{settings.TWILIO_VERIFY_SERVICE_SID}/Verifications"
+            resp = httpx.post(
+                url,
+                data={"To": phone, "Channel": channel},
+                auth=(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN),
+                timeout=10.0,
+            )
+            if resp.status_code in (200, 201):
+                data = resp.json()
+                request_id = data.get("sid", secrets.token_urlsafe(24))
+                _store[request_id] = OTPRecord(
+                    code_hash="",
+                    phone_e164=phone,
+                    created_at=time.time(),
+                )
+                logger.info("Sent Twilio Verify code to %s via %s (sid=%s)", phone, channel, request_id)
+                return {"request_id": request_id, "expires_in": CODE_TTL_SECONDS}
+            else:
+                logger.error("Twilio Verify error (%s): %s", resp.status_code, resp.text)
+        except Exception as e:
+            logger.exception("Failed to call Twilio Verify API: %s", e)
+
+    # Fallback / In-process store (dev & pilot mode)
     code = "".join([str(secrets.randbelow(10)) for _ in range(CODE_LENGTH)])
     request_id = secrets.token_urlsafe(24)
 
@@ -96,26 +172,47 @@ def start_otp(phone_raw: str) -> Optional[dict]:
         created_at=time.time(),
     )
 
-    # TODO: replace with actual BSP delivery (Twilio Verify / WhatsApp Cloud API)
-    logger.info("OTP for %s: %s (request_id=%s) — replace with BSP in production", phone, code, request_id)
+    logger.info("OTP for %s: %s (request_id=%s)", phone, code, request_id)
 
     return {
         "request_id": request_id,
         "expires_in": CODE_TTL_SECONDS,
-        # DEV ONLY — remove before production:
-        "_dev_code": code if os.getenv("ENVIRONMENT", "development") == "development" else None,
+        "_dev_code": code if settings.ENVIRONMENT == "development" else None,
     }
 
 
 def verify_otp(request_id: str, code: str) -> Optional[str]:
     """Verify an OTP. Returns the E.164 phone on success, None on failure.
 
-    The code is single-use, expired after TTL, and limited to MAX_ATTEMPTS.
-    All comparisons are constant-time.
+    Checks Twilio Verify if configured, otherwise checks in-process hashed store.
     """
     record = _store.get(request_id)
     if not record:
         return None
+
+    from app.config import settings
+
+    # If Twilio Verify is configured and record was sent via Twilio
+    if settings.TWILIO_ACCOUNT_SID and settings.TWILIO_AUTH_TOKEN and settings.TWILIO_VERIFY_SERVICE_SID:
+        if record.phone_e164 and not record.code_hash:
+            try:
+                import httpx
+                url = f"https://verify.twilio.com/v2/Services/{settings.TWILIO_VERIFY_SERVICE_SID}/VerificationCheck"
+                resp = httpx.post(
+                    url,
+                    data={"To": record.phone_e164, "Code": code},
+                    auth=(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN),
+                    timeout=10.0,
+                )
+                if resp.status_code == 200 and resp.json().get("status") == "approved":
+                    phone = record.phone_e164
+                    del _store[request_id]
+                    return phone
+                else:
+                    return None
+            except Exception as e:
+                logger.exception("Twilio verification check failed: %s", e)
+                return None
 
     # Expired?
     if time.time() - record.created_at > CODE_TTL_SECONDS:
@@ -138,5 +235,6 @@ def verify_otp(request_id: str, code: str) -> Optional[str]:
 
     # Success — mark used
     record.used = True
+    phone = record.phone_e164
     del _store[request_id]
-    return record.phone_e164
+    return phone

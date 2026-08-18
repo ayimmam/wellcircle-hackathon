@@ -371,6 +371,79 @@ export const MOCK_PROVIDERS = [
     community: { id: '22222222-0000-0000-0000-000000000011', name: 'Boston Day Spa Circle', member_count: 58, user_joined: false },
     member_count: 58,
     community_id: '22222222-0000-0000-0000-000000000011'
+  },
+  // ─── Poster clubs (docs/upcoming.png, Aug 2026) ───
+  // The four hosts from the "Upcoming Wellness Events" flyer. They're live
+  // rather than coming-soon: these are real open sessions people walk up to,
+  // and a coming-soon provider 400s every booking attempt from the feed's
+  // event banner. Mirrors backend/seed_upcoming_events.py.
+  {
+    id: '11111111-0000-0000-0000-000000000012',
+    name: 'AfroHeat Fitness',
+    category: 'gym',
+    is_coming_soon: false,
+    description: 'Dance-fitness studio in Welo Sefer running high-energy Zumba and cardio sessions for the Addis wellness community.',
+    location_text: 'Welo Sefer, Addis Ababa',
+    lat: null, lng: null,
+    price_range: 'ETB 1,000',
+    rating: 4.8,
+    cover_photo_url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800',
+    photos: ['https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800'],
+    services: [{ name: 'Zumba Class', price: 1000, duration: '60 min' }],
+    community: { id: '22222222-0000-0000-0000-000000000012', name: 'AfroHeat Crew', member_count: 64, user_joined: false },
+    member_count: 64,
+    community_id: '22222222-0000-0000-0000-000000000012'
+  },
+  {
+    id: '11111111-0000-0000-0000-000000000013',
+    name: 'Bole Burners',
+    category: 'running',
+    is_coming_soon: false,
+    description: 'Free community run club meeting at Riverside Park for early morning group runs around Bole.',
+    location_text: 'Riverside Park, Addis Ababa',
+    lat: null, lng: null,
+    price_range: 'Free',
+    rating: 4.7,
+    cover_photo_url: 'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800',
+    photos: ['https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800'],
+    services: [{ name: 'Group Run', price: 0, duration: '90 min' }],
+    community: { id: '22222222-0000-0000-0000-000000000013', name: 'Bole Burners', member_count: 118, user_joined: false },
+    member_count: 118,
+    community_id: '22222222-0000-0000-0000-000000000013'
+  },
+  {
+    id: '11111111-0000-0000-0000-000000000014',
+    name: 'Satenaw Runclub',
+    category: 'running',
+    is_coming_soon: false,
+    description: 'Riverside run club meeting at the Filwuha bridge for free weekend morning runs.',
+    location_text: 'Riverside, Filwuha bridge, Addis Ababa',
+    lat: null, lng: null,
+    price_range: 'Free',
+    rating: 4.8,
+    cover_photo_url: 'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800',
+    photos: ['https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800'],
+    services: [{ name: 'Group Run', price: 0, duration: '90 min' }],
+    community: { id: '22222222-0000-0000-0000-000000000014', name: 'Satenaw Runclub', member_count: 205, user_joined: false },
+    member_count: 205,
+    community_id: '22222222-0000-0000-0000-000000000014'
+  },
+  {
+    id: '11111111-0000-0000-0000-000000000015',
+    name: 'Bertusew Runningclub',
+    category: 'running',
+    is_coming_soon: false,
+    description: 'CMC-based running club meeting at Yetebaberut Square Sport Center for free group runs.',
+    location_text: 'Yetebaberut Square Sport Center, CMC, Addis Ababa',
+    lat: null, lng: null,
+    price_range: 'Free',
+    rating: 4.6,
+    cover_photo_url: 'https://images.unsplash.com/photo-1502904550040-7534597429ae?w=800',
+    photos: ['https://images.unsplash.com/photo-1502904550040-7534597429ae?w=800'],
+    services: [{ name: 'Group Run', price: 0, duration: '90 min' }],
+    community: { id: '22222222-0000-0000-0000-000000000015', name: 'Bertusew Runningclub', member_count: 87, user_joined: false },
+    member_count: 87,
+    community_id: '22222222-0000-0000-0000-000000000015'
   }
 ];
 
@@ -894,6 +967,89 @@ export const NEIGHBOURHOODS = ['Bole', 'Kazanchis', 'Piassa', 'CMC', 'Sarbet', '
 // getEvents()/getFeaturedEvents() previously always returned an empty mock
 // array — the "Happening Soon" carousel and the location-nearby matching
 // both needed at least one real event to have anything to show in mock mode.
+// The four community sessions from the August 2026 poster (docs/upcoming.png),
+// on their real calendar dates rather than offsets from "now". They need no
+// hand-holding to retire: POSTER_EVENTS is split against the current clock
+// below, so a session moves out of MOCK_EVENTS and into MOCK_PAST_EVENTS —
+// losing its booking CTA and gaining an attendee count — the moment it
+// starts, which is exactly what the backend's starts_at comparison does.
+// Kept in sync with backend/seed_upcoming_events.py.
+const POSTER_EVENTS = [
+  {
+    id: 'evt-afroheat-zumba',
+    provider_id: '11111111-0000-0000-0000-000000000012',
+    provider_name: 'AfroHeat Fitness',
+    provider_category: 'gym',
+    provider_cover_photo_url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800',
+    service_name: 'Zumba with Vahe',
+    description: 'High-energy Zumba session with Vahe at AfroHeat Fitness, Welo Sefer, Addis Ababa, Ethiopia.',
+    price_etb: 1000,
+    capacity: 50,
+    spots_remaining: 18,
+    urgency: 'low',
+    is_boosted: true,
+    // 6:15 PM Addis (UTC+3).
+    starts_at: '2026-08-20T15:15:00Z',
+  },
+  {
+    id: 'evt-bole-burners',
+    provider_id: '11111111-0000-0000-0000-000000000013',
+    provider_name: 'Bole Burners',
+    provider_category: 'running',
+    provider_cover_photo_url: 'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800',
+    service_name: 'Riverside Park Morning Run',
+    description: 'Free morning group run with Bole Burners at Riverside Park, Addis Ababa.',
+    price_etb: 0,
+    capacity: 50,
+    spots_remaining: 20,
+    urgency: 'low',
+    is_boosted: true,
+    starts_at: '2026-08-22T03:00:00Z',
+  },
+  {
+    id: 'evt-satenaw-runclub',
+    provider_id: '11111111-0000-0000-0000-000000000014',
+    provider_name: 'Satenaw Runclub',
+    provider_category: 'running',
+    provider_cover_photo_url: 'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800',
+    service_name: 'Filwuha Bridge Morning Run',
+    description: 'Free morning group run with Satenaw Runclub, starting at the Filwuha bridge, Riverside.',
+    price_etb: 0,
+    capacity: 50,
+    spots_remaining: 12,
+    urgency: 'low',
+    is_boosted: true,
+    starts_at: '2026-08-23T03:30:00Z',
+  },
+  {
+    id: 'evt-bertusew-runningclub',
+    provider_id: '11111111-0000-0000-0000-000000000015',
+    provider_name: 'Bertusew Runningclub',
+    provider_category: 'running',
+    provider_cover_photo_url: 'https://images.unsplash.com/photo-1502904550040-7534597429ae?w=800',
+    service_name: 'CMC Morning Run',
+    description: 'Free morning group run with Bertusew Runningclub from Yetebaberut Square Sport Center, CMC, Addis Ababa.',
+    price_etb: 0,
+    capacity: 50,
+    spots_remaining: 26,
+    urgency: 'low',
+    is_boosted: true,
+    starts_at: '2026-08-23T04:00:00Z',
+  },
+];
+
+const posterUpcoming = POSTER_EVENTS.filter(e => new Date(e.starts_at).getTime() > Date.now());
+// Same reshaping the backend's serialize_event(is_past=True) does: spots left
+// is meaningless once a session is over, so it becomes "how many turned up".
+const posterPast = POSTER_EVENTS
+  .filter(e => new Date(e.starts_at).getTime() <= Date.now())
+  .map(({ spots_remaining, urgency, ...e }) => ({
+    ...e,
+    is_past: true,
+    attendee_count: Math.max(0, e.capacity - spots_remaining),
+  }))
+  .sort((a, b) => new Date(b.starts_at) - new Date(a.starts_at));
+
 export const MOCK_EVENTS = [
   {
     // Pilot spotlight — the boosted Boston Day Spa event that leads the For
@@ -936,6 +1092,7 @@ export const MOCK_EVENTS = [
     is_boosted: false,
     starts_at: new Date(Date.now() + 4 * 86400000).toISOString(),
   },
+  ...posterUpcoming,
 ];
 
 // Events that have already happened. They can't be booked, so they carry an
@@ -972,6 +1129,7 @@ export const MOCK_PAST_EVENTS = [
     is_boosted: false,
     starts_at: new Date(Date.now() - 13 * 86400000).toISOString(),
   },
+  ...posterPast,
 ];
 
 // ─── For You Feed (Phase 4/5) ───────────────────────

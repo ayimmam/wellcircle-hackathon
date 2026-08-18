@@ -198,7 +198,7 @@ async def whatsapp_start(req: WhatsAppStartRequest, request: Request, db: Sessio
     Start WhatsApp OTP flow: normalize phone to E.164, rate-limit, send code.
     POST /api/auth/whatsapp/start  { phone: "+2519xxxxxxxx" }
     """
-    result = start_otp(req.phone)
+    result = start_otp(req.phone, channel=req.channel or "whatsapp")
     if result is None:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

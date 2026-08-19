@@ -53,6 +53,8 @@ const ROUTES = [
   ['Events', '/events'],
   ['Events (past tab)', '/events?tab=past'],
   ['About', '/about'],
+  ['QR visit landing', '/visit'],
+  ['QR visit landing (tagged)', '/visit?src=boston-day-spa'],
   ['Trainer verification', '/trainer/verify'],
   ['Public profile', `/users/${MOCK_PUBLIC_USERS[0].id}`],
   ['Followers', `/users/${MOCK_PUBLIC_USERS[0].id}/followers`],

@@ -7,8 +7,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Well Circle is a Telegram Mini App for wellness providers and communities in Ethiopia. It is a **monorepo of three independently-deployed services** that communicate over HTTP:
 
 - `backend/` — FastAPI + SQLAlchemy + Supabase (PostgreSQL). Deployed to **Vercel** (serverless via `api/index.py`) and configured for Render (`render.yaml`, `Procfile`).
-- `frontend/` — React 18 + Vite + react-router. The Mini App + super-admin UI. Deployed to **Vercel**.
+- `frontend/` — React 18 + Vite + react-router. The Mini App + super-admin UI. Deployed to **Vercel** and, for `wellcircle.et`, to **cPanel** (LiteSpeed, SFTP upload of `dist/` to `/home/ethiowzj/wellcircle`; `public/.htaccess` carries the SPA fallback + caching rules).
 - `telegram-bot/` — python-telegram-bot worker (polling). Deployed to **Railway** (1 replica only — duplicates cause `getUpdates` Conflict errors).
+
+### Domains — three different frontends
+
+| Domain | What it serves | Auth |
+| --- | --- | --- |
+| `wellcircle.et` | This repo's `frontend/` — the **Mini App** | Telegram `initData` **only**. `authTelegram()` in `src/api/client.js` throws `TELEGRAM_INIT_DATA_MISSING` for any plain browser, so every route dead-ends on the splash error card outside Telegram. |
+| `app.wellcircle.et` | The **standalone web app** — Telegram not required | WhatsApp OTP / Google / Telegram widget. **Its frontend source is not in this repo** (no branch here calls `/auth/whatsapp`); the backend endpoints it uses are in `backend/app/api/auth.py`. |
+| `provider.wellcircle.et` | This repo's provider portal at root paths (see `src/utils/providerPortal.js`) | Telegram Login Widget / provider username+password |
+
+Because the Mini App build cannot serve a Telegram-less visitor, anything in
+`frontend/` that needs to send someone to a working web experience must link
+**out** to `app.wellcircle.et` — `src/pages/VisitScreen.jsx` is the worked
+example.
 
 `docs/API_CONTRACT.md` is the source-of-truth interface between all three services. When changing request/response shapes, update it. `docs/PRD.md`, `docs/BACKEND_REFERENCE.md`, and the `docs/*_HANDOFF.md` files are design/status docs.
 
@@ -67,6 +80,8 @@ Two parallel mechanisms exist — match what you're touching:
 - `src/api/client.js` is the single API layer. It supports a **mock mode** (`VITE_USE_MOCK=true`, backed by `src/data/mock.js`) so the UI runs without a backend. `resolveApiBase()` returns same-origin `/api` in production (a Vercel proxy that avoids CORS in the Telegram WebView) and `http://localhost:8000/api` in dev.
 - `src/context/AuthContext.jsx` drives login: it reads `window.Telegram.WebApp.initData`, calls `POST /api/auth/telegram`, and persists the JWT in `localStorage` (`wc_token`). Outside Telegram it falls back to a saved token or `'mock-init-data'`. Auth runs on **every** entry route, not just `/`, because Telegram can deep-link straight to `/admin`.
 - `src/App.jsx` is the full route table. Every screen is **lazy-loaded** (`React.lazy` + `Suspense`) to keep the initial bundle small for free-tier/Telegram networks — only `SplashScreen` is eager. The chrome + routes live in the exported `AppShell` (router-agnostic, so tests mount it under a `MemoryRouter`); the default `App` wraps it with `BrowserRouter`/`ThemeProvider`/`AuthProvider`. Routes are wrapped in `components/ErrorBoundary` so one crashing screen shows a reload card, not a white page. Admin routes are gated by `components/AdminGuard`. `i18next` (`src/i18n.js`) provides localization; `ThemeContext` provides theming.
+- **`/visit`** (`src/pages/VisitScreen.jsx`) is the landing behind the printed QR stands. It asks "do you have Telegram?" and offers two outbound links: the bot deep link (`t.me/<VITE_BOT_USERNAME>?startapp=src_<tag>`) or `VITE_WEB_APP_URL` (`app.wellcircle.et`). A `?src=` tag on the QR is sanitized to `[A-Za-z0-9_-]` (Telegram's `startapp` charset) and carried onto both links plus the PostHog `visit_*` events, so each stand's scans are attributable. Chrome (Header/BottomNav) is hidden on this route.
+
 - **Polling** uses `src/hooks/usePolling.js`, which pauses while the app/tab is backgrounded (`document.hidden`) and refreshes on return — important so cold serverless functions aren't woken needlessly. Use it for any new interval polling instead of a raw `setInterval`.
 
 ## Cross-service contract

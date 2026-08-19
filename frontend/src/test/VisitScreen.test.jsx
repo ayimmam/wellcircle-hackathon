@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import VisitScreen, { sanitizeSrc, telegramLink } from '../pages/VisitScreen';
+import VisitScreen, { sanitizeSrc, telegramLink, webAppLink } from '../pages/VisitScreen';
 import i18n from '../i18n';
 import { track } from '../analytics';
 
@@ -19,7 +19,6 @@ function renderVisit(entry = '/visit') {
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/visit" element={<VisitScreen />} />
-        <Route path="/" element={<div>web entry</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -53,10 +52,17 @@ describe('VisitScreen', () => {
       .toBe('https://t.me/WellCircleBot?startapp=src_boston-day-spa');
   });
 
-  it('sends "no" to the web entry at "/"', async () => {
+  // wellcircle.et is the Mini App build and its auth demands Telegram
+  // initData, so the "no" answer has to leave this origin entirely.
+  it('links "no" to the standalone web app, not to this origin', () => {
     renderVisit();
-    await userEvent.click(screen.getByText('No — continue on the web'));
-    expect(screen.getByText('web entry')).toBeInTheDocument();
+    expect(screen.getByText('No — continue on the web').getAttribute('href'))
+      .toBe('https://app.wellcircle.et');
+
+    cleanup();
+    renderVisit('/visit?src=boston-day-spa');
+    expect(screen.getByText('No — continue on the web').getAttribute('href'))
+      .toBe('https://app.wellcircle.et/?src=boston-day-spa');
   });
 
   it('switches the page to Amharic', async () => {
@@ -100,5 +106,7 @@ describe('VisitScreen', () => {
     expect(sanitizeSrc('a'.repeat(200)).length).toBe(56);
     expect(telegramLink('  ')).toBe('https://t.me/WellCircleBot');
     expect(telegramLink(null)).toBe('https://t.me/WellCircleBot');
+    expect(webAppLink('boston day/spa')).toBe('https://app.wellcircle.et/?src=bostondayspa');
+    expect(webAppLink(null)).toBe('https://app.wellcircle.et');
   });
 });

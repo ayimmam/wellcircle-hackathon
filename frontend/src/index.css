@@ -2857,3 +2857,150 @@ body.in-telegram #detail-back-btn {
 }
 
 .feed-past-proof strong { color: var(--text-primary); }
+
+/* ================================================================
+   QR-STAND LANDING (/visit)
+   The page behind the printed QR codes in partner studios. It is the
+   only screen reached with no session and no app, so it borrows the
+   splash's brand treatment (radial accent wash, gradient wordmark,
+   circular logo) rather than inventing a second visual language.
+   ================================================================ */
+.visit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: calc(var(--safe-top) + var(--tg-top) + 24px) 20px
+           calc(var(--safe-bottom) + 24px);
+  background: radial-gradient(ellipse at 50% 25%, var(--tint-accent-08) 0%, transparent 60%),
+              var(--bg-primary);
+}
+
+/* Segmented EN / አማርኛ control. Sits above the card rather than inside it
+   so the card reads as one uninterrupted message. */
+.visit-lang {
+  display: inline-flex;
+  padding: 3px;
+  margin-bottom: 20px;
+  border-radius: var(--radius-full);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.visit-lang-btn {
+  padding: 7px 18px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.visit-lang-btn.is-active {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.visit-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 32px 24px 24px;
+  border-radius: var(--radius-xl);
+  background: var(--bg-card);
+  border: 1px solid var(--bg-card-border);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.visit-logo {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin: 0 auto 16px;
+  display: block;
+  box-shadow: 0 0 0 1px var(--border-subtle), 0 8px 24px var(--accent-glow);
+}
+
+/* Same gradient wordmark as the splash, so a visitor who answers "yes" and
+   lands in the Mini App sees the identical brand lockup a second later. */
+.visit-title {
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin: 0 0 8px;
+  background: linear-gradient(135deg, var(--accent-light), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.visit-tagline {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0 auto 28px;
+  max-width: 260px;
+}
+
+/* Hairline rule with the question sitting in it — separates the brand block
+   above from the decision below without adding a heavy divider. */
+.visit-question {
+  position: relative;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 18px;
+}
+
+.visit-question::before,
+.visit-question::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 28px;
+  height: 1px;
+  background: var(--border-card);
+}
+
+.visit-question::before { left: 0; }
+.visit-question::after { right: 0; }
+
+.visit-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.visit-btn {
+  width: 100%;
+  padding: 16px 24px;
+  font-size: 1rem;
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+}
+
+.visit-btn-telegram {
+  box-shadow: 0 6px 18px var(--accent-glow);
+}
+
+.visit-note {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  margin: 18px 0 0;
+}
+
+.visit-footer {
+  margin-top: 20px;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}

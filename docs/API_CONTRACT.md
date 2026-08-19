@@ -11,6 +11,9 @@
 | Area | Method | Endpoint | Auth | Owner |
 |------|--------|----------|------|-------|
 | Auth | POST | `/auth/telegram` | None | Frontend |
+| Auth | POST | `/auth/whatsapp/start` | None | Web app |
+| Auth | POST | `/auth/whatsapp/verify` | None | Web app |
+| Auth | POST | `/auth/google` | None | Web app |
 | Bot | POST | `/bot/register` | Bot API Key | Bot |
 | Bot | GET | `/bot/inactive-users` | Bot API Key | Bot |
 | Bot | GET | `/bot/streaks-at-risk` | Bot API Key | Bot |
@@ -151,6 +154,79 @@ Authenticate via Telegram Mini App `initData`. Creates user if first login.
 - POST to this endpoint → store token in memory/localStorage
 - If `user.is_onboarded === false` → show onboarding flow
 - If `user.is_onboarded === true` → go to Home screen
+
+---
+
+### `POST /api/auth/whatsapp/start`
+Start the WhatsApp/SMS OTP flow — sends a 6-digit code to the phone. Used by
+the standalone web app (`app.wellcircle.et`), never by the Mini App.
+
+**No auth required.**
+
+```json
+// REQUEST
+{
+  "phone": "+251911234567",   // E.164; pattern ^\+?[0-9]{6,15}$
+  "channel": "whatsapp"       // optional: "whatsapp" (default) or "sms"
+}
+
+// RESPONSE 200
+{
+  "request_id": "opaque-string",
+  "expires_in": 600
+}
+
+// RESPONSE 429 — rate limited
+{ "detail": "Too many OTP requests. Please wait a moment and try again." }
+```
+
+**Delivery depends on backend config.** With `WHATSAPP_PHONE_NUMBER_ID` +
+`WHATSAPP_API_TOKEN` (Meta Cloud API) or the `TWILIO_*` trio set, the code is
+sent over that channel. With none of them set the code goes to an in-process
+store and **is never delivered** — the endpoint still returns 200, so a
+misconfigured environment looks healthy while no user can ever log in.
+
+### `POST /api/auth/whatsapp/verify`
+Exchange the OTP for a JWT. Returns the same `AuthResponse` shape as
+`/auth/telegram`.
+
+**No auth required.**
+
+```json
+// REQUEST
+{ "request_id": "opaque-string", "code": "123456" }   // code is exactly 6 chars
+
+// RESPONSE 200
+{ "token": "eyJ...", "user": { /* same user shape as /auth/telegram */ }, "is_new_user": true }
+
+// RESPONSE 401
+{ "detail": "Invalid or expired verification code" }
+```
+
+**Account resolution, in order:** existing `whatsapp` identity for that phone →
+existing user whose `phone_number` matches (the identity is linked to them) →
+brand-new user. A user created this way has **no `telegram_id`**.
+
+### `POST /api/auth/google`
+Google Identity Services — the ID token is verified server-side. Identity
+subject is Google's `sub`, never the email.
+
+**No auth required.**
+
+```json
+// REQUEST
+{ "credential": "<google-id-token-jwt>" }
+
+// RESPONSE 200
+{ "token": "eyJ...", "user": { /* same user shape */ }, "is_new_user": false }
+```
+
+> **⚠️ Not safe to expose yet.** `google-auth` is absent from
+> `backend/requirements.txt`, and the handler catches that `ImportError` by
+> falling back to an *unverified* base64 decode of the ID token — any forged
+> credential would be accepted as any `sub`. Add `google-auth` and set
+> `GOOGLE_CLIENT_ID` (also absent from `app/config.py`) before this endpoint is
+> reachable in production.
 
 ---
 

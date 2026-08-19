@@ -1133,12 +1133,12 @@ export const MOCK_PAST_EVENTS = [
 ];
 
 // ─── For You Feed (Phase 4/5) ───────────────────────
-// Mirrors the backend's fixed interleave (see docs/API_CONTRACT.md #2b):
-// a four-item lead-in (spotlight provider, one of its services, its next
-// event, its last event's recap) spaced one post apart, then the steady
-// cadence of one non-post item after every 3rd post, cycling
-// event -> service -> provider and skipping empty categories, with any
-// leftover items appended at the end so the feed is never empty.
+// Mirrors the backend's fixed section order (see docs/API_CONTRACT.md #2b):
+// upcoming events at the top, then member posts, then provider content
+// (services, providers, past-event recaps). Mock mode has no pagination, so
+// this builds the single-page shape — which on the backend is the case where
+// the first and last page are the same page, and therefore carries all three
+// sections.
 function buildMockForYouFeed() {
   const postItems = MOCK_POSTS
     .filter(p => !p.is_system_event)
@@ -1177,10 +1177,9 @@ function buildMockForYouFeed() {
   // Coming-soon providers are included too — FeedProviderCard shows a
   // "Coming soon" badge and hides the booking CTA for them, so they stay
   // visible in the feed pre-launch instead of being invisible until then.
-  // Featured first, then by rating, matching the backend's ordering — the
-  // lead-in below takes providerItems[0] as the spotlight, so this is what
-  // makes that Boston Day Spa rather than whatever happens to be first in
-  // the array.
+  // Featured first, then by rating, matching the backend's ordering, so the
+  // provider block opens with Boston Day Spa rather than whatever happens to
+  // be first in the array.
   const providerItems = [...MOCK_PROVIDERS]
     .sort((a, b) => (Number(!!b.is_featured) - Number(!!a.is_featured)) || ((b.rating || 0) - (a.rating || 0)))
     .map(p => ({
@@ -1207,52 +1206,18 @@ function buildMockForYouFeed() {
   const eventItems = MOCK_EVENTS.filter(e => e.is_boosted).map(toEventItem);
   const pastEventItems = MOCK_PAST_EVENTS.map(toEventItem);
 
-  const pools = [eventItems, serviceItems, providerItems, pastEventItems];
-  const cursors = [0, 0, 0, 0];
-  let cycleIdx = 0;
-  const takeFrom = (poolIdx) => {
-    const pool = pools[poolIdx];
-    if (cursors[poolIdx] >= pool.length) return null;
-    cursors[poolIdx] += 1;
-    return pool[cursors[poolIdx] - 1];
-  };
-  const takeNext = () => {
-    for (let attempt = 0; attempt < pools.length; attempt++) {
-      const chosen = cycleIdx;
-      cycleIdx = (cycleIdx + 1) % pools.length;
-      const item = takeFrom(chosen);
-      if (item) return item;
-    }
-    return null;
-  };
+  // Section order mirrors backend/app/services/feed_service.py::_order_feed —
+  // upcoming events, then member posts, then provider content. Mock mode is
+  // what the tests and offline dev render against, so a different order here
+  // would quietly hide an ordering regression in the real feed.
+  const items = [
+    ...eventItems,
+    ...postItems,
+    ...serviceItems,
+    ...providerItems,
+    ...pastEventItems,
+  ];
 
-  // The lead-in: the spotlight provider, one of its services, its next event,
-  // and the recap of its last one — each separated by a member post so the
-  // top of the feed reads as a community rather than as a storefront. Anything
-  // the lead-in doesn't consume falls through to the every-3rd-post cadence.
-  const leadIn = [takeFrom(2), takeFrom(1), takeFrom(0), takeFrom(3)].filter(Boolean);
-
-  const items = [];
-  if (leadIn.length > 0) items.push(leadIn.shift());
-  postItems.forEach((postItem, i) => {
-    items.push(postItem);
-    if (leadIn.length > 0) {
-      items.push(leadIn.shift());
-      return;
-    }
-    if ((i + 1) % 3 === 0) {
-      const next = takeNext();
-      if (next) items.push(next);
-    }
-  });
-  // Whatever the post stream didn't reach — a feed with two posts would
-  // otherwise hide every provider in the directory.
-  items.push(...leadIn);
-  let leftover = takeNext();
-  while (leftover) {
-    items.push(leftover);
-    leftover = takeNext();
-  }
   return items;
 }
 

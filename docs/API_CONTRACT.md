@@ -392,20 +392,32 @@ Discovery feed replacing Home (Phase 4/5). Returns:
 }
 ```
 
-**Ranking is a fixed, deterministic interleave — not a scoring model.**
+**Ranking is a fixed, deterministic section order — not a scoring model.**
 
-A four-item **lead-in** opens the feed: the spotlight provider (top featured,
-then highest rated), one of its services, its next boosted event, and the
-recap of its most recent past one — each separated by a member post, so the
-top of the feed reads as a community rather than as a storefront. Leaving
-these to the cadence below meant a light post day pushed them past the fold
-or off the first page entirely.
+The feed is laid out in three sections:
 
-After the lead-in, posts continue newest-first with one non-post item spliced
-in after every 3rd, cycling `event → service → provider → past_event` and
-skipping a category when empty. Any items left over once the post stream runs
-out are appended at the end, so a brand-new user with zero posts still sees a
-non-empty feed built entirely from providers/services/events.
+1. **Upcoming events** — boosted events starting within the next 14 days, at
+   the very top.
+2. **User content** — member posts, newest-first. This is the paginated part.
+3. **Provider content** — services, then providers, then `past_event` recaps.
+
+Sections 1 and 3 bind to the ends of the **whole feed, not of each page**:
+
+| Page | Carries |
+| --- | --- |
+| First (`before` absent) | events → posts |
+| Middle | posts only |
+| Last (`next_before: null`) | posts → services → providers → past events |
+
+A feed short enough to fit one page is first and last at once, so it carries
+all three sections. Emitting the sections per-page instead would repeat the
+same event cards on every scroll and strand provider cards mid-stream.
+
+The trade-off is deliberate and worth knowing: **provider content is only
+reached by scrolling to the end of the post stream.** On a high-volume post
+day, a user who doesn't scroll that far sees no service or provider cards at
+all. If provider inventory needs guaranteed impressions, that wants a slot
+inside section 2 rather than a section after it.
 
 Both live and coming-soon providers may appear as `service` or `provider`
 items — coming-soon ones render with a "Coming soon" badge and no booking CTA
@@ -423,9 +435,10 @@ paint: on a cached first render the client shows `instant` items (no image
 needed to be readable) above `media` items, then settles into server order
 once the revalidated response lands.
 
-`next_before` paginates the **posts** only (keyset on `created_at`); the
-interleaved non-post items are additional and outside that cursor. `null`
-means no more posts.
+`next_before` paginates the **posts** only (keyset on `created_at`); the event
+and provider sections are additional and outside that cursor. `null` means no
+more posts — and is also what tells the builder to append the provider
+section.
 
 `post.source` is what makes "tap a post → land in its circle/community" work
 — `kind` is `"circle"` or `"community"`. Posts from private or paid circles,

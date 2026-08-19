@@ -11,6 +11,9 @@
 | Area | Method | Endpoint | Auth | Owner |
 |------|--------|----------|------|-------|
 | Auth | POST | `/auth/telegram` | None | Frontend |
+| Auth | POST | `/auth/whatsapp/start` | None | Web app |
+| Auth | POST | `/auth/whatsapp/verify` | None | Web app |
+| Auth | POST | `/auth/google` | None | Web app |
 | Bot | POST | `/bot/register` | Bot API Key | Bot |
 | Bot | GET | `/bot/inactive-users` | Bot API Key | Bot |
 | Bot | GET | `/bot/streaks-at-risk` | Bot API Key | Bot |
@@ -151,6 +154,79 @@ Authenticate via Telegram Mini App `initData`. Creates user if first login.
 - POST to this endpoint → store token in memory/localStorage
 - If `user.is_onboarded === false` → show onboarding flow
 - If `user.is_onboarded === true` → go to Home screen
+
+---
+
+### `POST /api/auth/whatsapp/start`
+Start the WhatsApp/SMS OTP flow — sends a 6-digit code to the phone. Used by
+the standalone web app (`app.wellcircle.et`), never by the Mini App.
+
+**No auth required.**
+
+```json
+// REQUEST
+{
+  "phone": "+251911234567",   // E.164; pattern ^\+?[0-9]{6,15}$
+  "channel": "whatsapp"       // optional: "whatsapp" (default) or "sms"
+}
+
+// RESPONSE 200
+{
+  "request_id": "opaque-string",
+  "expires_in": 600
+}
+
+// RESPONSE 429 — rate limited
+{ "detail": "Too many OTP requests. Please wait a moment and try again." }
+```
+
+**Delivery depends on backend config.** With `WHATSAPP_PHONE_NUMBER_ID` +
+`WHATSAPP_API_TOKEN` (Meta Cloud API) or the `TWILIO_*` trio set, the code is
+sent over that channel. With none of them set the code goes to an in-process
+store and **is never delivered** — the endpoint still returns 200, so a
+misconfigured environment looks healthy while no user can ever log in.
+
+### `POST /api/auth/whatsapp/verify`
+Exchange the OTP for a JWT. Returns the same `AuthResponse` shape as
+`/auth/telegram`.
+
+**No auth required.**
+
+```json
+// REQUEST
+{ "request_id": "opaque-string", "code": "123456" }   // code is exactly 6 chars
+
+// RESPONSE 200
+{ "token": "eyJ...", "user": { /* same user shape as /auth/telegram */ }, "is_new_user": true }
+
+// RESPONSE 401
+{ "detail": "Invalid or expired verification code" }
+```
+
+**Account resolution, in order:** existing `whatsapp` identity for that phone →
+existing user whose `phone_number` matches (the identity is linked to them) →
+brand-new user. A user created this way has **no `telegram_id`**.
+
+### `POST /api/auth/google`
+Google Identity Services — the ID token is verified server-side. Identity
+subject is Google's `sub`, never the email.
+
+**No auth required.**
+
+```json
+// REQUEST
+{ "credential": "<google-id-token-jwt>" }
+
+// RESPONSE 200
+{ "token": "eyJ...", "user": { /* same user shape */ }, "is_new_user": false }
+```
+
+> **⚠️ Not safe to expose yet.** `google-auth` is absent from
+> `backend/requirements.txt`, and the handler catches that `ImportError` by
+> falling back to an *unverified* base64 decode of the ID token — any forged
+> credential would be accepted as any `sub`. Add `google-auth` and set
+> `GOOGLE_CLIENT_ID` (also absent from `app/config.py`) before this endpoint is
+> reachable in production.
 
 ---
 
@@ -316,20 +392,32 @@ Discovery feed replacing Home (Phase 4/5). Returns:
 }
 ```
 
-**Ranking is a fixed, deterministic interleave — not a scoring model.**
+**Ranking is a fixed, deterministic section order — not a scoring model.**
 
-A four-item **lead-in** opens the feed: the spotlight provider (top featured,
-then highest rated), one of its services, its next boosted event, and the
-recap of its most recent past one — each separated by a member post, so the
-top of the feed reads as a community rather than as a storefront. Leaving
-these to the cadence below meant a light post day pushed them past the fold
-or off the first page entirely.
+The feed is laid out in three sections:
 
-After the lead-in, posts continue newest-first with one non-post item spliced
-in after every 3rd, cycling `event → service → provider → past_event` and
-skipping a category when empty. Any items left over once the post stream runs
-out are appended at the end, so a brand-new user with zero posts still sees a
-non-empty feed built entirely from providers/services/events.
+1. **Upcoming events** — boosted events starting within the next 14 days, at
+   the very top.
+2. **User content** — member posts, newest-first. This is the paginated part.
+3. **Provider content** — services, then providers, then `past_event` recaps.
+
+Sections 1 and 3 bind to the ends of the **whole feed, not of each page**:
+
+| Page | Carries |
+| --- | --- |
+| First (`before` absent) | events → posts |
+| Middle | posts only |
+| Last (`next_before: null`) | posts → services → providers → past events |
+
+A feed short enough to fit one page is first and last at once, so it carries
+all three sections. Emitting the sections per-page instead would repeat the
+same event cards on every scroll and strand provider cards mid-stream.
+
+The trade-off is deliberate and worth knowing: **provider content is only
+reached by scrolling to the end of the post stream.** On a high-volume post
+day, a user who doesn't scroll that far sees no service or provider cards at
+all. If provider inventory needs guaranteed impressions, that wants a slot
+inside section 2 rather than a section after it.
 
 Both live and coming-soon providers may appear as `service` or `provider`
 items — coming-soon ones render with a "Coming soon" badge and no booking CTA
@@ -347,9 +435,10 @@ paint: on a cached first render the client shows `instant` items (no image
 needed to be readable) above `media` items, then settles into server order
 once the revalidated response lands.
 
-`next_before` paginates the **posts** only (keyset on `created_at`); the
-interleaved non-post items are additional and outside that cursor. `null`
-means no more posts.
+`next_before` paginates the **posts** only (keyset on `created_at`); the event
+and provider sections are additional and outside that cursor. `null` means no
+more posts — and is also what tells the builder to append the provider
+section.
 
 `post.source` is what makes "tap a post → land in its circle/community" work
 — `kind` is `"circle"` or `"community"`. Posts from private or paid circles,

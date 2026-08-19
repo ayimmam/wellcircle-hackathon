@@ -96,9 +96,17 @@ export default function ForYouScreen() {
   const firstPageItems = home?.feed?.items || [];
   const orderedFirstPage = useMemo(() => {
     if (settled) return firstPageItems;
-    const instant = firstPageItems.filter(i => i.render_cost === 'instant');
-    const media = firstPageItems.filter(i => i.render_cost !== 'instant');
-    return [...instant, ...media];
+    // The server leads the feed with upcoming events (see feed_service.py).
+    // Those are `media` items, so an unqualified instant-first sort would
+    // drop them below the posts on the cached paint and then visibly shuffle
+    // them back on settle. Pin the event block, tier only what follows it.
+    const leadEnd = firstPageItems.findIndex(i => i.type !== 'event');
+    if (leadEnd === -1) return firstPageItems;
+    const lead = firstPageItems.slice(0, leadEnd);
+    const rest = firstPageItems.slice(leadEnd);
+    const instant = rest.filter(i => i.render_cost === 'instant');
+    const media = rest.filter(i => i.render_cost !== 'instant');
+    return [...lead, ...instant, ...media];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstPageItems, settled]);
 

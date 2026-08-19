@@ -16,7 +16,7 @@ export default function BottomNav() {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  const hiddenPaths = ['/', '/onboarding', '/provider-onboard'];
+  const hiddenPaths = ['/', '/onboarding', '/provider-onboard', '/visit'];
   const hidden = hiddenPaths.includes(location.pathname)
     || location.pathname.startsWith('/admin')
     || location.pathname.startsWith('/provider-portal')

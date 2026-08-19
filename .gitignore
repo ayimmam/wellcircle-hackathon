@@ -37,3 +37,5 @@ coverage/
 # Load test run output
 backend/loadtest/results-*.csv
 backend/loadtest/*.html
+.vercel
+.env*

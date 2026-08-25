@@ -2,11 +2,14 @@
 Well Circle — For You feed tests (Phase 4).
 Run: cd backend && python -m app.tests.test_for_you_feed
 
-Covers: a user who has joined nothing still gets a non-empty feed; private-
-and paid-circle posts never appear; system events never appear; every post
-carries a resolvable source; query count is constant regardless of post
-count (the batching regression this refactor exists to prevent); and the
-serialized home bootstrap stays under the Phase 2 payload ceiling.
+Covers: a user who has joined nothing still gets a non-empty feed; coming-soon
+providers appear flagged rather than hidden; private- and paid-circle posts
+never appear; system events never appear; every post carries a resolvable
+source; query count is constant regardless of post count (the batching
+regression this refactor exists to prevent); the
+serialized home bootstrap stays under the Phase 2 payload ceiling; and the
+text-first /home/lite payload carries posts only, on the same cursor and
+fewer queries than the full build.
 """
 import json
 import sys
@@ -91,7 +94,7 @@ def test_all():
         from app.crud.circle import create_circle
         from app.crud.post import create_post, get_public_feed_posts
         from app.services.feed_service import build_for_you_feed
-        from app.api.home import home_bootstrap
+        from app.api.home import home_bootstrap, home_lite
         import asyncio
 
         # === 1. A user who has joined nothing still gets a non-empty feed ===
@@ -116,8 +119,8 @@ def test_all():
         assert "service" in service_types
         print("   ✅ feed non-empty for a brand-new user (service items from the live provider)")
 
-        # === 2. Coming-soon providers never contribute service/provider items =
-        print("\n2. Coming-soon providers excluded from service/provider items")
+        # === 2. Coming-soon providers appear, flagged for the CTA-less card =
+        print("\n2. Coming-soon providers carried, flagged")
         coming_soon_provider, _ = create_provider(
             db, name="Not Launched Yet", category="gym",
             description="Still coming soon", location_text="Bole",
@@ -126,12 +129,19 @@ def test_all():
             is_coming_soon=True,
         )
         feed2 = build_for_you_feed(db)
-        provider_ids_in_feed = {
-            item["provider"]["id"] for item in feed2["items"] if item["type"] in ("service", "provider")
-        }
-        assert coming_soon_provider.id not in provider_ids_in_feed
+        provider_items = [item for item in feed2["items"] if item["type"] in ("service", "provider")]
+        provider_ids_in_feed = {item["provider"]["id"] for item in provider_items}
+        # Coming-soon providers are in the feed on purpose (commit e73d312) so
+        # the pilot is visible pre-launch — the cards drop the booking CTA off
+        # the `is_coming_soon` flag instead, so the flag has to be carried.
+        assert coming_soon_provider.id in provider_ids_in_feed
         assert live_provider.id in provider_ids_in_feed
-        print("   ✅ coming-soon provider never appears as service/provider item")
+        assert all(
+            item["provider"]["is_coming_soon"] is True
+            for item in provider_items
+            if item["provider"]["id"] == coming_soon_provider.id
+        )
+        print("   ✅ coming-soon provider appears, flagged so its card drops the CTA")
 
         # === 3. Private/paid circle posts excluded; public circle/community posts included
         print("\n3. Post visibility rules")
@@ -227,6 +237,43 @@ def test_all():
         serialized_size = len(json.dumps(bootstrap, default=str).encode("utf-8"))
         assert serialized_size < 150 * 1024, f"bootstrap payload too large: {serialized_size} bytes"
         print(f"   ✅ bootstrap.feed present, serialized size {serialized_size} bytes (under 150 KB)")
+
+        # === 8. The text-first payload is posts only, same cursor ===========
+        print("\n8. home_lite serves the text half without the provider work")
+        lite = asyncio.run(home_lite(user=newcomer, db=db))
+        assert lite["partial"] is True
+        lite_items = lite["feed"]["items"]
+        assert len(lite_items) > 0, "lite feed must not be empty"
+        # Anything that needs a provider record belongs to the full payload.
+        assert {i["type"] for i in lite_items} == {"post"}, [i["type"] for i in lite_items]
+
+        # The cursor comes from the same posts query in both payloads, so a
+        # client that starts paginating off a lite page and then swaps in the
+        # full one must not skip or repeat a post.
+        full = build_for_you_feed(db, limit=10)
+        text_only = build_for_you_feed(db, limit=10, text_only=True)
+        assert text_only["next_before"] == full["next_before"]
+        full_post_ids = [i["id"] for i in full["items"] if i["type"] == "post"]
+        assert [i["id"] for i in text_only["items"]] == full_post_ids
+
+        # And it must be cheaper — that is the entire reason it exists.
+        def count_queries(fn):
+            count = [0]
+
+            def counter(*_args, **_kwargs):
+                count[0] += 1
+
+            sa_event.listen(engine, "before_cursor_execute", counter)
+            try:
+                fn()
+            finally:
+                sa_event.remove(engine, "before_cursor_execute", counter)
+            return count[0]
+
+        full_queries = count_queries(lambda: build_for_you_feed(db, limit=10))
+        lite_queries = count_queries(lambda: build_for_you_feed(db, limit=10, text_only=True))
+        assert lite_queries < full_queries, (lite_queries, full_queries)
+        print(f"   ✅ posts only, cursor matches, {lite_queries} queries vs {full_queries}")
 
         print("\n" + "=" * 50)
         print("  ALL FOR YOU FEED TESTS PASSED ✅")

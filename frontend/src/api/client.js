@@ -181,6 +181,7 @@ export const cacheKeys = {
   social: () => 'social',
   ranks: () => 'ranks',
   home: () => 'home',
+  homeLite: () => keyOf('home', { lite: 1 }),
   trainer: () => 'trainer',
   strava: (userId) => keyOf('strava', { userId }),
   subscriptionPlans: () => 'subscriptions',
@@ -1315,6 +1316,69 @@ export async function getFeaturedEvents() {
  * deploy that lands ahead of the backend degrades to the old behaviour rather
  * than breaking Home.
  */
+/**
+ * The text-first half of the Home payload.
+ *
+ * `/home/bootstrap` cannot answer until the provider directory, every
+ * provider's services and both event queries are done, and on a cold
+ * free-tier function that is the difference between a screen of words and a
+ * screen of skeletons. This asks for only the parts For You needs to render
+ * text — the post stream and the user's own circles — so the screen has
+ * something real on it while the full payload is still being assembled.
+ *
+ * Callers fire this *alongside* `getHomeBootstrap()`, not instead of it. The
+ * payload is a strict subset, so a backend without `/home/lite` degrades to
+ * the aggregate rather than leaving the screen empty.
+ */
+export async function getHomeLite() {
+  return cached(cacheKeys.homeLite(), async () => {
+    const payload = USE_MOCK ? await mockHomeLite() : await fetchHomeLite();
+    warmFromLite(payload);
+    return payload;
+  });
+}
+
+async function fetchHomeLite() {
+  try {
+    return await request('GET', '/home/lite');
+  } catch (err) {
+    if (err.status !== 404) throw err;
+    // Older backend: there is nothing cheaper to ask for, so share the
+    // aggregate's in-flight request rather than issuing a second one.
+    return getHomeBootstrap();
+  }
+}
+
+async function mockHomeLite() {
+  await delay(120);
+  return {
+    partial: true,
+    communities: MOCK_COMMUNITIES.filter(c => c.user_joined),
+    social_proof: { ...MOCK_SOCIAL_PROOF },
+    unread_count: 0,
+    feed: {
+      items: MOCK_FOR_YOU_FEED.filter(i => i.type === 'post'),
+      next_before: null,
+    },
+  };
+}
+
+/**
+ * Warm only what the lite payload is authoritative for. Its `communities` list
+ * is joined-only and its feed carries no provider content, so neither may be
+ * written to the keys the full bootstrap owns — a later reader would take the
+ * partial list for the whole one.
+ */
+function warmFromLite(payload) {
+  if (!payload || !payload.partial) return;
+  cacheWrite(cacheKeys.communities(true), {
+    communities: payload.communities || [],
+    count: (payload.communities || []).length,
+  });
+  if (payload.social_proof) cacheWrite(cacheKeys.social(), payload.social_proof);
+  if (typeof payload.unread_count === 'number') cacheWrite(cacheKeys.unread(), payload.unread_count);
+}
+
 export async function getHomeBootstrap() {
   return cached(cacheKeys.home(), async () => {
     const payload = USE_MOCK ? await mockHomeBootstrap() : await fetchHomeBootstrap();

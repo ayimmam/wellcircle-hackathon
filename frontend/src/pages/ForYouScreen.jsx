@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getHomeBootstrap, getForYouFeed, cacheKeys } from '../api/client';
+import { getHomeBootstrap, getHomeLite, getForYouFeed, cacheKeys } from '../api/client';
 import useResource from '../hooks/useResource';
 import PointsBadge from '../components/PointsBadge';
 import StreakBadge from '../components/StreakBadge';
@@ -17,8 +17,6 @@ import FeedEventBanner from '../components/feed/FeedEventBanner';
 import FeedProviderCard from '../components/feed/FeedProviderCard';
 import { showToast } from '../components/Toast';
 import { useTranslation } from 'react-i18next';
-
-const EMPTY_HOME = { providers: [], communities: [], feed: { items: [], next_before: null } };
 
 function FeedItem({ item, priority }) {
   switch (item.type) {
@@ -37,34 +35,59 @@ export default function ForYouScreen() {
   const [showPointsInfo, setShowPointsInfo] = useState(false);
   const justOnboarded = Boolean(location.state?.justOnboarded);
 
-  // One request for the whole screen, painted from the previous session's
-  // copy while it revalidates — this also seeds providers/communities/events
-  // so Explore and the circles tab open without a request of their own.
+  // Two requests, fired together, painted in whichever order they land.
+  //
+  // `home` is the whole screen — providers, events, the full feed — and it
+  // also seeds Explore and the circles tab so those open without a request of
+  // their own. But it cannot answer until the provider directory and the event
+  // query are done, which on a cold serverless function is seconds of
+  // skeleton. `lite` carries the parts that are only words (the post stream,
+  // the user's own circles); it answers from one keyset query, so the screen
+  // is readable long before the provider cards exist.
+  //
+  // Both paint from the previous session's copy while they revalidate.
+  const { data: lite, setData: setLite } = useResource(
+    cacheKeys.homeLite(),
+    getHomeLite,
+    // Silent on error: this is the head start, not the screen. If it fails the
+    // full bootstrap still fills everything in, and two toasts for one outage
+    // is one too many.
+    { onError: () => {} },
+  );
   const { data: home, setData: setHome } = useResource(
     cacheKeys.home(),
     getHomeBootstrap,
-    {
-      initialData: EMPTY_HOME,
-      onError: err => showToast(err.message, 'error'),
-    },
+    { onError: err => showToast(err.message, 'error') },
   );
 
-  const allCommunities = home?.communities || [];
+  // Prefer the full payload wherever it has arrived; fall back to the lite one
+  // until it does. `home` is undefined (not an empty shape) before it lands,
+  // so these are genuine "has the data arrived" checks.
   const isJoined = (c) => c.user_joined || user?.joined_communities?.includes(c.id);
-  const joinedCircles = allCommunities.filter(isJoined);
+  // lite's list is already joined-only; the filter is what makes the full
+  // list — which carries every circle — agree with it.
+  const joinedCircles = (home?.communities || lite?.communities || []).filter(isJoined);
 
-  const setCheckedIn = (id) => setHome(prev => {
-    const base = prev || EMPTY_HOME;
-    return {
-      ...base,
-      communities: (base.communities || []).map(c => c.id === id ? { ...c, checked_in_today: true } : c),
-    };
-  });
+  const markCheckedIn = (id) => (prev) => (
+    prev?.communities
+      ? {
+        ...prev,
+        communities: prev.communities.map(c => c.id === id ? { ...c, checked_in_today: true } : c),
+      }
+      : prev
+  );
+  // Whichever payload is on screen owns the card, and the other one will be
+  // swapped in moments later — so both have to record the check-in.
+  const setCheckedIn = (id) => {
+    setHome(markCheckedIn(id));
+    setLite(markCheckedIn(id));
+  };
 
-  // Instant-open readiness ranking (Phase 2): on the cached first paint,
-  // "instant" items (no image needed to read) render above "media" items.
-  // Once the revalidated bootstrap lands, the feed settles into server
-  // order — no animation on the swap, a visible reflow is worse than the delay.
+  // Instant-open readiness ranking (Phase 2): until the revalidated bootstrap
+  // lands — on the cached first paint, and through the lite phase — "instant"
+  // items (no image needed to read) render above "media" items. Then the feed
+  // settles into server order, with no animation on the swap: a visible
+  // reflow is worse than the delay.
   const [settled, setSettled] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -74,7 +97,9 @@ export default function ForYouScreen() {
     return () => { alive = false; };
   }, []);
 
-  const firstPageItems = home?.feed?.items || [];
+  // The full feed the moment it exists, the text-only one until then.
+  const feed = home?.feed || lite?.feed || null;
+  const firstPageItems = feed?.items || [];
   const orderedFirstPage = useMemo(() => {
     if (settled) return firstPageItems;
     const instant = firstPageItems.filter(i => i.render_cost === 'instant');
@@ -86,10 +111,12 @@ export default function ForYouScreen() {
   // Pages beyond the first — appended on scroll, never reordered.
   const [olderItems, setOlderItems] = useState([]);
   const [loadingMore, setLoadingMore] = useState(false);
-  const cursorRef = useRef(home?.feed?.next_before ?? null);
+  // Both payloads derive this cursor from the same posts query, so it stays
+  // valid across the lite → full swap.
+  const cursorRef = useRef(feed?.next_before ?? null);
   useEffect(() => {
-    if (olderItems.length === 0) cursorRef.current = home?.feed?.next_before ?? null;
-  }, [home?.feed?.next_before, olderItems.length]);
+    if (olderItems.length === 0) cursorRef.current = feed?.next_before ?? null;
+  }, [feed?.next_before, olderItems.length]);
 
   const loadMore = async () => {
     if (loadingMore || !cursorRef.current) return;
@@ -119,8 +146,10 @@ export default function ForYouScreen() {
 
   const feedItems = [...orderedFirstPage, ...olderItems];
   // No full-screen skeleton when anything is cached — branch on data
-  // presence, not on the resource's `loading` flag (Phase 2).
-  const showSkeleton = feedItems.length === 0 && !home?.feed;
+  // presence, not on the resource's `loading` flag (Phase 2). The lite payload
+  // counts as presence, so the skeleton only survives until the *first* of the
+  // two requests answers.
+  const showSkeleton = feedItems.length === 0 && !feed;
 
   return (
     <div className="page" id="for-you-screen">

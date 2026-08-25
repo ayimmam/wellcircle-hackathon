@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { optimizeImageUrl, buildSrcSet, sourceWidthFor } from '../utils/imageUrl';
 
 /**
@@ -10,7 +10,8 @@ import { optimizeImageUrl, buildSrcSet, sourceWidthFor } from '../utils/imageUrl
  *  - `loading="lazy"` for anything below the fold, so a feed of thirty avatars
  *    doesn't open thirty connections at once,
  *  - a shimmer painted behind the image until it decodes, which reads as
- *    progress rather than a blank rectangle,
+ *    progress rather than a blank rectangle — and *not* painted at all when
+ *    the image is already on the device,
  *  - the caller's own empty state instead of a broken-image icon when a
  *    provider-supplied URL is dead.
  *
@@ -34,11 +35,24 @@ export default function SmartImage({
   ...rest
 }) {
   const [state, setState] = useState('loading');
+  const imgRef = useRef(null);
+
+  // An image served from the device cache can finish decoding before React
+  // has attached `onLoad`, which strands the shimmer on top of a photo that is
+  // already painted. Checking `complete` before the browser paints turns a
+  // cached image into no visible load at all — which is the whole point of
+  // caching it. Runs on `src` changes too, since one <img> is reused when a
+  // carousel or a revalidated feed swaps the URL underneath it.
+  useLayoutEffect(() => {
+    const node = imgRef.current;
+    if (node && node.complete && node.naturalWidth > 0) setState('loaded');
+  }, [src]);
 
   if (!src || state === 'failed') return fallback;
 
   return (
     <img
+      ref={imgRef}
       src={optimizeImageUrl(src, { width: sourceWidthFor(width), quality })}
       srcSet={buildSrcSet(src, width) || undefined}
       alt={alt}

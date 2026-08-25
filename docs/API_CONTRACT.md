@@ -14,6 +14,7 @@
 | Bot | POST | `/bot/register` | Bot API Key | Bot |
 | Bot | GET | `/bot/inactive-users` | Bot API Key | Bot |
 | Bot | GET | `/bot/streaks-at-risk` | Bot API Key | Bot |
+| Home | GET | `/home/lite` | JWT | Frontend |
 | Home | GET | `/home/bootstrap` | JWT | Frontend |
 | Users | GET | `/users/me` | JWT | Frontend |
 | Users | PATCH | `/users/me` | JWT | Frontend |
@@ -285,6 +286,44 @@ payload under the **150 KB working ceiling** (192 KB is the hard cap past
 which `frontend/src/api/cache.js` stops persisting the entry to
 `localStorage`, so it's lost the moment Telegram tears the WebView down) — see
 `backend/check_bootstrap_payload_size.py`.
+
+### `GET /api/home/lite`
+
+The text-first half of the same payload, so For You has something readable on
+it while `/home/bootstrap` is still running. The client fires **both together**
+on open — this is not a replacement for the bootstrap, it is the head start.
+
+`/home/bootstrap` cannot answer until the provider directory, every provider's
+services, and the boosted-event query are done. None of that is needed to
+render the part of the feed that is words. This endpoint runs the two queries
+the first screenful actually depends on, plus two counters:
+
+| Key | Notes |
+|-----|-------|
+| `partial` | Always `true`. Marks the payload as a subset, so it is never cached as the whole thing. |
+| `communities` | `GET /communities?joined=true` — the user's own circles, which is all the check-in card needs. |
+| `social_proof` | Same as the bootstrap's. |
+| `unread_count` | Same as the bootstrap's. |
+| `feed` | First page of `GET /feed/for-you`, **posts only** — no `event`, `service` or `provider` items, and no interleave. |
+
+```json
+// RESPONSE 200
+{
+  "partial": true,
+  "communities": [ /* ...joined circles only... */ ],
+  "social_proof": { "checked_in_today": 4 },
+  "unread_count": 3,
+  "feed": { "items": [ /* ...only type: "post"... */ ], "next_before": "2026-06-06T10:00:00Z", "partial": true }
+}
+```
+
+`feed.next_before` is derived from the same posts query the full payload uses,
+so it is identical in both and a client that starts paginating off a lite page
+stays consistent once the full page replaces it.
+
+Optional in the same way as the bootstrap: on `404` the client falls back to
+sharing `/home/bootstrap`'s in-flight request, so a frontend deploy ahead of
+the backend loses the head start rather than the screen.
 
 ---
 

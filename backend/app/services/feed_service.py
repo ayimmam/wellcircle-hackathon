@@ -143,16 +143,26 @@ def _interleave(post_items: list, event_items: list, service_items: list, provid
     return result
 
 
-def build_for_you_feed(db: Session, limit: int = 10, before: Optional[datetime] = None) -> dict:
+def build_for_you_feed(
+    db: Session,
+    limit: int = 10,
+    before: Optional[datetime] = None,
+    text_only: bool = False,
+) -> dict:
     """`limit`/`before` paginate the underlying posts (keyset on created_at);
-    interleaved non-post items are additional and outside that cursor."""
+    interleaved non-post items are additional and outside that cursor.
+
+    `text_only` builds the post stream and nothing else — one keyset query
+    instead of five, and no interleave. It is what GET /api/home/lite serves so
+    the For You screen can paint readable text while the provider, service and
+    event pools are still being assembled for the full payload (see
+    app/api/home.py). The cursor is identical either way, because it is derived
+    from the same posts query, so a client that paginates off a lite page stays
+    consistent once the full page replaces it.
+    """
     now = datetime.now(timezone.utc)
 
     posts = section(db, "feed_posts", lambda: get_public_feed_posts(db, limit=limit, before=before), [])
-    providers = section(db, "feed_providers", lambda: _feed_providers(db), [])
-    event_items = section(db, "feed_events", lambda: _build_event_items(db, now), [])
-    service_items = section(db, "feed_service_items", lambda: _build_service_items(providers), [])
-    provider_items = section(db, "feed_provider_items", lambda: _build_provider_items(db, providers), [])
 
     post_items = [
         {
@@ -165,7 +175,16 @@ def build_for_you_feed(db: Session, limit: int = 10, before: Optional[datetime] 
         for p in posts
     ]
 
-    items = _interleave(post_items, event_items, service_items, provider_items)
     next_before = posts[-1]["created_at"] if len(posts) == limit else None
+
+    if text_only:
+        return {"items": post_items, "next_before": next_before, "partial": True}
+
+    providers = section(db, "feed_providers", lambda: _feed_providers(db), [])
+    event_items = section(db, "feed_events", lambda: _build_event_items(db, now), [])
+    service_items = section(db, "feed_service_items", lambda: _build_service_items(providers), [])
+    provider_items = section(db, "feed_provider_items", lambda: _build_provider_items(db, providers), [])
+
+    items = _interleave(post_items, event_items, service_items, provider_items)
 
     return {"items": items, "next_before": next_before}

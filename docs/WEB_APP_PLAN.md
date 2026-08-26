@@ -1,10 +1,22 @@
 # Well Circle Web App — `app.wellcircle.et`
 
-**Status:** plan, not yet implemented.
+**Status:** partially shipped — see *Delivery order* below for what is live.
+`https://app.wellcircle.et` is **serving** (cPanel/LiteSpeed), and its bundle
+calls `/auth/whatsapp/start`, `/auth/whatsapp/verify` and `/auth/google`, so
+phases 1–4 are at least deployed.
+
 **Goal:** let people use Well Circle without Telegram — either because they
 don't have it, or because they'd rather not run the app inside a chat client.
 
 Sign-in options, **in this order**: **WhatsApp → Telegram → Google.**
+
+> ⚠️ **The deployed web app's frontend source is not in this repository.**
+> No branch here (`main`, `webapp`, or any feature branch) contains a
+> `/auth/whatsapp` call in `frontend/` — but the live bundle at
+> `app.wellcircle.et` does. Whoever needs to change that app must find its
+> actual source first; editing `frontend/` in this repo will not affect it.
+> `frontend/` here builds the **Mini App** served at `wellcircle.et`, whose
+> auth still hard-requires Telegram `initData` (`src/api/client.js`).
 
 ---
 
@@ -258,14 +270,17 @@ a rewrite.
 
 Each phase is shippable and independently useful.
 
-| Phase | Work | Ship gate |
-| --- | --- | --- |
-| **1. Identity** | `auth_identities` + backfill + nullable `telegram_id`; existing auth paths rewritten to use it | Mini App and provider portal behave identically to today |
-| **2. Web shell** | `getAppMode()`, web-mode chrome, back affordance, `/login` and landing page, 401 handling | `app.wellcircle.et` runs the app with **Telegram Login Widget only** — reuses code that already exists, so this is the fastest path to a working web app |
-| **3. WhatsApp** | BSP integration, OTP endpoints + rate limiting, SMS fallback, phone-based linking | Primary option, listed first |
-| **4. Google** | GIS + server-side ID-token verification, explicit link prompt | All three options live |
-| **5. Notifications** | Channel-aware re-engagement, web push, WhatsApp templates | Non-Telegram users get streak reminders |
-| **6. Retire hacks** | Synthetic negative `telegram_id`; fold `login_username`/`password_hash` into `auth_identities` | One identity model |
+Status column reflects what could be **observed** from the live deployment and
+this repo's backend — not a claim that each phase is complete or correct.
+
+| Phase | Work | Ship gate | Status |
+| --- | --- | --- | --- |
+| **1. Identity** | `auth_identities` + backfill + nullable `telegram_id`; existing auth paths rewritten to use it | Mini App and provider portal behave identically to today | ✅ `auth_identities` in `backend/app/models` |
+| **2. Web shell** | `getAppMode()`, web-mode chrome, back affordance, `/login` and landing page, 401 handling | `app.wellcircle.et` runs the app with **Telegram Login Widget only** — reuses code that already exists, so this is the fastest path to a working web app | ✅ `app.wellcircle.et` serving |
+| **3. WhatsApp** | BSP integration, OTP endpoints + rate limiting, SMS fallback, phone-based linking | Primary option, listed first | ⚠️ endpoints live; **delivery unconfigured** — `WHATSAPP_*`/`TWILIO_*` all default to `""` |
+| **4. Google** | GIS + server-side ID-token verification, explicit link prompt | All three options live | ⚠️ endpoint live but **unsafe** — `google-auth` missing from requirements, falls back to unverified token decode |
+| **5. Notifications** | Channel-aware re-engagement, web push, WhatsApp templates | Non-Telegram users get streak reminders | ❓ not verified |
+| **6. Retire hacks** | Synthetic negative `telegram_id`; fold `login_username`/`password_hash` into `auth_identities` | One identity model | ❓ not verified |
 
 Phase 2 before Phase 3 is deliberate: it puts a working web app in front of
 users while the WhatsApp business verification and template approval — the

@@ -13,7 +13,7 @@ export default function Header({ onMenuOpen }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const { t } = useTranslation();
 
-  const hidden = ['/', '/onboarding', '/provider-onboard'].includes(location.pathname)
+  const hidden = ['/', '/onboarding', '/provider-onboard', '/visit'].includes(location.pathname)
     || location.pathname.startsWith('/admin')
     || location.pathname.startsWith('/provider-portal')
     || isProviderPortalDomain();

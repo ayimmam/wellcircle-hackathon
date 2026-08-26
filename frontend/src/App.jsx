@@ -36,6 +36,7 @@ const NotificationsScreen = lazy(() => import('./pages/NotificationsScreen'));
 const MyBookings = lazy(() => import('./pages/MyBookings'));
 const EventsScreen = lazy(() => import('./pages/EventsScreen'));
 const AboutScreen = lazy(() => import('./pages/AboutScreen'));
+const VisitScreen = lazy(() => import('./pages/VisitScreen'));
 const ProviderDetail = lazy(importProviderDetail);
 const CommunityList = lazy(importCommunity);
 const CommunityDetail = lazy(() => import('./pages/CommunityDetail'));
@@ -137,6 +138,10 @@ export function AppShell() {
                   provider.wellcircle.et since the portal route claims "/" there */}
               {!isProviderPortalDomain() && <Route path="/" element={<SplashScreen />} />}
               <Route path="/onboarding" element={<OnboardingFlow />} />
+
+              {/* Printed-QR landing: asks "do you have Telegram?" and routes
+                  the answer to the bot or to the web entry at "/". */}
+              <Route path="/visit" element={<VisitScreen />} />
 
               {/* Main tabs */}
               <Route path="/home" element={<ForYouScreen />} />

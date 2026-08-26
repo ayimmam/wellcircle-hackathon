@@ -1,16 +1,19 @@
 """For You feed builder — shared by GET /api/feed/for-you and
 home_bootstrap's `feed` key (Phase 4 of the For You / Boston Day Spa pilot
-plan). Ranking is a fixed, deterministic interleave, documented in
+plan). Ranking is a fixed, deterministic section order, documented in
 docs/API_CONTRACT.md — not a scoring model:
 
-    A four-item lead-in opens the feed — the spotlight provider (top
-    featured, then highest rated), one of its services, its next boosted
-    event, and the recap of its most recent past one — each separated by a
-    member post so the top of the feed reads as a community rather than as a
-    storefront. After the lead-in, posts continue newest-first with one
-    non-post item spliced in after every 3rd, cycling
-    event -> service -> provider -> past_event and skipping a category when
-    empty.
+    1. **Upcoming events** — every boosted event in the next 14 days, newest
+       session first, at the very top of the feed.
+    2. **User content** — member posts, newest-first, paginated by `before`.
+    3. **Provider content** — services, then providers, then past-event
+       recaps, appended once the post stream is exhausted.
+
+    Sections 1 and 3 are bound to the ends of the *whole* feed, not of each
+    page: events are emitted only on the first page (`before is None`) and
+    provider content only on the last (`next_before is None`). Emitting them
+    per-page would repeat the same events on every scroll and strand
+    provider cards in the middle of the post stream.
 
     Both live and coming-soon providers may appear as `service` or
     `provider` items (coming-soon ones render with a "Coming soon" badge and
@@ -119,65 +122,36 @@ def _build_past_event_items(db: Session) -> list:
     return [_event_item(e, "past_event") for e in events]
 
 
-def _interleave(
+def _order_feed(
     post_items: list,
     event_items: list,
     service_items: list,
     provider_items: list,
     past_event_items: list,
+    *,
+    include_events: bool,
+    include_provider_content: bool,
 ) -> list:
-    pools = [event_items, service_items, provider_items, past_event_items]
-    cursors = [0, 0, 0, 0]
-    cycle_idx = 0
+    """Lay the feed out in three sections: upcoming events, then member
+    posts, then provider content.
 
-    def _take_from(pool_idx: int):
-        """Pull the next unused item out of one specific pool, or None."""
-        pool = pools[pool_idx]
-        if cursors[pool_idx] >= len(pool):
-            return None
-        cursors[pool_idx] += 1
-        return pool[cursors[pool_idx] - 1]
-
-    def _take_next() -> bool:
-        """Advance the cycle by one, appending an item if that slot isn't
-        empty. Returns whether anything was appended."""
-        nonlocal cycle_idx
-        for _attempt in range(len(pools)):
-            chosen = cycle_idx
-            cycle_idx = (cycle_idx + 1) % len(pools)
-            item = _take_from(chosen)
-            if item is not None:
-                result.append(item)
-                return True
-        return False
-
+    `include_events` / `include_provider_content` are the page guards. Events
+    belong to the top of the feed as a whole, so only the first page carries
+    them; provider content belongs to the bottom, so only the last page does.
+    Without those guards every scroll page would repeat the same event cards
+    and drop provider cards into the middle of the post stream.
+    """
     result = []
-    # The lead-in: the spotlight provider (top featured/highest-rated — the
-    # pilot, e.g. Boston Day Spa), one of its services, its next event, and
-    # the recap of its last one. Leaving these to the every-3rd-post cadence
-    # meant a light post day pushed them past the fold or off the first page
-    # entirely; spacing them one post apart keeps them visible without
-    # stacking four commercial cards on top of each other.
-    lead_in = [item for item in (
-        _take_from(2), _take_from(1), _take_from(0), _take_from(3),
-    ) if item is not None]
 
-    if lead_in:
-        result.append(lead_in.pop(0))
+    if include_events:
+        result.extend(event_items)
 
-    for i, post_item in enumerate(post_items):
-        result.append(post_item)
-        if lead_in:
-            result.append(lead_in.pop(0))
-        elif (i + 1) % 3 == 0:
-            _take_next()
+    result.extend(post_items)
 
-    # A new user with few/no posts would otherwise never see providers,
-    # services, or events at all — drain whatever the post stream didn't
-    # reach so the feed is never empty while there's content to show.
-    result.extend(lead_in)
-    while _take_next():
-        pass
+    if include_provider_content:
+        result.extend(service_items)
+        result.extend(provider_items)
+        result.extend(past_event_items)
 
     return result
 
@@ -189,16 +163,7 @@ def build_for_you_feed(
     text_only: bool = False,
 ) -> dict:
     """`limit`/`before` paginate the underlying posts (keyset on created_at);
-    interleaved non-post items are additional and outside that cursor.
-
-    `text_only` builds the post stream and nothing else — one keyset query
-    instead of six, no lead-in and no interleave. It is what GET /api/home/lite
-    serves so the For You screen can paint readable text while the provider,
-    service and event pools are still being assembled for the full payload (see
-    app/api/home.py). The cursor is identical either way, because it is derived
-    from the same posts query, so a client that paginates off a lite page stays
-    consistent once the full page replaces it.
-    """
+    the event and provider sections are additional and outside that cursor."""
     now = datetime.now(timezone.utc)
 
     posts = section(db, "feed_posts", lambda: get_public_feed_posts(db, limit=limit, before=before), [])
@@ -216,15 +181,12 @@ def build_for_you_feed(
 
     next_before = posts[-1]["created_at"] if len(posts) == limit else None
 
-    if text_only:
-        return {"items": post_items, "next_before": next_before, "partial": True}
-
-    providers = section(db, "feed_providers", lambda: _feed_providers(db), [])
-    event_items = section(db, "feed_events", lambda: _build_event_items(db, now), [])
-    past_event_items = section(db, "feed_past_events", lambda: _build_past_event_items(db), [])
-    service_items = section(db, "feed_service_items", lambda: _build_service_items(providers), [])
-    provider_items = section(db, "feed_provider_items", lambda: _build_provider_items(db, providers), [])
-
-    items = _interleave(post_items, event_items, service_items, provider_items, past_event_items)
+    items = _order_feed(
+        post_items, event_items, service_items, provider_items, past_event_items,
+        # First page opens with the events; the last one closes with the
+        # provider block. A short feed is both at once.
+        include_events=before is None,
+        include_provider_content=next_before is None,
+    )
 
     return {"items": items, "next_before": next_before}

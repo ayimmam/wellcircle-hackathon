@@ -13,6 +13,7 @@ export const ACCENTS = [
   { key: 'green', swatch: '#059669' },
   { key: 'purple', swatch: '#8B5CF6' },
   { key: 'rose', swatch: '#E11D48' },
+  { key: 'pink', swatch: '#DB2777' },
 ];
 
 const ACCENT_KEYS = ACCENTS.map((a) => a.key);

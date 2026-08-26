@@ -34,6 +34,7 @@ class ProviderBase(BaseModel):
     location_text: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
+    map_url: Optional[str] = Field(None, max_length=500)
     price_range: Optional[str] = None
     rating: Optional[float] = Field(None, ge=0, le=5)
     cover_photo_url: Optional[str] = None
@@ -58,6 +59,7 @@ class ProviderUpdate(BaseModel):
     location_text: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
+    map_url: Optional[str] = Field(None, max_length=500)
     price_range: Optional[str] = None
     rating: Optional[float] = Field(None, ge=0, le=5)
     cover_photo_url: Optional[str] = None
@@ -84,6 +86,7 @@ class ProviderListItem(BaseModel):
     location_text: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
+    map_url: Optional[str] = Field(None, max_length=500)
     price_range: Optional[str] = None
     rating: Optional[float] = None
     cover_photo_url: Optional[str] = None

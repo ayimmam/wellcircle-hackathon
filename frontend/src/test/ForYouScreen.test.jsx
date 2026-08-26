@@ -27,7 +27,7 @@ function renderForYou() {
 }
 
 describe('ForYouScreen — feed item types', () => {
-  it('renders all four feed item types', async () => {
+  it('renders every feed item type', async () => {
     renderForYou();
     await waitFor(() => {
       const types = new Set(MOCK_FOR_YOU_FEED.map(i => i.type));

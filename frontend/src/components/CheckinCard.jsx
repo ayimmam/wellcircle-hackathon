@@ -4,6 +4,7 @@ import useCheckin from '../hooks/useCheckin';
 import { showToast } from './Toast';
 import { track } from '../analytics';
 import Icon from './Icon';
+import ShareCard from './ShareCard';
 
 /**
  * Daily check-in card on Home — the habit-loop trigger. Check-in used to live
@@ -14,7 +15,8 @@ import Icon from './Icon';
  */
 export default function CheckinCard({ circles, onChecked }) {
   const { user } = useAuth();
-  const checkin = useCheckin('home');
+  const [shareMilestone, setShareMilestone] = useState(null);
+  const checkin = useCheckin('home', setShareMilestone);
   const [checkedIds, setCheckedIds] = useState(() =>
     new Set((circles || []).filter(c => c.checked_in_today).map(c => c.id))
   );
@@ -31,14 +33,18 @@ export default function CheckinCard({ circles, onChecked }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (list.length === 0) return null;
+  const shareCard = shareMilestone && <ShareCard milestone={shareMilestone} onClose={() => setShareMilestone(null)} />;
+
+  if (list.length === 0) return shareCard || null;
 
   // Once every listed circle is checked in (including ones that arrived
   // already checked_in_today), the card has nothing left to prompt — unmount
   // it. The toast for the last check-in is rendered by the global
-  // ToastContainer, not inside this card, so it survives the unmount.
+  // ToastContainer, not inside this card, so it survives the unmount. The
+  // milestone ShareCard (if any) still needs to render even though the
+  // check-in prompt itself is gone.
   const allDone = list.every(c => checkedIds.has(c.id));
-  if (allDone) return null;
+  if (allDone) return shareCard || null;
 
   const handleCheckin = async (id) => {
     setBusyId(id);
@@ -59,7 +65,7 @@ export default function CheckinCard({ circles, onChecked }) {
   return (
     <div className="card mb-24" style={{ padding: 16 }} id="home-checkin-card">
       <div className="flex items-center gap-6" style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 10 }}>
-        {streak === 0 ? <Icon name="star" size={15} /> : <span>🔥</span>}
+        <Icon name={streak === 0 ? 'star' : 'flame'} size={15} />
         {streak === 0
           ? 'Start your streak — check in daily!'
           : `Keep your ${streak}-day streak going`}
@@ -88,6 +94,7 @@ export default function CheckinCard({ circles, onChecked }) {
           );
         })}
       </div>
+      {shareCard}
     </div>
   );
 }

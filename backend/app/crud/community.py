@@ -197,7 +197,8 @@ def checkin_community(db: Session, community_id: UUID, user: User):
     """
     from app.services.points import (
         apply_transaction, get_points_tier,
-        TXN_CHALLENGE,
+        TXN_CHALLENGE, TXN_COMEBACK,
+        POINTS_COMEBACK, COMEBACK_MIN_PREVIOUS_STREAK,
     )
 
     community = db.query(Community).filter(Community.id == community_id).first()
@@ -254,6 +255,8 @@ def checkin_community(db: Session, community_id: UUID, user: User):
     # C2: Streak tracking
     now = datetime.now(timezone.utc)
     freeze_used = False
+    comeback_bonus = False
+    previous_streak = user.current_streak or 0
     if user.last_checkin_at:
         days_since = (now.date() - user.last_checkin_at.date()).days
         if days_since == 1:
@@ -265,6 +268,12 @@ def checkin_community(db: Session, community_id: UUID, user: User):
             user.current_streak = (user.current_streak or 0) + 1
             freeze_used = True
         elif days_since > 1:
+            # Streak broke with no freeze to save it — returning should still
+            # feel like a win, not just a reset ("reward the comeback").
+            if previous_streak >= COMEBACK_MIN_PREVIOUS_STREAK:
+                apply_transaction(db, user, POINTS_COMEBACK, TXN_COMEBACK,
+                                  note=f"Comeback bonus: restarted after a {previous_streak}-day streak")
+                comeback_bonus = True
             user.current_streak = 1
         # same day = no change (shouldn't reach here due to duplicate check)
     else:
@@ -273,6 +282,10 @@ def checkin_community(db: Session, community_id: UUID, user: User):
     # C2: Award streak freeze every 7-day streak
     if user.current_streak and user.current_streak % 7 == 0:
         user.freeze_count = (user.freeze_count or 0) + 1
+
+    # Personal best — "reward getting better," not just participating
+    is_personal_best = user.current_streak > (user.longest_streak or 0)
+    user.longest_streak = max(user.longest_streak or 0, user.current_streak or 0)
 
     user.last_checkin_at = now
     event = CommunityFeedEvent(community_id=community_id, user_id=user.id, event_type="checkin")
@@ -336,6 +349,9 @@ def checkin_community(db: Session, community_id: UUID, user: User):
         "current_streak": user.current_streak or 0,
         "freeze_count": user.freeze_count or 0,
         "freeze_used": freeze_used,
+        "comeback_bonus": comeback_bonus,
+        "longest_streak": user.longest_streak or 0,
+        "is_personal_best": is_personal_best,
         "tier": tier,
         "tier_emoji": tier_emoji,
         "feed_event": {

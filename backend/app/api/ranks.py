@@ -18,4 +18,5 @@ def get_ranks(db: Session = Depends(get_db), current_user=Depends(get_current_us
         "communities": ranks_crud.get_top_communities(db),
         "users": ranks_crud.get_top_users(db),
         "me": ranks_crud.get_my_rank(db, current_user.id),
+        "league": ranks_crud.get_my_league(db, current_user.id),
     }

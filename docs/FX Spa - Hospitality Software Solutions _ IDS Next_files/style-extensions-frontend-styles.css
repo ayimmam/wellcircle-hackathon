@@ -1,0 +1,1316 @@
+/*!***************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/css-loader/dist/cjs.js??ruleSet[1].rules[3].use[1]!./node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[3].use[2]!./node_modules/@wordpress/scripts/node_modules/sass-loader/dist/cjs.js??ruleSet[1].rules[3].use[3]!./packages/extensions/style.scss ***!
+  \***************************************************************************************************************************************************************************************************************************************************************************************/
+@charset "UTF-8";
+.mfp-wrap .mfp-container button:hover {
+  background: transparent !important;
+}
+
+.mfp-wrap .mfp-arrow:active {
+  position: absolute;
+  top: 50%;
+}
+
+.mfp-wrap .mfp-close:active {
+  position: absolute;
+  top: -10px;
+}
+
+.mfp-arrow-left .mfp-a,
+.mfp-arrow-left:after,
+.mfp-arrow-right .mfp-a,
+.mfp-arrow-right:after {
+  font-family: ETmodules;
+  speak: none;
+  font-style: normal;
+  font-weight: 400;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.mfp-fade.mfp-bg {
+  opacity: 0.001;
+  transition: all 0.5s ease-out;
+}
+
+.mfp-fade.mfp-bg.mfp-ready {
+  opacity: 0.8;
+}
+
+.mfp-fade.mfp-bg.mfp-removing {
+  opacity: 0;
+}
+
+.mfp-fade .mfp-wrap.mfp-wrap.mfp-ready .mfp-content {
+  opacity: 1;
+}
+
+.mfp-fade .mfp-wrap.mfp-wrap.mfp-removing .mfp-content {
+  opacity: 0;
+}
+
+.mfp-fade .mfp-wrap .mfp-content {
+  opacity: 0.001;
+  transition: all 0.5s ease-out;
+}
+
+.mfp-bg {
+  z-index: 1000000;
+  overflow: hidden;
+  background: #0b0b0b;
+  opacity: 0.8;
+  filter: alpha(opacity=80);
+}
+
+.mfp-bg,
+.mfp-wrap {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  position: fixed;
+}
+
+.mfp-wrap {
+  z-index: 1000001;
+  outline: none !important;
+  -webkit-backface-visibility: hidden;
+}
+
+.mfp-container {
+  text-align: center;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+
+.mfp-container:before {
+  content: "";
+  display: inline-block;
+  height: 100%;
+  vertical-align: middle;
+}
+
+.mfp-align-top .mfp-container:before {
+  display: none;
+}
+
+.mfp-content {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 auto;
+  text-align: left;
+  z-index: 1045;
+}
+
+.mfp-ajax-holder .mfp-content,
+.mfp-inline-holder .mfp-content {
+  width: 100%;
+  cursor: auto;
+}
+
+.mfp-ajax-cur {
+  cursor: progress;
+}
+
+.mfp-zoom {
+  cursor: pointer;
+  cursor: zoom-in;
+}
+
+.mfp-zoom-out-cur,
+.mfp-zoom-out-cur .mfp-image-holder .mfp-close {
+  cursor: zoom-out;
+}
+
+.mfp-auto-cursor .mfp-content {
+  cursor: auto;
+}
+
+.mfp-arrow,
+.mfp-close,
+.mfp-counter,
+.mfp-preloader {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+}
+
+.mfp-loading.mfp-figure {
+  display: none;
+}
+
+.mfp-hide {
+  display: none !important;
+}
+
+.mfp-preloader {
+  color: #ccc;
+  position: absolute;
+  top: 50%;
+  width: auto;
+  text-align: center;
+  margin-top: -0.8em;
+  left: 8px;
+  right: 8px;
+  z-index: 1044;
+}
+
+.mfp-preloader a {
+  color: #ccc;
+}
+
+.mfp-preloader a:hover {
+  color: #fff;
+}
+
+.mfp-s-error .mfp-content,
+.mfp-s-ready .mfp-preloader {
+  display: none;
+}
+
+button.mfp-arrow,
+button.mfp-close {
+  overflow: visible;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  -webkit-appearance: none;
+  display: block;
+  outline: none;
+  padding: 0;
+  z-index: 1046;
+  box-shadow: none;
+}
+
+button::-moz-focus-inner {
+  padding: 0;
+  border: 0;
+}
+
+.mfp-close {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+  position: absolute;
+  right: 0;
+  top: 0;
+  text-decoration: none;
+  text-align: center;
+  opacity: 0.65;
+  filter: alpha(opacity=65);
+  padding: 0 0 18px 10px;
+  color: #fff;
+  font-style: normal;
+  font-size: 28px;
+  font-family: Arial, Baskerville, monospace;
+}
+
+.mfp-close:focus,
+.mfp-close:hover {
+  opacity: 1;
+  filter: alpha(opacity=100);
+}
+
+.mfp-close:active {
+  top: 1px;
+}
+
+.mfp-close-btn-in .mfp-close {
+  color: #333;
+}
+
+.mfp-iframe-holder .mfp-close,
+.mfp-image-holder .mfp-close {
+  color: #fff;
+  right: -6px;
+  text-align: right;
+  padding-right: 6px;
+  width: 100%;
+}
+
+.mfp-counter {
+  position: absolute;
+  top: 0;
+  right: 0;
+  color: #ccc;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.mfp-arrow {
+  position: absolute;
+  opacity: 0.55;
+  filter: alpha(opacity=55);
+  top: 50%;
+  margin: -32px 0 0;
+  padding: 0;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+
+.mfp-arrow:hover {
+  opacity: 1;
+  filter: alpha(opacity=100);
+}
+
+.mfp-arrow-left {
+  left: 10px;
+}
+
+.mfp-arrow-right {
+  right: 10px;
+}
+
+.mfp-iframe-holder {
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+
+.mfp-iframe-holder .mfp-content {
+  line-height: 0;
+  width: 100%;
+  max-width: 900px;
+}
+
+.mfp-iframe-holder .mfp-close {
+  top: -40px;
+}
+
+.mfp-iframe-scaler {
+  width: 100%;
+  height: 0;
+  overflow: hidden;
+  padding-top: 56.25%;
+}
+
+.mfp-iframe-scaler iframe {
+  position: absolute;
+  display: block;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+  background: #000;
+}
+
+.mfp-arrow {
+  background: none !important;
+  margin-top: -32px !important;
+  line-height: 1em !important;
+}
+
+.mfp-arrow,
+.mfp-arrow:after {
+  width: 48px !important;
+  height: 48px !important;
+}
+
+.mfp-arrow:after {
+  margin: 0 !important;
+  top: 0 !important;
+  border: none !important;
+}
+
+.mfp-arrow-left {
+  left: 0 !important;
+}
+
+.mfp-arrow-left .mfp-a,
+.mfp-arrow-left:after,
+.mfp-arrow-right .mfp-a,
+.mfp-arrow-right:after {
+  border: none;
+  font-size: 64px;
+  color: #fff;
+}
+
+.mfp-arrow-left:before,
+.mfp-arrow-right:before {
+  display: none;
+}
+
+.mfp-arrow-left .mfp-a,
+.mfp-arrow-left:after {
+  content: "4";
+}
+
+.mfp-arrow-right .mfp-a,
+.mfp-arrow-right:after {
+  content: "5";
+}
+
+.mfp-iframe-holder .mfp-close,
+.mfp-image-holder .mfp-close {
+  font-size: 64px;
+  font-family: Open Sans, Arial, sans-serif;
+  font-weight: 200;
+  top: -10px;
+  opacity: 0.2;
+}
+
+.mfp-iframe-holder .mfp-close:hover,
+.mfp-image-holder .mfp-close:hover {
+  opacity: 1;
+}
+
+img.mfp-img {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  box-sizing: border-box;
+  padding: 40px 0;
+  margin: 0 auto;
+}
+
+.mfp-figure,
+img.mfp-img {
+  line-height: 0;
+}
+
+.mfp-figure:after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 40px;
+  bottom: 40px;
+  display: block;
+  right: 0;
+  width: auto;
+  height: auto;
+  z-index: -1;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+  background: #444;
+}
+
+.mfp-figure small {
+  color: #bdbdbd;
+  display: block;
+  font-size: 12px;
+  line-height: 14px;
+}
+
+.mfp-figure figure {
+  margin: 0;
+}
+
+.mfp-bottom-bar {
+  margin-top: -36px;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  cursor: auto;
+}
+
+.mfp-title {
+  text-align: left;
+  line-height: 18px;
+  color: #f3f3f3;
+  word-wrap: break-word;
+  padding-right: 36px;
+}
+
+.mfp-image-holder .mfp-content {
+  max-width: 100%;
+}
+
+.mfp-gallery .mfp-image-holder .mfp-figure {
+  cursor: pointer;
+}
+
+@media screen and (max-height: 300px), screen and (max-width: 800px) and (orientation: landscape) {
+  .mfp-img-mobile .mfp-image-holder {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .mfp-img-mobile img.mfp-img {
+    padding: 0;
+  }
+  .mfp-img-mobile .mfp-figure:after {
+    top: 0;
+    bottom: 0;
+  }
+  .mfp-img-mobile .mfp-figure small {
+    display: inline;
+    margin-left: 5px;
+  }
+  .mfp-img-mobile .mfp-bottom-bar {
+    background: rgba(0, 0, 0, 0.6);
+    bottom: 0;
+    margin: 0;
+    top: auto;
+    padding: 3px 5px;
+    position: fixed;
+    box-sizing: border-box;
+  }
+  .mfp-img-mobile .mfp-bottom-bar:empty {
+    padding: 0;
+  }
+  .mfp-img-mobile .mfp-counter {
+    right: 5px;
+    top: 3px;
+  }
+  .mfp-img-mobile .mfp-close {
+    top: 0;
+    right: 0;
+    width: 35px;
+    height: 35px;
+    line-height: 35px;
+    background: rgba(0, 0, 0, 0.6);
+    position: fixed;
+    text-align: center;
+    padding: 0;
+  }
+}
+@media (max-width: 900px) {
+  .mfp-arrow {
+    transform: scale(0.75);
+  }
+  .mfp-arrow-left {
+    transform-origin: 0;
+  }
+  .mfp-arrow-right {
+    transform-origin: 100%;
+  }
+  .mfp-container {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+}
+/* Video iframe markup puts .mfp-close inside .mfp-iframe-scaler (see dsm-video-popup).
+   Holder rules use width:100% for closes on .mfp-content; here that spans the scaler. */
+.mfp-iframe-scaler.dsm-video-popup {
+  overflow: visible;
+  position: relative;
+}
+.mfp-iframe-scaler.dsm-video-popup .mfp-close {
+  width: 44px !important;
+  height: 44px;
+  line-height: 44px;
+  padding: 0 !important;
+  margin: 0;
+  text-align: center !important;
+  right: 0 !important;
+  left: auto !important;
+  top: -44px;
+  z-index: 2;
+}
+
+@media (min-width: 981px) {
+  .dsm-popup .et_pb_gutters1 .et_block_row .et_pb_column,
+  .dsm-popup .et_pb_gutters1.et_block_row.et_pb_row > .et_pb_column {
+    margin-right: 0;
+  }
+  .dsm-popup .et_pb_gutters1 .et_block_row .et_pb_column_4_4,
+  .dsm-popup .et_pb_gutters1.et_block_row.et_pb_row > .et_pb_column_4_4 {
+    width: 100%;
+  }
+  .dsm-popup .et_pb_gutters1 .et_block_row .et_pb_column_3_4,
+  .dsm-popup .et_pb_gutters1.et_block_row.et_pb_row > .et_pb_column_3_4 {
+    width: 75%;
+  }
+  .dsm-popup .et_pb_gutters1 .et_block_row .et_pb_column_2_3,
+  .dsm-popup .et_pb_gutters1.et_block_row.et_pb_row > .et_pb_column_2_3 {
+    width: 66.667%;
+  }
+  .dsm-popup .et_pb_gutters1 .et_block_row .et_pb_column_3_5,
+  .dsm-popup .et_pb_gutters1.et_block_row.et_pb_row > .et_pb_column_3_5 {
+    width: 60%;
+  }
+  .dsm-popup .et_pb_gutters1 .et_block_row .et_pb_column_1_2,
+  .dsm-popup .et_pb_gutters1.et_block_row.et_pb_row > .et_pb_column_1_2 {
+    width: 50%;
+  }
+  .dsm-popup .et_pb_gutters1 .et_block_row .et_pb_column_2_5,
+  .dsm-popup .et_pb_gutters1.et_block_row.et_pb_row > .et_pb_column_2_5 {
+    width: 40%;
+  }
+  .dsm-popup .et_pb_gutters1 .et_block_row .et_pb_column_1_3,
+  .dsm-popup .et_pb_gutters1.et_block_row.et_pb_row > .et_pb_column_1_3 {
+    width: 33.3333%;
+  }
+  .dsm-popup .et_pb_gutters1 .et_block_row .et_pb_column_1_4,
+  .dsm-popup .et_pb_gutters1.et_block_row.et_pb_row > .et_pb_column_1_4 {
+    width: 25%;
+  }
+  .dsm-popup .et_pb_gutters1 .et_block_row .et_pb_column_1_5,
+  .dsm-popup .et_pb_gutters1.et_block_row.et_pb_row > .et_pb_column_1_5 {
+    width: 20%;
+  }
+  .dsm-popup .et_pb_gutters1 .et_block_row .et_pb_column_1_6,
+  .dsm-popup .et_pb_gutters1.et_block_row.et_pb_row > .et_pb_column_1_6 {
+    width: 16.6667%;
+  }
+  .dsm-popup .et_pb_gutters2 .et_block_row .et_pb_column,
+  .dsm-popup .et_pb_gutters2.et_block_row.et_pb_row > .et_pb_column {
+    margin-right: 3%;
+  }
+  .dsm-popup .et_pb_gutters2 .et_block_row .et_pb_column_4_4,
+  .dsm-popup .et_pb_gutters2.et_block_row.et_pb_row > .et_pb_column_4_4 {
+    width: 100%;
+  }
+  .dsm-popup .et_pb_gutters2 .et_block_row .et_pb_column_3_4,
+  .dsm-popup .et_pb_gutters2.et_block_row.et_pb_row > .et_pb_column_3_4 {
+    width: 74.25%;
+  }
+  .dsm-popup .et_pb_gutters2 .et_block_row .et_pb_column_2_3,
+  .dsm-popup .et_pb_gutters2.et_block_row.et_pb_row > .et_pb_column_2_3 {
+    width: 65.667%;
+  }
+  .dsm-popup .et_pb_gutters2 .et_block_row .et_pb_column_3_5,
+  .dsm-popup .et_pb_gutters2.et_block_row.et_pb_row > .et_pb_column_3_5 {
+    width: 58.8%;
+  }
+  .dsm-popup .et_pb_gutters2 .et_block_row .et_pb_column_1_2,
+  .dsm-popup .et_pb_gutters2.et_block_row.et_pb_row > .et_pb_column_1_2 {
+    width: 48.5%;
+  }
+  .dsm-popup .et_pb_gutters2 .et_block_row .et_pb_column_2_5,
+  .dsm-popup .et_pb_gutters2.et_block_row.et_pb_row > .et_pb_column_2_5 {
+    width: 38.2%;
+  }
+  .dsm-popup .et_pb_gutters2 .et_block_row .et_pb_column_1_3,
+  .dsm-popup .et_pb_gutters2.et_block_row.et_pb_row > .et_pb_column_1_3 {
+    width: 31.3333%;
+  }
+  .dsm-popup .et_pb_gutters2 .et_block_row .et_pb_column_1_4,
+  .dsm-popup .et_pb_gutters2.et_block_row.et_pb_row > .et_pb_column_1_4 {
+    width: 22.75%;
+  }
+  .dsm-popup .et_pb_gutters2 .et_block_row .et_pb_column_1_5,
+  .dsm-popup .et_pb_gutters2.et_block_row.et_pb_row > .et_pb_column_1_5 {
+    width: 17.6%;
+  }
+  .dsm-popup .et_pb_gutters2 .et_block_row .et_pb_column_1_6,
+  .dsm-popup .et_pb_gutters2.et_block_row.et_pb_row > .et_pb_column_1_6 {
+    width: 14.1667%;
+  }
+  .dsm-popup .et_pb_gutters3 .et_block_row .et_pb_column,
+  .dsm-popup .et_pb_gutters3.et_block_row.et_pb_row > .et_pb_column {
+    margin-right: 5.5%;
+  }
+  .dsm-popup .et_pb_gutters3 .et_block_row .et_pb_column_4_4,
+  .dsm-popup .et_pb_gutters3.et_block_row.et_pb_row > .et_pb_column_4_4 {
+    width: 100%;
+  }
+  .dsm-popup .et_pb_gutters3 .et_block_row .et_pb_column_3_4,
+  .dsm-popup .et_pb_gutters3.et_block_row.et_pb_row > .et_pb_column_3_4 {
+    width: 73.625%;
+  }
+  .dsm-popup .et_pb_gutters3 .et_block_row .et_pb_column_2_3,
+  .dsm-popup .et_pb_gutters3.et_block_row.et_pb_row > .et_pb_column_2_3 {
+    width: 64.833%;
+  }
+  .dsm-popup .et_pb_gutters3 .et_block_row .et_pb_column_3_5,
+  .dsm-popup .et_pb_gutters3.et_block_row.et_pb_row > .et_pb_column_3_5 {
+    width: 57.8%;
+  }
+  .dsm-popup .et_pb_gutters3 .et_block_row .et_pb_column_1_2,
+  .dsm-popup .et_pb_gutters3.et_block_row.et_pb_row > .et_pb_column_1_2 {
+    width: 47.25%;
+  }
+  .dsm-popup .et_pb_gutters3 .et_block_row .et_pb_column_2_5,
+  .dsm-popup .et_pb_gutters3.et_block_row.et_pb_row > .et_pb_column_2_5 {
+    width: 36.7%;
+  }
+  .dsm-popup .et_pb_gutters3 .et_block_row .et_pb_column_1_3,
+  .dsm-popup .et_pb_gutters3.et_block_row.et_pb_row > .et_pb_column_1_3 {
+    width: 29.6667%;
+  }
+  .dsm-popup .et_pb_gutters3 .et_block_row .et_pb_column_1_4,
+  .dsm-popup .et_pb_gutters3.et_block_row.et_pb_row > .et_pb_column_1_4 {
+    width: 20.875%;
+  }
+  .dsm-popup .et_pb_gutters3 .et_block_row .et_pb_column_1_5,
+  .dsm-popup .et_pb_gutters3.et_block_row.et_pb_row > .et_pb_column_1_5 {
+    width: 15.6%;
+  }
+  .dsm-popup .et_pb_gutters3 .et_block_row .et_pb_column_1_6,
+  .dsm-popup .et_pb_gutters3.et_block_row.et_pb_row > .et_pb_column_1_6 {
+    width: 12.0833%;
+  }
+  .dsm-popup .et_pb_gutters4 .et_block_row .et_pb_column,
+  .dsm-popup .et_pb_gutters4.et_block_row.et_pb_row > .et_pb_column {
+    margin-right: 8%;
+  }
+  .dsm-popup .et_pb_gutters4 .et_block_row .et_pb_column_4_4,
+  .dsm-popup .et_pb_gutters4.et_block_row.et_pb_row > .et_pb_column_4_4 {
+    width: 100%;
+  }
+  .dsm-popup .et_pb_gutters4 .et_block_row .et_pb_column_3_4,
+  .dsm-popup .et_pb_gutters4.et_block_row.et_pb_row > .et_pb_column_3_4 {
+    width: 73%;
+  }
+  .dsm-popup .et_pb_gutters4 .et_block_row .et_pb_column_2_3,
+  .dsm-popup .et_pb_gutters4.et_block_row.et_pb_row > .et_pb_column_2_3 {
+    width: 64%;
+  }
+  .dsm-popup .et_pb_gutters4 .et_block_row .et_pb_column_3_5,
+  .dsm-popup .et_pb_gutters4.et_block_row.et_pb_row > .et_pb_column_3_5 {
+    width: 56.8%;
+  }
+  .dsm-popup .et_pb_gutters4 .et_block_row .et_pb_column_1_2,
+  .dsm-popup .et_pb_gutters4.et_block_row.et_pb_row > .et_pb_column_1_2 {
+    width: 46%;
+  }
+  .dsm-popup .et_pb_gutters4 .et_block_row .et_pb_column_2_5,
+  .dsm-popup .et_pb_gutters4.et_block_row.et_pb_row > .et_pb_column_2_5 {
+    width: 35.2%;
+  }
+  .dsm-popup .et_pb_gutters4 .et_block_row .et_pb_column_1_3,
+  .dsm-popup .et_pb_gutters4.et_block_row.et_pb_row > .et_pb_column_1_3 {
+    width: 28%;
+  }
+  .dsm-popup .et_pb_gutters4 .et_block_row .et_pb_column_1_4,
+  .dsm-popup .et_pb_gutters4.et_block_row.et_pb_row > .et_pb_column_1_4 {
+    width: 19%;
+  }
+  .dsm-popup .et_pb_gutters4 .et_block_row .et_pb_column_1_5,
+  .dsm-popup .et_pb_gutters4.et_block_row.et_pb_row > .et_pb_column_1_5 {
+    width: 13.6%;
+  }
+  .dsm-popup .et_pb_gutters4 .et_block_row .et_pb_column_1_6,
+  .dsm-popup .et_pb_gutters4.et_block_row.et_pb_row > .et_pb_column_1_6 {
+    width: 10%;
+  }
+}
+.dsm-popup-trigger-pointer {
+  cursor: pointer;
+}
+
+.dsm-popup {
+  display: none;
+}
+.dsm-popup .dsm-popup-wrapper {
+  position: relative;
+  padding-top: var(--dsm-popup-padding-top);
+  padding-right: var(--dsm-popup-padding-right);
+  padding-bottom: var(--dsm-popup-padding-bottom);
+  padding-left: var(--dsm-popup-padding-left);
+  width: 100%;
+  background-color: var(--dsm-popup-wrapper-background-color);
+  box-shadow: var(--dsm-popup-box-shadow);
+  border-top-left-radius: var(--dsm-popup-border-top-left-radius);
+  border-top-right-radius: var(--dsm-popup-border-top-right-radius);
+  border-bottom-left-radius: var(--dsm-popup-border-bottom-left-radius);
+  border-bottom-right-radius: var(--dsm-popup-border-bottom-right-radius);
+  border-width: var(--dsm-popup-border-width);
+  border-style: var(--dsm-popup-border-style);
+  border-color: var(--dsm-popup-border-color);
+  border-top: var(--dsm-popup-border-top);
+  border-right: var(--dsm-popup-border-right);
+  border-bottom: var(--dsm-popup-border-bottom);
+  border-left: var(--dsm-popup-border-left);
+  border-top-color: var(--dsm-popup-border-top-color, var(--dsm-popup-border-color));
+  border-right-color: var(--dsm-popup-border-right-color, var(--dsm-popup-border-color));
+  border-bottom-color: var(--dsm-popup-border-bottom-color, var(--dsm-popup-border-color));
+  border-left-color: var(--dsm-popup-border-left-color, var(--dsm-popup-border-color));
+  border-top-width: var(--dsm-popup-border-top-width, var(--dsm-popup-border-width));
+  border-right-width: var(--dsm-popup-border-right-width, var(--dsm-popup-border-width));
+  border-bottom-width: var(--dsm-popup-border-bottom-width, var(--dsm-popup-border-width));
+  border-left-width: var(--dsm-popup-border-left-width, var(--dsm-popup-border-width));
+  border-top-style: var(--dsm-popup-border-top-style, var(--dsm-popup-border-style));
+  border-right-style: var(--dsm-popup-border-right-style, var(--dsm-popup-border-style));
+  border-bottom-style: var(--dsm-popup-border-bottom-style, var(--dsm-popup-border-style));
+  border-left-style: var(--dsm-popup-border-left-style, var(--dsm-popup-border-style));
+}
+.dsm-popup .et-l.et-l--body {
+  padding-top: var(--dsm-popup-padding-top);
+  padding-right: var(--dsm-popup-padding-right);
+  padding-bottom: var(--dsm-popup-padding-bottom);
+  padding-left: var(--dsm-popup-padding-left);
+  width: 100%;
+}
+.dsm-popup .et_builder_inner_content {
+  min-height: var(--dsm-popup-max-height);
+  max-height: var(--dsm-popup-max-height);
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-top-left-radius: var(--dsm-popup-border-top-left-radius);
+  border-top-right-radius: var(--dsm-popup-border-top-right-radius);
+  border-bottom-left-radius: var(--dsm-popup-border-bottom-left-radius);
+  border-bottom-right-radius: var(--dsm-popup-border-bottom-right-radius);
+}
+
+.mfp-content .dsm-popup {
+  display: flex !important;
+  width: var(--dsm-popup-max-width) !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.mfp-bg:has(+ .mfp-wrap.dsm-popup-modal) {
+  opacity: 1 !important;
+  background: var(--dsm-popup-overlay-color, rgba(0, 0, 0, 0.8)) !important;
+}
+
+.mfp-bg:has(+ .mfp-wrap.dsm-popup-modal.dsm-popup-no-overlay) {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.mfp-wrap.dsm-popup-modal.dsm-popup-no-overlay {
+  pointer-events: none;
+}
+.mfp-wrap.dsm-popup-modal.dsm-popup-no-overlay .mfp-container {
+  pointer-events: none;
+}
+.mfp-wrap.dsm-popup-modal.dsm-popup-no-overlay .mfp-content,
+.mfp-wrap.dsm-popup-modal.dsm-popup-no-overlay .dsm-popup,
+.mfp-wrap.dsm-popup-modal.dsm-popup-no-overlay .dsm-popup-wrapper,
+.mfp-wrap.dsm-popup-modal.dsm-popup-no-overlay .dsm-popup-wrapper * {
+  pointer-events: auto;
+}
+
+.mfp-wrap.dsm-popup-modal .mfp-container {
+  padding: 0;
+}
+
+.mfp-wrap.dsm-popup-modal .mfp-container button.mfp-close:hover {
+  background-color: var(--dsm-popup-close-bg-button-color) !important;
+}
+
+.dsm-popup .dsm-popup-wrapper .mfp-close.dsm-custom-close {
+  opacity: 1 !important;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0 !important;
+  display: flex;
+  align-items: var(--close-button-position-vertical);
+  justify-content: var(--close-button-position-horizontal);
+  padding: 0px !important;
+  pointer-events: none;
+  z-index: 99;
+}
+.dsm-popup .dsm-popup-wrapper .mfp-close.dsm-custom-close:active {
+  top: 0px !important;
+}
+
+.dsm-popup .dsm-popup-wrapper .mfp-close.dsm-custom-close:before {
+  content: var(--dsm-popup-close-icon-unicode, "M") !important;
+  font-family: var(--dsm-popup-close-icon-font-family) !important;
+  font-weight: var(--dsm-popup-close-icon-font-weight) !important;
+  font-size: inherit !important;
+  display: inline-block !important;
+  opacity: 1 !important;
+  color: var(--dsm-popup-close-button-color) !important;
+  font-size: var(--dsm-popup-close-button-size) !important;
+  background-color: var(--dsm-popup-close-bg-button-color) !important;
+  cursor: pointer;
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: all;
+  top: var(--close-button-position-top);
+  left: var(--close-button-position-left, auto);
+}
+
+/*** Popup Position CSS ****/
+.dsm-popup-modal .mfp-content .dsm-popup {
+  width: var(--dsm-popup-max-width) !important;
+  position: relative;
+}
+.dsm-popup-modal .mfp-content .dsm-popup .et-l.et-l--body {
+  width: 100% !important;
+}
+
+/* Cross axis positioning */
+.dsm-popup-modal .mfp-content .dsm-popup {
+  margin: var(--dsm-popup-cross-margin, 0 auto);
+}
+
+/* Main axis positioning */
+.dsm-popup-modal .mfp-content {
+  vertical-align: var(--dsm-popup-main-align, center);
+}
+
+/**
+ * Position type: Absolute (D4 default). Flex-align like fixed, but keep Magnific scroll lock;
+ * disable inline-block `:before` strut so it cannot block clicks on `.mfp-content`.
+ */
+.mfp-wrap.dsm-popup-modal.dsm-popup-position-absolute .mfp-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: var(--dsm-popup-main-justify, center);
+  align-items: stretch;
+  height: 100%;
+  padding: 0;
+}
+.mfp-wrap.dsm-popup-modal.dsm-popup-position-absolute .mfp-container:before {
+  content: none !important;
+  display: none !important;
+}
+.mfp-wrap.dsm-popup-modal.dsm-popup-position-absolute .mfp-content {
+  position: relative;
+  flex: 0 0 auto;
+  margin: var(--dsm-popup-cross-margin, 0 auto);
+  width: var(--dsm-popup-max-width);
+  max-width: 100%;
+  pointer-events: auto;
+  vertical-align: initial;
+  -webkit-user-select: text;
+     -moz-user-select: text;
+          user-select: text;
+}
+
+/**
+ * Position type: Fixed (D4 `dsm_modules_popup_position_type`).
+ * Full-viewport shell + flex container for main-axis alignment; only `.mfp-content` captures input.
+ */
+.mfp-wrap.dsm-popup-modal.dsm-popup-position-fixed {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none;
+}
+.mfp-wrap.dsm-popup-modal.dsm-popup-position-fixed .mfp-container {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: var(--dsm-popup-main-justify, center);
+  align-items: stretch;
+  height: 100%;
+  padding: 0;
+  pointer-events: none;
+}
+.mfp-wrap.dsm-popup-modal.dsm-popup-position-fixed .mfp-container:before {
+  content: none !important;
+  display: none !important;
+}
+.mfp-wrap.dsm-popup-modal.dsm-popup-position-fixed .mfp-content {
+  position: relative;
+  flex: 0 0 auto;
+  margin: var(--dsm-popup-cross-margin, 0 auto);
+  width: var(--dsm-popup-max-width);
+  max-width: 100%;
+  pointer-events: auto;
+  vertical-align: initial;
+  -webkit-user-select: text;
+     -moz-user-select: text;
+          user-select: text;
+}
+
+.mfp-bg:has(+ .mfp-wrap.dsm-popup-modal.dsm-popup-position-fixed) {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  pointer-events: none !important;
+}
+
+.dsm-popup-close-icon {
+  font-family: var(--dsm-popup-close-icon-font-family, "ETmodules");
+  font-size: var(--dsm-popup-close-button-size, 28px);
+  color: var(--dsm-popup-close-button-color, #000000);
+  font-weight: var(--dsm-popup-close-icon-font-weight, 400);
+}
+
+.dsm-popup-close-icon:before {
+  content: var(--dsm-popup-close-icon-unicode, "M");
+}
+
+.et-vb-field[class*=et-vb-field-dsm-popup-],
+.et-vb-field[class*=et-vb-field-dsm-dark-mode-],
+.et-vb-field:has(.dsm-popup-responsive-bp-shell) {
+  overflow: visible;
+}
+.et-vb-field[class*=et-vb-field-dsm-popup-] .et-vb-field-label,
+.et-vb-field[class*=et-vb-field-dsm-dark-mode-] .et-vb-field-label,
+.et-vb-field:has(.dsm-popup-responsive-bp-shell) .et-vb-field-label {
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+.et-vb-field[class*=et-vb-field-dsm-popup-] .et-vb-field-label-buttons,
+.et-vb-field[class*=et-vb-field-dsm-dark-mode-] .et-vb-field-label-buttons,
+.et-vb-field:has(.dsm-popup-responsive-bp-shell) .et-vb-field-label-buttons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  align-content: flex-end;
+  row-gap: 4px;
+  overflow: visible;
+  flex-shrink: 0;
+}
+.et-vb-field[class*=et-vb-field-dsm-popup-] .et-vb-field-label-buttons > .et-vb-field-button,
+.et-vb-field[class*=et-vb-field-dsm-popup-] .et-vb-field-label-buttons > .et-vb-field-button-responsive-editor,
+.et-vb-field[class*=et-vb-field-dsm-popup-] .et-vb-field-label-buttons .et-vb-field-button-responsive-editor,
+.et-vb-field[class*=et-vb-field-dsm-dark-mode-] .et-vb-field-label-buttons > .et-vb-field-button,
+.et-vb-field[class*=et-vb-field-dsm-dark-mode-] .et-vb-field-label-buttons > .et-vb-field-button-responsive-editor,
+.et-vb-field[class*=et-vb-field-dsm-dark-mode-] .et-vb-field-label-buttons .et-vb-field-button-responsive-editor,
+.et-vb-field:has(.dsm-popup-responsive-bp-shell) .et-vb-field-label-buttons > .et-vb-field-button,
+.et-vb-field:has(.dsm-popup-responsive-bp-shell) .et-vb-field-label-buttons > .et-vb-field-button-responsive-editor,
+.et-vb-field:has(.dsm-popup-responsive-bp-shell) .et-vb-field-label-buttons .et-vb-field-button-responsive-editor {
+  flex: 0 0 auto;
+}
+.et-vb-field[class*=et-vb-field-dsm-popup-] .dsm-popup-responsive-bp__panel,
+.et-vb-field[class*=et-vb-field-dsm-dark-mode-] .dsm-popup-responsive-bp__panel,
+.et-vb-field:has(.dsm-popup-responsive-bp-shell) .dsm-popup-responsive-bp__panel {
+  flex: 1 1 100%;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  z-index: 5;
+  position: relative;
+  padding: 4px 6px;
+  margin-top: 2px;
+  background: var(--app-background);
+  border-radius: 3px;
+  grid-column: unset;
+}
+.et-vb-field[class*=et-vb-field-dsm-popup-] .dsm-popup-responsive-bp__panel .et-vb-icon,
+.et-vb-field[class*=et-vb-field-dsm-dark-mode-] .dsm-popup-responsive-bp__panel .et-vb-icon,
+.et-vb-field:has(.dsm-popup-responsive-bp-shell) .dsm-popup-responsive-bp__panel .et-vb-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+.dsm-popup-responsive-bp-shell {
+  display: contents;
+}
+
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button,
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button {
+  opacity: 1;
+  border-radius: 3px;
+  background-color: transparent !important;
+}
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button:hover,
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button:focus-visible,
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button:hover,
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button:focus-visible {
+  background-color: transparent !important;
+}
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current,
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current:hover,
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current:focus-visible,
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current,
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current:hover,
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current:focus-visible {
+  background-color: var(--app-color) !important;
+}
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button svg *[fill]:not(.et-vb-svg-nofill),
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button svg *[fill]:not(.et-vb-svg-nofill) {
+  fill: var(--medium-gray) !important;
+}
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button svg *[stroke]:not(.et-vb-svg-nostroke),
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button svg *[stroke]:not(.et-vb-svg-nostroke) {
+  stroke: var(--medium-gray) !important;
+}
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button:hover svg *[fill]:not(.et-vb-svg-nofill),
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button:focus-visible svg *[fill]:not(.et-vb-svg-nofill),
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button:hover svg *[fill]:not(.et-vb-svg-nofill),
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button:focus-visible svg *[fill]:not(.et-vb-svg-nofill) {
+  fill: var(--app-color) !important;
+}
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button:hover svg *[stroke]:not(.et-vb-svg-nostroke),
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button:focus-visible svg *[stroke]:not(.et-vb-svg-nostroke),
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button:hover svg *[stroke]:not(.et-vb-svg-nostroke),
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button:focus-visible svg *[stroke]:not(.et-vb-svg-nostroke) {
+  stroke: var(--app-color) !important;
+}
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current svg *[fill]:not(.et-vb-svg-nofill),
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current:hover svg *[fill]:not(.et-vb-svg-nofill),
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current:focus-visible svg *[fill]:not(.et-vb-svg-nofill),
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current svg *[fill]:not(.et-vb-svg-nofill),
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current:hover svg *[fill]:not(.et-vb-svg-nofill),
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current:focus-visible svg *[fill]:not(.et-vb-svg-nofill) {
+  fill: #fff !important;
+}
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current svg *[stroke]:not(.et-vb-svg-nostroke),
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current:hover svg *[stroke]:not(.et-vb-svg-nostroke),
+.dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current:focus-visible svg *[stroke]:not(.et-vb-svg-nostroke),
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current svg *[stroke]:not(.et-vb-svg-nostroke),
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current:hover svg *[stroke]:not(.et-vb-svg-nostroke),
+.et-vb-modal-wrapper .dsm-popup-responsive-bp__panel.et-vb-page-bar-responsive-controls [type=button].dsm-popup-responsive-bp-button.et-vb-page-bar-responsive-button.dsm-popup-responsive-bp-button--current:focus-visible svg *[stroke]:not(.et-vb-svg-nostroke) {
+  stroke: #fff !important;
+}
+
+.dsm-popup-responsive-bp__panel .et-vb-page-bar-responsive-buttons-wrapper {
+  gap: 4px;
+}
+
+/**
+ * Universal Supreme + Divi webfont icon host helpers.
+ *
+ * Mirrors module common.scss defaults onto `.et-pb-icon.dsm-webfont-icon-host` so
+ * custom library icons inherit the same color/size baselines as native ::before icons.
+ */
+.et-pb-icon.dsm-native-icon-host::before,
+.et-pb-icon.dsm-native-icon-host::after,
+.et-pb-icon.dsm-webfont-icon-host::before,
+.et-pb-icon.dsm-webfont-icon-host::after,
+.et-pb-icon:has(.dsm-native-icon-glyph)::before,
+.et-pb-icon:has(.dsm-native-icon-glyph)::after,
+.et-pb-icon:has(.dsm-webfont-icon-glyph)::before,
+.et-pb-icon:has(.dsm-webfont-icon-glyph)::after {
+  content: none !important;
+  display: none !important;
+}
+
+.dsm-native-icon-glyph {
+  display: inline-block;
+  font-style: normal;
+  font-weight: inherit;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  color: inherit;
+  font-size: 1em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.et-pb-icon.dsm-native-icon-host,
+.et-pb-icon.dsm-webfont-icon-host {
+  color: currentColor;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1;
+}
+.et-pb-icon.dsm-native-icon-host .dsm-webfont-icon-glyph,
+.et-pb-icon.dsm-native-icon-host .dsm-native-icon-glyph,
+.et-pb-icon.dsm-webfont-icon-host .dsm-webfont-icon-glyph,
+.et-pb-icon.dsm-webfont-icon-host .dsm-native-icon-glyph {
+  color: currentColor;
+  font-size: 1em;
+  line-height: inherit;
+}
+
+/* Image Hotspots — packages/module-library/image-hotspots/common.scss */
+.dsm_image_hotspots_child .et-pb-icon.dsm-webfont-icon-host,
+.dsm_image_hotspots .et-pb-icon.dsm_image_hotspots_icon.dsm-webfont-icon-host {
+  color: #fff;
+}
+
+.dsm_image_hotspots_child .et-pb-icon.dsm-webfont-icon-host {
+  font-size: 14px;
+}
+
+/* Icon List — default icon slot sizing baseline */
+.dsm_icon_list .et-pb-icon.dsm_icon_list_icon.dsm-webfont-icon-host {
+  line-height: 1;
+}
+
+/* Step Flow */
+.dsm_step_flow .et-pb-icon.dsm_icon.dsm-webfont-icon-host,
+.dsm-step-flow-container .et-pb-icon.dsm_icon.dsm-webfont-icon-host {
+  line-height: 1;
+}
+
+/* Content Timeline — pointer + card icon hosts */
+.dsm-content-timeline-middle-circle .et-pb-icon.dsm-icon.dsm-webfont-icon-host,
+.dsm-content-timeline-items-wrapper .dsm-icon-wrapper .et-pb-icon.dsm-icon.dsm-webfont-icon-host {
+  line-height: 1;
+}
+
+/* Circle Info — orbit button + content panel icon hosts */
+.dsm_circle_info .et-pb-icon.dsm_icon.dsm-webfont-icon-host,
+.dsm_circle_info .et-pb-icon.dsm_content_icon.dsm-webfont-icon-host {
+  line-height: 1;
+}
+
+/* Advanced Tabs — tab + content icon hosts */
+.dsm-advanced-tabs-wrapper .et-pb-icon.dsm_icon.dsm-webfont-icon-host,
+.dsm-advanced-tabs-wrapper .et-pb-icon.dsm-active-icon.dsm-webfont-icon-host,
+.dsm-content-wrapper .et-pb-icon.dsm_content_icon.dsm-webfont-icon-host {
+  line-height: 1;
+}
+
+/* Image Accordion — content panel icon */
+.dsm_image_accordion_child .et-pb-icon.dsm_image_accordion_icon.dsm-webfont-icon-host {
+  line-height: 1;
+}
+
+/* Icon List */
+.dsm_icon_list_child .et-pb-icon.dsm_icon_list_icon.dsm-webfont-icon-host {
+  line-height: 1;
+}
+
+/* Breadcrumbs — home + separator custom hosts */
+.dsm_breadcrumbs .dsm_home_icon.dsm-webfont-icon-host,
+.dsm_breadcrumbs .dsm_home_icon.dsm-native-icon-host,
+.dsm_breadcrumbs .dsm_separator_icon.dsm-webfont-icon-host,
+.dsm_breadcrumbs .dsm_separator_icon.dsm-native-icon-host {
+  line-height: 1;
+}
+
+.dsm_breadcrumbs .dsm_home_icon.dsm-webfont-icon-host::before,
+.dsm_breadcrumbs .dsm_home_icon.dsm-native-icon-host::before,
+.dsm_breadcrumbs .dsm_separator_icon.dsm-webfont-icon-host::before,
+.dsm_breadcrumbs .dsm_separator_icon.dsm-native-icon-host::before,
+.dsm_breadcrumbs .dsm_home_icon:has(.dsm-webfont-icon-glyph)::before,
+.dsm_breadcrumbs .dsm_separator_icon:has(.dsm-webfont-icon-glyph)::before {
+  content: none !important;
+  display: none !important;
+}
+
+/*
+ * Carousel Swiper nav (VB) — DSM glyphs render in sibling overlays; buttons stay empty.
+ * Adjacent-sibling selectors mirror each module's nav button inset rules.
+ */
+.dsm-carousel-nav-icon-overlay {
+  position: absolute;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--swiper-navigation-size, 60px);
+  height: var(--swiper-navigation-size, 60px);
+  margin-top: calc(-0.5 * var(--swiper-navigation-size, 60px));
+  pointer-events: none;
+  z-index: 2;
+  line-height: 1;
+}
+
+.swiper-button-prev + .dsm-carousel-nav-icon-overlay--prev {
+  left: var(--swiper-navigation-sides-offset, 0);
+}
+
+.swiper-button-next + .dsm-carousel-nav-icon-overlay--next {
+  right: var(--swiper-navigation-sides-offset, 0);
+}
+
+.swiper-button-prev:has(+ .dsm-carousel-nav-icon-overlay--prev)::before,
+.swiper-button-next:has(+ .dsm-carousel-nav-icon-overlay--next)::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* Table of Contents — mobile toggle icon */
+.dsm-toc-toggle-icon.dsm-webfont-icon-host,
+.dsm-toc-toggle-icon.dsm-native-icon-host {
+  line-height: 1;
+}
+
+.dsm-toc-toggle-icon.dsm-webfont-icon-host::before,
+.dsm-toc-toggle-icon.dsm-native-icon-host::before,
+.dsm-toc-toggle-icon:has(.dsm-webfont-icon-glyph)::before,
+.dsm-toc-toggle-icon:has(.dsm-native-icon-glyph)::before {
+  content: none !important;
+  display: none !important;
+}
+
+.dsm-webfont-icon-host {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  color: currentColor;
+  font-size: inherit;
+}
+
+.dsm-webfont-icon-glyph {
+  display: inline-block;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  color: currentColor;
+  font-size: 1em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dsm-icon-library-card-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  color: inherit;
+}
+.dsm-icon-library-card-preview .dsm-webfont-icon-glyph {
+  font-size: 28px;
+}
+.dsm-icon-library-card-preview .dsm-icon-library-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: inherit;
+  line-height: 0;
+}
+.dsm-icon-library-card-preview .dsm-icon-library-brand-mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.dsm-tabler-outline-glyph {
+  font-family: "tabler-icons" !important;
+}
+
+.dsm-tabler-filled-glyph {
+  font-family: "tabler-icons-filled" !important;
+}
+
+.dsm-webfont-icon-glyph.ph,
+.dsm-webfont-icon-glyph[class*=ph-] {
+  font-family: "Phosphor" !important;
+}
+
+.dsm-webfont-icon-glyph.ph-thin {
+  font-family: "Phosphor-Thin" !important;
+}
+
+.dsm-webfont-icon-glyph.ph-light {
+  font-family: "Phosphor-Light" !important;
+}
+
+.dsm-webfont-icon-glyph.ph-bold {
+  font-family: "Phosphor-Bold" !important;
+}
+
+.dsm-webfont-icon-glyph.ph-fill {
+  font-family: "Phosphor-Fill" !important;
+}
+
+.dsm-webfont-icon-glyph.dsm-lucide-glyph {
+  font-family: "lucide" !important;
+}
+
+.dsm-webfont-icon-glyph.dsm-heroicons-glyph {
+  font-family: "heroicons" !important;
+}
+
+.dsm-native-icon-glyph {
+  font-family: inherit;
+}

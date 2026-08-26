@@ -32,7 +32,8 @@
       "Bash(git symbolic-ref *)",
       "Bash(grep -rliE \"concierge|askwellcircle|ai/concierge\" frontend/src)",
       "Bash(ls -la frontend/src/components/AskWellCircle.jsx)",
-      "Bash(awk ' *)"
+      "Bash(awk ' *)",
+      "Bash(python3 *)"
     ]
   }
 }

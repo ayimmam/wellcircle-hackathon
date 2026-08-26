@@ -1,0 +1,253 @@
+/*!******************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/css-loader/dist/cjs.js??ruleSet[1].rules[3].use[1]!./node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[3].use[2]!./node_modules/@wordpress/scripts/node_modules/sass-loader/dist/cjs.js??ruleSet[1].rules[3].use[3]!./packages/extensions/icon-libraries/style.scss ***!
+  \******************************************************************************************************************************************************************************************************************************************************************************************************/
+@charset "UTF-8";
+/**
+ * Universal Supreme + Divi webfont icon host helpers.
+ *
+ * Mirrors module common.scss defaults onto `.et-pb-icon.dsm-webfont-icon-host` so
+ * custom library icons inherit the same color/size baselines as native ::before icons.
+ */
+.et-pb-icon.dsm-native-icon-host::before,
+.et-pb-icon.dsm-native-icon-host::after,
+.et-pb-icon.dsm-webfont-icon-host::before,
+.et-pb-icon.dsm-webfont-icon-host::after,
+.et-pb-icon:has(.dsm-native-icon-glyph)::before,
+.et-pb-icon:has(.dsm-native-icon-glyph)::after,
+.et-pb-icon:has(.dsm-webfont-icon-glyph)::before,
+.et-pb-icon:has(.dsm-webfont-icon-glyph)::after {
+  content: none !important;
+  display: none !important;
+}
+
+.dsm-native-icon-glyph {
+  display: inline-block;
+  font-style: normal;
+  font-weight: inherit;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  color: inherit;
+  font-size: 1em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.et-pb-icon.dsm-native-icon-host,
+.et-pb-icon.dsm-webfont-icon-host {
+  color: currentColor;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1;
+}
+.et-pb-icon.dsm-native-icon-host .dsm-webfont-icon-glyph,
+.et-pb-icon.dsm-native-icon-host .dsm-native-icon-glyph,
+.et-pb-icon.dsm-webfont-icon-host .dsm-webfont-icon-glyph,
+.et-pb-icon.dsm-webfont-icon-host .dsm-native-icon-glyph {
+  color: currentColor;
+  font-size: 1em;
+  line-height: inherit;
+}
+
+/* Image Hotspots — packages/module-library/image-hotspots/common.scss */
+.dsm_image_hotspots_child .et-pb-icon.dsm-webfont-icon-host,
+.dsm_image_hotspots .et-pb-icon.dsm_image_hotspots_icon.dsm-webfont-icon-host {
+  color: #fff;
+}
+
+.dsm_image_hotspots_child .et-pb-icon.dsm-webfont-icon-host {
+  font-size: 14px;
+}
+
+/* Icon List — default icon slot sizing baseline */
+.dsm_icon_list .et-pb-icon.dsm_icon_list_icon.dsm-webfont-icon-host {
+  line-height: 1;
+}
+
+/* Step Flow */
+.dsm_step_flow .et-pb-icon.dsm_icon.dsm-webfont-icon-host,
+.dsm-step-flow-container .et-pb-icon.dsm_icon.dsm-webfont-icon-host {
+  line-height: 1;
+}
+
+/* Content Timeline — pointer + card icon hosts */
+.dsm-content-timeline-middle-circle .et-pb-icon.dsm-icon.dsm-webfont-icon-host,
+.dsm-content-timeline-items-wrapper .dsm-icon-wrapper .et-pb-icon.dsm-icon.dsm-webfont-icon-host {
+  line-height: 1;
+}
+
+/* Circle Info — orbit button + content panel icon hosts */
+.dsm_circle_info .et-pb-icon.dsm_icon.dsm-webfont-icon-host,
+.dsm_circle_info .et-pb-icon.dsm_content_icon.dsm-webfont-icon-host {
+  line-height: 1;
+}
+
+/* Advanced Tabs — tab + content icon hosts */
+.dsm-advanced-tabs-wrapper .et-pb-icon.dsm_icon.dsm-webfont-icon-host,
+.dsm-advanced-tabs-wrapper .et-pb-icon.dsm-active-icon.dsm-webfont-icon-host,
+.dsm-content-wrapper .et-pb-icon.dsm_content_icon.dsm-webfont-icon-host {
+  line-height: 1;
+}
+
+/* Image Accordion — content panel icon */
+.dsm_image_accordion_child .et-pb-icon.dsm_image_accordion_icon.dsm-webfont-icon-host {
+  line-height: 1;
+}
+
+/* Icon List */
+.dsm_icon_list_child .et-pb-icon.dsm_icon_list_icon.dsm-webfont-icon-host {
+  line-height: 1;
+}
+
+/* Breadcrumbs — home + separator custom hosts */
+.dsm_breadcrumbs .dsm_home_icon.dsm-webfont-icon-host,
+.dsm_breadcrumbs .dsm_home_icon.dsm-native-icon-host,
+.dsm_breadcrumbs .dsm_separator_icon.dsm-webfont-icon-host,
+.dsm_breadcrumbs .dsm_separator_icon.dsm-native-icon-host {
+  line-height: 1;
+}
+
+.dsm_breadcrumbs .dsm_home_icon.dsm-webfont-icon-host::before,
+.dsm_breadcrumbs .dsm_home_icon.dsm-native-icon-host::before,
+.dsm_breadcrumbs .dsm_separator_icon.dsm-webfont-icon-host::before,
+.dsm_breadcrumbs .dsm_separator_icon.dsm-native-icon-host::before,
+.dsm_breadcrumbs .dsm_home_icon:has(.dsm-webfont-icon-glyph)::before,
+.dsm_breadcrumbs .dsm_separator_icon:has(.dsm-webfont-icon-glyph)::before {
+  content: none !important;
+  display: none !important;
+}
+
+/*
+ * Carousel Swiper nav (VB) — DSM glyphs render in sibling overlays; buttons stay empty.
+ * Adjacent-sibling selectors mirror each module's nav button inset rules.
+ */
+.dsm-carousel-nav-icon-overlay {
+  position: absolute;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--swiper-navigation-size, 60px);
+  height: var(--swiper-navigation-size, 60px);
+  margin-top: calc(-0.5 * var(--swiper-navigation-size, 60px));
+  pointer-events: none;
+  z-index: 2;
+  line-height: 1;
+}
+
+.swiper-button-prev + .dsm-carousel-nav-icon-overlay--prev {
+  left: var(--swiper-navigation-sides-offset, 0);
+}
+
+.swiper-button-next + .dsm-carousel-nav-icon-overlay--next {
+  right: var(--swiper-navigation-sides-offset, 0);
+}
+
+.swiper-button-prev:has(+ .dsm-carousel-nav-icon-overlay--prev)::before,
+.swiper-button-next:has(+ .dsm-carousel-nav-icon-overlay--next)::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* Table of Contents — mobile toggle icon */
+.dsm-toc-toggle-icon.dsm-webfont-icon-host,
+.dsm-toc-toggle-icon.dsm-native-icon-host {
+  line-height: 1;
+}
+
+.dsm-toc-toggle-icon.dsm-webfont-icon-host::before,
+.dsm-toc-toggle-icon.dsm-native-icon-host::before,
+.dsm-toc-toggle-icon:has(.dsm-webfont-icon-glyph)::before,
+.dsm-toc-toggle-icon:has(.dsm-native-icon-glyph)::before {
+  content: none !important;
+  display: none !important;
+}
+
+.dsm-webfont-icon-host {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  color: currentColor;
+  font-size: inherit;
+}
+
+.dsm-webfont-icon-glyph {
+  display: inline-block;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  color: currentColor;
+  font-size: 1em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dsm-icon-library-card-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  color: inherit;
+}
+.dsm-icon-library-card-preview .dsm-webfont-icon-glyph {
+  font-size: 28px;
+}
+.dsm-icon-library-card-preview .dsm-icon-library-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: inherit;
+  line-height: 0;
+}
+.dsm-icon-library-card-preview .dsm-icon-library-brand-mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.dsm-tabler-outline-glyph {
+  font-family: "tabler-icons" !important;
+}
+
+.dsm-tabler-filled-glyph {
+  font-family: "tabler-icons-filled" !important;
+}
+
+.dsm-webfont-icon-glyph.ph,
+.dsm-webfont-icon-glyph[class*=ph-] {
+  font-family: "Phosphor" !important;
+}
+
+.dsm-webfont-icon-glyph.ph-thin {
+  font-family: "Phosphor-Thin" !important;
+}
+
+.dsm-webfont-icon-glyph.ph-light {
+  font-family: "Phosphor-Light" !important;
+}
+
+.dsm-webfont-icon-glyph.ph-bold {
+  font-family: "Phosphor-Bold" !important;
+}
+
+.dsm-webfont-icon-glyph.ph-fill {
+  font-family: "Phosphor-Fill" !important;
+}
+
+.dsm-webfont-icon-glyph.dsm-lucide-glyph {
+  font-family: "lucide" !important;
+}
+
+.dsm-webfont-icon-glyph.dsm-heroicons-glyph {
+  font-family: "heroicons" !important;
+}
+
+.dsm-native-icon-glyph {
+  font-family: inherit;
+}

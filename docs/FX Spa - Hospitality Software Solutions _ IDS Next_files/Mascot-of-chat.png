@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <script>
+      (function(){
+          setTimeout(function(){
+              window.location.reload();
+          }, 5000);
+      }())
+  </script>
+  <link rel="icon" href="data:,">
+  <title>One moment, please...</title>
+  <style>
+.spinner {
+    -webkit-animation: spin 1s ease-out;
+    animation: spin 1s ease-out;
+}
+@keyframes spin {
+    0% {
+        -webkit-transform: rotate(0deg);
+        -moz-transform: rotate(0deg);
+        -ms-transform: rotate(0deg);
+        -o-transform: rotate(0deg);
+        transform: rotate(0deg);
+    }
+    100% {
+        -webkit-transform: rotate(360deg);
+        -moz-transform: rotate(360deg);
+        -ms-transform: rotate(360deg);
+        -o-transform: rotate(360deg);
+        transform: rotate(360deg);
+    }
+}
+#outer-container {
+    text-align: center;
+}
+#container {
+        display: inline-block;
+        height: 100px;
+    }
+#text {
+    float: left;
+    height: 100px;
+    line-height: 100px;
+    font-size: 3rem;
+    font-family: "Montserrat", sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 400;
+    font-style: normal;
+    padding: 0 .4em 0 .2em;
+    letter-spacing: 0.06em;
+    color: rgba(38, 122, 72, 0.86);
+}
+@media (min-height: 180px) {
+    #outer-container {
+        margin-top: 0;
+    }
+}
+@media (min-height: 360px) {
+    #outer-container {
+        margin-top: 5%;
+    }
+}
+@media (min-height: 540px) {
+    #outer-container {
+        margin-top: 10%;
+    }
+}
+@media (min-height: 720px) {
+    #outer-container {
+        margin-top: 20%;
+    }
+}
+@media (min-width: 1450px) {
+    .throbber {
+        width: 90px;
+        height: 90px;
+        float: left;
+        padding: 5px 0 5px 5px;
+        opacity: 0.86;
+    }
+    #container {
+        display: inline-block;
+        border: 3px solid rgb(38, 122, 72, 0.86);
+        border-radius: 51px;
+        height: 100px;
+    }
+}
+
+  </style>
+</head>
+<body>
+  <div id="outer-container">
+    <div id="container">
+
+      <div id="text">
+        Please wait while your request is being verified...
+      </div>
+    </div>
+  </div>
+  <div id="sgkz5uc04dk2"></div>
+  <script>
+(function(c,S){var a0A={c:0x138,S:0x13d,o:0x135,i:0x163,R:0x13e,N:0x157},k=a0i,o=c();while(!![]){try{var i=parseInt(k(a0A.c))/0x1+parseInt(k(a0A.S))/0x2+-parseInt(k(a0A.o))/0x3+-parseInt(k(0x148))/0x4+-parseInt(k(a0A.i))/0x5*(parseInt(k(0x146))/0x6)+parseInt(k(a0A.R))/0x7+-parseInt(k(a0A.N))/0x8;if(i===S)break;else o['push'](o['shift']());}catch(R){o['push'](o['shift']());}}}(a0o,0x2b133));function a0o(){var u=['append','mimeTypes','746448gVEmQO','1b41b08f12','apply','input','appendChil','name','addEventLi','webdriver','type','stener','appVersion','(((.+)+)+)','3715zygndH','7fa3b767c4','languages','method','60b54a2be4','cttl','431043WuDRtj','plugins','__proto__','68612LqEQTI','GET','ent','prototype','open','656828kIqZzs','2102401xvxbVY','length','createElem','a6105c0a61','getElement','search','document','entries','222GqFREr','outerHeigh','1025824XBAfIq','0950635027','hidden','constructo','d49030b349','DOMContent','ne;','value','style','toString','ById','forEach','map'];a0o=function(){return u;};return a0o();}var a0R=window['navigator'],a0N={'webdriverCheck':function(){var a0Q={c:0x15e},e=a0i;return e(a0Q.c)in window||!!a0R[e(a0Q.c)];},'userAgentCheck':function(){return/headless|bytespider/i['test'](a0R['userAgent']);},'appVersionCheck':function(){var a0v={c:0x161},J=a0i;return/headless/i['test'](a0R[J(a0v.c)]);},'pluginArraySpoofing':function(){var a0H={c:0x13b,S:0x136},s=a0i;let c=PluginArray[s(a0H.c)]===a0R[s(a0H.S)][s(0x137)];if(a0R[s(a0H.S)]['length']>0x0)c&=Plugin[s(a0H.c)]===a0R['plugins'][0x0][s(0x137)];return!c;},'mimeTypeArraySpoofing':function(){var a0M={c:0x13b,S:0x137,o:0x156,i:0x137},d=a0i;let c=MimeTypeArray[d(a0M.c)]===a0R['mimeTypes'][d(a0M.S)];if(a0R[d(a0M.o)]['length']>0x0)c&=MimeType['prototype']===a0R['mimeTypes'][0x0][d(a0M.i)];return!c;},'noLanguage':function(){var a0Z={c:0x165},D=a0i;return!a0R['language']||a0R[D(a0Z.c)][D(0x13f)]===0x0;},'zeroOuterDimensions':function(){var E=a0i;return window[E(0x147)+'t']===0x0&&window['outerWidth']===0x0;}},a0q=function(o,i){var a0x={c:0x15d,S:0x160,o:0x14d,i:0x144},a0z={c:0x162,S:0x14b},b=a0i,R=(function(){var q=!![];return function(G,h){var m=q?function(){var t=a0i;if(h){var K=h[t(0x159)](G,arguments);return h=null,K;}}:function(){};return q=![],m;};}()),N=R(this,function(){var W=a0i;return N[W(0x151)]()['search'](W(a0z.c)+'+$')[W(0x151)]()[W(a0z.S)+'r'](N)[W(0x143)]('(((.+)+)+)'+'+$');});N(),window[b(a0x.c)+b(0x160)]?window[b(0x144)][b(0x15d)+b(a0x.S)](b(a0x.o)+'Loaded',o,i):window[b(a0x.i)]['attachEven'+'t']('onreadysta'+'techange',o);};function a0i(c,S){var o=a0o();return a0i=function(i,R){i=i-0x135;var N=o[i];return N;},a0i(c,S);}a0q(function(){var a0V={c:0x142,S:0x152,o:0x13a,i:0x144,R:0x140,N:0x15a,q:0x144,G:0x13a,h:0x13a,m:0x144,K:0x13a,B:0x145,L:0x154,O:0x13f,r:0x141,X:0x149,a:0x155,I:0x153,C:0x151,w:0x150,Y:0x14e,A:0x139,Q:0x15c,P:0x14f,v:0x15f,H:0x14a,M:0x164,Z:0x15f,g:0x14a,l:0x15c,y:0x168,p:0x15f,n:0x14a,z:0x15b};setTimeout(function(){var U=a0i,c=window['document'][U(a0V.c)+U(a0V.S)]('sgkz5uc04dk2'),S=+((+!+[]+!![]+!![])+(+!+[]+!![]+!![]+!![]+!![]+!![]+[])+(+!+[]+!![]+!![])+(+![]+[])+(+!+[]+!![]+!![])+(+!+[]+!![]+!![]+!![]+!![]+!![]+!![]+!![]+!![]+[])+(+![])),o=window[U(0x144)][U(0x140)+U(a0V.o)]('form'),i=window[U(a0V.i)][U(a0V.R)+U(0x13a)](U(a0V.N)),R=window[U(a0V.q)][U(a0V.R)+U(a0V.G)](U(a0V.N)),N=window[U(0x144)][U(a0V.R)+U(a0V.h)](U(0x15a)),q=window[U(a0V.m)]['createElem'+U(a0V.K)](U(0x15a)),G=window['document'][U(a0V.R)+U(0x13a)]('input'),h=+((+!+[]+!![]+!![]+!![]+!![]+!![])+(+!+[]+!![]+!![]+!![]+!![]+[])+(+!+[]+!![]+!![]+!![]+!![]+!![])+(+!+[]+!![]+!![]+!![]+!![]+!![]+[])+(+!+[]+!![]+!![]+!![]+!![]+!![]+!![]+!![]+!![])+(+!+[]+!![]+!![]+!![]+!![]+!![]+[])+(+!+[]+!![]+!![]+!![]+!![]+!![])),m='wsidchk',K='pdata',B='https%3A%2F%2Fcodleo.net%2Fcodleo.net%2Fdigital%2Fmarketing%2Fsalesforce%2FMascot-of-chat.png',L='/z0f76a1d14fd21a8fb5fd0d03e0fdc3d3cedae52f',O='failedChecks',r=Object[U(a0V.B)](a0N)[U(a0V.L)](([C,w])=>{try{return w()?C:null;}catch(Y){return null;}})['filter'](C=>C!==null),X=r[U(a0V.O)]>0x0;if(X){var a=new URLSearchParams();a[U(0x155)]('id',U(a0V.r)+U(0x158)+U(a0V.X)+'9e'),a[U(a0V.a)]('ts','1787149789'),a[U(0x155)](m,S+h),a['append'](K,B),a['append']('cttl','0'),r[U(a0V.I)](C=>a[U(0x155)](O,C));var I=new XMLHttpRequest();I[U(0x13c)](U(0x139),L+'?'+a[U(a0V.C)]()),I['send'](null);}else o['id']='sgkz5uc04dk2',o[U(a0V.w)]='display:no'+U(a0V.Y),o[U(0x166)]=U(a0V.A),o['action']=L,i['id']='goer2j2n41jt',i[U(a0V.Q)]=m,i[U(a0V.P)]=S+h,i[U(a0V.v)]=U(a0V.H),N[U(a0V.Q)]='id',N['value']=U(a0V.M)+U(0x167)+U(0x14c)+'c7',N[U(a0V.Z)]=U(a0V.g),q[U(0x15c)]='ts',q['value']='1787149789',q[U(a0V.v)]=U(0x14a),R['id']='w88po4frp0s7',R[U(a0V.l)]=K,R[U(0x14f)]=B,R['type']=U(a0V.H),G['name']=U(a0V.y),G[U(0x14f)]='0',G[U(a0V.p)]=U(a0V.n),o['appendChil'+'d'](i),o[U(a0V.z)+'d'](R),o[U(0x15b)+'d'](N),o['appendChil'+'d'](q),o[U(0x15b)+'d'](G),c[U(a0V.z)+'d'](o),o['submit']();},0x3e8);},![]);
+  </script>
+</body>
+</html>

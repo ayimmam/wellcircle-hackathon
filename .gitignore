@@ -43,3 +43,10 @@ coverage/
 # Load test run output
 backend/loadtest/results-*.csv
 backend/loadtest/*.html
+
+# Saved third-party web pages ("Save Page As" dumps used for research).
+# These drag megabytes of someone else's assets into the repo, and the vendor
+# scripts inside them trip secret scanners on keys that are not ours — the
+# IDS FX Spa dump tripped GitGuardian on Google's public AMP key baked into
+# analytics.js. Keep the findings in a markdown doc instead.
+*_files/

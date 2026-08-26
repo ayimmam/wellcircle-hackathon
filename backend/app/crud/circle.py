@@ -110,6 +110,7 @@ def get_circles(db: Session, user_id: Optional[UUID] = None) -> List[dict]:
             "price_etb": c.price_etb,
             "paid_circle_status": c.paid_circle_status,
             "owner_is_verified": c.owner_id in verified_owner_ids,
+            "banner_url": c.banner_url,
             "created_at": c.created_at
         })
     return result
@@ -155,6 +156,7 @@ def get_circle_detail(db: Session, circle_id: UUID, user_id: UUID) -> Optional[d
         "price_etb": circle.price_etb,
         "paid_circle_status": circle.paid_circle_status,
         "join_code": circle.join_code if is_joined else None,
+        "banner_url": circle.banner_url,
         "owner": {
             "id": owner.id,
             "name": owner.name,
@@ -287,3 +289,30 @@ def get_weekly_digest_circles(db: Session) -> List[dict]:
             "member_telegram_ids": [u.telegram_id for _, u in members if u.telegram_id],
         })
     return result
+
+
+def set_circle_banner(db: Session, circle_id: UUID, owner_id: UUID,
+                      banner_url: Optional[str], banner_public_id: Optional[str]) -> Circle:
+    """Owner-only cover image. Passing nulls clears it.
+
+    Whatever asset the banner is replacing is destroyed on the way through —
+    a circle only ever has one cover, so the previous one is dead weight in
+    Cloudinary the moment this succeeds.
+    """
+    circle = db.query(Circle).filter(Circle.id == circle_id).first()
+    if not circle:
+        raise LookupError("Circle not found")
+    if circle.owner_id != owner_id:
+        raise PermissionError("Only the circle owner can change the banner")
+
+    previous = circle.banner_public_id
+    circle.banner_url = banner_url
+    circle.banner_public_id = banner_public_id
+    db.commit()
+    db.refresh(circle)
+
+    if previous and previous != banner_public_id:
+        from app.crud.circle_story import _destroy_asset
+        _destroy_asset(previous)
+
+    return circle

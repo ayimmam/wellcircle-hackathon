@@ -17,11 +17,34 @@
 // bytes on the mid-range Android phones this app targets.
 const MAX_DPR = 2;
 
-/** Source pixels to request for an element rendered `cssWidth` wide. */
+/**
+ * The only source widths we ever ask for.
+ *
+ * Every cache — the browser's, the service worker's, the CDN's — is keyed on
+ * the exact URL, so an avatar requested at 36px on one screen and 40px on the
+ * next is two downloads of the same face, and a phone with a 2.75 DPR asks for
+ * widths no other device shares. Rounding up to a short ladder collapses all
+ * of that onto a handful of URLs per image: the second screen to show a photo
+ * gets it from disk instead of the network.
+ *
+ * Rounding is always *up*, so a quantised source is never smaller than the box
+ * it renders into.
+ */
+const WIDTH_LADDER = [48, 96, 160, 240, 320, 480, 640, 960, 1280];
+
+function quantizeWidth(width) {
+  if (!width) return null;
+  return WIDTH_LADDER.find(step => step >= width) ?? WIDTH_LADDER[WIDTH_LADDER.length - 1];
+}
+
+/**
+ * Source pixels to request for an element rendered `cssWidth` wide, snapped to
+ * the shared ladder.
+ */
 export function sourceWidthFor(cssWidth) {
   if (!cssWidth) return null;
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-  return Math.round(cssWidth * Math.min(dpr, MAX_DPR));
+  return quantizeWidth(Math.round(cssWidth * Math.min(dpr, MAX_DPR)));
 }
 
 /**
@@ -94,7 +117,13 @@ export function buildSrcSet(url, cssWidth) {
   if (!url || !cssWidth) return null;
   if (!/images\.unsplash\.com|res\.cloudinary\.com/.test(url)) return null;
 
-  return [1, 2]
-    .map(dpr => `${optimizeImageUrl(url, { width: Math.round(cssWidth * dpr) })} ${dpr}x`)
+  const widths = [1, 2].map(dpr => quantizeWidth(Math.round(cssWidth * dpr)));
+  // Small images (avatars, thumbnails) land in the same ladder step at both
+  // densities. A srcset of two identical URLs tells the browser nothing, so
+  // let `src` carry it alone and keep one candidate in every cache.
+  if (widths[0] === widths[1]) return null;
+
+  return widths
+    .map((width, i) => `${optimizeImageUrl(url, { width })} ${i + 1}x`)
     .join(', ');
 }

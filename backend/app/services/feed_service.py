@@ -156,17 +156,17 @@ def _order_feed(
     return result
 
 
-def build_for_you_feed(db: Session, limit: int = 10, before: Optional[datetime] = None) -> dict:
+def build_for_you_feed(
+    db: Session,
+    limit: int = 10,
+    before: Optional[datetime] = None,
+    text_only: bool = False,
+) -> dict:
     """`limit`/`before` paginate the underlying posts (keyset on created_at);
     the event and provider sections are additional and outside that cursor."""
     now = datetime.now(timezone.utc)
 
     posts = section(db, "feed_posts", lambda: get_public_feed_posts(db, limit=limit, before=before), [])
-    providers = section(db, "feed_providers", lambda: _feed_providers(db), [])
-    event_items = section(db, "feed_events", lambda: _build_event_items(db, now), [])
-    past_event_items = section(db, "feed_past_events", lambda: _build_past_event_items(db), [])
-    service_items = section(db, "feed_service_items", lambda: _build_service_items(providers), [])
-    provider_items = section(db, "feed_provider_items", lambda: _build_provider_items(db, providers), [])
 
     post_items = [
         {

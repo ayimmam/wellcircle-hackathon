@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import {
   applyForPaidCircle, getCircleRevenue, getCircleSubscriptionStatus, getCircle,
-  getCircleLeaderboard, getPendingSubscriptions, joinCircle, reviewSubscription,
-  subscribeToCircle, uploadFile,
+  getCircleLeaderboard, getCircleStories, getPendingSubscriptions, joinCircle,
+  reviewSubscription, setCircleBanner, subscribeToCircle, uploadFile,
+  deleteStory, markStoryViewed,
 } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import PostFeed from '../components/PostFeed';
@@ -13,6 +14,8 @@ import { showToast } from '../components/Toast';
 import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
 import { shareCircleInvite } from '../utils/circleInvite';
+import StoryRail from '../components/stories/StoryRail';
+import StoryComposer from '../components/stories/StoryComposer';
 
 export default function CircleDetailScreen() {
   const { id } = useParams();
@@ -38,6 +41,9 @@ export default function CircleDetailScreen() {
   // one less blank-page moment for a brand-new member.
   const [justJoined, setJustJoined] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [stories, setStories] = useState([]);
+  const [bannerBusy, setBannerBusy] = useState(false);
+  const bannerInputRef = useRef(null);
 
   useEffect(() => {
     loadCircle();
@@ -62,12 +68,59 @@ export default function CircleDetailScreen() {
           const lb = await getCircleLeaderboard(id);
           setLeaderboard(lb.leaderboard || []);
         } catch { /* leaderboard is a bonus, not required for the page to work */ }
+        loadStories();
       }
     } catch (err) {
       if (err.status === 404) setNotFound(true);
       else console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Stories are member-only, so this is never called in preview mode. Failures
+  // are swallowed for the same reason the leaderboard's are: an empty rail is a
+  // better outcome than a screen that won't render.
+  const loadStories = async () => {
+    try {
+      const res = await getCircleStories(id);
+      setStories(res.stories || []);
+    } catch { /* non-fatal */ }
+  };
+
+  // The circle rail groups by author too, so one member posting three photos
+  // is one ring — same shape the For You rail renders.
+  const storyGroups = groupByAuthor(stories, user?.id);
+
+  const handleStoryViewed = (storyId) => {
+    setStories(current => current.map(s => s.id === storyId ? { ...s, seen: true } : s));
+    markStoryViewed(storyId).catch(() => {});
+  };
+
+  const handleStoryDeleted = async (storyId) => {
+    setStories(current => current.filter(s => s.id !== storyId));
+    try {
+      await deleteStory(storyId);
+    } catch (err) {
+      showToast(err.message || 'Could not delete that story', 'error');
+      loadStories();
+    }
+  };
+
+  const handleBanner = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setBannerBusy(true);
+    try {
+      const asset = await uploadFile(file, 'circle_banners');
+      await setCircleBanner(id, { banner_url: asset.url, banner_public_id: asset.public_id });
+      setCircle(current => ({ ...current, banner_url: asset.url }));
+      showToast('Banner updated', 'success');
+    } catch (err) {
+      showToast(err.message || 'Could not update the banner', 'error');
+    } finally {
+      setBannerBusy(false);
     }
   };
 
@@ -223,6 +276,49 @@ export default function CircleDetailScreen() {
 
   return (
     <div className="page" id="circle-detail-screen" style={previewMode ? { paddingBottom: 'calc(var(--nav-height) + var(--safe-bottom) + 76px)' } : undefined}>
+      {/* Banner — owner-editable cover. Rendered only when there is an image
+          or the viewer can add one, so a bannerless circle for a non-owner
+          costs no empty box. */}
+      {(circle.banner_url || isOwner) && (
+        <div className="circle-banner" id="circle-banner">
+          <SmartImage
+            src={circle.banner_url}
+            alt=""
+            width={720}
+            priority
+            fallback={
+              <div className="flex items-center justify-center" style={{ height: '100%', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                {isOwner ? 'Add a banner for this circle' : null}
+              </div>
+            }
+          />
+          {isOwner && (
+            <>
+              <input
+                ref={bannerInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleBanner}
+                style={{ display: 'none' }}
+                data-testid="circle-banner-input"
+              />
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm circle-banner-edit flex items-center gap-6"
+                onClick={() => bannerInputRef.current?.click()}
+                disabled={bannerBusy}
+                id="circle-banner-edit"
+              >
+                {bannerBusy
+                  ? <span className="btn-spinner" aria-hidden="true" />
+                  : <Icon name="pencil" size={13} />}
+                {circle.banner_url ? 'Change' : 'Add banner'}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-12 mb-12">
         {!nativeBack && (
@@ -270,6 +366,29 @@ export default function CircleDetailScreen() {
             </button>
           )}
         </div>
+      )}
+
+      {/* Stories — members only, and the composer only when this member can
+          actually post into the circle. */}
+      {joined && (
+        <>
+          <StoryRail
+            groups={storyGroups}
+            currentUser={user}
+            canAddStory
+            onAddStory={() => document.getElementById('story-composer-btn')?.click()}
+            onViewed={handleStoryViewed}
+            onDelete={handleStoryDeleted}
+          />
+          <div className="mb-16">
+            <StoryComposer
+              circleId={id}
+              onPosted={loadStories}
+              label={storyGroups.length ? 'Add to story' : 'Post the first story'}
+              className="btn-sm"
+            />
+          </div>
+        </>
       )}
 
       {subscription?.status && !joined && (
@@ -470,4 +589,39 @@ export default function CircleDetailScreen() {
       )}
     </div>
   );
+}
+
+/**
+ * Group a circle's flat story list by author, matching the For You rail's
+ * shape and ordering: your own ring first, then anyone with something unseen,
+ * then most recent. Kept local because this screen already has the flat list
+ * and re-fetching the grouped rail for one circle would be a second request
+ * for data it holds.
+ */
+function groupByAuthor(stories, currentUserId) {
+  const groups = new Map();
+  for (const story of stories) {
+    if (!groups.has(story.user_id)) {
+      groups.set(story.user_id, {
+        user_id: story.user_id,
+        user_name: story.user_name,
+        user_photo_url: story.user_photo_url,
+        is_mine: story.user_id === currentUserId || Boolean(story.is_mine),
+        stories: [],
+      });
+    }
+    groups.get(story.user_id).stories.push(story);
+  }
+  const result = [...groups.values()];
+  for (const group of result) {
+    group.has_unseen = group.stories.some(s => !s.seen);
+    group.story_count = group.stories.length;
+    group.latest_at = group.stories[group.stories.length - 1].created_at;
+  }
+  result.sort((a, b) => (
+    (a.is_mine === b.is_mine ? 0 : a.is_mine ? -1 : 1)
+    || (a.has_unseen === b.has_unseen ? 0 : a.has_unseen ? -1 : 1)
+    || new Date(b.latest_at) - new Date(a.latest_at)
+  ));
+  return result;
 }

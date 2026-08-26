@@ -17,6 +17,7 @@
 | Bot | POST | `/bot/register` | Bot API Key | Bot |
 | Bot | GET | `/bot/inactive-users` | Bot API Key | Bot |
 | Bot | GET | `/bot/streaks-at-risk` | Bot API Key | Bot |
+| Home | GET | `/home/lite` | JWT | Frontend |
 | Home | GET | `/home/bootstrap` | JWT | Frontend |
 | Users | GET | `/users/me` | JWT | Frontend |
 | Users | PATCH | `/users/me` | JWT | Frontend |
@@ -70,6 +71,12 @@
 | Circles | GET | `/circles/:id/leaderboard` | JWT | Frontend |
 | Circles | POST | `/circles/join-by-code` | JWT | Frontend |
 | Circles | GET | `/circles/social-proof/today` | JWT | Frontend |
+| Circles | GET | `/circles/stories/feed` | JWT | Frontend |
+| Circles | GET | `/circles/:id/stories` | JWT (member) | Frontend |
+| Circles | POST | `/circles/:id/stories` | JWT (member) | Frontend |
+| Circles | POST | `/circles/stories/:id/view` | JWT (member) | Frontend |
+| Circles | DELETE | `/circles/stories/:id` | JWT (author or owner) | Frontend |
+| Circles | PUT | `/circles/:id/banner` | JWT (owner) | Frontend |
 | Ranks | GET | `/ranks` | JWT | Frontend |
 | Feedback | POST | `/feedback` | JWT | Frontend |
 | Admin | GET | `/admin/feedback` | JWT (admin) | Frontend |
@@ -336,6 +343,7 @@ request of their own:
 | `social_proof` | `GET /circles/social-proof/today` |
 | `unread_count` | `unread_count` from `GET /users/me/notifications` |
 | `feed` | first page of `GET /feed/for-you` (Phase 4 — For You screen) |
+| `stories` | `GET /circles/stories/feed` — the story rail, grouped by author |
 
 ```json
 // RESPONSE 200
@@ -346,7 +354,8 @@ request of their own:
   "featured_events": [ /* ...boosted events... */ ],
   "social_proof": { "checked_in_today": 4 },
   "unread_count": 3,
-  "feed": { "items": [ /* ...see GET /feed/for-you... */ ], "next_before": "2026-06-06T10:00:00Z" }
+  "feed": { "items": [ /* ...see GET /feed/for-you... */ ], "next_before": "2026-06-06T10:00:00Z" },
+  "stories": [ /* ...see GET /circles/stories/feed... */ ]
 }
 ```
 
@@ -361,6 +370,46 @@ payload under the **150 KB working ceiling** (192 KB is the hard cap past
 which `frontend/src/api/cache.js` stops persisting the entry to
 `localStorage`, so it's lost the moment Telegram tears the WebView down) — see
 `backend/check_bootstrap_payload_size.py`.
+
+### `GET /api/home/lite`
+
+The text-first half of the same payload, so For You has something readable on
+it while `/home/bootstrap` is still running. The client fires **both together**
+on open — this is not a replacement for the bootstrap, it is the head start.
+
+`/home/bootstrap` cannot answer until the provider directory, every provider's
+services, and the upcoming- and past-event queries are done. None of that is
+needed to render the part of the feed that is words. This endpoint runs the two
+queries the first screenful actually depends on, plus two counters:
+
+| Key | Notes |
+|-----|-------|
+| `partial` | Always `true`. Marks the payload as a subset, so it is never cached as the whole thing. |
+| `communities` | `GET /communities?joined=true` — the user's own circles, which is all the check-in card needs. |
+| `social_proof` | Same as the bootstrap's. |
+| `unread_count` | Same as the bootstrap's. |
+| `feed` | First page of `GET /feed/for-you`, **posts only** — no `event`, `service`, `provider` or `past_event` items, and no lead-in or interleave. |
+| `stories` | The **whole** story rail, not a subset — it is two indexed queries over the caller's own circles, and it sits at the very top of the screen, so it ships in the cheap payload rather than waiting behind the provider fan-out. |
+
+```json
+// RESPONSE 200
+{
+  "partial": true,
+  "communities": [ /* ...joined circles only... */ ],
+  "social_proof": { "checked_in_today": 4 },
+  "unread_count": 3,
+  "feed": { "items": [ /* ...only type: "post"... */ ], "next_before": "2026-06-06T10:00:00Z", "partial": true },
+  "stories": [ /* ...the full rail; see GET /circles/stories/feed... */ ]
+}
+```
+
+`feed.next_before` is derived from the same posts query the full payload uses,
+so it is identical in both and a client that starts paginating off a lite page
+stays consistent once the full page replaces it.
+
+Optional in the same way as the bootstrap: on `404` the client falls back to
+sharing `/home/bootstrap`'s in-flight request, so a frontend deploy ahead of
+the backend loses the head start rather than the screen.
 
 ---
 
@@ -1530,6 +1579,7 @@ page, replacing `CircleDetailScreen.jsx`'s old hack of fetching the whole
   "price_etb": null,
   "paid_circle_status": "free",
   "join_code": null,           // only exposed once is_joined is true
+  "banner_url": "https://res.cloudinary.com/.../circle_banners/x.jpg",  // null when unset
   "owner": { "id": "uuid", "name": "Selam Alemu", "telegram_handle": "selam_well", "is_verified_trainer": false },
   "preview_posts": [ /* up to 5 recent posts, same shape as GET /posts — omitted (null) for paid or private circles */ ]
 }
@@ -1548,6 +1598,119 @@ hidden, and a sticky bottom **Join circle** CTA takes over. On success the
 screen flips to full mode in place — no navigation. The same read-only
 preview + Join CTA pattern applies to `CommunityDetail.jsx` for provider
 communities (reusing `POST /api/communities/:id/join`).
+
+---
+
+## 9a-bis. Circle stories & banners
+
+### Stories — 72-hour ephemeral photos
+
+A story is one image posted into one circle. Membership in that circle is the
+only thing that grants access: there is no public story anywhere, and a paid
+circle applies the same `has_circle_access` gate the leaderboard does.
+
+Two clocks govern a story, and the difference between them is the contract:
+
+- **`expires_at`** is the visibility clock. Every read filters on it, so a story
+  stops being served the moment it turns 72 hours old — **no job is involved**.
+- **`deleted_at`** is the storage clock. It is stamped only once the bytes are
+  actually gone from Cloudinary, which the daily maintenance job does (see
+  §Maintenance below).
+
+A late, failed or skipped purge therefore cannot leak an expired story back onto
+a screen. The worst case is an orphaned Cloudinary asset, which the next run
+picks up.
+
+Uploads go through the existing two-step flow: `POST /api/uploads` with
+`folder=stories` (JPEG/PNG/WebP, 10 MB cap) returns `{url, public_id}`, and both
+are posted back here.
+
+**`POST /api/circles/:id/stories`** — JWT (member). `201`.
+```json
+// REQUEST
+{ "image_url": "https://res.cloudinary.com/.../stories/abc.jpg", "image_public_id": "wellcircle/stories/abc" }
+// RESPONSE 201
+{ "id": "uuid-story", "image_url": "https://...", "created_at": "2026-08-26T09:00:00Z", "expires_at": "2026-08-29T09:00:00Z" }
+```
+- `403` — not a member, or a paid circle the caller has not unlocked.
+- `429` — the caller already has 10 active stories in this circle. The cap
+  bounds one member flooding the rail; it self-heals as the oldest expire.
+
+**`GET /api/circles/:id/stories`** — JWT. Active stories in one circle, **oldest
+first** (playback order). Returns `[]` rather than `403` for a non-member, so
+the circle screen renders without a special case.
+```json
+// RESPONSE 200
+{ "stories": [
+  {
+    "id": "uuid-story",
+    "circle_id": "uuid-circle", "circle_name": "Zen Seekers",
+    "user_id": "uuid", "user_name": "Hana Girma", "user_photo_url": "https://...",
+    "image_url": "https://...",
+    "created_at": "2026-08-26T09:00:00Z",
+    "expires_at": "2026-08-29T09:00:00Z",
+    "seen": false,
+    "view_count": null,          // number for your own stories, null for everyone else's
+    "is_mine": false
+  }
+] }
+```
+`view_count` is deliberately **author-only**: it is the poster's feedback, not
+another member's business.
+
+**`GET /api/circles/stories/feed`** — JWT. The For You rail: every active story
+from every circle the caller is in, **grouped by author**.
+```json
+// RESPONSE 200
+{ "groups": [
+  {
+    "user_id": "uuid", "user_name": "Hana Girma", "user_photo_url": "https://...",
+    "is_mine": false,
+    "has_unseen": true,
+    "story_count": 2,
+    "latest_at": "2026-08-26T09:00:00Z",
+    "stories": [ /* ...same objects as above, oldest first... */ ]
+  }
+] }
+```
+Ordering is fixed and the client must not re-sort: **your own group first**,
+then anyone with something unseen, then most recent. `has_unseen` is what dims
+the ring on the rail.
+
+**`POST /api/circles/stories/:id/view`** — JWT (member). Idempotent view
+receipt. `{ "view_count": 4 }`. The client fires this once per story as it is
+played and does **not** invalidate the rail cache on the response — a receipt
+fires on every frame, and refetching mid-playback would fight the viewer. The
+dimmed ring comes from the client's own optimistic update.
+
+**`DELETE /api/circles/stories/:id`** — JWT (author or circle owner).
+`{ "deleted": true }`. Destroys the Cloudinary asset immediately and stamps both
+`deleted_at` and `expires_at`, so a failed CDN call still takes the story off
+the rail on the next read.
+
+### Banner
+
+**`PUT /api/circles/:id/banner`** — JWT (**owner only**). Upload first via
+`POST /api/uploads` with `folder=circle_banners` (JPEG/PNG/WebP, 10 MB).
+```json
+// REQUEST — nulls clear the banner
+{ "banner_url": "https://res.cloudinary.com/.../circle_banners/x.jpg", "banner_public_id": "wellcircle/circle_banners/x" }
+// RESPONSE 200
+{ "id": "uuid-circle", "banner_url": "https://..." }
+```
+`403` for a non-owner. Replacing a banner destroys the asset it supersedes — a
+circle only ever has one cover, so the old one is dead weight the moment this
+succeeds.
+
+`banner_url` is also returned by `GET /api/circles` (list cards render it) and
+`GET /api/circles/:id`.
+
+### Maintenance
+
+`phase15_maintenance_job` (daily, `POST /api/cron/maintenance` on serverless)
+now also returns `purged_stories` — the number of expired stories whose
+Cloudinary assets were destroyed on that run, capped at 500 per run. Rows whose
+delete failed keep `deleted_at` NULL and are retried the next day.
 
 ### Social proof & streaks (C2 / E2)
 - `POST /api/communities/{id}/checkin` response now also includes `current_streak` and `freeze_count`.

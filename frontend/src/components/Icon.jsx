@@ -201,6 +201,31 @@ const PATHS = {
       <path d="M13.5 6.5l4 4" />
     </>
   ),
+  plus: (
+    <>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M4 7h16" />
+      <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+      <path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  camera: (
+    <>
+      <path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </>
+  ),
 };
 
 export default function Icon({

@@ -208,6 +208,85 @@ def test_all():
         assert entry["name"] == "At Risk"
         print("   ✅ payload carries streak + freeze count")
 
+        # === 6. Comeback bonus (streak broken, no freeze available) =======
+        print("\n6. Comeback bonus on a broken streak")
+        from app.services.points import POINTS_COMEBACK, TXN_COMEBACK
+
+        comeback_user = create_user_from_bot(db, telegram_id=600100204, telegram_handle="comeback")
+        onboard_user(db, comeback_user, name="Comeback User", interest_categories=["yoga"],
+                     exercise_frequency="daily")
+        join_community(db, community.id, comeback_user)
+        comeback_user.current_streak = 5
+        comeback_user.freeze_count = 0
+        comeback_user.last_checkin_at = datetime.now(timezone.utc) - timedelta(days=3)
+        balance_before = comeback_user.points_balance
+        db.commit()
+
+        res = checkin_community(db, community.id, comeback_user)
+        assert res["comeback_bonus"] is True
+        assert res["current_streak"] == 1
+        assert comeback_user.points_balance == balance_before + POINTS_COMEBACK
+        comeback_txns = db.query(PointTransaction).filter(
+            PointTransaction.user_id == comeback_user.id, PointTransaction.type == TXN_COMEBACK
+        ).all()
+        assert len(comeback_txns) == 1
+        print(f"   ✅ +{POINTS_COMEBACK} comeback bonus awarded once, ledgered")
+
+        # A short prior streak (< 3 days) shouldn't trigger a comeback bonus
+        small_break_user = create_user_from_bot(db, telegram_id=600100205, telegram_handle="smallbreak")
+        onboard_user(db, small_break_user, name="Small Break", interest_categories=["yoga"],
+                     exercise_frequency="daily")
+        join_community(db, community.id, small_break_user)
+        small_break_user.current_streak = 2
+        small_break_user.freeze_count = 0
+        small_break_user.last_checkin_at = datetime.now(timezone.utc) - timedelta(days=3)
+        db.commit()
+        res = checkin_community(db, community.id, small_break_user)
+        assert res["comeback_bonus"] is False
+        print("   ✅ no comeback bonus for a streak under the minimum")
+
+        # === 7. Personal-best (longest_streak) tracking ====================
+        print("\n7. Personal-best streak tracking")
+        pb_user = create_user_from_bot(db, telegram_id=600100206, telegram_handle="pbuser")
+        onboard_user(db, pb_user, name="PB User", interest_categories=["yoga"],
+                     exercise_frequency="daily")
+        join_community(db, community.id, pb_user)
+
+        def backdate_last_checkin(user, days_ago):
+            # Rewinds both the streak timestamp AND today's just-created feed
+            # event — checkin_community's duplicate guard checks the feed
+            # event's created_at, not last_checkin_at, so only moving the
+            # latter would still hit "already_checked_in" on the next call.
+            user.last_checkin_at = datetime.now(timezone.utc) - timedelta(days=days_ago)
+            latest_event = (
+                db.query(CommunityFeedEvent)
+                .filter(CommunityFeedEvent.community_id == community.id, CommunityFeedEvent.user_id == user.id)
+                .order_by(CommunityFeedEvent.created_at.desc())
+                .first()
+            )
+            latest_event.created_at = user.last_checkin_at
+            db.commit()
+
+        res = checkin_community(db, community.id, pb_user)
+        assert res["current_streak"] == 1
+        assert res["longest_streak"] == 1
+        assert res["is_personal_best"] is True  # first ever checkin is trivially a "best"
+
+        backdate_last_checkin(pb_user, 1)
+        res = checkin_community(db, community.id, pb_user)
+        assert res["current_streak"] == 2
+        assert res["longest_streak"] == 2
+        assert res["is_personal_best"] is True
+        print("   ✅ longest_streak tracks new records as the streak grows")
+
+        # Break the streak without a freeze — longest_streak must not regress
+        backdate_last_checkin(pb_user, 3)
+        res = checkin_community(db, community.id, pb_user)
+        assert res["current_streak"] == 1
+        assert res["longest_streak"] == 2, "longest_streak is monotonic — resetting current_streak must not lower it"
+        assert res["is_personal_best"] is False
+        print("   ✅ longest_streak survives a streak reset (monotonic, never regresses)")
+
         print("\n" + "=" * 50)
         print("  ALL ENGAGEMENT LOOP TESTS PASSED ✅")
         print("=" * 50)

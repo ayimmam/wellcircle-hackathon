@@ -20,10 +20,13 @@ describe('CommunityList — Ranks tab', () => {
     fireEvent.click(document.getElementById('tab-ranks'));
 
     await screen.findByText('Shanti Yoga Circle');
-    expect(screen.getByText('🥇')).toBeInTheDocument();
-    expect(screen.getByText('🥈')).toBeInTheDocument();
-    expect(screen.getByText('🥉')).toBeInTheDocument();
-    expect(screen.getByText('#4')).toBeInTheDocument();
+    // Ranks are plain numerals; the top three are marked with the accent
+    // colour rather than medal emoji.
+    ['1', '2', '3', '4'].forEach(rank => {
+      expect(screen.getByText(rank)).toBeInTheDocument();
+    });
+    const topRow = document.getElementById('rank-community-22222222-0000-0000-0000-000000000003');
+    expect(topRow.querySelector('span').getAttribute('style')).toContain('--accent');
   });
 
   it('navigates to the community detail page when a ranked community row is tapped', async () => {
@@ -35,7 +38,7 @@ describe('CommunityList — Ranks tab', () => {
     await screen.findByText('Community Detail Page');
   });
 
-  it('switches to Individuals and highlights the signed-in user\'s own row', async () => {
+  it('switches to Individuals and shows a "Your League" section when the user is outside the top list', async () => {
     renderCommunityList();
     fireEvent.click(document.getElementById('tab-ranks'));
     await screen.findByText('Shanti Yoga Circle');
@@ -47,11 +50,17 @@ describe('CommunityList — Ranks tab', () => {
     // fetch (~300ms), so "own row" highlighting only appears once the
     // AuthContext user has loaded — wait for it rather than racing it.
     await waitFor(() => {
-      expect(screen.getByText(/Meron Tadesse/).textContent).toContain('You');
+      expect(screen.getByText('Your League — this week')).toBeInTheDocument();
     }, { timeout: 2000 });
 
-    const ownRow = document.getElementById('rank-user-00000000-0000-0000-0000-000000000001');
+    expect(screen.getByText(/Meron Tadesse/).textContent).toContain('You');
+
+    const ownRow = document.getElementById('league-user-00000000-0000-0000-0000-000000000001');
     expect(ownRow).toBeInTheDocument();
     expect(ownRow.getAttribute('style')).toContain('brand-primary');
+
+    // Not stranded in a global ranking — the league is a small, nearby group.
+    expect(screen.getByText('Bereket Assefa')).toBeInTheDocument();
+    expect(screen.getByText('Liya Fikru')).toBeInTheDocument();
   });
 });

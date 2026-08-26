@@ -1,5 +1,7 @@
 """User routes — profile, onboarding, points history."""
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -23,7 +25,11 @@ router = APIRouter()
 
 
 def _build_response(user: User, db: Session) -> UserResponse:
-    tier, emoji = get_points_tier(user.points_balance)
+    # Rows created by the one-off psycopg2 scripts (e.g. the provider portal
+    # login accounts) bypass SQLAlchemy's Python-side column defaults, so
+    # these can legitimately be NULL in the DB. Coerce rather than 500.
+    points_balance = user.points_balance or 0
+    tier, emoji = get_points_tier(points_balance)
     joined = get_user_joined_community_ids(db, user.id)
     return UserResponse(
         id=str(user.id), telegram_id=user.telegram_id,
@@ -31,20 +37,24 @@ def _build_response(user: User, db: Session) -> UserResponse:
         photo_url=user.photo_url, goal=user.goal,
         interest_categories=user.interest_categories or [],
         exercise_frequency=user.exercise_frequency,
-        points_balance=user.points_balance, tier=tier, tier_emoji=emoji,
-        is_onboarded=user.is_onboarded, is_provider=user.is_provider,
+        points_balance=points_balance, tier=tier, tier_emoji=emoji,
+        current_streak=user.current_streak or 0,
+        freeze_count=user.freeze_count or 0,
+        longest_streak=user.longest_streak or 0,
+        is_onboarded=bool(user.is_onboarded), is_provider=bool(user.is_provider),
         is_super_admin=user.is_super_admin or user.telegram_id in settings.super_admin_ids,
         location_neighborhood=user.location_neighborhood,
         health_app_connected=user.health_app_connected,
         phone_number=user.phone_number,
         time_format=user.time_format,
         bio=user.bio,
-        profile_privacy=user.profile_privacy,
-        is_verified_trainer=user.is_verified_trainer,
+        profile_privacy=user.profile_privacy or "public",
+        is_verified_trainer=bool(user.is_verified_trainer),
         follower_count=get_follower_count(db, user.id),
         following_count=get_following_count(db, user.id),
         strava_stats=None,
-        joined_communities=joined, created_at=user.created_at,
+        joined_communities=joined,
+        created_at=user.created_at or datetime.now(timezone.utc),
     )
 
 

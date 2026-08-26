@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { track } from '../analytics';
+import Icon from './Icon';
 
 export default function StreakBadge({ streak, freezeCount = 0, atRisk = false }) {
   useEffect(() => {
@@ -15,7 +16,7 @@ export default function StreakBadge({ streak, freezeCount = 0, atRisk = false })
 
   return (
     <div className="points-chip" id="streak-badge" title={title} style={{ position: 'relative' }}>
-      <span className="points-chip-emoji">🔥</span>
+      <Icon name="flame" size={13} />
       <span>{streak}d streak{freezeCount > 0 ? ' · freeze' : ''}</span>
       {atRisk && (
         <span

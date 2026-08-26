@@ -53,6 +53,9 @@ class Provider(Base):
     is_coming_soon = Column(Boolean, nullable=False, default=True)
     sheets_export_enabled = Column(Boolean, nullable=False, default=False)
     facilities = Column(JSONB, nullable=True)          # ["Massage room", ...]
+    # Direct Google Maps link — used for "Open in Maps" when we have a shared
+    # place link but no coordinates (short links carry no lat/lng).
+    map_url = Column(String(500), nullable=True)
     navigation_tips = Column(JSONB, nullable=True)     # [{"title", "detail"}] — Phase 8
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

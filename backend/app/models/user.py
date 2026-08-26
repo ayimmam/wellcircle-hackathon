@@ -58,6 +58,7 @@ class User(Base):
     last_checkin_at = Column(DateTime(timezone=True), nullable=True)
     current_streak = Column(Integer, default=0)          # C2: consecutive check-in days
     freeze_count = Column(Integer, default=0)             # C2: streak freezes earned (1 per 7-day streak)
+    longest_streak = Column(Integer, default=0)           # Personal best — "reward getting better"
 
     # --- Referral (E1) ---
     referred_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)

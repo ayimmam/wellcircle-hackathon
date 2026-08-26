@@ -2857,3 +2857,297 @@ body.in-telegram #detail-back-btn {
 }
 
 .feed-past-proof strong { color: var(--text-primary); }
+
+/* ─── Circle stories ──────────────────────────────────────────────────────
+   The ring is Instagram's close-friends green, and it is used deliberately:
+   every story on this rail comes from a circle you are a member of, which is
+   the same "people you actually chose" meaning that colour carries there. A
+   fully-seen group falls back to a flat neutral ring, so the green reads as
+   "new" rather than as decoration. Both are defined against theme tokens
+   where they touch the page, and as fixed greens where they must stay green
+   in either theme. */
+:root {
+  --story-ring: #34C759;
+  --story-ring-edge: #1FA34A;
+  --story-ring-seen: var(--border-card);
+}
+
+[data-theme="dark"] {
+  --story-ring: #3ADB6B;
+  --story-ring-edge: #23A94F;
+  --story-ring-seen: rgba(255, 255, 255, 0.16);
+}
+
+.story-rail {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 2px 0 10px;
+  margin-bottom: 12px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.story-rail::-webkit-scrollbar { display: none; }
+
+.story-item {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 74px;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+}
+
+.story-ring {
+  position: relative;
+  display: block;
+  width: 70px;
+  height: 70px;
+  border-radius: var(--radius-full);
+  padding: 2.5px;
+}
+
+.story-ring--unseen {
+  background: linear-gradient(140deg, var(--story-ring), var(--story-ring-edge));
+}
+.story-ring--seen {
+  background: var(--story-ring-seen);
+}
+/* The add tile has nothing to announce, so it stays neutral and lets the
+   plus badge carry the affordance. */
+.story-ring--add {
+  background: var(--story-ring-seen);
+}
+
+.story-avatar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--bg-card);
+  /* The inner gap that makes the ring read as a ring rather than a border. */
+  box-shadow: 0 0 0 2.5px var(--bg-primary);
+}
+.story-avatar .smart-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.story-avatar-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-weight: 800;
+  font-size: 1.4rem;
+  color: var(--text-secondary);
+  background: var(--bg-card-hover);
+}
+
+.story-add-badge {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-primary);
+}
+
+.story-label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  max-width: 74px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Fullscreen story viewer ─────────────────────────────────────────── */
+
+.story-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Always dark: a story is a photo on black in every app that has them, and
+     a light chrome around a photo reads as a broken image viewer. */
+  color: #fff;
+}
+
+.story-viewer-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.story-viewer-progress {
+  position: absolute;
+  top: calc(8px + var(--safe-top, 0px));
+  left: 10px;
+  right: 10px;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+}
+
+.story-progress-track {
+  flex: 1;
+  height: 2.5px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.32);
+  overflow: hidden;
+}
+
+.story-progress-fill {
+  display: block;
+  height: 100%;
+  background: #fff;
+  /* Matches the 50ms tick, so the bar advances smoothly instead of stepping. */
+  transition: width 50ms linear;
+}
+
+.story-viewer-header {
+  position: absolute;
+  top: calc(22px + var(--safe-top, 0px));
+  left: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 2;
+}
+
+.story-viewer-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  flex: 0 0 auto;
+  background: rgba(255, 255, 255, 0.2);
+}
+.story-viewer-avatar .smart-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.story-viewer-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.story-viewer-meta strong { font-size: 0.85rem; }
+.story-viewer-meta span {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-viewer-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.story-viewer-btn {
+  background: none;
+  border: 0;
+  color: #fff;
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+/* Invisible halves of the screen. Sized to leave the header controls
+   clickable — the header sits above these in z-order. */
+.story-tap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 35%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+.story-tap--prev { left: 0; }
+.story-tap--next { right: 0; width: 65%; }
+
+.story-viewer-footer {
+  position: absolute;
+  bottom: calc(16px + var(--safe-bottom, 0px));
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.65);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* ─── Circle banner ───────────────────────────────────────────────────── */
+
+.circle-banner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 1;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-card-hover);
+  margin-bottom: 12px;
+}
+.circle-banner .smart-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.circle-banner-edit {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 1;
+}
+
+.circle-card-banner {
+  width: 100%;
+  aspect-ratio: 3 / 1;
+  overflow: hidden;
+  background: var(--bg-card-hover);
+}
+.circle-card-banner .smart-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}

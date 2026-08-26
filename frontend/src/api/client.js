@@ -44,7 +44,7 @@ import {
   MOCK_PUBLIC_USERS, MOCK_FOLLOWERS, MOCK_FOLLOWING, MOCK_STRAVA_STATS,
   MOCK_TRAINER_VERIFICATIONS, MOCK_PAID_CIRCLE_APPLICATIONS,
   MOCK_CIRCLE_SUBSCRIPTIONS, MOCK_CIRCLE_REVENUE, buildMockProviderTimeseries,
-  MOCK_FOR_YOU_FEED,
+  MOCK_FOR_YOU_FEED, MOCK_STORIES,
 } from '../data/mock';
 
 // ─── Auth helpers ───────────────────────────────────
@@ -198,6 +198,8 @@ export const cacheKeys = {
   circles: () => 'circles',
   circle: (id) => keyOf('circles', { id, detail: 1 }),
   circleLeaderboard: (id) => keyOf('circles', { id, leaderboard: 1 }),
+  circleStories: (id) => keyOf('circles', { id, stories: 1 }),
+  storyRail: () => keyOf('circles', { rail: 1 }),
 
   posts: (communityId, circleId) => keyOf('posts', { communityId, circleId }),
   feed: (before) => keyOf('feed', { before }),
@@ -713,6 +715,7 @@ export async function getCircle(id) {
         price_etb: circle.price_etb,
         paid_circle_status: circle.paid_circle_status,
         join_code: isJoined ? circle.join_code : null,
+        banner_url: circle.banner_url ?? null,
         owner: {
           id: circle.owner_id,
           name: circle.owner_name,
@@ -1392,6 +1395,7 @@ async function mockHomeLite() {
       items: MOCK_FOR_YOU_FEED.filter(i => i.type === 'post'),
       next_before: null,
     },
+    stories: groupStoryRail(activeMockStories(), MOCK_USER.id),
   };
 }
 
@@ -1409,6 +1413,9 @@ function warmFromLite(payload) {
   });
   if (payload.social_proof) cacheWrite(cacheKeys.social(), payload.social_proof);
   if (typeof payload.unread_count === 'number') cacheWrite(cacheKeys.unread(), payload.unread_count);
+  // The rail is whole in both payloads — lite carries no partial version of
+  // it — so it is safe to warm from either.
+  if (payload.stories) cacheWrite(cacheKeys.storyRail(), { groups: payload.stories });
 }
 
 export async function getHomeBootstrap() {
@@ -1460,6 +1467,7 @@ async function mockHomeBootstrap() {
     social_proof: { ...MOCK_SOCIAL_PROOF },
     unread_count: 0,
     feed: { items: [...MOCK_FOR_YOU_FEED], next_before: null },
+    stories: groupStoryRail(activeMockStories(), MOCK_USER.id),
   };
 }
 
@@ -1469,6 +1477,7 @@ async function mockHomeBootstrap() {
  */
 function warmFromBootstrap(payload) {
   if (!payload) return;
+  if (payload.stories) cacheWrite(cacheKeys.storyRail(), { groups: payload.stories });
   cacheWrite(cacheKeys.providers(), { providers: payload.providers || [], count: (payload.providers || []).length });
   cacheWrite(cacheKeys.communities(), { communities: payload.communities || [], count: (payload.communities || []).length });
   cacheWrite(cacheKeys.events(), { events: payload.events || [], count: (payload.events || []).length });
@@ -1668,6 +1677,139 @@ let _mockTrainerStatus = null;
 let _mockStravaConnected = false;
 let _mockVisibleStats = [...MOCK_STRAVA_STATS.visible_stats];
 const _mockCircleStatuses = new Map();
+
+// ─── Circle stories ───────────────────────────────────────────────────────
+//
+// The rail is grouped by author and ordered "mine first, then anyone with
+// something unseen, then most recent" — the same ordering the backend applies
+// in crud/circle_story.get_story_rail. Mock mode reimplements it rather than
+// faking a payload so the two never drift on the ordering the UI depends on.
+
+function groupStoryRail(stories, currentUserId) {
+  const groups = new Map();
+  for (const story of stories) {
+    const key = story.user_id;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        user_id: story.user_id,
+        user_name: story.user_name,
+        user_photo_url: story.user_photo_url,
+        is_mine: story.user_id === currentUserId,
+        stories: [],
+      });
+    }
+    groups.get(key).stories.push(story);
+  }
+  const result = [...groups.values()];
+  for (const group of result) {
+    group.stories.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    group.has_unseen = group.stories.some(st => !st.seen);
+    group.story_count = group.stories.length;
+    group.latest_at = group.stories[group.stories.length - 1].created_at;
+  }
+  result.sort((a, b) => (
+    (a.is_mine === b.is_mine ? 0 : a.is_mine ? -1 : 1)
+    || (a.has_unseen === b.has_unseen ? 0 : a.has_unseen ? -1 : 1)
+    || new Date(b.latest_at) - new Date(a.latest_at)
+  ));
+  return result;
+}
+
+function activeMockStories() {
+  const now = Date.now();
+  return MOCK_STORIES.filter(st => new Date(st.expires_at).getTime() > now);
+}
+
+export async function getStoryRail() {
+  return cached(cacheKeys.storyRail(), async () => {
+    if (USE_MOCK) {
+      await delay(120);
+      return { groups: groupStoryRail(activeMockStories(), MOCK_USER.id) };
+    }
+    return request('GET', '/circles/stories/feed');
+  });
+}
+
+export async function getCircleStories(circleId) {
+  return cached(cacheKeys.circleStories(circleId), async () => {
+    if (USE_MOCK) {
+      await delay();
+      return { stories: activeMockStories().filter(st => st.circle_id === circleId) };
+    }
+    return request('GET', `/circles/${circleId}/stories`);
+  });
+}
+
+export async function createCircleStory(circleId, { image_url, image_public_id }) {
+  // The rail lives on the home payloads too, so a new story has to expire the
+  // whole circles family *and* home — otherwise the poster doesn't see their
+  // own ring until the next cold open.
+  invalidate('circles');
+  invalidate('home');
+  if (USE_MOCK) {
+    await delay();
+    const created_at = new Date().toISOString();
+    const circle = MOCK_CIRCLES.find(c => c.id === circleId);
+    const story = {
+      id: `st-${Date.now()}`,
+      circle_id: circleId,
+      circle_name: circle?.name || null,
+      user_id: MOCK_USER.id,
+      user_name: MOCK_USER.name,
+      user_photo_url: MOCK_USER.photo_url,
+      image_url,
+      created_at,
+      expires_at: new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
+      seen: true,
+      view_count: 0,
+      is_mine: true,
+    };
+    MOCK_STORIES.push(story);
+    return story;
+  }
+  return request('POST', `/circles/${circleId}/stories`, { image_url, image_public_id });
+}
+
+export async function markStoryViewed(storyId) {
+  if (USE_MOCK) {
+    await delay(60);
+    const story = MOCK_STORIES.find(st => st.id === storyId);
+    if (story) {
+      story.seen = true;
+      if (story.is_mine) story.view_count = (story.view_count || 0) + 1;
+    }
+    return { view_count: story?.view_count ?? 0 };
+  }
+  // Deliberately not cache-invalidating: a view receipt fires on every frame
+  // of the viewer, and dropping the rail cache each time would refetch it
+  // mid-playback. The rail's own optimistic update covers the dimmed ring.
+  return request('POST', `/circles/stories/${storyId}/view`);
+}
+
+export async function deleteStory(storyId) {
+  invalidate('circles');
+  invalidate('home');
+  if (USE_MOCK) {
+    await delay();
+    const at = MOCK_STORIES.findIndex(st => st.id === storyId);
+    if (at !== -1) MOCK_STORIES.splice(at, 1);
+    return true;
+  }
+  await request('DELETE', `/circles/stories/${storyId}`);
+  return true;
+}
+
+export async function setCircleBanner(circleId, { banner_url, banner_public_id }) {
+  invalidate('circles');
+  invalidate('home');
+  if (USE_MOCK) {
+    await delay();
+    const circle = MOCK_CIRCLES.find(c => c.id === circleId);
+    if (circle) circle.banner_url = banner_url;
+    return { id: circleId, banner_url };
+  }
+  return request('PUT', `/circles/${circleId}/banner`, { banner_url, banner_public_id });
+}
 
 export async function uploadFile(file, folder) {
   if (USE_MOCK) {

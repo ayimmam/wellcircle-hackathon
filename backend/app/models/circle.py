@@ -21,6 +21,10 @@ class Circle(Base):
     paid_circle_status = Column(String(20), nullable=False, default="free")
     paid_circle_applied_at = Column(DateTime(timezone=True), nullable=True)
     total_revenue_etb = Column(Integer, nullable=False, default=0)
+    # Owner-uploaded cover image (Cloudinary). public_id is kept so replacing
+    # the banner can delete the asset it supersedes instead of orphaning it.
+    banner_url = Column(String(500), nullable=True)
+    banner_public_id = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 class CircleMember(Base):

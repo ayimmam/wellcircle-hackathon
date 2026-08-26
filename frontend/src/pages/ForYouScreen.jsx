@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getHomeBootstrap, getHomeLite, getForYouFeed, cacheKeys } from '../api/client';
+import { getHomeBootstrap, getHomeLite, getForYouFeed, deleteStory, markStoryViewed, cacheKeys } from '../api/client';
 import useResource from '../hooks/useResource';
 import PointsBadge from '../components/PointsBadge';
 import StreakBadge from '../components/StreakBadge';
@@ -17,6 +17,7 @@ import FeedEventBanner from '../components/feed/FeedEventBanner';
 import FeedPastEventCard from '../components/feed/FeedPastEventCard';
 import FeedProviderCard from '../components/feed/FeedProviderCard';
 import ShareCard from '../components/ShareCard';
+import StoryRail from '../components/stories/StoryRail';
 import { showToast } from '../components/Toast';
 import { useTranslation } from 'react-i18next';
 import { daysSinceJoin } from '../utils/milestones';
@@ -88,6 +89,53 @@ export default function ForYouScreen() {
   // lite's list is already joined-only; the filter is what makes the full
   // list — which carries every circle — agree with it.
   const joinedCircles = (home?.communities || lite?.communities || []).filter(isJoined);
+
+  // Stories ride in on both home payloads (see api/home.py) so the rail is
+  // painted by the lite response, before any provider work has finished —
+  // it's the first thing on the screen and must not wait for the last thing.
+  const storyGroups = home?.stories || lite?.stories || [];
+
+  // Seen state is server-side, but the ring has to dim the moment the story is
+  // played rather than on the next fetch — so the receipt is fired and the
+  // local copy is updated at the same time.
+  const markSeenLocally = (storyId) => (prev) => {
+    if (!prev?.stories) return prev;
+    return {
+      ...prev,
+      stories: prev.stories.map(group => {
+        if (!group.stories.some(s => s.id === storyId)) return group;
+        const stories = group.stories.map(s => s.id === storyId ? { ...s, seen: true } : s);
+        return { ...group, stories, has_unseen: stories.some(s => !s.seen) };
+      }),
+    };
+  };
+
+  const handleStoryViewed = (storyId) => {
+    setHome(markSeenLocally(storyId));
+    setLite(markSeenLocally(storyId));
+    // Fire-and-forget: a lost receipt costs a re-lit ring, not correctness.
+    markStoryViewed(storyId).catch(() => {});
+  };
+
+  const dropStoryLocally = (storyId) => (prev) => {
+    if (!prev?.stories) return prev;
+    return {
+      ...prev,
+      stories: prev.stories
+        .map(group => ({ ...group, stories: group.stories.filter(s => s.id !== storyId) }))
+        .filter(group => group.stories.length > 0),
+    };
+  };
+
+  const handleStoryDeleted = async (storyId) => {
+    setHome(dropStoryLocally(storyId));
+    setLite(dropStoryLocally(storyId));
+    try {
+      await deleteStory(storyId);
+    } catch (err) {
+      showToast(err.message || 'Could not delete that story', 'error');
+    }
+  };
 
   const markCheckedIn = (id) => (prev) => (
     prev?.communities
@@ -194,6 +242,13 @@ export default function ForYouScreen() {
           </div>
         )}
       </div>
+
+      <StoryRail
+        groups={storyGroups}
+        currentUser={user}
+        onViewed={handleStoryViewed}
+        onDelete={handleStoryDeleted}
+      />
 
       {user && justOnboarded && <WelcomeBanner user={user} providers={home?.providers || []} />}
 

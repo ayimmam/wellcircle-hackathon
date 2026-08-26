@@ -465,9 +465,58 @@ export const MOCK_POINTS_HISTORY = {
 // is_joined/is_private mirror the real GET /api/circles shape — used to
 // build the onboarding "Available Circles" join list (not-joined, public).
 export const MOCK_CIRCLES = [
-  { id: '33333333-0000-0000-0000-000000000001', name: 'Addis Morning Runners', description: 'We run every morning at 6 AM around Meskel Square.', member_count: 24, join_code: 'RUN24AM', is_private: false, is_joined: false, owner_id: '00000000-0000-0000-0000-000000000097', owner_name: 'Selam Alemu', owner_telegram_handle: 'selam_well', owner_is_verified: false, is_paid: false, price_etb: null, paid_circle_status: 'free', total_revenue_etb: 0 },
-  { id: '33333333-0000-0000-0000-000000000002', name: 'Zen Seekers', description: 'Mindfulness, yoga, and finding peace in the chaotic city.', member_count: 112, join_code: 'ZEN56', is_private: false, is_joined: true, owner_id: MOCK_USER.id, owner_name: MOCK_USER.name, owner_telegram_handle: MOCK_USER.telegram_handle, owner_is_verified: false, is_paid: false, price_etb: null, paid_circle_status: 'free', total_revenue_etb: 0 },
-  { id: '33333333-0000-0000-0000-000000000003', name: 'Hana Endurance Club', description: 'Monthly coached running plans and community accountability.', member_count: 124, join_code: 'HANA124', is_private: false, is_joined: false, owner_id: '00000000-0000-0000-0000-000000000099', owner_name: 'Hana Girma', owner_telegram_handle: 'hana_runs', owner_is_verified: true, is_paid: true, price_etb: 350, paid_circle_status: 'approved', total_revenue_etb: 33250 }
+  { id: '33333333-0000-0000-0000-000000000001', name: 'Addis Morning Runners', description: 'We run every morning at 6 AM around Meskel Square.', member_count: 24, banner_url: 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=960', join_code: 'RUN24AM', is_private: false, is_joined: false, owner_id: '00000000-0000-0000-0000-000000000097', owner_name: 'Selam Alemu', owner_telegram_handle: 'selam_well', owner_is_verified: false, is_paid: false, price_etb: null, paid_circle_status: 'free', total_revenue_etb: 0 },
+  { id: '33333333-0000-0000-0000-000000000002', name: 'Zen Seekers', description: 'Mindfulness, yoga, and finding peace in the chaotic city.', member_count: 112, banner_url: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=960', join_code: 'ZEN56', is_private: false, is_joined: true, owner_id: MOCK_USER.id, owner_name: MOCK_USER.name, owner_telegram_handle: MOCK_USER.telegram_handle, owner_is_verified: false, is_paid: false, price_etb: null, paid_circle_status: 'free', total_revenue_etb: 0 },
+  { id: '33333333-0000-0000-0000-000000000003', name: 'Hana Endurance Club', description: 'Monthly coached running plans and community accountability.', member_count: 124, banner_url: null, join_code: 'HANA124', is_private: false, is_joined: false, owner_id: '00000000-0000-0000-0000-000000000099', owner_name: 'Hana Girma', owner_telegram_handle: 'hana_runs', owner_is_verified: true, is_paid: true, price_etb: 350, paid_circle_status: 'approved', total_revenue_etb: 33250 }
+];
+
+// ─── Circle stories (72h ephemeral) ──────────────────────────────────────
+// Mutable on purpose: the client's mock branch posts, views and deletes
+// against this array, so mock mode exercises the same rail transitions
+// (unseen ring → seen ring, empty rail) the real one does.
+const hoursAgo = (h) => new Date(Date.now() - h * 3600 * 1000).toISOString();
+const expiresFrom = (iso) => new Date(new Date(iso).getTime() + 72 * 3600 * 1000).toISOString();
+
+const mockStory = (over) => {
+  const created_at = over.created_at || hoursAgo(2);
+  return {
+    id: over.id,
+    circle_id: over.circle_id,
+    circle_name: over.circle_name,
+    user_id: over.user_id,
+    user_name: over.user_name,
+    user_photo_url: over.user_photo_url,
+    image_url: over.image_url,
+    created_at,
+    expires_at: expiresFrom(created_at),
+    seen: over.seen ?? false,
+    view_count: over.view_count ?? null,
+    is_mine: over.is_mine ?? false,
+  };
+};
+
+export const MOCK_STORIES = [
+  mockStory({
+    id: 'st-0001', circle_id: '33333333-0000-0000-0000-000000000002', circle_name: 'Zen Seekers',
+    user_id: '00000000-0000-0000-0000-000000000099', user_name: 'Hana Girma',
+    user_photo_url: 'https://i.pravatar.cc/150?u=hana',
+    image_url: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=960',
+    created_at: hoursAgo(3),
+  }),
+  mockStory({
+    id: 'st-0002', circle_id: '33333333-0000-0000-0000-000000000002', circle_name: 'Zen Seekers',
+    user_id: '00000000-0000-0000-0000-000000000099', user_name: 'Hana Girma',
+    user_photo_url: 'https://i.pravatar.cc/150?u=hana',
+    image_url: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=960',
+    created_at: hoursAgo(1),
+  }),
+  mockStory({
+    id: 'st-0003', circle_id: '33333333-0000-0000-0000-000000000002', circle_name: 'Zen Seekers',
+    user_id: '00000000-0000-0000-0000-000000000098', user_name: 'Dawit Bekele',
+    user_photo_url: 'https://i.pravatar.cc/150?u=dawit',
+    image_url: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=960',
+    created_at: hoursAgo(20), seen: true,
+  }),
 ];
 
 // ─── Profiles, verification, paid circles & Strava ───────────────────────

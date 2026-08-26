@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
+import SmartImage from '../components/SmartImage';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
 // Rank is carried by the numeral itself — the top three are marked with the
@@ -337,6 +338,11 @@ export default function CommunityList() {
           </div>
           {circles.map(c => (
             <div key={c.id} className="card" onClick={() => navigate(`/circle/${c.id}`)}>
+              {c.banner_url && (
+                <div className="circle-card-banner">
+                  <SmartImage src={c.banner_url} alt="" width={480} fallback={null} />
+                </div>
+              )}
               <div className="card-body">
                 <h3 className="flex items-center gap-6" style={{ fontSize: '1.1rem', marginBottom: 4 }}>
                   {c.is_private && <Icon name="lock" size={14} />}
@@ -360,6 +366,11 @@ export default function CommunityList() {
               <h2 style={{ fontSize: '1.1rem', fontWeight: 800, marginTop: 16 }}>Community User Circles</h2>
               {circles.filter(c => !c.user_joined).map(c => (
                 <div key={c.id} className="card" onClick={() => navigate(`/circle/${c.id}`)}>
+                  {c.banner_url && (
+                    <div className="circle-card-banner">
+                      <SmartImage src={c.banner_url} alt="" width={480} fallback={null} />
+                    </div>
+                  )}
                   <div className="card-body">
                     <h3 className="flex items-center gap-6" style={{ fontSize: '1.1rem', marginBottom: 4 }}>
                       {c.is_private && <Icon name="lock" size={14} />}

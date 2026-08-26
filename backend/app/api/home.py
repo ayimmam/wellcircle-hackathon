@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.events import query_upcoming_events
 from app.crud.circle import get_circle_social_proof
+from app.crud.circle_story import get_story_rail
 from app.crud.community import get_all_communities
 from app.crud.provider import get_all_providers
 from app.database import get_db
@@ -73,6 +74,10 @@ async def home_lite(
         lambda: build_for_you_feed(db, limit=FEED_LIMIT, text_only=True),
         {"items": [], "next_before": None},
     )
+    # The story rail sits at the very top of For You, so it ships in the cheap
+    # payload: two indexed queries over the user's own circles, no provider
+    # fan-out to wait behind.
+    stories = section("lite_stories", lambda: get_story_rail(db, user.id), [])
 
     return {
         "partial": True,
@@ -80,6 +85,7 @@ async def home_lite(
         "social_proof": social_proof,
         "unread_count": unread_count,
         "feed": feed,
+        "stories": stories,
     }
 
 
@@ -142,6 +148,7 @@ async def home_bootstrap(
     # open (one request, per Phase 2) and only hits GET /api/feed/for-you on
     # scroll for subsequent pages.
     feed = section("feed", lambda: build_for_you_feed(db, limit=FEED_LIMIT), {"items": [], "next_before": None})
+    stories = section("stories", lambda: get_story_rail(db, user.id), [])
 
     return {
         "providers": providers,
@@ -151,4 +158,5 @@ async def home_bootstrap(
         "social_proof": social_proof,
         "unread_count": unread_count,
         "feed": feed,
+        "stories": stories,
     }

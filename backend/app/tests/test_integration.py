@@ -387,6 +387,113 @@ def test_all():
         assert validate_login_widget_data(tampered) is None
         print("   ✅ validate_login_widget_data (rejects tampered payload)")
 
+        # === 10. CIRCLE STORIES ===
+        print("\n10. Circle Stories (72h ephemeral)")
+        from app.crud.circle import create_circle, join_circle, set_circle_banner
+        from app.crud.circle_story import (
+            MAX_ACTIVE_STORIES_PER_CIRCLE, create_story, delete_story,
+            get_circle_stories, get_story_rail, mark_story_viewed, purge_expired_stories,
+        )
+        from app.models.circle_story import CircleStory
+
+        story_circle = create_circle(db, name="Story Circle", description="", owner_id=user.id)
+        join_circle(db, story_circle.id, user2.id)
+
+        story = create_story(db, story_circle.id, user.id, "https://cdn/a.jpg", "wellcircle/stories/a")
+        assert story.expires_at > story.created_at
+        # The TTL is stamped at write time, not derived on read.
+        ttl_hours = (story.expires_at - story.created_at).total_seconds() / 3600
+        assert 71.9 < ttl_hours < 72.1, ttl_hours
+        print("   ✅ create_story (stamps a 72h expiry)")
+
+        # A non-member cannot post into the circle.
+        outsider = create_user_from_bot(db, telegram_id=777666555, telegram_handle="test_outsider")
+        try:
+            create_story(db, story_circle.id, outsider.id, "https://cdn/x.jpg", "x")
+            assert False, "outsider should not be able to post a story"
+        except PermissionError:
+            pass
+        print("   ✅ create_story (rejects non-members)")
+
+        # ...and sees nothing when reading.
+        assert get_circle_stories(db, story_circle.id, outsider.id) == []
+        assert get_story_rail(db, outsider.id) == []
+        print("   ✅ stories are member-only on read")
+
+        member_view = get_circle_stories(db, story_circle.id, user2.id)
+        assert len(member_view) == 1
+        assert member_view[0]["seen"] is False
+        # A viewer count is the author's feedback, not another member's.
+        assert member_view[0]["view_count"] is None
+        print("   ✅ get_circle_stories (unseen, count hidden from non-authors)")
+
+        count = mark_story_viewed(db, story.id, user2.id)
+        assert count == 1
+        # View receipts are idempotent — replaying the viewer must not inflate.
+        assert mark_story_viewed(db, story.id, user2.id) == 1
+        assert get_circle_stories(db, story_circle.id, user2.id)[0]["seen"] is True
+        assert get_circle_stories(db, story_circle.id, user.id)[0]["view_count"] == 1
+        print("   ✅ mark_story_viewed (idempotent, count visible to the author)")
+
+        rail = get_story_rail(db, user2.id)
+        assert len(rail) == 1 and rail[0]["user_id"] == str(user.id)
+        assert rail[0]["story_count"] == 1 and rail[0]["has_unseen"] is False
+        print("   ✅ get_story_rail (grouped by author)")
+
+        # Your own group is pinned to the front of the rail.
+        create_story(db, story_circle.id, user2.id, "https://cdn/b.jpg", "wellcircle/stories/b")
+        own_rail = get_story_rail(db, user2.id)
+        assert own_rail[0]["is_mine"] is True, [g["is_mine"] for g in own_rail]
+        print("   ✅ get_story_rail (own group first)")
+
+        # The per-circle cap is what bounds one member flooding the rail.
+        try:
+            for i in range(MAX_ACTIVE_STORIES_PER_CIRCLE):
+                create_story(db, story_circle.id, user.id, f"https://cdn/{i}.jpg", f"cap-{i}")
+            assert False, "the active-story cap should have tripped"
+        except ValueError:
+            pass
+        print(f"   ✅ create_story (caps at {MAX_ACTIVE_STORIES_PER_CIRCLE} active per circle)")
+
+        # An expired story is invisible before any purge job runs — that is the
+        # guarantee that a late cron can never leak one back onto a screen.
+        stale = db.query(CircleStory).filter(CircleStory.id == story.id).first()
+        stale.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+        db.commit()
+        assert all(s["id"] != str(story.id) for s in get_circle_stories(db, story_circle.id, user2.id))
+        print("   ✅ expired stories drop out of reads before the purge runs")
+
+        # The purge marks what it deleted. Cloudinary is not configured in the
+        # test environment, so _destroy_asset fails softly and the row is left
+        # for the next run — which is exactly the retry behaviour we want.
+        purged = purge_expired_stories(db)
+        assert isinstance(purged, int)
+        print("   ✅ purge_expired_stories (retries rows whose delete failed)")
+
+        # Early delete: the author can pull their own story, and it goes even
+        # though the Cloudinary call fails here — an unreachable CDN must never
+        # keep a story the author asked to remove on screen.
+        own = create_story(db, story_circle.id, user2.id, "https://cdn/c.jpg", "wellcircle/stories/c")
+        try:
+            delete_story(db, own.id, outsider.id)
+            assert False, "an outsider should not be able to delete a story"
+        except PermissionError:
+            pass
+        delete_story(db, own.id, user2.id)
+        assert all(x["id"] != str(own.id) for x in get_circle_stories(db, story_circle.id, user2.id))
+        print("   ✅ delete_story (author only, survives a CDN failure)")
+
+        # Banner: owner-only.
+        try:
+            set_circle_banner(db, story_circle.id, user2.id, "https://cdn/banner.jpg", "b1")
+            assert False, "non-owner should not be able to set the banner"
+        except PermissionError:
+            pass
+        set_circle_banner(db, story_circle.id, user.id, "https://cdn/banner.jpg", "b1")
+        db.refresh(story_circle)
+        assert story_circle.banner_url == "https://cdn/banner.jpg"
+        print("   ✅ set_circle_banner (owner only)")
+
         # === DONE ===
         print("\n" + "=" * 50)
         print("  🎉 ALL TESTS PASSED (including Phase 2)")

@@ -297,6 +297,8 @@ export default function ProviderPortalOverview() {
                   style={{ flex: 1 }}
                   value={tip.title}
                   onChange={e => updateTip(i, 'title', e.target.value)}
+                  aria-label={`Navigation tip ${i + 1} title`}
+                  autoComplete="off"
                   id={`nav-tip-title-${i}`}
                 />
                 <input
@@ -305,6 +307,8 @@ export default function ProviderPortalOverview() {
                   style={{ flex: 2 }}
                   value={tip.detail}
                   onChange={e => updateTip(i, 'detail', e.target.value)}
+                  aria-label={`Navigation tip ${i + 1} detail`}
+                  autoComplete="off"
                   id={`nav-tip-detail-${i}`}
                 />
                 <button className="btn btn-icon btn-secondary" onClick={() => removeTip(i)} aria-label="Remove tip" id={`nav-tip-remove-${i}`}>
@@ -327,6 +331,8 @@ export default function ProviderPortalOverview() {
                   style={{ flex: 1 }}
                   value={facility}
                   onChange={e => updateFacility(i, e.target.value)}
+                  aria-label={`Facility ${i + 1}`}
+                  autoComplete="off"
                   id={`facility-${i}`}
                 />
                 <button className="btn btn-icon btn-secondary" onClick={() => removeFacility(i)} aria-label="Remove facility" id={`facility-remove-${i}`}>

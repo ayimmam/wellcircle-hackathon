@@ -31,8 +31,8 @@ function EditableEventItem({ event, customers, providerId, onChanged }) {
         <div className="flex justify-between items-center my-8">
           {isEditing ? (
             <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
-              <input type="number" value={spots} onChange={e => setSpots(e.target.value)} className="input" style={{ width: '60px', padding: '4px' }} />
-              <select className="input" style={{ padding: '4px' }} value={staffId} onChange={e => setStaffId(e.target.value)}>
+              <input type="number" inputMode="numeric" value={spots} onChange={e => setSpots(e.target.value)} className="input" style={{ width: '60px', padding: '4px' }} aria-label="Spots remaining" />
+              <select className="input" style={{ padding: '4px' }} value={staffId} onChange={e => setStaffId(e.target.value)} aria-label="Evidence staff">
                 <option value="">No evidence staff</option>
                 {customers.map(c => (
                   <option key={c.user_id} value={c.user_id}>{c.name}</option>
@@ -114,8 +114,8 @@ export default function ProviderPortalEvents() {
         <h3 className="font-bold text-lg mb-8" style={{ color: '#166534' }}>Boost Your Event</h3>
         <p className="text-sm mb-16" style={{ color: '#15803d' }}>Pay 50 ETB via Telebirr to pin your wellness event to the Featured carousel for 48 hours.</p>
 
-        <select className="input mb-12" id="boost-event-select" style={{ width: '100%' }}>
-          <option value="">Select an upcoming event...</option>
+        <select className="input mb-12" id="boost-event-select" aria-label="Event to boost" style={{ width: '100%' }}>
+          <option value="">Select an upcoming event…</option>
           {events.filter(e => !e.is_cancelled).map(ev => <option key={ev.id} value={ev.id}>{ev.service_name}</option>)}
         </select>
 
@@ -125,7 +125,7 @@ export default function ProviderPortalEvents() {
             const sel = document.getElementById('boost-event-select');
             if (!sel.value) return;
             try {
-              showToast('Processing Telebirr...');
+              showToast('Processing Telebirr…');
               await new Promise(r => setTimeout(r, 1000));
               showToast('Payment successful! Event pinned to consumer Explore feed.', 'success');
             } catch (e) {
@@ -142,13 +142,13 @@ export default function ProviderPortalEvents() {
           <div className="modal-card" onClick={ev => ev.stopPropagation()}>
             <h3 className="card-title mb-16">Create Event</h3>
             <div className="form-stack">
-              <input className="input" placeholder="Service Name" value={newEvent.service_name} onChange={e => setNewEvent(p => ({ ...p, service_name: e.target.value }))} />
-              <input className="input" placeholder="Description" value={newEvent.description} onChange={e => setNewEvent(p => ({ ...p, description: e.target.value }))} />
-              <input className="input" type="datetime-local" placeholder="Starts At" value={newEvent.starts_at} onChange={e => setNewEvent(p => ({ ...p, starts_at: e.target.value }))} />
-              <input className="input" type="datetime-local" placeholder="Ends At" value={newEvent.ends_at} onChange={e => setNewEvent(p => ({ ...p, ends_at: e.target.value }))} />
-              <input className="input" type="number" placeholder="Capacity" value={newEvent.capacity} onChange={e => setNewEvent(p => ({ ...p, capacity: parseInt(e.target.value, 10) }))} />
-              <input className="input" type="number" placeholder="Price (ETB)" value={newEvent.price_etb} onChange={e => setNewEvent(p => ({ ...p, price_etb: parseInt(e.target.value, 10) }))} />
-              <select className="input" value={newEvent.staff_user_id} onChange={e => setNewEvent(p => ({ ...p, staff_user_id: e.target.value }))}>
+              <input className="input" placeholder="Service Name" value={newEvent.service_name} onChange={e => setNewEvent(p => ({ ...p, service_name: e.target.value }))} aria-label="Service name" autoComplete="off" />
+              <input className="input" placeholder="Description" value={newEvent.description} onChange={e => setNewEvent(p => ({ ...p, description: e.target.value }))} aria-label="Description" autoComplete="off" />
+              <input className="input" type="datetime-local" placeholder="Starts At" value={newEvent.starts_at} onChange={e => setNewEvent(p => ({ ...p, starts_at: e.target.value }))} aria-label="Starts at" />
+              <input className="input" type="datetime-local" placeholder="Ends At" value={newEvent.ends_at} onChange={e => setNewEvent(p => ({ ...p, ends_at: e.target.value }))} aria-label="Ends at" />
+              <input className="input" type="number" inputMode="numeric" placeholder="Capacity" value={newEvent.capacity} onChange={e => setNewEvent(p => ({ ...p, capacity: parseInt(e.target.value, 10) }))} aria-label="Capacity" />
+              <input className="input" type="number" inputMode="numeric" placeholder="Price (ETB)" value={newEvent.price_etb} onChange={e => setNewEvent(p => ({ ...p, price_etb: parseInt(e.target.value, 10) }))} aria-label="Price in ETB" />
+              <select className="input" value={newEvent.staff_user_id} onChange={e => setNewEvent(p => ({ ...p, staff_user_id: e.target.value }))} aria-label="Evidence staff">
                 <option value="">Designate evidence staff (optional)</option>
                 {customers.map(c => (
                   <option key={c.user_id} value={c.user_id}>{c.name}</option>

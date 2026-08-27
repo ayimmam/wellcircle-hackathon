@@ -86,9 +86,20 @@ The two sweeps above are repo-wide and mechanical (grep-verified), so they're co
 - [x] `pages/admin/AdminTrainerVerifications.jsx` — fixed: rejection-reason textarea had no accessible name.
 - Tests: full 48-route smoke suite + `AdminLaunchFeatures` + `AdminFeedback` — all pass.
 
-### Remaining pages — not yet given a full manual pass
+### Provider-portal pages (task #3) — complete
 
-- [ ] `pages/provider-portal/*.jsx` (9 files)
+- [x] `pages/provider-portal/ProviderPortalShell.jsx` — ✓ clean: `NavLink` tabs render real `<a>` elements.
+- [x] `pages/provider-portal/ProviderPortalLogin.jsx` — ✓ clean, actually a model example: proper `htmlFor`/`id` label pairing on both fields.
+- [x] `pages/provider-portal/ProviderPortalOverview.jsx` — fixed: navigation-tip and facility inputs had `id`s (for test targeting) but no `<label>` or `aria-label` — cosmetic-only, not real association.
+- [x] `pages/provider-portal/ProviderPortalBookings.jsx` — fixed: status filter `<select>` had no accessible name.
+- [x] `pages/provider-portal/ProviderPortalEvents.jsx` — fixed: same pattern as `ProviderDashboard.jsx`'s Events tab (this portal page duplicates that logic) — spots/staff inputs, boost-event select, and all 7 create-event modal fields had no accessible name; `"Processing Telebirr..."` → ellipsis.
+- [x] `pages/provider-portal/ProviderPortalProducts.jsx` — fixed: same pattern as `ProviderDashboard.jsx`'s Products tab — redemption status/notes and all 4 create-product modal fields had no accessible name.
+- [x] `pages/provider-portal/ProviderPortalPromotions.jsx` — ✓ clean (delegates to `PromotionForm`, not itself in scope).
+- [x] `pages/provider-portal/ProviderPortalSubscriptions.jsx` — fixed: plan-selector card was a clickable div (keyboard access added, same as `ProviderDashboard.jsx`); payment method select and phone input had no accessible name, phone missing `type="tel"`.
+- [x] `pages/provider-portal/ProviderPortalCustomers.jsx` — ✓ clean: real button, no clickable divs.
+- Tests: full 43-route smoke suite — all pass. Full suite: 258/261 (3 pre-existing flaky failures, matches the established baseline — not a regression).
+
+**Provider-portal pages review (task #3) — complete.**
 
 ## Rules of engagement for this branch
 

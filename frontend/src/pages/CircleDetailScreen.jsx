@@ -455,7 +455,7 @@ export default function CircleDetailScreen() {
                   onClick={() => navigate(`/users/${member.user_id}`)}
                 >
                   <div className={`cell-rank ${idx < 3 ? 'top' : ''}`}>
-                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                    {idx === 0 ? <Icon name="trophy" size={16} style={{ color: '#C9971E' }} /> : `#${idx + 1}`}
                   </div>
                   <div className="avatar avatar-md">
                     <SmartImage src={member.photo_url} width={36} fallback={<Icon name="user" size={16} />} />

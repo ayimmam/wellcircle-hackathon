@@ -188,7 +188,7 @@ export default function ProfileScreen() {
         <p className="profile-handle">@{user.telegram_handle}</p>
 
         <div className="profile-tier">
-          <span>{tier.emoji}</span>
+          <Icon name="leaf" size={15} style={{ color: tier.color }} />
           <span>{tier.name}</span>
         </div>
 

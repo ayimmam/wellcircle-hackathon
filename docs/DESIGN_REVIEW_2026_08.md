@@ -58,11 +58,12 @@ The two sweeps above are repo-wide and mechanical (grep-verified), so they're co
 - Tests: `FollowersList` + full 45-route smoke suite — all pass.
 - [x] `pages/ProviderOnboard.jsx` — fixed: every input/select/textarea across all 5 steps had no `<label>` or `aria-label` (a screen reader would announce a bare textbox, or for the `<select>`s, nothing describing what's being chosen) — added `aria-label` to all of them; latitude/longitude fields got `type="number" inputMode="decimal"`; invite-code field got `autoComplete="off" spellCheck={false}`; `"Submitting..."` → `"Submitting…"`.
 - Tests: full 43-route smoke suite — all pass.
+- [x] `pages/MyBookings.jsx` — fixed: `"Loading..."` → `t('Loading…')`. Otherwise clean: no clickable divs, status conveyed by color + text label together (not color alone).
+- [x] `pages/ProviderDashboard.jsx` — fixed: subscription-plan card was a clickable div (keyboard access added); every input/select across the product/event/challenge creation modals, the redemption-status editor, the booking-status filter, and the subscription payment form had no accessible name — added `aria-label` throughout, plus `type="tel"`/`inputMode` where appropriate. Already fine: the date-range filters (`From`/`To`) use real `<label>`-wrapped inputs.
+- Tests: `ProviderDashboard.plans` + full 44-route smoke suite — all pass.
 
 ### Remaining pages — not yet given a full manual pass (only covered by the two repo-wide sweeps above)
 
-- [ ] `pages/ProviderDashboard.jsx`
-- [ ] `pages/MyBookings.jsx`
 - [ ] `pages/ProductsStore.jsx` (clickable-div fixed; not fully audited otherwise)
 - [ ] `pages/ProductDetail.jsx`
 - [ ] `pages/ProductRedeem.jsx`

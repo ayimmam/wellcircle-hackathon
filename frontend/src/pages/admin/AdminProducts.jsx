@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getAdminProducts, getAdminRedemptions, updateProductStock, updateRedemptionStatus } from '../../api/client';
 import { showToast } from '../../components/Toast';
+import useDismissOnEscape from '../../hooks/useDismissOnEscape';
 
 const REDEMPTION_STATUSES = ['pending', 'confirmed', 'shipped', 'delivered'];
 
@@ -14,6 +15,8 @@ export default function AdminProducts() {
   const [stockModal, setStockModal] = useState(null);
   const [newStock, setNewStock] = useState('');
   const [loading, setLoading] = useState(true);
+
+  useDismissOnEscape(() => setStockModal(null), Boolean(stockModal));
 
   const loadProducts = async () => {
     setLoading(true);

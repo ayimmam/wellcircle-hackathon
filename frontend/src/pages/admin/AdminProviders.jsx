@@ -5,6 +5,7 @@ import {
 } from '../../api/client';
 import { INTEREST_CATEGORIES } from '../../data/mock';
 import { showToast } from '../../components/Toast';
+import useDismissOnEscape from '../../hooks/useDismissOnEscape';
 
 function timeAgo(dateStr) {
   if (!dateStr) return '';
@@ -29,6 +30,9 @@ export default function AdminProviders() {
   const [loading, setLoading] = useState(true);
   const [inviteCode, setInviteCode] = useState(null);
   const [generatingInvite, setGeneratingInvite] = useState(false);
+
+  useDismissOnEscape(() => setSelected(null), Boolean(selected));
+  useDismissOnEscape(() => setShowAdd(false), showAdd);
 
   const load = async () => {
     setLoading(true);

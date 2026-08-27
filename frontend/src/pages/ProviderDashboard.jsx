@@ -16,6 +16,7 @@ import { track } from '../analytics';
 import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
 import { clickableDivProps } from '../utils/a11y';
+import useDismissOnEscape from '../hooks/useDismissOnEscape';
 
 const PROVIDER_DAILY_AWARD_CAP = 300; // mirrors backend PROVIDER_AWARD_MAX_POINTS_PER_DAY
 const REDEMPTION_STATUSES = ['pending', 'confirmed', 'shipped', 'delivered'];
@@ -40,6 +41,10 @@ export default function ProviderDashboard() {
   const [showCreate, setShowCreate] = useState(false);
   const [showCreateEvent, setShowCreateEvent] = useState(false);
   const [showCreateChallenge, setShowCreateChallenge] = useState(null);
+
+  useDismissOnEscape(() => setShowCreate(false), showCreate);
+  useDismissOnEscape(() => setShowCreateEvent(false), showCreateEvent);
+  useDismissOnEscape(() => setShowCreateChallenge(null), Boolean(showCreateChallenge));
   
   const [newProduct, setNewProduct] = useState({ name: '', type: 'digital', price_etb: '', quantity_in_stock: '10' });
   const [newEvent, setNewEvent] = useState({ service_name: '', description: '', starts_at: '', ends_at: '', capacity: 10, price_etb: 0, staff_user_id: '' });

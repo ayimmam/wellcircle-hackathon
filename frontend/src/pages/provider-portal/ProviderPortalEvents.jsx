@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useProviderPortalData } from '../../context/ProviderPortalDataContext';
 import { getProviderEvents, createProviderEvent, updateProviderEvent, getProviderCustomers } from '../../api/client';
 import { showToast } from '../../components/Toast';
+import useDismissOnEscape from '../../hooks/useDismissOnEscape';
 
 function EditableEventItem({ event, customers, providerId, onChanged }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -77,6 +78,8 @@ export default function ProviderPortalEvents() {
   const [customers, setCustomers] = useState([]);
   const [showCreateEvent, setShowCreateEvent] = useState(false);
   const [newEvent, setNewEvent] = useState({ service_name: '', description: '', starts_at: '', ends_at: '', capacity: 10, price_etb: 0, staff_user_id: '' });
+
+  useDismissOnEscape(() => setShowCreateEvent(false), showCreateEvent);
 
   const reload = async () => {
     if (!providerId) return;

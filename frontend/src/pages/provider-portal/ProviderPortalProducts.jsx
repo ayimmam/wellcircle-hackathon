@@ -5,6 +5,7 @@ import {
   updateProviderRedemptionStatus, getPriceSuggestion,
 } from '../../api/client';
 import { showToast } from '../../components/Toast';
+import useDismissOnEscape from '../../hooks/useDismissOnEscape';
 
 const REDEMPTION_STATUSES = ['pending', 'confirmed', 'shipped', 'delivered'];
 
@@ -17,6 +18,8 @@ export default function ProviderPortalProducts() {
   const [priceSuggestion, setPriceSuggestion] = useState(null);
   const [redemptionEdits, setRedemptionEdits] = useState({});
   const [updatingRedemptionId, setUpdatingRedemptionId] = useState(null);
+
+  useDismissOnEscape(() => setShowCreate(false), showCreate);
 
   const reloadRedemptions = async () => {
     const r = await getProviderRedemptions();

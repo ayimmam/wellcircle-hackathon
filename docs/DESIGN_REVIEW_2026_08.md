@@ -35,12 +35,16 @@ The two sweeps above are repo-wide and mechanical (grep-verified), so they're co
 - [x] `pages/ForYouScreen.jsx` (current Home) — ✓ no direct DOM issues; delegates all card rendering to the already-fixed `components/feed/*`.
 - [x] `pages/ExploreScreen.jsx` — fixed: search input missing `aria-label`/`autoComplete`; provider card clickable-div (see sweep above).
 
-### Carried over from the initial spot-check (nice-to-have, not yet done)
+### Carried over from the initial spot-check — now resolved
 
-- [ ] `FeedProviderCard.jsx` / hero-style cards — provider name / location text has no `truncate`/`line-clamp` guard; long values could overflow.
-- [ ] `components/feed/FeedPostCard.jsx` — nested `role="button"` divs (card body + user row) after the a11y fix; consider restructuring so the user row sits outside the outer clickable area instead of nested inside it.
-- [ ] Repo-wide — `<button onClick={() => navigate(...)}>` used for many "See all / Browse" actions instead of `<Link>`. Still keyboard/SR accessible, just loses native Cmd/Ctrl-click-to-new-tab. Low priority, no blanket rewrite planned.
-- [ ] **New**: none of the modal/sheet overlays (list above) close on `Escape`. Worth a single shared `useDismissOnEscape` hook rather than fixing ~10 call sites individually.
+- [x] `FeedProviderCard.jsx`/`FeedServiceCard.jsx`/`FeedPastEventCard.jsx`/`FeedEventBanner.jsx` — added `.truncate` (existing utility class) to provider name/location/service-name text, with `min-width: 0`/`flex-shrink: 0` on the flex siblings so truncation actually engages instead of being overridden by flex's default `min-width: auto`.
+- [x] `components/feed/FeedPostCard.jsx` — restructured so `post-user-row` is a sibling of `card-body`, not nested inside it; no more `role="button"` div inside another `role="button"` div. This required moving the `id="feed-post-{id}"` test-hook from the outer card wrapper onto `card-body` (the actual clickable element) — `ForYouScreen.test.jsx`'s `.querySelector('.card-body')` click test caught the initial version of this fix, which had broken it.
+- [x] **Modal/sheet Escape-key dismiss** — added `hooks/useDismissOnEscape.js` and wired it into all 12 overlay components/call sites: `BugReportSheet`, `PointsInfoSheet`, `BurgerMenu`, `ShareCard`, `AskWellCircle`'s chat modal (all self-contained, fixed once each covers every usage), plus page-owned modals in `CircleDetailScreen` (×2), `ProviderDashboard` (×3), `ProfileScreen`'s neighbourhood sheet, `AdminProducts`, `AdminProviders` (×2), `ProviderPortalProducts`, `ProviderPortalEvents`. Deliberately skipped: `BookingFlow.jsx`'s multi-day modal, which has no backdrop-dismiss either — it's a forced-choice step, not a dismissable overlay, so Escape shouldn't bypass it.
+- [ ] Repo-wide — `<button onClick={() => navigate(...)}>` used for many "See all / Browse" actions instead of `<Link>`. Still keyboard/SR accessible, just loses native Cmd/Ctrl-click-to-new-tab. Low priority, no blanket rewrite planned — left as-is.
+
+Tests: full suite run at 258/261 passing both before and after these changes (3 pre-existing flaky failures, order-dependent — confirmed identical baseline, not a regression).
+
+**All four tracked tasks (core pages, admin pages, provider-portal pages, nice-to-haves) are now complete.**
 
 ### Pages given a full manual pass (continued)
 

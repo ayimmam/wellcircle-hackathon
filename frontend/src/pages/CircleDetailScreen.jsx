@@ -15,6 +15,7 @@ import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
 import { shareCircleInvite } from '../utils/circleInvite';
 import { clickableDivProps } from '../utils/a11y';
+import useDismissOnEscape from '../hooks/useDismissOnEscape';
 import StoryRail from '../components/stories/StoryRail';
 import StoryComposer from '../components/stories/StoryComposer';
 
@@ -45,6 +46,9 @@ export default function CircleDetailScreen() {
   const [stories, setStories] = useState([]);
   const [bannerBusy, setBannerBusy] = useState(false);
   const bannerInputRef = useRef(null);
+
+  useDismissOnEscape(() => setShowSubscribe(false), showSubscribe);
+  useDismissOnEscape(() => setMonetizeOpen(false), monetizeOpen);
 
   useEffect(() => {
     loadCircle();

@@ -21,6 +21,7 @@ import StravaStats from '../components/StravaStats';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import { getEarnedMilestoneBadges } from '../utils/milestones';
 import { clickableDivProps } from '../utils/a11y';
+import useDismissOnEscape from '../hooks/useDismissOnEscape';
 
 const STRAVA_STATS = [
   ['distance', 'Distance'],
@@ -46,6 +47,8 @@ export default function ProfileScreen() {
   const [phoneEditResult, setPhoneEditResult] = useState({ valid: false, e164: null });
   const [showBugReport, setShowBugReport] = useState(false);
   const { t, i18n } = useTranslation();
+
+  useDismissOnEscape(() => setShowNeighbourhoodSheet(false), showNeighbourhoodSheet);
 
   const tier = getTier(user?.points_balance || 0);
   const milestoneBadges = getEarnedMilestoneBadges(user);

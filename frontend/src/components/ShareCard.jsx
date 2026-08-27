@@ -5,6 +5,7 @@ import { showToast } from './Toast';
 import { track } from '../analytics';
 import { getNextMilestone } from '../utils/milestones';
 import Icon from './Icon';
+import useDismissOnEscape from '../hooks/useDismissOnEscape';
 
 const SIZE = 1080;
 
@@ -24,6 +25,8 @@ export default function ShareCard({ milestone, onClose }) {
   const { t } = useTranslation();
   const canvasRef = useRef(null);
   const [busy, setBusy] = useState(false);
+
+  useDismissOnEscape(onClose);
 
   const { type, streak, day, tier } = milestone;
   // The hero is a single number with a quiet caps label under it — the stat

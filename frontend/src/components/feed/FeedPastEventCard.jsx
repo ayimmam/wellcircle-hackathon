@@ -43,10 +43,10 @@ export default function FeedPastEventCard({ item, priority = false }) {
       </div>
 
       <div className="card-body">
-        <div className="inline-icon-text" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+        <div className="inline-icon-text truncate" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
           <Icon name="map-pin" size={12} /> {provider.name}
         </div>
-        <div style={{ fontWeight: 700, fontSize: '1rem', marginTop: 2 }}>{event.service_name}</div>
+        <div className="truncate" style={{ fontWeight: 700, fontSize: '1rem', marginTop: 2 }}>{event.service_name}</div>
 
         {event.attendee_count > 0 && (
           <div className="inline-icon-text feed-past-proof" style={{ marginTop: 6 }}>

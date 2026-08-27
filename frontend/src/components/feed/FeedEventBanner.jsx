@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import SmartImage from '../SmartImage';
 import Icon from '../Icon';
+import { clickableDivProps } from '../../utils/a11y';
 
 /**
  * Full-bleed event banner for a boosted/featured event — the "event
@@ -19,7 +20,7 @@ export default function FeedEventBanner({ item, priority = false }) {
   );
 
   return (
-    <div className="card mb-12" style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden' }} onClick={book} id={`feed-event-${item.id}`}>
+    <div className="card mb-12" style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden' }} {...clickableDivProps(book)} aria-label={event.service_name} id={`feed-event-${item.id}`}>
       <div style={{ position: 'relative', height: 180 }}>
         <SmartImage
           src={provider.cover_photo_url}

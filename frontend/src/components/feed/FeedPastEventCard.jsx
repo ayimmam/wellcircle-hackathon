@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import SmartImage from '../SmartImage';
 import Icon from '../Icon';
+import { clickableDivProps } from '../../utils/a11y';
 
 /**
  * Recap of an event that already happened. It can't be booked, so instead of
@@ -23,7 +24,8 @@ export default function FeedPastEventCard({ item, priority = false }) {
     <div
       className="card mb-12 feed-past-event"
       style={{ cursor: 'pointer' }}
-      onClick={openProvider}
+      {...clickableDivProps(openProvider)}
+      aria-label={provider.name}
       id={`feed-past_event-${item.id}`}
     >
       <div style={{ position: 'relative', height: 150, overflow: 'hidden' }}>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import SmartImage from '../SmartImage';
 import Icon from '../Icon';
 import { reactToPost } from '../../api/client';
+import { clickableDivProps } from '../../utils/a11y';
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -59,11 +60,16 @@ export default function FeedPostCard({ item, priority = false }) {
 
   return (
     <div className="card mb-12 feed-post-card" id={`feed-post-${item.id}`}>
-      <div className="card-body" style={{ cursor: destination ? 'pointer' : 'default' }} onClick={goToSource}>
+      <div
+        className="card-body"
+        style={{ cursor: destination ? 'pointer' : 'default' }}
+        {...(destination ? clickableDivProps(goToSource) : {})}
+      >
         <div
           className="post-user-row"
           style={{ cursor: 'pointer' }}
-          onClick={(e) => { e.stopPropagation(); navigate(`/users/${post.user.id}`); }}
+          aria-label={post.user.name}
+          {...clickableDivProps((e) => { e.stopPropagation(); navigate(`/users/${post.user.id}`); })}
         >
           <div className="avatar avatar-md">
             <SmartImage src={post.user.photo_url} width={36} fallback={<Icon name="user" size={16} />} />

@@ -41,13 +41,13 @@ export default function Header({ onMenuOpen }) {
 
   return (
     <header className="top-header" id="top-header">
-      <div className="header-brand" onClick={() => navigate('/home')}>
-        <img src={newLogo} className="header-logo" alt="Well Circle Logo" />
+      <button type="button" className="header-brand" onClick={() => navigate('/home')} aria-label={t('Go to home')}>
+        <img src={newLogo} className="header-logo" alt="Well Circle Logo" width={38} height={38} />
         <div className="header-text">
           <span className="header-name">WELL CIRCLE</span>
           <span className="header-sub">{t('YOUR WELLNESS TRIBE')}</span>
         </div>
-      </div>
+      </button>
       <div className="header-actions">
         <button
           className="header-icon-btn"

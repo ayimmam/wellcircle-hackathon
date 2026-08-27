@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import SmartImage from '../SmartImage';
 import Icon from '../Icon';
+import { clickableDivProps } from '../../utils/a11y';
 
 /**
  * Provider highlight card — rating, location, active promotion headline.
@@ -17,7 +18,8 @@ export default function FeedProviderCard({ item, priority = false }) {
     <div
       className="card mb-12"
       style={{ cursor: 'pointer' }}
-      onClick={() => navigate(`/provider/${provider.id}`)}
+      {...clickableDivProps(() => navigate(`/provider/${provider.id}`))}
+      aria-label={provider.name}
       id={`feed-provider-${item.id}`}
     >
       <div style={{ position: 'relative', height: 160, overflow: 'hidden' }}>

@@ -37,7 +37,7 @@ export default function FeedEventBanner({ item, priority = false }) {
           <span className="badge-on-accent" style={{ fontSize: '0.7rem', fontWeight: 700, padding: '4px 8px', borderRadius: '99px', alignSelf: 'flex-start', marginBottom: 6 }}>
             {t('Event')}
           </span>
-          <span style={{ fontSize: '1.1rem', fontWeight: 800 }}>{event.service_name}</span>
+          <span className="truncate" style={{ fontSize: '1.1rem', fontWeight: 800, display: 'block' }}>{event.service_name}</span>
           <span className="inline-icon-text" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
             <Icon name="calendar" size={12} /> {new Date(event.starts_at).toLocaleString()} · {provider.name}
           </span>

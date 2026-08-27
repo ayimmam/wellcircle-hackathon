@@ -5,6 +5,7 @@ import { showToast } from '../../components/Toast';
 import usePolling from '../../hooks/usePolling';
 import { track } from '../../analytics';
 import Icon from '../../components/Icon';
+import { clickableDivProps } from '../../utils/a11y';
 
 export default function ProviderPortalSubscriptions() {
   const { providerId } = useProviderPortalData();
@@ -56,7 +57,8 @@ export default function ProviderPortalSubscriptions() {
             key={planId}
             className={`card ${selectedPlan === planId ? 'border-primary' : ''}`}
             style={selectedPlan === planId ? { border: '2px solid var(--brand-primary)', cursor: 'pointer' } : { cursor: 'pointer' }}
-            onClick={() => { setSelectedPlan(planId); track('subscription_plan_select', { plan: planId }); }}
+            aria-label={p.name}
+            {...clickableDivProps(() => { setSelectedPlan(planId); track('subscription_plan_select', { plan: planId }); })}
             id={`plan-${planId}`}
           >
             <div className="card-body">
@@ -87,12 +89,12 @@ export default function ProviderPortalSubscriptions() {
         <div className="card" style={{ padding: '16px', maxWidth: 380 }}>
           <h3 className="card-title mb-12">Pay with</h3>
           <div className="form-stack">
-            <select className="input" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+            <select className="input" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} aria-label="Payment method">
               <option value="telebirr">Telebirr</option>
               <option value="mpesa">M-Pesa</option>
             </select>
             {paymentMethod === 'mpesa' && (
-              <input className="input" placeholder="Phone Number (e.g. 254...)" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} />
+              <input className="input" type="tel" inputMode="tel" placeholder="Phone Number (e.g. 254...)" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} aria-label="Phone number" autoComplete="tel" />
             )}
             <button className="btn btn-primary" onClick={async () => {
               try {

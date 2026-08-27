@@ -71,11 +71,15 @@ export default function PhoneInput({ value, onChange }) {
           onFocus={handleFocus}
           onBlur={handleNationalBlur}
           type="tel"
+          inputMode="tel"
+          autoComplete="tel-national"
+          aria-label="Phone number"
+          aria-describedby={showError ? 'phone-error' : undefined}
           id="phone-input"
         />
       </div>
       {showError && (
-        <p style={{ fontSize: '0.75rem', color: 'var(--danger, #ef4444)', marginTop: 6 }} id="phone-error">
+        <p style={{ fontSize: '0.75rem', color: 'var(--danger, #ef4444)', marginTop: 6 }} id="phone-error" role="alert">
           {result.error}
         </p>
       )}

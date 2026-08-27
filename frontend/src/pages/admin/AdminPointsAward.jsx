@@ -77,12 +77,14 @@ export default function AdminPointsAward() {
         <input
           type="text"
           className="onboarding-input mb-16"
-          placeholder="Search by name or handle..."
+          placeholder="Search by name or handle…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          aria-label="Search users by name or handle"
+          autoComplete="off"
         />
-        
-        {loading && <p className="text-secondary">Searching...</p>}
+
+        {loading && <p className="text-secondary">Searching…</p>}
         
         {!loading && users.length > 0 && (
           <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: 8 }}>
@@ -117,9 +119,11 @@ export default function AdminPointsAward() {
         <h3 className="section-title mb-16" style={{ fontSize: '1.1rem' }}>2. Award Details</h3>
         <form onSubmit={handleAward}>
           <div className="mb-16">
-            <label className="block mb-8" style={{ fontWeight: 600, fontSize: '0.9rem' }}>Points Amount (1-50)</label>
+            <label className="block mb-8" htmlFor="award-points-amount" style={{ fontWeight: 600, fontSize: '0.9rem' }}>Points Amount (1-50)</label>
             <input
+              id="award-points-amount"
               type="number"
+              inputMode="numeric"
               className="onboarding-input"
               min="1"
               max="50"
@@ -129,13 +133,15 @@ export default function AdminPointsAward() {
             />
           </div>
           <div className="mb-24">
-            <label className="block mb-8" style={{ fontWeight: 600, fontSize: '0.9rem' }}>Note (visible to user)</label>
+            <label className="block mb-8" htmlFor="award-points-note" style={{ fontWeight: 600, fontSize: '0.9rem' }}>Note (visible to user)</label>
             <input
+              id="award-points-note"
               type="text"
               className="onboarding-input"
               placeholder="e.g. Morning Run Group - Aug 3"
               value={note}
               onChange={(e) => setNote(e.target.value)}
+              autoComplete="off"
               required
             />
           </div>
@@ -145,7 +151,7 @@ export default function AdminPointsAward() {
             style={{ width: '100%' }}
             disabled={submitting || selectedIds.size === 0}
           >
-            {submitting ? 'Awarding...' : `Award Points`}
+            {submitting ? 'Awarding…' : `Award Points`}
           </button>
         </form>
       </div>

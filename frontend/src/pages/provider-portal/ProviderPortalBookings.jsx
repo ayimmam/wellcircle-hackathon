@@ -67,7 +67,7 @@ export default function ProviderPortalBookings() {
                 value={bookingsEndDate} onChange={e => setBookingsEndDate(e.target.value)} />
             </label>
             <select className="input" style={{ padding: '4px', width: 'auto' }}
-              value={bookingsStatus} onChange={e => setBookingsStatus(e.target.value)}>
+              value={bookingsStatus} onChange={e => setBookingsStatus(e.target.value)} aria-label="Filter by status">
               <option value="">All statuses</option>
               <option value="pending">Pending</option>
               <option value="success">Success</option>

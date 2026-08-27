@@ -15,6 +15,8 @@ import usePolling from '../hooks/usePolling';
 import { track } from '../analytics';
 import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
+import { clickableDivProps } from '../utils/a11y';
+import useDismissOnEscape from '../hooks/useDismissOnEscape';
 
 const PROVIDER_DAILY_AWARD_CAP = 300; // mirrors backend PROVIDER_AWARD_MAX_POINTS_PER_DAY
 const REDEMPTION_STATUSES = ['pending', 'confirmed', 'shipped', 'delivered'];
@@ -39,6 +41,10 @@ export default function ProviderDashboard() {
   const [showCreate, setShowCreate] = useState(false);
   const [showCreateEvent, setShowCreateEvent] = useState(false);
   const [showCreateChallenge, setShowCreateChallenge] = useState(null);
+
+  useDismissOnEscape(() => setShowCreate(false), showCreate);
+  useDismissOnEscape(() => setShowCreateEvent(false), showCreateEvent);
+  useDismissOnEscape(() => setShowCreateChallenge(null), Boolean(showCreateChallenge));
   
   const [newProduct, setNewProduct] = useState({ name: '', type: 'digital', price_etb: '', quantity_in_stock: '10' });
   const [newEvent, setNewEvent] = useState({ service_name: '', description: '', starts_at: '', ends_at: '', capacity: 10, price_etb: 0, staff_user_id: '' });
@@ -330,6 +336,7 @@ export default function ProviderDashboard() {
                           style={{ padding: '4px', width: 'auto' }}
                           value={edit.status}
                           onChange={e => setEdit({ status: e.target.value })}
+                          aria-label="Redemption status"
                         >
                           {REDEMPTION_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
@@ -339,6 +346,8 @@ export default function ProviderDashboard() {
                           placeholder="Notes for customer (optional)"
                           value={edit.notes}
                           onChange={e => setEdit({ notes: e.target.value })}
+                          aria-label="Notes for customer"
+                          autoComplete="off"
                         />
                         <button
                           className="btn btn-secondary btn-sm"
@@ -359,17 +368,19 @@ export default function ProviderDashboard() {
               <div className="modal-card" onClick={e => e.stopPropagation()}>
                 <h3 className="card-title mb-16">Create Product</h3>
                 <div className="form-stack">
-                  <input className="input" placeholder="Name" value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))} />
-                  <select className="input" value={newProduct.type} onChange={e => setNewProduct(p => ({ ...p, type: e.target.value }))}>
+                  <input className="input" placeholder="Name" value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))} aria-label="Product name" autoComplete="off" />
+                  <select className="input" value={newProduct.type} onChange={e => setNewProduct(p => ({ ...p, type: e.target.value }))} aria-label="Product type">
                     <option value="digital">Digital</option>
                     <option value="physical">Physical</option>
                   </select>
                   <input
                     className="input"
                     type="number"
+                    inputMode="numeric"
                     placeholder="Price (points)"
                     value={newProduct.price_etb}
                     onChange={e => setNewProduct(p => ({ ...p, price_etb: e.target.value }))}
+                    aria-label="Price in points"
                     onFocus={() => {
                       if (priceSuggestion || !providerCategory) return;
                       getPriceSuggestion(providerCategory).then(setPriceSuggestion).catch(() => {});
@@ -385,7 +396,7 @@ export default function ProviderDashboard() {
                       {priceSuggestion.suggestion_text}
                     </button>
                   )}
-                  <input className="input" type="number" placeholder="Stock" value={newProduct.quantity_in_stock} onChange={e => setNewProduct(p => ({ ...p, quantity_in_stock: e.target.value }))} />
+                  <input className="input" type="number" inputMode="numeric" placeholder="Stock" value={newProduct.quantity_in_stock} onChange={e => setNewProduct(p => ({ ...p, quantity_in_stock: e.target.value }))} aria-label="Stock quantity" />
                   <button className="btn btn-primary" onClick={async () => {
                     try {
                       await createProviderProduct({
@@ -444,8 +455,8 @@ export default function ProviderDashboard() {
                       <div className="flex justify-between items-center my-8">
                         {isEditing ? (
                           <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
-                            <input type="number" value={spots} onChange={e => setSpots(e.target.value)} className="input" style={{ width: '60px', padding: '4px' }} />
-                            <select className="input" style={{ padding: '4px' }} value={staffId} onChange={e => setStaffId(e.target.value)}>
+                            <input type="number" inputMode="numeric" value={spots} onChange={e => setSpots(e.target.value)} className="input" style={{ width: '60px', padding: '4px' }} aria-label="Spots remaining" />
+                            <select className="input" style={{ padding: '4px' }} value={staffId} onChange={e => setStaffId(e.target.value)} aria-label="Evidence staff">
                               <option value="">No evidence staff</option>
                               {customers.map(c => (
                                 <option key={c.user_id} value={c.user_id}>{c.name}</option>
@@ -492,7 +503,7 @@ export default function ProviderDashboard() {
             <h3 className="font-bold text-lg mb-8" style={{ color: '#166534' }}>Boost Your Event</h3>
             <p className="text-sm mb-16" style={{ color: '#15803d' }}>Pay 50 ETB via Telebirr to pin your wellness event to the Featured carousel for 48 hours.</p>
             
-            <select className="input mb-12" id="boost-event-select" style={{ width: '100%' }}>
+            <select className="input mb-12" id="boost-event-select" aria-label="Event to boost" style={{ width: '100%' }}>
               <option value="">Select an upcoming event...</option>
               {events.filter(e => !e.is_cancelled).map(ev => <option key={ev.id} value={ev.id}>{ev.service_name}</option>)}
             </select>
@@ -520,13 +531,13 @@ export default function ProviderDashboard() {
               <div className="modal-card" onClick={ev => ev.stopPropagation()}>
                 <h3 className="card-title mb-16">Create Event</h3>
                 <div className="form-stack">
-                  <input className="input" placeholder="Service Name" value={newEvent.service_name} onChange={e => setNewEvent(p => ({ ...p, service_name: e.target.value }))} />
-                  <input className="input" placeholder="Description" value={newEvent.description} onChange={e => setNewEvent(p => ({ ...p, description: e.target.value }))} />
-                  <input className="input" type="datetime-local" placeholder="Starts At" value={newEvent.starts_at} onChange={e => setNewEvent(p => ({ ...p, starts_at: e.target.value }))} />
-                  <input className="input" type="datetime-local" placeholder="Ends At" value={newEvent.ends_at} onChange={e => setNewEvent(p => ({ ...p, ends_at: e.target.value }))} />
-                  <input className="input" type="number" placeholder="Capacity" value={newEvent.capacity} onChange={e => setNewEvent(p => ({ ...p, capacity: parseInt(e.target.value, 10) }))} />
-                  <input className="input" type="number" placeholder="Price (ETB)" value={newEvent.price_etb} onChange={e => setNewEvent(p => ({ ...p, price_etb: parseInt(e.target.value, 10) }))} />
-                  <select className="input" value={newEvent.staff_user_id} onChange={e => setNewEvent(p => ({ ...p, staff_user_id: e.target.value }))}>
+                  <input className="input" placeholder="Service Name" value={newEvent.service_name} onChange={e => setNewEvent(p => ({ ...p, service_name: e.target.value }))} aria-label="Service name" autoComplete="off" />
+                  <input className="input" placeholder="Description" value={newEvent.description} onChange={e => setNewEvent(p => ({ ...p, description: e.target.value }))} aria-label="Description" autoComplete="off" />
+                  <input className="input" type="datetime-local" placeholder="Starts At" value={newEvent.starts_at} onChange={e => setNewEvent(p => ({ ...p, starts_at: e.target.value }))} aria-label="Starts at" />
+                  <input className="input" type="datetime-local" placeholder="Ends At" value={newEvent.ends_at} onChange={e => setNewEvent(p => ({ ...p, ends_at: e.target.value }))} aria-label="Ends at" />
+                  <input className="input" type="number" inputMode="numeric" placeholder="Capacity" value={newEvent.capacity} onChange={e => setNewEvent(p => ({ ...p, capacity: parseInt(e.target.value, 10) }))} aria-label="Capacity" />
+                  <input className="input" type="number" inputMode="numeric" placeholder="Price (ETB)" value={newEvent.price_etb} onChange={e => setNewEvent(p => ({ ...p, price_etb: parseInt(e.target.value, 10) }))} aria-label="Price in ETB" />
+                  <select className="input" value={newEvent.staff_user_id} onChange={e => setNewEvent(p => ({ ...p, staff_user_id: e.target.value }))} aria-label="Evidence staff">
                     <option value="">Designate evidence staff (optional)</option>
                     {customers.map(c => (
                       <option key={c.user_id} value={c.user_id}>{c.name}</option>
@@ -629,7 +640,8 @@ export default function ProviderDashboard() {
                 key={planId}
                 className={`card ${selectedPlan === planId ? 'border-primary' : ''}`}
                 style={selectedPlan === planId ? { border: '2px solid var(--brand-primary)' } : {}}
-                onClick={() => { setSelectedPlan(planId); track('subscription_plan_select', { plan: planId }); }}
+                aria-label={p.name}
+                {...clickableDivProps(() => { setSelectedPlan(planId); track('subscription_plan_select', { plan: planId }); })}
                 id={`plan-${planId}`}
               >
                 <div className="card-body">
@@ -660,12 +672,12 @@ export default function ProviderDashboard() {
             <div className="card" style={{ padding: '16px' }}>
               <h3 className="card-title mb-12">Pay with</h3>
               <div className="form-stack">
-                <select className="input" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                <select className="input" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} aria-label="Payment method">
                   <option value="telebirr">Telebirr</option>
                   <option value="mpesa">M-Pesa</option>
                 </select>
                 {paymentMethod === 'mpesa' && (
-                  <input className="input" placeholder="Phone Number (e.g. 254...)" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} />
+                  <input className="input" type="tel" inputMode="tel" placeholder="Phone Number (e.g. 254...)" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} aria-label="Phone number" autoComplete="tel" />
                 )}
                 <button className="btn btn-primary" onClick={async () => {
                   try {
@@ -712,7 +724,7 @@ export default function ProviderDashboard() {
                     value={bookingsEndDate} onChange={e => setBookingsEndDate(e.target.value)} />
                 </label>
                 <select className="input" style={{ padding: '4px', width: 'auto' }}
-                  value={bookingsStatus} onChange={e => setBookingsStatus(e.target.value)}>
+                  value={bookingsStatus} onChange={e => setBookingsStatus(e.target.value)} aria-label="Filter by status">
                   <option value="">All statuses</option>
                   <option value="pending">Pending</option>
                   <option value="success">Success</option>
@@ -1012,12 +1024,12 @@ export default function ProviderDashboard() {
               <div className="modal-card" onClick={e => e.stopPropagation()}>
                 <h3 className="card-title mb-16">Create Challenge</h3>
                 <div className="form-stack">
-                  <input className="input" placeholder="Title" value={newChallenge.title} onChange={e => setNewChallenge(p => ({ ...p, title: e.target.value }))} />
-                  <input className="input" placeholder="Description" value={newChallenge.description} onChange={e => setNewChallenge(p => ({ ...p, description: e.target.value }))} />
-                  <input className="input" type="number" placeholder="Points Reward" value={newChallenge.points_reward} onChange={e => setNewChallenge(p => ({ ...p, points_reward: parseInt(e.target.value, 10) }))} />
-                  <input className="input" type="number" placeholder="Target Check-ins" value={newChallenge.target_checkins} onChange={e => setNewChallenge(p => ({ ...p, target_checkins: parseInt(e.target.value, 10) }))} />
-                  <input className="input" type="datetime-local" placeholder="Starts At" value={newChallenge.starts_at} onChange={e => setNewChallenge(p => ({ ...p, starts_at: e.target.value }))} />
-                  <input className="input" type="datetime-local" placeholder="Ends At" value={newChallenge.ends_at} onChange={e => setNewChallenge(p => ({ ...p, ends_at: e.target.value }))} />
+                  <input className="input" placeholder="Title" value={newChallenge.title} onChange={e => setNewChallenge(p => ({ ...p, title: e.target.value }))} aria-label="Challenge title" autoComplete="off" />
+                  <input className="input" placeholder="Description" value={newChallenge.description} onChange={e => setNewChallenge(p => ({ ...p, description: e.target.value }))} aria-label="Description" autoComplete="off" />
+                  <input className="input" type="number" inputMode="numeric" placeholder="Points Reward" value={newChallenge.points_reward} onChange={e => setNewChallenge(p => ({ ...p, points_reward: parseInt(e.target.value, 10) }))} aria-label="Points reward" />
+                  <input className="input" type="number" inputMode="numeric" placeholder="Target Check-ins" value={newChallenge.target_checkins} onChange={e => setNewChallenge(p => ({ ...p, target_checkins: parseInt(e.target.value, 10) }))} aria-label="Target check-ins" />
+                  <input className="input" type="datetime-local" placeholder="Starts At" value={newChallenge.starts_at} onChange={e => setNewChallenge(p => ({ ...p, starts_at: e.target.value }))} aria-label="Starts at" />
+                  <input className="input" type="datetime-local" placeholder="Ends At" value={newChallenge.ends_at} onChange={e => setNewChallenge(p => ({ ...p, ends_at: e.target.value }))} aria-label="Ends at" />
                   <button className="btn btn-primary" onClick={async () => {
                     try {
                       await createCommunityChallenge(showCreateChallenge, {

@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Icon from './Icon';
+import useDismissOnEscape from '../hooks/useDismissOnEscape';
 
 // Deliberately excludes every bottom-nav destination (Home, Explore,
 // Community, Profile) and Notifications (the header bell) — a link that is
@@ -18,6 +19,8 @@ export default function BurgerMenu({ isOpen, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useTranslation();
+
+  useDismissOnEscape(onClose, isOpen);
 
   if (!isOpen) return null;
 

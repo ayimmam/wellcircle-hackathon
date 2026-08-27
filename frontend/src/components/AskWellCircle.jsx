@@ -6,6 +6,7 @@ import Icon from './Icon';
 import { getApiBase } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { track } from '../analytics';
+import useDismissOnEscape from '../hooks/useDismissOnEscape';
 
 const CONCIERGE_CHIPS = [
   { label: 'Affordable gyms around me', needsLocation: true },
@@ -20,6 +21,7 @@ export default function AskWellCircle() {
   const { t } = useTranslation();
   const inputRef = useRef(null);
   const [isOpen, setIsOpen] = useState(false);
+  useDismissOnEscape(() => setIsOpen(false), isOpen);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isFirstMessage, setIsFirstMessage] = useState(() => {

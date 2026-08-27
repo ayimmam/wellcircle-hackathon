@@ -38,11 +38,11 @@ export default function FeedProviderCard({ item, priority = false }) {
         )}
       </div>
       <div className="card-body">
-        <div className="flex items-center justify-between">
-          <span style={{ fontWeight: 700 }}>{provider.name}</span>
-          <span className="inline-icon-text"><Icon name="star" size={14} /> {provider.rating}</span>
+        <div className="flex items-center justify-between" style={{ gap: 8 }}>
+          <span className="truncate" style={{ fontWeight: 700, minWidth: 0 }}>{provider.name}</span>
+          <span className="inline-icon-text" style={{ flexShrink: 0 }}><Icon name="star" size={14} /> {provider.rating}</span>
         </div>
-        <div className="inline-icon-text text-sm text-secondary" style={{ marginTop: 4 }}>
+        <div className="inline-icon-text text-sm text-secondary truncate" style={{ marginTop: 4 }}>
           <Icon name="map-pin" size={12} /> {provider.location_text?.split(',')[0]}
         </div>
         {promotion && (

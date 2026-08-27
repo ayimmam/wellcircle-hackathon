@@ -51,7 +51,7 @@ export default function AdminPaidCircles() {
               {circle.owner_is_verified && <VerifiedBadge compact />}
             </p>
             <p className="text-sm">Owner lifetime points: <strong>{circle.owner_lifetime_points || 0}</strong></p>
-            <textarea className="input mt-12" placeholder="Rejection reason (required to reject)" value={reasons[circle.id] || ''} onChange={event => setReasons(current => ({ ...current, [circle.id]: event.target.value }))} />
+            <textarea className="input mt-12" placeholder="Rejection reason (required to reject)" value={reasons[circle.id] || ''} onChange={event => setReasons(current => ({ ...current, [circle.id]: event.target.value }))} aria-label={`Rejection reason for ${circle.name}`} />
             <div className="flex gap-8 mt-12">
               <button className="btn btn-primary btn-sm" onClick={() => review(circle, 'approve')}>Approve</button>
               <button className="btn btn-danger btn-sm" onClick={() => review(circle, 'reject')}>Reject</button>

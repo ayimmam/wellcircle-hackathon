@@ -7,6 +7,7 @@ import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import EventCard from '../components/EventCard';
 import SmartImage from '../components/SmartImage';
 import Icon from '../components/Icon';
+import { clickableDivProps } from '../utils/a11y';
 
 const WEEK_MS = 7 * 86400000;
 
@@ -25,8 +26,9 @@ function PastEventRow({ event }) {
   return (
     <div
       className="card mb-12 events-past-row"
-      onClick={() => navigate(`/provider/${event.provider_id}`)}
+      {...clickableDivProps(() => navigate(`/provider/${event.provider_id}`))}
       style={{ cursor: 'pointer' }}
+      aria-label={event.service_name}
       id={`past-event-${event.id}`}
     >
       <div className="events-past-thumb">

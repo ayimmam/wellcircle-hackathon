@@ -35,10 +35,10 @@ export default function FeedServiceCard({ item, priority = false }) {
         />
       </div>
       <div className="card-body">
-        <div className="inline-icon-text" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+        <div className="inline-icon-text truncate" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
           <Icon name="map-pin" size={12} /> {provider.name}
         </div>
-        <div style={{ fontWeight: 700, fontSize: '1rem', marginTop: 2 }}>{service.name}</div>
+        <div className="truncate" style={{ fontWeight: 700, fontSize: '1rem', marginTop: 2 }}>{service.name}</div>
         {service.description && (
           <p className="text-sm text-secondary" style={{ marginTop: 4 }}>
             {service.description.length > 100 ? `${service.description.slice(0, 100)}…` : service.description}

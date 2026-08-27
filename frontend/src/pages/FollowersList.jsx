@@ -62,15 +62,15 @@ export default function FollowersList() {
         )}
         <h1>Connections</h1>
       </div>
-      <div className="theme-toggle mb-16" role="tablist">
-        <button className={`theme-toggle-btn ${mode === 'followers' ? 'active' : ''}`} onClick={() => navigate(`/users/${id}/followers`)}>Followers</button>
-        <button className={`theme-toggle-btn ${mode === 'following' ? 'active' : ''}`} onClick={() => navigate(`/users/${id}/following`)}>Following</button>
+      <div className="theme-toggle mb-16" role="group" aria-label="Connections">
+        <button aria-pressed={mode === 'followers'} className={`theme-toggle-btn ${mode === 'followers' ? 'active' : ''}`} onClick={() => navigate(`/users/${id}/followers`)}>Followers</button>
+        <button aria-pressed={mode === 'following'} className={`theme-toggle-btn ${mode === 'following' ? 'active' : ''}`} onClick={() => navigate(`/users/${id}/following`)}>Following</button>
       </div>
       {loading && items.length === 0 ? <div className="skeleton" style={{ height: 180 }} /> : (
         <div className="feed">
           {items.map(person => (
             <div className="cell" key={person.id}>
-              <button className="avatar avatar-lg" onClick={() => navigate(`/users/${person.id}`)}>
+              <button className="avatar avatar-lg" onClick={() => navigate(`/users/${person.id}`)} aria-label={person.name}>
                 <SmartImage src={person.photo_url} width={40} fallback={<Icon name="user" />} />
               </button>
               <button className="cell-body text-left" onClick={() => navigate(`/users/${person.id}`)}>

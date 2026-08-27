@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { submitFeedback } from '../api/client';
 import { showToast } from './Toast';
+import useDismissOnEscape from '../hooks/useDismissOnEscape';
 
 /**
  * Bottom-sheet overlay for reporting a bug — same local-overlay pattern as
@@ -12,6 +13,8 @@ export default function BugReportSheet({ error, onClose }) {
   const { t } = useTranslation();
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useDismissOnEscape(onClose);
 
   const context = {
     route: typeof window !== 'undefined' ? window.location.pathname : null,

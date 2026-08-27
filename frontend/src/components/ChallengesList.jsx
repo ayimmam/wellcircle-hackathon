@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getChallenges } from '../api/client';
+import Icon from './Icon';
 
 const ChallengesList = ({ communityId, refreshKey = 0 }) => {
   const [challenges, setChallenges] = useState([]);
@@ -60,7 +61,11 @@ const ChallengesList = ({ communityId, refreshKey = 0 }) => {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '4px' }}>
                   <span>{progressText}</span>
-                  {completed && <span style={{ color: 'green', fontWeight: 'bold' }}>✓ Completed</span>}
+                  {completed && (
+                    <span className="inline-icon-text" style={{ color: 'var(--success)', fontWeight: 700 }}>
+                      <Icon name="check" size={12} strokeWidth={2.5} /> Completed
+                    </span>
+                  )}
                 </div>
                 <div style={{ width: '100%', height: '8px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${percent}%`, background: completed ? '#10b981' : 'var(--brand-primary)', transition: 'width 0.3s ease' }} />

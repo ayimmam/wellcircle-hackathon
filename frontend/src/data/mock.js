@@ -970,11 +970,13 @@ export function buildMockProviderTimeseries(startDate, endDate) {
 }
 
 // ─── Tiers ──────────────────────────────────────────
+// `color` drives the tier icon's tint (Icon name="leaf") — a quiet progression
+// from muted to deep green instead of four unrelated emoji.
 export const TIERS = [
-  { name: 'Seed',   tier: 'seed',   emoji: '🌱', min: 0,   max: 99 },
-  { name: 'Sprout', tier: 'sprout', emoji: '🌿', min: 100, max: 299 },
-  { name: 'Grove',  tier: 'grove',  emoji: '🌳', min: 300, max: 699 },
-  { name: 'Forest', tier: 'forest', emoji: '🌲', min: 700, max: Infinity }
+  { name: 'Seed',   tier: 'seed',   emoji: '🌱', color: '#8CA88C', min: 0,   max: 99 },
+  { name: 'Sprout', tier: 'sprout', emoji: '🌿', color: '#5FA86A', min: 100, max: 299 },
+  { name: 'Grove',  tier: 'grove',  emoji: '🌳', color: '#3E8E4F', min: 300, max: 699 },
+  { name: 'Forest', tier: 'forest', emoji: '🌲', color: '#1F6B37', min: 700, max: Infinity }
 ];
 
 export function getTier(points) {

@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
+import { clickableDivProps } from '../utils/a11y';
 
 // Rank is carried by the numeral itself — the top three are marked with the
 // accent colour rather than medal emoji, which reads calmer at list density.
@@ -337,7 +338,7 @@ export default function CommunityList() {
             </div>
           </div>
           {circles.map(c => (
-            <div key={c.id} className="card" onClick={() => navigate(`/circle/${c.id}`)}>
+            <div key={c.id} className="card" aria-label={c.name} {...clickableDivProps(() => navigate(`/circle/${c.id}`))}>
               {c.banner_url && (
                 <div className="circle-card-banner">
                   <SmartImage src={c.banner_url} alt="" width={480} fallback={null} />
@@ -365,7 +366,7 @@ export default function CommunityList() {
             <>
               <h2 style={{ fontSize: '1.1rem', fontWeight: 800, marginTop: 16 }}>Community User Circles</h2>
               {circles.filter(c => !c.user_joined).map(c => (
-                <div key={c.id} className="card" onClick={() => navigate(`/circle/${c.id}`)}>
+                <div key={c.id} className="card" aria-label={c.name} {...clickableDivProps(() => navigate(`/circle/${c.id}`))}>
                   {c.banner_url && (
                     <div className="circle-card-banner">
                       <SmartImage src={c.banner_url} alt="" width={480} fallback={null} />

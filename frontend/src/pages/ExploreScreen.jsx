@@ -12,6 +12,7 @@ import { track } from '../analytics';
 import { useAuth } from '../context/AuthContext';
 import { isNearUser, nearbyEvents } from '../utils/nearby';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
+import { clickableDivProps } from '../utils/a11y';
 
 const EMPTY_LIST = [];
 
@@ -115,9 +116,12 @@ export default function ExploreScreen() {
       <div className="search-bar">
         <span className="search-bar-icon"><Icon name="search" size={18} /></span>
         <input
-          placeholder={view === 'studios' ? t('Search providers...') : t('Search events...')}
+          type="search"
+          placeholder={view === 'studios' ? t('Search providers…') : t('Search events…')}
           value={search}
           onChange={e => setSearch(e.target.value)}
+          aria-label={view === 'studios' ? t('Search providers') : t('Search events')}
+          autoComplete="off"
           id="explore-search-input"
         />
       </div>
@@ -166,7 +170,8 @@ export default function ExploreScreen() {
               key={p.id}
               className="card"
               style={{ cursor: 'pointer' }}
-              onClick={() => navigate(`/provider/${p.id}`)}
+              {...clickableDivProps(() => navigate(`/provider/${p.id}`))}
+              aria-label={p.name}
               id={`explore-provider-${p.id}`}
             >
               <div style={{ position: 'relative' }}>

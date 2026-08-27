@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
+import { clickableDivProps } from '../utils/a11y';
 
 export default function ProductsStore() {
   const { user } = useAuth();
@@ -85,7 +86,7 @@ export default function ProductsStore() {
 function ProductCard({ product, onClick }) {
   const { t } = useTranslation();
   return (
-    <div className="product-card" onClick={onClick}>
+    <div className="product-card" aria-label={product.name} {...clickableDivProps(onClick)}>
       <SmartImage
         src={product.provider_cover_photo_url || product.image_url}
         alt={product.name}

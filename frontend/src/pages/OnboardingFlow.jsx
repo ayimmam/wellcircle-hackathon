@@ -138,7 +138,7 @@ export default function OnboardingFlow() {
       navigate('/home', { replace: true, state: { justOnboarded: true } });
     } catch (err) {
       console.error('Onboarding failed:', err);
-      alert(err.message || 'Onboarding failed. Please try again.');
+      showToast(err.message || 'Onboarding failed. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -192,6 +192,8 @@ export default function OnboardingFlow() {
               value={formData.name}
               onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
               autoFocus
+              autoComplete="name"
+              aria-label="Your name"
               id="onboarding-name-input"
             />
           </>
@@ -210,6 +212,8 @@ export default function OnboardingFlow() {
               value={formData.goal}
               onChange={e => setFormData(prev => ({ ...prev, goal: e.target.value }))}
               autoFocus
+              autoComplete="off"
+              aria-label="Your wellness goal"
               id="onboarding-goal-input"
             />
           </>
@@ -340,6 +344,8 @@ export default function OnboardingFlow() {
                 value={newCircleName}
                 onChange={e => setNewCircleName(e.target.value)}
                 style={{ flex: 1 }}
+                autoComplete="off"
+                aria-label="New circle name"
                 id="new-circle-name-input"
               />
               <button

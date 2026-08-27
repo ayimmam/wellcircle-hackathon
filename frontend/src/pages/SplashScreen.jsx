@@ -22,7 +22,7 @@ export default function SplashScreen() {
 
   return (
     <div className="splash" id="splash-screen">
-      <img src={newLogo} className="splash-logo" alt="Well Circle Logo" />
+      <img src={newLogo} className="splash-logo" alt="Well Circle Logo" width={88} height={88} />
       <h1 className="splash-title">Well Circle</h1>
       <p className="splash-tagline">
         {t('Your tribe, your wellness.')}<br />{t('Right where you chat.')}

@@ -20,6 +20,7 @@ import VerifiedBadge from '../components/VerifiedBadge';
 import StravaStats from '../components/StravaStats';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import { getEarnedMilestoneBadges } from '../utils/milestones';
+import { clickableDivProps } from '../utils/a11y';
 
 const STRAVA_STATS = [
   ['distance', 'Distance'],
@@ -536,7 +537,8 @@ export default function ProfileScreen() {
         <div className="profile-section-title">{t('Local Alerts')}</div>
         <div
           className="neighbourhood-card"
-          onClick={() => setShowNeighbourhoodSheet(true)}
+          {...clickableDivProps(() => setShowNeighbourhoodSheet(true))}
+          aria-label={t('Local Alerts')}
           id="neighbourhood-optin"
         >
           <span className="neighbourhood-icon"><Icon name="map-pin" size={20} /></span>
@@ -593,8 +595,9 @@ export default function ProfileScreen() {
         <div className="profile-section-title">{t('Support')}</div>
         <div
           className="profile-card"
-          onClick={() => setShowBugReport(true)}
+          {...clickableDivProps(() => setShowBugReport(true))}
           style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
+          aria-label={t('Report a problem')}
           id="report-bug-row"
         >
           <Icon name="message-circle" size={20} />

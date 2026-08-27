@@ -33,7 +33,8 @@
       "Bash(grep -rliE \"concierge|askwellcircle|ai/concierge\" frontend/src)",
       "Bash(ls -la frontend/src/components/AskWellCircle.jsx)",
       "Bash(awk ' *)",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

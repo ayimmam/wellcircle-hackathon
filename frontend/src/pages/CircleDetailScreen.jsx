@@ -14,6 +14,7 @@ import { showToast } from '../components/Toast';
 import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
 import { shareCircleInvite } from '../utils/circleInvite';
+import { clickableDivProps } from '../utils/a11y';
 import StoryRail from '../components/stories/StoryRail';
 import StoryComposer from '../components/stories/StoryComposer';
 
@@ -322,7 +323,7 @@ export default function CircleDetailScreen() {
       {/* Header */}
       <div className="flex items-center gap-12 mb-12">
         {!nativeBack && (
-          <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)}>
+          <button className="btn btn-icon btn-secondary" onClick={() => navigate(-1)} aria-label="Back">
             <Icon name="chevron-left" size={18} />
           </button>
         )}
@@ -452,7 +453,8 @@ export default function CircleDetailScreen() {
                   key={member.user_id}
                   className={`cell leaderboard-row ${idx === 0 ? 'leader' : ''}`}
                   style={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/users/${member.user_id}`)}
+                  aria-label={member.name}
+                  {...clickableDivProps(() => navigate(`/users/${member.user_id}`))}
                 >
                   <div className={`cell-rank ${idx < 3 ? 'top' : ''}`}>
                     {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
@@ -483,7 +485,7 @@ export default function CircleDetailScreen() {
       {activeTab === 'members' && !previewMode && (
         <div className="feed">
           {leaderboard.length > 0 ? leaderboard.map(member => (
-            <div key={member.user_id} className="cell" style={{ cursor: 'pointer' }} onClick={() => navigate(`/users/${member.user_id}`)}>
+            <div key={member.user_id} className="cell" style={{ cursor: 'pointer' }} aria-label={member.name} {...clickableDivProps(() => navigate(`/users/${member.user_id}`))}>
               <div className="avatar avatar-lg">
                 <SmartImage src={member.photo_url} width={40} fallback={<Icon name="user" size={18} />} />
               </div>
@@ -579,7 +581,7 @@ export default function CircleDetailScreen() {
           <div className="modal-card" onClick={event => event.stopPropagation()}>
             <h2 className="card-title mb-8">Set monthly price</h2>
             <p className="text-sm text-secondary mb-12">Well Circle retains 5%; you receive 95% of approved subscriptions.</p>
-            <input className="input" type="number" min="1" max="10000" value={price} onChange={event => setPrice(event.target.value)} placeholder="Monthly price in ETB" />
+            <input className="input" type="number" inputMode="numeric" min="1" max="10000" value={price} onChange={event => setPrice(event.target.value)} placeholder="e.g. 500" aria-label="Monthly price in ETB" />
             <div className="flex gap-8 mt-16">
               <button className="btn btn-secondary" onClick={() => setMonetizeOpen(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={applyPaid}>Submit application</button>

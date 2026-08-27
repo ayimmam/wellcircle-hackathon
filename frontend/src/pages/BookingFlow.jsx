@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { effectiveTimeFormat, formatSlot } from '../utils/timeFormat';
 import PhoneInput from '../components/PhoneInput';
 import { parsePhone } from '../utils/phone';
+import { clickableDivProps } from '../utils/a11y';
 
 const STEP_LABELS = ['Service', 'Date & Time', 'Confirm'];
 
@@ -484,7 +485,8 @@ export default function BookingFlow() {
               <div
                 key={i}
                 className={`service-item ${selectedService?.name === service.name ? 'selected' : ''}`}
-                onClick={() => setSelectedService(service)}
+                {...clickableDivProps(() => setSelectedService(service))}
+                aria-label={service.name}
                 id={`booking-service-${i}`}
               >
                 <div>

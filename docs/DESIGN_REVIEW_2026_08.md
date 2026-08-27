@@ -61,17 +61,20 @@ The two sweeps above are repo-wide and mechanical (grep-verified), so they're co
 - [x] `pages/MyBookings.jsx` — fixed: `"Loading..."` → `t('Loading…')`. Otherwise clean: no clickable divs, status conveyed by color + text label together (not color alone).
 - [x] `pages/ProviderDashboard.jsx` — fixed: subscription-plan card was a clickable div (keyboard access added); every input/select across the product/event/challenge creation modals, the redemption-status editor, the booking-status filter, and the subscription payment form had no accessible name — added `aria-label` throughout, plus `type="tel"`/`inputMode` where appropriate. Already fine: the date-range filters (`From`/`To`) use real `<label>`-wrapped inputs.
 - Tests: `ProviderDashboard.plans` + full 44-route smoke suite — all pass.
+- [x] `pages/ProductsStore.jsx` — fixed: search input and type-filter select had no accessible name.
+- [x] `pages/ProductDetail.jsx` — fixed: photo-carousel prev/next glyph buttons (`◀`/`▶`) had no `aria-label`.
+- [x] `pages/ProductRedeem.jsx` — fixed: all 5 delivery-address inputs had no accessible name; phone field got `type="tel"`; `"Processing Payment..."` → `"Processing Payment…"`.
+- [x] `pages/MyRedemptions.jsx` — ✓ clean: no clickable divs, filter chips have visible text, product thumbnail's `alt=""` is defensible since the adjacent heading already names the product for screen readers.
+- [x] `pages/TrainerVerification.jsx` — ✓ clean: file inputs properly `<label>`-wrapped, all steps use real buttons.
+- [x] `pages/AboutScreen.jsx` — ✓ clean: `Row` is a real `<button>`, decorative logo has `aria-hidden`.
+- [x] `pages/EventsScreen.jsx` — ✓ clean (already uses `role="tab"`/`aria-selected` correctly, my earlier clickable-div fix already applied); noted, not changed: the tab pair has no `role="tabpanel"` or arrow-key navigation, a pre-existing minor gap not worth restructuring for two chips.
+- [x] `pages/CommunityList.jsx` — fixed: a ranks-tab community row was a clickable div my first repo-wide sweep missed (grep matched `<div ... onClick` on the same line, but this one had it on a following line — worth knowing the sweep isn't 100% grep-proof); new-circle-name and join-code inputs had no accessible name.
+- Tests: full 47-route smoke suite + `PostFeed` — all pass.
 
-### Remaining pages — not yet given a full manual pass (only covered by the two repo-wide sweeps above)
+**Core pages review (task #1) — complete.** Every file under `pages/` (excluding `admin/` and `provider-portal/`) has now had a full manual pass, not just the two repo-wide sweeps.
 
-- [ ] `pages/ProductsStore.jsx` (clickable-div fixed; not fully audited otherwise)
-- [ ] `pages/ProductDetail.jsx`
-- [ ] `pages/ProductRedeem.jsx`
-- [ ] `pages/MyRedemptions.jsx`
-- [ ] `pages/TrainerVerification.jsx`
-- [ ] `pages/AboutScreen.jsx`
-- [ ] `pages/CommunityList.jsx` (clickable-divs fixed; not fully audited otherwise)
-- [ ] `pages/EventsScreen.jsx` (clickable-div fixed; not fully audited otherwise)
+### Remaining pages — not yet given a full manual pass
+
 - [ ] `pages/admin/*.jsx` (9 files)
 - [ ] `pages/provider-portal/*.jsx` (9 files)
 

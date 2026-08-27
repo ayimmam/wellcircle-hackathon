@@ -34,9 +34,9 @@ export default function ProductsStore() {
       <h1 className="section-title mb-8">{t('Legacy Points Store')}</h1>
       <p className="text-secondary mb-16">{t('Your Balance:')} <strong className="inline-icon-text" style={{ color: 'var(--secondary)' }}>{user?.points_balance ?? 0} <Icon name="leaf" size={14} /> {t('pts')}</strong></p>
 
-      <input className="input mb-12" placeholder={t("Search products...")} value={search} onChange={e => setSearch(e.target.value)} />
+      <input className="input mb-12" type="search" placeholder={t("Search products…")} value={search} onChange={e => setSearch(e.target.value)} aria-label={t('Search products')} autoComplete="off" />
       <div className="flex gap-8 mb-16 flex-wrap">
-        <select className="input" style={{ flex: 1 }} value={type} onChange={e => setType(e.target.value)}>
+        <select className="input" style={{ flex: 1 }} value={type} onChange={e => setType(e.target.value)} aria-label={t('Filter by type')}>
           <option value="">{t('All Types')}</option>
           <option value="digital">{t('Digital')}</option>
           <option value="physical">{t('Physical')}</option>

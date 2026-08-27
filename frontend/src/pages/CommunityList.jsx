@@ -226,7 +226,8 @@ export default function CommunityList() {
                     key={c.community_id}
                     className="card"
                     style={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/community/${c.community_id}`)}
+                    aria-label={c.name}
+                    {...clickableDivProps(() => navigate(`/community/${c.community_id}`))}
                     id={`rank-community-${c.community_id}`}
                   >
                     <div className="card-body flex items-center justify-between">
@@ -309,13 +310,15 @@ export default function CommunityList() {
           <div className="card" style={{ marginBottom: 16 }}>
             <div className="card-body">
               <div className="flex gap-8 mb-8">
-                <input 
-                  type="text" 
-                  placeholder="New Circle Name..." 
-                  className="input" 
+                <input
+                  type="text"
+                  placeholder="New Circle Name…"
+                  className="input"
                   value={newCircleName}
                   onChange={e => setNewCircleName(e.target.value)}
                   style={{ flex: 1 }}
+                  aria-label="New circle name"
+                  autoComplete="off"
                 />
                 <button className="btn btn-primary" onClick={handleCreateCircle} disabled={!newCircleName.trim()}>Create</button>
               </div>
@@ -325,13 +328,16 @@ export default function CommunityList() {
                   <span style={{ fontSize: '0.85rem' }}>Private Circle</span>
                 </label>
                 {isPrivate && (
-                  <input 
-                    type="text" 
-                    placeholder="Join Code (e.g. VIP2024)" 
-                    className="input" 
+                  <input
+                    type="text"
+                    placeholder="Join Code (e.g. VIP2024)"
+                    className="input"
                     style={{ flex: 1, padding: '4px 8px' }}
                     value={joinCode}
                     onChange={e => setJoinCode(e.target.value)}
+                    aria-label="Join code"
+                    autoComplete="off"
+                    spellCheck={false}
                   />
                 )}
               </div>

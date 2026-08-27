@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import Icon from './Icon';
+import useDismissOnEscape from '../hooks/useDismissOnEscape';
 
 /**
  * "How Legacy Points work" explainer — opened from the Home points badge.
@@ -8,6 +9,8 @@ import Icon from './Icon';
  */
 export default function PointsInfoSheet({ onClose }) {
   const { t } = useTranslation();
+
+  useDismissOnEscape(onClose);
 
   return (
     <>

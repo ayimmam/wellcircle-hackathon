@@ -113,21 +113,21 @@ export default function ProductRedeem() {
       ) : product.shipping_required ? (
         <div className="form-stack">
           <h3 className="section-subtitle">{t('Enter Delivery Address')}</h3>
-          <input className="input" placeholder={t("Full Name")} value={address.fullName} onChange={e => setAddress(a => ({ ...a, fullName: e.target.value }))} />
-          <input className="input" placeholder={t("Phone")} value={address.phone} onChange={e => setAddress(a => ({ ...a, phone: e.target.value }))} />
-          <input className="input" placeholder={t("Address Line 1")} value={address.line1} onChange={e => setAddress(a => ({ ...a, line1: e.target.value }))} />
-          <input className="input" placeholder={t("Neighborhood")} value={address.neighborhood} onChange={e => setAddress(a => ({ ...a, neighborhood: e.target.value }))} />
-          <input className="input" placeholder={t("City")} value={address.city} onChange={e => setAddress(a => ({ ...a, city: e.target.value }))} />
+          <input className="input" placeholder={t("Full Name")} value={address.fullName} onChange={e => setAddress(a => ({ ...a, fullName: e.target.value }))} aria-label={t('Full Name')} autoComplete="name" />
+          <input className="input" type="tel" inputMode="tel" placeholder={t("Phone")} value={address.phone} onChange={e => setAddress(a => ({ ...a, phone: e.target.value }))} aria-label={t('Phone')} autoComplete="tel" />
+          <input className="input" placeholder={t("Address Line 1")} value={address.line1} onChange={e => setAddress(a => ({ ...a, line1: e.target.value }))} aria-label={t('Address Line 1')} autoComplete="address-line1" />
+          <input className="input" placeholder={t("Neighborhood")} value={address.neighborhood} onChange={e => setAddress(a => ({ ...a, neighborhood: e.target.value }))} aria-label={t('Neighborhood')} autoComplete="off" />
+          <input className="input" placeholder={t("City")} value={address.city} onChange={e => setAddress(a => ({ ...a, city: e.target.value }))} aria-label={t('City')} autoComplete="address-level2" />
           <div className="flex gap-12">
             <button className="btn btn-secondary" onClick={() => navigate(-1)}>{t('Cancel')}</button>
             <button className="btn btn-primary" onClick={handleRedeem} disabled={submitting}>
-              {submitting ? t('Processing Payment...') : t('Confirm Redemption')}
+              {submitting ? t('Processing Payment…') : t('Confirm Redemption')}
             </button>
           </div>
         </div>
       ) : (
         <button className="btn btn-primary btn-block" onClick={handleRedeem} disabled={submitting}>
-          {submitting ? t('Processing Payment...') : `${t('Confirm Redemption')} (${product.price_etb} ${t('pts')})`}
+          {submitting ? t('Processing Payment…') : `${t('Confirm Redemption')} (${product.price_etb} ${t('pts')})`}
         </button>
       )}
     </div>

@@ -6,6 +6,7 @@ import { showToast } from './Toast';
 import Icon from './Icon';
 import SmartImage from './SmartImage';
 import { haptic } from '../utils/haptic';
+import { clickableDivProps } from '../utils/a11y';
 
 const ACTIVITY_TYPES = ['run', 'walk', 'ride', 'yoga', 'gym', 'swim'];
 
@@ -253,7 +254,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
           >
             <div className="card-body">
               {/* User row */}
-              <div className="post-user-row" style={{ cursor: 'pointer' }} onClick={() => navigate(`/users/${post.user.id}`)}>
+              <div className="post-user-row" style={{ cursor: 'pointer' }} aria-label={post.user.name} {...clickableDivProps(() => navigate(`/users/${post.user.id}`))}>
                 <div className="avatar avatar-md">
                   <SmartImage
                     src={post.user.photo_url}
@@ -334,7 +335,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                   <div className="mb-12">
                     {(post.comments || []).map(comment => (
                       <div key={comment.id} className="mb-8">
-                        <div className="comment-row" style={{ cursor: 'pointer' }} onClick={() => navigate(`/users/${comment.user.id}`)}>
+                        <div className="comment-row" style={{ cursor: 'pointer' }} aria-label={comment.user.name} {...clickableDivProps(() => navigate(`/users/${comment.user.id}`))}>
                           <div className="avatar avatar-sm">
                             <SmartImage
                               src={comment.user.photo_url}

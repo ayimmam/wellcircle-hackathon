@@ -147,36 +147,36 @@ export default function ProviderOnboard() {
       {step === 0 && (
         <div className="form-stack">
           <p className="text-secondary">Enter your invitation code to start</p>
-          <input className="input" placeholder="INVITE-________" value={form.provider_invite_code} onChange={e => update('provider_invite_code', e.target.value.toUpperCase())} />
+          <input className="input" placeholder="INVITE-________" value={form.provider_invite_code} onChange={e => update('provider_invite_code', e.target.value.toUpperCase())} aria-label="Invitation code" autoComplete="off" spellCheck={false} />
           <p className="text-sm text-secondary">Don't have a code? Contact: admin@wellcircle.et</p>
         </div>
       )}
 
       {step === 1 && (
         <div className="form-stack">
-          <input className="input" placeholder="Studio/Business Name *" value={form.name} onChange={e => update('name', e.target.value)} />
-          <select className="input" value={form.category} onChange={e => update('category', e.target.value)}>
+          <input className="input" placeholder="Studio/Business Name *" value={form.name} onChange={e => update('name', e.target.value)} aria-label="Studio/Business name" autoComplete="off" />
+          <select className="input" value={form.category} onChange={e => update('category', e.target.value)} aria-label="Category">
             {INTEREST_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
-          <textarea className="input" rows={3} placeholder="Description" value={form.description} onChange={e => update('description', e.target.value)} />
-          <input className="input" placeholder="Location *" value={form.location_text} onChange={e => update('location_text', e.target.value)} />
-          <input className="input" placeholder="Latitude" value={form.lat} onChange={e => update('lat', e.target.value)} />
-          <input className="input" placeholder="Longitude" value={form.lng} onChange={e => update('lng', e.target.value)} />
+          <textarea className="input" rows={3} placeholder="Description" value={form.description} onChange={e => update('description', e.target.value)} aria-label="Description" />
+          <input className="input" placeholder="Location *" value={form.location_text} onChange={e => update('location_text', e.target.value)} aria-label="Location" autoComplete="off" />
+          <input className="input" type="number" inputMode="decimal" placeholder="Latitude" value={form.lat} onChange={e => update('lat', e.target.value)} aria-label="Latitude" />
+          <input className="input" type="number" inputMode="decimal" placeholder="Longitude" value={form.lng} onChange={e => update('lng', e.target.value)} aria-label="Longitude" />
         </div>
       )}
 
       {step === 2 && (
         <div className="form-stack">
           <p className="text-sm text-secondary">Add services your studio offers</p>
-          <input className="input" placeholder="Service Name" value={serviceDraft.name} onChange={e => setServiceDraft(d => ({ ...d, name: e.target.value }))} />
-          <input className="input" type="number" placeholder="Price (ETB)" value={serviceDraft.price} onChange={e => setServiceDraft(d => ({ ...d, price: e.target.value }))} />
-          <input className="input" placeholder="Duration" value={serviceDraft.duration} onChange={e => setServiceDraft(d => ({ ...d, duration: e.target.value }))} />
+          <input className="input" placeholder="Service Name" value={serviceDraft.name} onChange={e => setServiceDraft(d => ({ ...d, name: e.target.value }))} aria-label="Service name" autoComplete="off" />
+          <input className="input" type="number" inputMode="numeric" placeholder="Price (ETB)" value={serviceDraft.price} onChange={e => setServiceDraft(d => ({ ...d, price: e.target.value }))} aria-label="Service price in ETB" />
+          <input className="input" placeholder="Duration" value={serviceDraft.duration} onChange={e => setServiceDraft(d => ({ ...d, duration: e.target.value }))} aria-label="Service duration" autoComplete="off" />
           <button className="btn btn-secondary btn-sm" onClick={addService}>Add Service</button>
           {form.services.map((s, i) => (
             <div key={i} className="chip">{s.name} | ETB {s.price} | {s.duration}</div>
           ))}
-          <input className="input" placeholder="Cover Photo URL" value={form.cover_photo_url} onChange={e => update('cover_photo_url', e.target.value)} />
-          <select className="input" value={form.price_range} onChange={e => update('price_range', e.target.value)}>
+          <input className="input" placeholder="Cover Photo URL" value={form.cover_photo_url} onChange={e => update('cover_photo_url', e.target.value)} aria-label="Cover photo URL" autoComplete="off" />
+          <select className="input" value={form.price_range} onChange={e => update('price_range', e.target.value)} aria-label="Price range">
             <option>ETB 500-2000</option>
             <option>ETB 800-3000</option>
             <option>ETB 1000-5000</option>
@@ -187,18 +187,18 @@ export default function ProviderOnboard() {
       {step === 3 && (
         <div className="form-stack">
           <p className="text-secondary text-sm">How would you like to receive payments from bookings?</p>
-          <select className="input" value={form.payment_method} onChange={e => update('payment_method', e.target.value)}>
+          <select className="input" value={form.payment_method} onChange={e => update('payment_method', e.target.value)} aria-label="Payout method">
             <option value="telebirr">Telebirr</option>
             <option value="mpesa">M-Pesa</option>
             <option value="cbe">CBE Birr</option>
           </select>
-          <input className="input" placeholder="Account Number or Phone *" value={form.payment_account} onChange={e => update('payment_account', e.target.value)} />
-          
+          <input className="input" placeholder="Account Number or Phone *" value={form.payment_account} onChange={e => update('payment_account', e.target.value)} aria-label="Payout account number or phone" autoComplete="off" />
+
           <div className="card card-warning mt-16">
             <div className="card-body">
               <h4 className="font-bold mb-4 text-sm card-warning-title">Boost your visibility</h4>
               <p className="text-xs text-secondary mb-8">Subscribe to a premium plan to be featured on the Explore page and boost your upcoming events.</p>
-              <select className="input" value={form.subscription_plan} onChange={e => update('subscription_plan', e.target.value)}>
+              <select className="input" value={form.subscription_plan} onChange={e => update('subscription_plan', e.target.value)} aria-label="Subscription plan">
                 <option value="starter">Starter — 500 ETB/mo</option>
                 <option value="growth">Growth — 1,500 ETB/mo</option>
                 <option value="pro">Pro — 3,000 ETB/mo (Featured)</option>
@@ -234,7 +234,7 @@ export default function ProviderOnboard() {
           <button className="btn btn-primary btn-block" onClick={next}>Next</button>
         ) : (
           <button className="btn btn-primary btn-block" onClick={submit} disabled={submitting}>
-            {submitting ? 'Submitting...' : 'Submit Application'}
+            {submitting ? 'Submitting…' : 'Submit Application'}
           </button>
         )}
       </div>

@@ -5,6 +5,7 @@ import {
   updateProviderRedemptionStatus, getPriceSuggestion,
 } from '../../api/client';
 import { showToast } from '../../components/Toast';
+import useDismissOnEscape from '../../hooks/useDismissOnEscape';
 
 const REDEMPTION_STATUSES = ['pending', 'confirmed', 'shipped', 'delivered'];
 
@@ -17,6 +18,8 @@ export default function ProviderPortalProducts() {
   const [priceSuggestion, setPriceSuggestion] = useState(null);
   const [redemptionEdits, setRedemptionEdits] = useState({});
   const [updatingRedemptionId, setUpdatingRedemptionId] = useState(null);
+
+  useDismissOnEscape(() => setShowCreate(false), showCreate);
 
   const reloadRedemptions = async () => {
     const r = await getProviderRedemptions();
@@ -94,6 +97,7 @@ export default function ProviderPortalProducts() {
                         style={{ padding: '4px', width: 'auto' }}
                         value={edit.status}
                         onChange={e => setEdit({ status: e.target.value })}
+                        aria-label="Redemption status"
                       >
                         {REDEMPTION_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
@@ -103,6 +107,8 @@ export default function ProviderPortalProducts() {
                         placeholder="Notes for customer (optional)"
                         value={edit.notes}
                         onChange={e => setEdit({ notes: e.target.value })}
+                        aria-label="Notes for customer"
+                        autoComplete="off"
                       />
                       <button
                         className="btn btn-secondary btn-sm"
@@ -125,17 +131,19 @@ export default function ProviderPortalProducts() {
           <div className="modal-card" onClick={e => e.stopPropagation()}>
             <h3 className="card-title mb-16">Create Product</h3>
             <div className="form-stack">
-              <input className="input" placeholder="Name" value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))} />
-              <select className="input" value={newProduct.type} onChange={e => setNewProduct(p => ({ ...p, type: e.target.value }))}>
+              <input className="input" placeholder="Name" value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))} aria-label="Product name" autoComplete="off" />
+              <select className="input" value={newProduct.type} onChange={e => setNewProduct(p => ({ ...p, type: e.target.value }))} aria-label="Product type">
                 <option value="digital">Digital</option>
                 <option value="physical">Physical</option>
               </select>
               <input
                 className="input"
                 type="number"
+                inputMode="numeric"
                 placeholder="Price (points)"
                 value={newProduct.price_etb}
                 onChange={e => setNewProduct(p => ({ ...p, price_etb: e.target.value }))}
+                aria-label="Price in points"
                 onFocus={() => {
                   if (priceSuggestion || !providerCategory) return;
                   getPriceSuggestion(providerCategory).then(setPriceSuggestion).catch(() => {});
@@ -151,7 +159,7 @@ export default function ProviderPortalProducts() {
                   {priceSuggestion.suggestion_text}
                 </button>
               )}
-              <input className="input" type="number" placeholder="Stock" value={newProduct.quantity_in_stock} onChange={e => setNewProduct(p => ({ ...p, quantity_in_stock: e.target.value }))} />
+              <input className="input" type="number" inputMode="numeric" placeholder="Stock" value={newProduct.quantity_in_stock} onChange={e => setNewProduct(p => ({ ...p, quantity_in_stock: e.target.value }))} aria-label="Stock quantity" />
               <button className="btn btn-primary" onClick={async () => {
                 try {
                   await createProviderProduct({

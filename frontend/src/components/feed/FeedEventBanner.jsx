@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import SmartImage from '../SmartImage';
 import Icon from '../Icon';
+import { clickableDivProps } from '../../utils/a11y';
 
 /**
  * Full-bleed event banner for a boosted/featured event — the "event
@@ -19,7 +20,7 @@ export default function FeedEventBanner({ item, priority = false }) {
   );
 
   return (
-    <div className="card mb-12" style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden' }} onClick={book} id={`feed-event-${item.id}`}>
+    <div className="card mb-12" style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden' }} {...clickableDivProps(book)} aria-label={event.service_name} id={`feed-event-${item.id}`}>
       <div style={{ position: 'relative', height: 180 }}>
         <SmartImage
           src={provider.cover_photo_url}
@@ -36,7 +37,7 @@ export default function FeedEventBanner({ item, priority = false }) {
           <span className="badge-on-accent" style={{ fontSize: '0.7rem', fontWeight: 700, padding: '4px 8px', borderRadius: '99px', alignSelf: 'flex-start', marginBottom: 6 }}>
             {t('Event')}
           </span>
-          <span style={{ fontSize: '1.1rem', fontWeight: 800 }}>{event.service_name}</span>
+          <span className="truncate" style={{ fontSize: '1.1rem', fontWeight: 800, display: 'block' }}>{event.service_name}</span>
           <span className="inline-icon-text" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
             <Icon name="calendar" size={12} /> {new Date(event.starts_at).toLocaleString()} · {provider.name}
           </span>

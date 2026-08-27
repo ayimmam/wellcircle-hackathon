@@ -60,7 +60,7 @@ export default function AdminTrainerVerifications() {
                 </div>
                 {item.status === 'pending' && (
                   <>
-                    <textarea className="input mt-12" placeholder="Rejection reason (required to reject)" value={reasons[item.id] || ''} onChange={event => setReasons(current => ({ ...current, [item.id]: event.target.value }))} />
+                    <textarea className="input mt-12" placeholder="Rejection reason (required to reject)" value={reasons[item.id] || ''} onChange={event => setReasons(current => ({ ...current, [item.id]: event.target.value }))} aria-label={`Rejection reason for ${item.user_name || 'this applicant'}`} />
                     <div className="flex gap-8 mt-12">
                       <button className="btn btn-primary btn-sm" onClick={() => review(item, 'approve')}>Approve</button>
                       <button className="btn btn-danger btn-sm" onClick={() => review(item, 'reject')}>Reject</button>

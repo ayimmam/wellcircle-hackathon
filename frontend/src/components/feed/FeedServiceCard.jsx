@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import SmartImage from '../SmartImage';
 import Icon from '../Icon';
+import { clickableDivProps } from '../../utils/a11y';
 
 /**
  * A single provider service surfaced in the For You feed. Tapping the card
@@ -19,7 +20,8 @@ export default function FeedServiceCard({ item, priority = false }) {
     <div
       className="card mb-12"
       style={{ cursor: 'pointer' }}
-      onClick={() => navigate(`/provider/${provider.id}`)}
+      {...clickableDivProps(() => navigate(`/provider/${provider.id}`))}
+      aria-label={provider.name}
       id={`feed-service-${item.id}`}
     >
       <div style={{ height: 160, overflow: 'hidden' }}>
@@ -33,10 +35,10 @@ export default function FeedServiceCard({ item, priority = false }) {
         />
       </div>
       <div className="card-body">
-        <div className="inline-icon-text" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+        <div className="inline-icon-text truncate" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
           <Icon name="map-pin" size={12} /> {provider.name}
         </div>
-        <div style={{ fontWeight: 700, fontSize: '1rem', marginTop: 2 }}>{service.name}</div>
+        <div className="truncate" style={{ fontWeight: 700, fontSize: '1rem', marginTop: 2 }}>{service.name}</div>
         {service.description && (
           <p className="text-sm text-secondary" style={{ marginTop: 4 }}>
             {service.description.length > 100 ? `${service.description.slice(0, 100)}…` : service.description}

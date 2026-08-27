@@ -20,6 +20,8 @@ import VerifiedBadge from '../components/VerifiedBadge';
 import StravaStats from '../components/StravaStats';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import { getEarnedMilestoneBadges } from '../utils/milestones';
+import { clickableDivProps } from '../utils/a11y';
+import useDismissOnEscape from '../hooks/useDismissOnEscape';
 
 const STRAVA_STATS = [
   ['distance', 'Distance'],
@@ -45,6 +47,8 @@ export default function ProfileScreen() {
   const [phoneEditResult, setPhoneEditResult] = useState({ valid: false, e164: null });
   const [showBugReport, setShowBugReport] = useState(false);
   const { t, i18n } = useTranslation();
+
+  useDismissOnEscape(() => setShowNeighbourhoodSheet(false), showNeighbourhoodSheet);
 
   const tier = getTier(user?.points_balance || 0);
   const milestoneBadges = getEarnedMilestoneBadges(user);
@@ -384,7 +388,8 @@ export default function ProfileScreen() {
                 key={c.id}
                 className="profile-card"
                 style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
-                onClick={() => navigate(`/community/${c.id}`)}
+                aria-label={c.name}
+                {...clickableDivProps(() => navigate(`/community/${c.id}`))}
               >
                 <Icon name="leaf" size={20} />
                 <div style={{ flex: 1 }}>
@@ -518,9 +523,10 @@ export default function ProfileScreen() {
       <div className="profile-section">
         <div className="profile-section-title">{t('Language')}</div>
         <div className="profile-card">
-          <select 
-            value={i18n.language} 
+          <select
+            value={i18n.language}
             onChange={(e) => i18n.changeLanguage(e.target.value)}
+            aria-label={t('Language')}
             style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)', fontSize: '0.95rem', cursor: 'pointer', outline: 'none' }}
           >
             <option value="en">English</option>
@@ -536,7 +542,8 @@ export default function ProfileScreen() {
         <div className="profile-section-title">{t('Local Alerts')}</div>
         <div
           className="neighbourhood-card"
-          onClick={() => setShowNeighbourhoodSheet(true)}
+          {...clickableDivProps(() => setShowNeighbourhoodSheet(true))}
+          aria-label={t('Local Alerts')}
           id="neighbourhood-optin"
         >
           <span className="neighbourhood-icon"><Icon name="map-pin" size={20} /></span>
@@ -593,8 +600,9 @@ export default function ProfileScreen() {
         <div className="profile-section-title">{t('Support')}</div>
         <div
           className="profile-card"
-          onClick={() => setShowBugReport(true)}
+          {...clickableDivProps(() => setShowBugReport(true))}
           style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
+          aria-label={t('Report a problem')}
           id="report-bug-row"
         >
           <Icon name="message-circle" size={20} />

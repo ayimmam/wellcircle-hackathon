@@ -106,7 +106,7 @@ export default function VisitScreen() {
       </div>
 
       <div className="visit-card">
-        <img src={newLogo} className="visit-logo" alt="Well Circle" />
+        <img src={newLogo} className="visit-logo" alt="Well Circle" width={96} height={96} />
         <h1 className="visit-title">{t('Welcome to Well Circle')}</h1>
         <p className="visit-tagline">
           {t('Your tribe, your wellness.')}<br />{t('Right where you chat.')}

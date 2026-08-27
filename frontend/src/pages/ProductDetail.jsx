@@ -29,9 +29,9 @@ export default function ProductDetail() {
 
       {images.length > 0 && (
         <div className="product-carousel mb-16">
-          <button className="carousel-btn" onClick={() => setImgIdx(i => (i - 1 + images.length) % images.length)}>◀</button>
+          <button className="carousel-btn" onClick={() => setImgIdx(i => (i - 1 + images.length) % images.length)} aria-label="Previous photo">◀</button>
           <SmartImage src={images[imgIdx]} alt={product.name} className="product-detail-img" width={430} priority />
-          <button className="carousel-btn" onClick={() => setImgIdx(i => (i + 1) % images.length)}>▶</button>
+          <button className="carousel-btn" onClick={() => setImgIdx(i => (i + 1) % images.length)} aria-label="Next photo">▶</button>
         </div>
       )}
 

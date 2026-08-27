@@ -65,7 +65,7 @@ export default function MyBookings() {
     );
   };
 
-  if (loading) return <div className="page" style={{ textAlign: 'center', padding: '20px' }}>Loading...</div>;
+  if (loading) return <div className="page" style={{ textAlign: 'center', padding: '20px' }}>{t('Loading…')}</div>;
 
   return (
     <div className="page" id="my-bookings-screen">

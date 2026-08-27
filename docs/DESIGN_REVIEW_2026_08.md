@@ -50,11 +50,12 @@ The two sweeps above are repo-wide and mechanical (grep-verified), so they're co
 - [x] `pages/CommunityDetail.jsx` — ✓ clean: back button already labeled, no clickable divs, feed/posts tabs have visible text (not icon-only), and it inherits the `FeedEvent`/`Leaderboard` a11y fixes from the earlier pass automatically.
 - [x] `pages/ProviderDetail.jsx` — fixed: photo-gallery thumbnails were a bare `<img onClick>` (via `SmartImage`, which spreads `...rest` straight onto the `<img>`) — no button semantics, no keyboard access; wrapped each in a real `<button type="button" aria-pressed>`. Also fixed the service-list clickable div (same `clickableDivProps` pattern, only applied when the provider isn't `is_coming_soon`).
 - Tests: `ProviderDetail.navigationTips`, `PublicProfile`, and the full 50-route `routes.smoke` suite — all pass, confirming the gallery-button change didn't break layout or any other screen.
+- [x] `pages/ProfileScreen.jsx` (full pass, not just the clickable-divs from the earlier sweep) — fixed: "Joined Circles" list item was a clickable div (keyboard access added); the language `<select>` had no accessible name (added `aria-label`). Already fine: bio textarea has `aria-label`, radio/checkbox rows are properly `<label>`-wrapped, theme/accent toggles use `role="group"` + `aria-pressed`.
+- [x] `pages/PublicProfile.jsx` — ✓ clean: no clickable divs, back button and connection counts are real labeled buttons, created-circles list uses `<button>` not `<div onClick>`.
+- Tests: `ProfileScreen.location`, `ProfileScreen.healthApp`, `PublicProfile`, `FollowersList` — all 12 pass.
 
 ### Remaining pages — not yet given a full manual pass (only covered by the two repo-wide sweeps above)
 
-- [ ] `pages/ProfileScreen.jsx` (clickable-divs fixed; not fully audited otherwise)
-- [ ] `pages/PublicProfile.jsx`
 - [ ] `pages/FollowersList.jsx`
 - [ ] `pages/NotificationsScreen.jsx`
 - [ ] `pages/ProviderOnboard.jsx`

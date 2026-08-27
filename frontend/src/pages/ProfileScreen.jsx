@@ -385,7 +385,8 @@ export default function ProfileScreen() {
                 key={c.id}
                 className="profile-card"
                 style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
-                onClick={() => navigate(`/community/${c.id}`)}
+                aria-label={c.name}
+                {...clickableDivProps(() => navigate(`/community/${c.id}`))}
               >
                 <Icon name="leaf" size={20} />
                 <div style={{ flex: 1 }}>
@@ -519,9 +520,10 @@ export default function ProfileScreen() {
       <div className="profile-section">
         <div className="profile-section-title">{t('Language')}</div>
         <div className="profile-card">
-          <select 
-            value={i18n.language} 
+          <select
+            value={i18n.language}
             onChange={(e) => i18n.changeLanguage(e.target.value)}
+            aria-label={t('Language')}
             style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)', fontSize: '0.95rem', cursor: 'pointer', outline: 'none' }}
           >
             <option value="en">English</option>

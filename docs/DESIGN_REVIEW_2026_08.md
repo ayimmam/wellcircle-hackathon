@@ -53,11 +53,12 @@ The two sweeps above are repo-wide and mechanical (grep-verified), so they're co
 - [x] `pages/ProfileScreen.jsx` (full pass, not just the clickable-divs from the earlier sweep) — fixed: "Joined Circles" list item was a clickable div (keyboard access added); the language `<select>` had no accessible name (added `aria-label`). Already fine: bio textarea has `aria-label`, radio/checkbox rows are properly `<label>`-wrapped, theme/accent toggles use `role="group"` + `aria-pressed`.
 - [x] `pages/PublicProfile.jsx` — ✓ clean: no clickable divs, back button and connection counts are real labeled buttons, created-circles list uses `<button>` not `<div onClick>`.
 - Tests: `ProfileScreen.location`, `ProfileScreen.healthApp`, `PublicProfile`, `FollowersList` — all 12 pass.
+- [x] `pages/FollowersList.jsx` — fixed: avatar-only button had no accessible name (image inside has no alt); Followers/Following toggle used `role="tablist"` without proper `role="tab"`/tabpanel semantics — misuse of ARIA is worse than none, replaced with `role="group"` + `aria-pressed` (tried adding real `role="tab"` first but it flips the accessible role away from "button", breaking `FollowersList.test.jsx`'s `getByRole('button', ...)` assertion — reverted to the group/pressed pattern instead).
+- [x] `pages/NotificationsScreen.jsx` — fixed: notification-card clickable div had no keyboard access (added `clickableDivProps`, made it always clickable rather than conditionally on `action_url` since marking read is meaningful either way); `transition: 'all 0.2s ease'` → `transition: 'transform 0.2s ease'`; `"Loading..."` → `t('Loading…')`.
+- Tests: `FollowersList` + full 45-route smoke suite — all pass.
 
 ### Remaining pages — not yet given a full manual pass (only covered by the two repo-wide sweeps above)
 
-- [ ] `pages/FollowersList.jsx`
-- [ ] `pages/NotificationsScreen.jsx`
 - [ ] `pages/ProviderOnboard.jsx`
 - [ ] `pages/ProviderDashboard.jsx`
 - [ ] `pages/BookingFlow.jsx`

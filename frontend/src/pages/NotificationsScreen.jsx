@@ -4,6 +4,7 @@ import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../api/client';
 import Icon from '../components/Icon';
 import { useTranslation } from 'react-i18next';
+import { clickableDivProps } from '../utils/a11y';
 
 export default function NotificationsScreen() {
   const navigate = useNavigate();
@@ -52,7 +53,7 @@ export default function NotificationsScreen() {
     }
   };
 
-  if (loading) return <div className="page" style={{ textAlign: 'center', padding: '20px' }}>Loading...</div>;
+  if (loading) return <div className="page" style={{ textAlign: 'center', padding: '20px' }}>{t('Loading…')}</div>;
 
   const hasUnread = notifications.some(n => !n.is_read);
 
@@ -131,23 +132,24 @@ export default function NotificationsScreen() {
                       }
 
                       return (
-                        <div 
-                          key={n.id} 
+                        <div
+                          key={n.id}
                           className="card"
-                          style={{ 
+                          style={{
                             padding: '16px',
-                            cursor: n.action_url ? 'pointer' : 'default',
+                            cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'flex-start',
                             gap: '16px',
                             background: isUnread ? 'var(--bg-card)' : 'transparent',
                             border: isUnread ? '1px solid var(--border-color)' : '1px solid transparent',
                             boxShadow: isUnread ? '0 4px 12px rgba(0,0,0,0.03)' : 'none',
-                            transition: 'all 0.2s ease',
+                            transition: 'transform 0.2s ease',
                             position: 'relative',
                             overflow: 'hidden'
                           }}
-                          onClick={() => handleMarkRead(n.id, n.action_url)}
+                          aria-label={n.title}
+                          {...clickableDivProps(() => handleMarkRead(n.id, n.action_url))}
                           onMouseEnter={(e) => {
                             if(n.action_url) e.currentTarget.style.transform = 'translateY(-2px)';
                           }}

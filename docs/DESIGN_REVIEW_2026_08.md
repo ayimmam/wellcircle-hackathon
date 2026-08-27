@@ -73,9 +73,21 @@ The two sweeps above are repo-wide and mechanical (grep-verified), so they're co
 
 **Core pages review (task #1) — complete.** Every file under `pages/` (excluding `admin/` and `provider-portal/`) has now had a full manual pass, not just the two repo-wide sweeps.
 
+### Admin pages (task #2) — complete
+
+- [x] `pages/admin/AdminLayout.jsx` — ✓ clean: `NavLink` tabs render real `<a>` elements, native keyboard/Cmd-click support.
+- [x] `pages/admin/AdminAnalytics.jsx` — ✓ clean: no inputs, no clickable divs, all buttons text-labeled.
+- [x] `pages/admin/AdminFeedback.jsx` — fixed: status `<select>` per feedback item had no accessible name.
+- [x] `pages/admin/AdminPaidCircles.jsx` — fixed: rejection-reason textarea had no accessible name.
+- [x] `pages/admin/AdminPointsAward.jsx` — fixed: search input had no accessible name; "Points Amount"/"Note" `<label>`s looked associated but had no `htmlFor`/`id` pairing (added both, since the labels are outside the input, not wrapping it — cosmetic association isn't real association); `"Searching..."`/`"Awarding..."` → ellipsis.
+- [x] `pages/admin/AdminProducts.jsx` — fixed: search input, status filter, redemption-status filter, and stock-adjustment input all had no accessible name.
+- [x] `pages/admin/AdminProviders.jsx` — fixed: search input and the entire "Add Provider Directly" form (6 fields) had no accessible name; `"Generating..."` → ellipsis. Flagged, not fixed: `prompt()` for rejection reason is the same blocking-dialog anti-pattern noted in CircleDetailScreen — consistent, not a one-off.
+- [x] `pages/admin/AdminReports.jsx` — ✓ clean: report cards are real buttons with visible titles.
+- [x] `pages/admin/AdminTrainerVerifications.jsx` — fixed: rejection-reason textarea had no accessible name.
+- Tests: full 48-route smoke suite + `AdminLaunchFeatures` + `AdminFeedback` — all pass.
+
 ### Remaining pages — not yet given a full manual pass
 
-- [ ] `pages/admin/*.jsx` (9 files)
 - [ ] `pages/provider-portal/*.jsx` (9 files)
 
 ## Rules of engagement for this branch

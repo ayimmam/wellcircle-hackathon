@@ -69,6 +69,7 @@ export default function AdminFeedback() {
                   className="input mt-12"
                   value={f.status}
                   onChange={e => handleStatusChange(f.id, e.target.value)}
+                  aria-label={`Status for feedback ${f.id}`}
                   id={`feedback-status-${f.id}`}
                 >
                   {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}

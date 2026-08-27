@@ -126,7 +126,7 @@ export default function AdminProviders() {
     <div>
       <div className="flex gap-8 mb-16 flex-wrap">
         <button className="btn btn-secondary btn-sm" onClick={handleGenerateInvite} disabled={generatingInvite}>
-          {generatingInvite ? 'Generating...' : 'Generate Invite Code'}
+          {generatingInvite ? 'Generating…' : 'Generate Invite Code'}
         </button>
         {inviteCode && (
           <button className="btn btn-primary btn-sm" onClick={copyInviteCode}>
@@ -145,7 +145,7 @@ export default function AdminProviders() {
 
       {subTab === 'active' && (
         <div className="flex gap-12 mb-16">
-          <input className="input" placeholder="Search providers..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input className="input" type="search" placeholder="Search providers…" value={search} onChange={e => setSearch(e.target.value)} aria-label="Search providers" autoComplete="off" />
           <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>Add Provider</button>
         </div>
       )}
@@ -228,15 +228,15 @@ export default function AdminProviders() {
           <div className="modal-card" onClick={e => e.stopPropagation()}>
             <h3 className="card-title mb-16">Add Provider Directly</h3>
             <form onSubmit={handlePromote} className="form-stack">
-              <input className="input" placeholder="User Telegram ID" required value={promoteForm.user_telegram_id} onChange={e => setPromoteForm(f => ({ ...f, user_telegram_id: e.target.value }))} />
-              <input className="input" placeholder="Provider Name" required value={promoteForm.name} onChange={e => setPromoteForm(f => ({ ...f, name: e.target.value }))} />
-              <select className="input" value={promoteForm.category} onChange={e => setPromoteForm(f => ({ ...f, category: e.target.value }))}>
+              <input className="input" placeholder="User Telegram ID" required value={promoteForm.user_telegram_id} onChange={e => setPromoteForm(f => ({ ...f, user_telegram_id: e.target.value }))} aria-label="User Telegram ID" autoComplete="off" />
+              <input className="input" placeholder="Provider Name" required value={promoteForm.name} onChange={e => setPromoteForm(f => ({ ...f, name: e.target.value }))} aria-label="Provider name" autoComplete="off" />
+              <select className="input" value={promoteForm.category} onChange={e => setPromoteForm(f => ({ ...f, category: e.target.value }))} aria-label="Category">
                 {INTEREST_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
-              <input className="input" placeholder="Location" value={promoteForm.location_text} onChange={e => setPromoteForm(f => ({ ...f, location_text: e.target.value }))} />
+              <input className="input" placeholder="Location" value={promoteForm.location_text} onChange={e => setPromoteForm(f => ({ ...f, location_text: e.target.value }))} aria-label="Location" autoComplete="off" />
               <div className="flex gap-8">
-                <input className="input" placeholder="Lat" value={promoteForm.lat} onChange={e => setPromoteForm(f => ({ ...f, lat: e.target.value }))} />
-                <input className="input" placeholder="Lng" value={promoteForm.lng} onChange={e => setPromoteForm(f => ({ ...f, lng: e.target.value }))} />
+                <input className="input" type="number" inputMode="decimal" placeholder="Lat" value={promoteForm.lat} onChange={e => setPromoteForm(f => ({ ...f, lat: e.target.value }))} aria-label="Latitude" />
+                <input className="input" type="number" inputMode="decimal" placeholder="Lng" value={promoteForm.lng} onChange={e => setPromoteForm(f => ({ ...f, lng: e.target.value }))} aria-label="Longitude" />
               </div>
               <div className="flex gap-8">
                 <button type="submit" className="btn btn-primary">Create</button>

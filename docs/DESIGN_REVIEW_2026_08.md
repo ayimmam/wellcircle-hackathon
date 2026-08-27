@@ -56,12 +56,12 @@ The two sweeps above are repo-wide and mechanical (grep-verified), so they're co
 - [x] `pages/FollowersList.jsx` — fixed: avatar-only button had no accessible name (image inside has no alt); Followers/Following toggle used `role="tablist"` without proper `role="tab"`/tabpanel semantics — misuse of ARIA is worse than none, replaced with `role="group"` + `aria-pressed` (tried adding real `role="tab"` first but it flips the accessible role away from "button", breaking `FollowersList.test.jsx`'s `getByRole('button', ...)` assertion — reverted to the group/pressed pattern instead).
 - [x] `pages/NotificationsScreen.jsx` — fixed: notification-card clickable div had no keyboard access (added `clickableDivProps`, made it always clickable rather than conditionally on `action_url` since marking read is meaningful either way); `transition: 'all 0.2s ease'` → `transition: 'transform 0.2s ease'`; `"Loading..."` → `t('Loading…')`.
 - Tests: `FollowersList` + full 45-route smoke suite — all pass.
+- [x] `pages/ProviderOnboard.jsx` — fixed: every input/select/textarea across all 5 steps had no `<label>` or `aria-label` (a screen reader would announce a bare textbox, or for the `<select>`s, nothing describing what's being chosen) — added `aria-label` to all of them; latitude/longitude fields got `type="number" inputMode="decimal"`; invite-code field got `autoComplete="off" spellCheck={false}`; `"Submitting..."` → `"Submitting…"`.
+- Tests: full 43-route smoke suite — all pass.
 
 ### Remaining pages — not yet given a full manual pass (only covered by the two repo-wide sweeps above)
 
-- [ ] `pages/ProviderOnboard.jsx`
 - [ ] `pages/ProviderDashboard.jsx`
-- [ ] `pages/BookingFlow.jsx`
 - [ ] `pages/MyBookings.jsx`
 - [ ] `pages/ProductsStore.jsx` (clickable-div fixed; not fully audited otherwise)
 - [ ] `pages/ProductDetail.jsx`

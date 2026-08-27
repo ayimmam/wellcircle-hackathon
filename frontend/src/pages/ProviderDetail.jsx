@@ -10,6 +10,7 @@ import SmartImage from '../components/SmartImage';
 import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
 import { promoApplies, daysLeft, expiryLabel } from '../utils/promo';
+import { clickableDivProps } from '../utils/a11y';
 
 export default function ProviderDetail() {
   const { id } = useParams();
@@ -104,14 +105,21 @@ export default function ProviderDetail() {
       {provider.photos?.length > 1 && (
         <div className="detail-gallery">
           {provider.photos.map((url, i) => (
-            <SmartImage
+            <button
               key={i}
-              src={url}
-              alt={`${provider.name} photo ${i + 1}`}
-              width={80}
-              className={i === activePhoto ? 'active' : ''}
+              type="button"
+              style={{ padding: 0, flexShrink: 0 }}
+              aria-label={t('View photo {{n}}', { n: i + 1 })}
+              aria-pressed={i === activePhoto}
               onClick={() => setActivePhoto(i)}
-            />
+            >
+              <SmartImage
+                src={url}
+                alt={`${provider.name} photo ${i + 1}`}
+                width={80}
+                className={i === activePhoto ? 'active' : ''}
+              />
+            </button>
           ))}
         </div>
       )}
@@ -246,7 +254,10 @@ export default function ProviderDetail() {
             key={i}
             className="service-item"
             style={provider.is_coming_soon ? { cursor: 'default', opacity: 0.6 } : undefined}
-            onClick={provider.is_coming_soon ? undefined : () => navigate(`/booking/${provider.id}`, { state: { provider, selectedService: service } })}
+            aria-label={service.name}
+            {...(provider.is_coming_soon
+              ? {}
+              : clickableDivProps(() => navigate(`/booking/${provider.id}`, { state: { provider, selectedService: service } })))}
             id={`service-${i}`}
           >
             <div>

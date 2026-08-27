@@ -47,15 +47,16 @@ The two sweeps above are repo-wide and mechanical (grep-verified), so they're co
 - [x] `pages/CircleDetailScreen.jsx` — fixed: unlabeled icon-only back button; leaderboard-row and members-row clickable divs (keyboard access); unlabeled monthly-price input. Flagged, not fixed: `prompt()` for private-circle join codes is a blocking native dialog (same anti-pattern as the `alert()` fixed in OnboardingFlow) but replacing it needs a small modal + state, not a one-line swap — left as a follow-up.
 - [x] `pages/BookingFlow.jsx` — fixed: clickable service-selection div (keyboard access); `PhoneInput`'s national-number field had no accessible name and its validation error wasn't wired for screen readers (added `aria-label`, `aria-describedby`, `role="alert"` on the error, `autoComplete="tel-national"`). Noted, not fixed: the visual "Type your phone number…" `<label>` above `PhoneInput` isn't programmatically associated (the component renders two controls — a country-code select and the number field — so a single `htmlFor` doesn't map cleanly); the multi-day modal has no `role="dialog"`/focus trap, consistent with every other modal in the app (systemic, not specific to this file).
 - Tests: `BookingFlow.phoneBooking`, `BookingFlow.multiDay`, `BookingFlow.promo`, `CircleDetailScreen.paid`, `CircleDetailScreen.preview`, `CircleStories` — all 24 tests pass after these changes.
+- [x] `pages/CommunityDetail.jsx` — ✓ clean: back button already labeled, no clickable divs, feed/posts tabs have visible text (not icon-only), and it inherits the `FeedEvent`/`Leaderboard` a11y fixes from the earlier pass automatically.
+- [x] `pages/ProviderDetail.jsx` — fixed: photo-gallery thumbnails were a bare `<img onClick>` (via `SmartImage`, which spreads `...rest` straight onto the `<img>`) — no button semantics, no keyboard access; wrapped each in a real `<button type="button" aria-pressed>`. Also fixed the service-list clickable div (same `clickableDivProps` pattern, only applied when the provider isn't `is_coming_soon`).
+- Tests: `ProviderDetail.navigationTips`, `PublicProfile`, and the full 50-route `routes.smoke` suite — all pass, confirming the gallery-button change didn't break layout or any other screen.
 
 ### Remaining pages — not yet given a full manual pass (only covered by the two repo-wide sweeps above)
 
-- [ ] `pages/CommunityDetail.jsx`
 - [ ] `pages/ProfileScreen.jsx` (clickable-divs fixed; not fully audited otherwise)
 - [ ] `pages/PublicProfile.jsx`
 - [ ] `pages/FollowersList.jsx`
 - [ ] `pages/NotificationsScreen.jsx`
-- [ ] `pages/ProviderDetail.jsx`
 - [ ] `pages/ProviderOnboard.jsx`
 - [ ] `pages/ProviderDashboard.jsx`
 - [ ] `pages/BookingFlow.jsx`

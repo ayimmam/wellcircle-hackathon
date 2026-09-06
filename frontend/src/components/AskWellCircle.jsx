@@ -8,9 +8,12 @@ import { useAuth } from '../context/AuthContext';
 import { track } from '../analytics';
 import useDismissOnEscape from '../hooks/useDismissOnEscape';
 
+const WELCOME_MESSAGE =
+  "Hi! 👋 I'm Circler, your personal wellness chatbot. Tell me what you're looking for  from wellness services and events to spas, gyms, yoga, and more  and I'll help you find the right options for you.";
+
 const CONCIERGE_CHIPS = [
+  { label: 'Wellness events this week', needsLocation: false },
   { label: 'Affordable gyms around me', needsLocation: true },
-  { label: 'Best-rated spas', needsLocation: false },
   { label: 'Yoga classes this week', needsLocation: false },
   { label: 'Nutrition coaching options', needsLocation: false },
 ];
@@ -45,7 +48,7 @@ export default function AskWellCircle() {
     }
     return [{
       id: 0,
-      text: "Hi! Welcome to Well Circle. Tell me what wellness service you need, your neighborhood in Addis Ababa, or your budget range, and I will find your perfect match!",
+      text: WELCOME_MESSAGE,
       sender: 'assistant'
     }];
   });
@@ -257,7 +260,7 @@ export default function AskWellCircle() {
                     if (window.confirm("Clear chat history?")) {
                       setMessages([{
                         id: 0,
-                        text: "Hi! Welcome to Well Circle. Tell me what wellness service you need, your neighborhood in Addis Ababa, or your budget range, and I will find your perfect match!",
+                        text: WELCOME_MESSAGE,
                         sender: 'assistant'
                       }]);
                       setIsFirstMessage(true);

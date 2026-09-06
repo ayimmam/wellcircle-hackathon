@@ -149,7 +149,7 @@ const resources = {
       "Thanks for voting: {{app}}": "Thanks for voting: {{app}}",
       "Noted — we'll prioritize it.": "Noted — we'll prioritize it.",
       "Affordable gyms around me": "Affordable gyms around me",
-      "Best-rated spas": "Best-rated spas",
+      "Wellness events this week": "Wellness events this week",
       "Yoga classes this week": "Yoga classes this week",
       "Nutrition coaching options": "Nutrition coaching options"
     }

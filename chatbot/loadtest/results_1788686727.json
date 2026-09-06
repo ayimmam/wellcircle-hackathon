@@ -1,0 +1,46 @@
+{
+  "url": "http://127.0.0.1:8766/ai/concierge",
+  "timeout_s": 90.0,
+  "reports": [
+    {
+      "concurrent_users": 150,
+      "skipped": false,
+      "skip_reason": null,
+      "total": 150,
+      "successful": 150,
+      "failed": 0,
+      "timeouts": 0,
+      "fallback_replies": 142,
+      "error_rate_pct": 0.0,
+      "timeout_rate_pct": 0.0,
+      "avg_ms": 37675.31639466664,
+      "p50_ms": 36412.163099998,
+      "p95_ms": 41811.91979999858,
+      "p99_ms": 64276.351699998486,
+      "rps": 2.27373243816236,
+      "wall_time_s": 65.97082290000253,
+      "errors": {},
+      "status": "WARNING"
+    },
+    {
+      "concurrent_users": 200,
+      "skipped": false,
+      "skip_reason": null,
+      "total": 200,
+      "successful": 200,
+      "failed": 0,
+      "timeouts": 0,
+      "fallback_replies": 184,
+      "error_rate_pct": 0.0,
+      "timeout_rate_pct": 0.0,
+      "avg_ms": 45966.36526899996,
+      "p50_ms": 45133.69309999689,
+      "p95_ms": 50133.02710000062,
+      "p99_ms": 50766.05219999692,
+      "rps": 2.4777493462922004,
+      "wall_time_s": 80.718415000003,
+      "errors": {},
+      "status": "WARNING"
+    }
+  ]
+}

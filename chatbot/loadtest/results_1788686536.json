@@ -1,0 +1,28 @@
+{
+  "url": "http://127.0.0.1:8766/ai/concierge",
+  "timeout_s": 90.0,
+  "reports": [
+    {
+      "concurrent_users": 250,
+      "skipped": false,
+      "skip_reason": null,
+      "total": 250,
+      "successful": 0,
+      "failed": 250,
+      "timeouts": 250,
+      "fallback_replies": 0,
+      "error_rate_pct": 100.0,
+      "timeout_rate_pct": 100.0,
+      "avg_ms": 90013.19894599997,
+      "p50_ms": 90012.96500000171,
+      "p95_ms": 90020.55539999856,
+      "p99_ms": 90041.41549999986,
+      "rps": 2.7694634668797025,
+      "wall_time_s": 90.27019239999936,
+      "errors": {
+        "timeout": 250
+      },
+      "status": "FAIL"
+    }
+  ]
+}

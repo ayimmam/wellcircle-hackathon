@@ -1,0 +1,90 @@
+{
+  "url": "https://well-circle-concierge.vercel.app/ai/concierge",
+  "timeout_s": 90.0,
+  "reports": [
+    {
+      "concurrent_users": 1,
+      "skipped": false,
+      "skip_reason": null,
+      "total": 1,
+      "successful": 1,
+      "failed": 0,
+      "timeouts": 0,
+      "fallback_replies": 0,
+      "error_rate_pct": 0.0,
+      "timeout_rate_pct": 0.0,
+      "avg_ms": 2248.6094999985653,
+      "p50_ms": 2248.6094999985653,
+      "p95_ms": 2248.6094999985653,
+      "p99_ms": 2248.6094999985653,
+      "rps": 0.4442072969753707,
+      "wall_time_s": 2.2512012000006507,
+      "errors": {},
+      "status": "PASS"
+    },
+    {
+      "concurrent_users": 5,
+      "skipped": false,
+      "skip_reason": null,
+      "total": 5,
+      "successful": 4,
+      "failed": 1,
+      "timeouts": 1,
+      "fallback_replies": 3,
+      "error_rate_pct": 20.0,
+      "timeout_rate_pct": 20.0,
+      "avg_ms": 31972.817020000366,
+      "p50_ms": 16650.021299999935,
+      "p95_ms": 106686.1116,
+      "p99_ms": 106686.1116,
+      "rps": 0.04686448838312608,
+      "wall_time_s": 106.69059180000113,
+      "errors": {
+        "timeout": 1
+      },
+      "status": "FAIL"
+    },
+    {
+      "concurrent_users": 10,
+      "skipped": false,
+      "skip_reason": null,
+      "total": 10,
+      "successful": 0,
+      "failed": 10,
+      "timeouts": 0,
+      "fallback_replies": 0,
+      "error_rate_pct": 100.0,
+      "timeout_rate_pct": 0.0,
+      "avg_ms": 197.75691000068036,
+      "p50_ms": 207.29560000108904,
+      "p95_ms": 286.12640000210376,
+      "p99_ms": 286.12640000210376,
+      "rps": 21.048027599846588,
+      "wall_time_s": 0.47510390000024927,
+      "errors": {
+        "url_error:[Errno 11001] getaddrinfo failed": 10
+      },
+      "status": "FAIL"
+    },
+    {
+      "concurrent_users": 25,
+      "skipped": true,
+      "skip_reason": "aborted after 10-user level",
+      "total": 0,
+      "successful": 0,
+      "failed": 0,
+      "timeouts": 0,
+      "fallback_replies": 0,
+      "error_rate_pct": 0.0,
+      "timeout_rate_pct": 0.0,
+      "avg_ms": null,
+      "p50_ms": null,
+      "p95_ms": null,
+      "p99_ms": null,
+      "rps": 0.0,
+      "wall_time_s": 0.0,
+      "errors": {},
+      "status": "SKIPPED"
+    }
+  ]
+}

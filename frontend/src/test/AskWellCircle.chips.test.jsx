@@ -34,6 +34,7 @@ describe('AskWellCircle — concierge quick-request chips', () => {
     expect(document.getElementById('concierge-chips')).toBeInTheDocument();
     expect(screen.getByText('Wellness events this week')).toBeInTheDocument();
     expect(screen.queryByText('Best-rated spas')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nutrition coaching options')).not.toBeInTheDocument();
   });
 
   it('sends the Wellness events this week chip through the concierge API', async () => {
@@ -55,13 +56,13 @@ describe('AskWellCircle — concierge quick-request chips', () => {
     fireEvent.click(document.querySelector('.fab-ask'));
     await screen.findByText(/I'm Circler/);
 
-    fireEvent.click(screen.getByText('Nutrition coaching options'));
+    fireEvent.click(screen.getByText('Yoga classes this week'));
 
-    await waitFor(() => expect(screen.getByText('Nutrition coaching options')).toBeInTheDocument());
-    expect(track).toHaveBeenCalledWith('concierge_chip_click', { chip: 'Nutrition coaching options' });
+    await waitFor(() => expect(screen.getByText('Yoga classes this week')).toBeInTheDocument());
+    expect(track).toHaveBeenCalledWith('concierge_chip_click', { chip: 'Yoga classes this week' });
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
     const body = JSON.parse(global.fetch.mock.calls[0][1].body);
-    expect(body.message).toBe('Nutrition coaching options');
+    expect(body.message).toBe('Yoga classes this week');
   });
 
   it('sends the location chip with the neighbourhood substituted when one is set', async () => {

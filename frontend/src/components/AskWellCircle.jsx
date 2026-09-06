@@ -143,7 +143,8 @@ export default function AskWellCircle() {
           id: Date.now() + 2,
           text: data.reply,
           sender: 'assistant',
-          provider: data.provider_name ? { id: data.provider_id, name: data.provider_name, data_source: data.data_source } : null
+          provider: data.provider_name ? { id: data.provider_id, name: data.provider_name, data_source: data.data_source } : null,
+          event: data.event_name ? { id: data.event_id, name: data.event_name, providerId: data.event_provider_id } : null
         }]);
       }
 
@@ -326,6 +327,32 @@ export default function AskWellCircle() {
                         style={{ fontSize: '0.8rem', padding: '6px 12px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                       >
                         <Icon name="map-pin" size={13} /> {msg.provider.name}
+                      </button>
+                    </div>
+                  )}
+                  {msg.event && (
+                    <div style={{ alignSelf: 'flex-start', marginTop: '4px' }}>
+                      <button
+                        className="chip"
+                        onClick={() => {
+                          setIsOpen(false);
+                          if (msg.event.id && msg.event.providerId) {
+                            navigate(
+                              `/booking/${msg.event.providerId}?event_id=${msg.event.id}`,
+                              {
+                                state: {
+                                  eventId: msg.event.id,
+                                  eventServiceName: msg.event.name,
+                                },
+                              },
+                            );
+                          } else {
+                            navigate('/events');
+                          }
+                        }}
+                        style={{ fontSize: '0.8rem', padding: '6px 12px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <Icon name="calendar" size={13} /> {msg.event.name}
                       </button>
                     </div>
                   )}

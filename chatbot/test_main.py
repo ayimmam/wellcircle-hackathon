@@ -42,9 +42,10 @@ class FakeGroqClient:
 
 
 @pytest.fixture(autouse=True)
-def reset_provider_cache():
-    """Each test starts with a cold provider cache."""
+def reset_caches():
+    """Each test starts with a cold provider and event cache."""
     main._provider_cache.update(data=None, source=None, ts=0.0)
+    main._event_cache.update(data=None, source=None, ts=0.0)
     yield
 
 
@@ -75,16 +76,22 @@ def test_health_ok(client, monkeypatch):
     assert body["service"] == "well-circle-concierge"
 
 
-# --- First-message handshake ----------------------------------------------
-def test_first_message_is_silent(client, monkeypatch):
-    fake = _set_model_reply(monkeypatch, {"reply": "should not be used"})
+# --- Every turn reaches the model -----------------------------------------
+def test_every_message_reaches_the_model(client, monkeypatch):
+    """is_first_message / __init__ no longer short-circuit — welcome copy is frontend-owned."""
+    _use_fallback_providers(monkeypatch)
+    fake = _set_model_reply(monkeypatch, {
+        "reply": "Tell me what wellness service you need.",
+        "provider_id": None,
+        "provider_name": None,
+        "event_id": None,
+        "event_name": None,
+    })
     res = client.post("/ai/concierge", json={"message": "__init__", "is_first_message": True})
     assert res.status_code == 200
     body = res.json()
-    assert body["reply"] == ""
-    assert body["data_source"] == "n/a"
-    # The model must not even be called for the silent init turn.
-    assert fake.calls == []
+    assert "wellness" in body["reply"].lower()
+    assert fake.calls  # the model must be called on every turn
 
 
 # --- Low-hallucination guards ---------------------------------------------
@@ -208,3 +215,121 @@ def test_fallback_dataset_used_when_supabase_unavailable(client, monkeypatch):
     _set_model_reply(monkeypatch, {"reply": "ok", "provider_id": None, "provider_name": None})
     res = client.post("/ai/concierge", json={"message": "anything"})
     assert res.json()["data_source"] == "fallback"
+
+
+# --- Upcoming events -------------------------------------------------------
+def test_events_are_included_in_the_system_prompt(client, monkeypatch):
+    """Fallback events are packed into the prompt so the model can recommend them."""
+    _use_fallback_providers(monkeypatch)
+    fake = _set_model_reply(monkeypatch, {
+        "reply": "There's a sunrise HIIT class this week.",
+        "provider_id": None,
+        "provider_name": None,
+        "event_id": "fe-001",
+        "event_name": "Sunrise HIIT at Bole Wellness Hub",
+    })
+    res = client.post("/ai/concierge", json={"message": "any wellness events coming up?"})
+    body = res.json()
+    assert body["event_id"] == "fe-001"
+    assert body["event_name"] == "Sunrise HIIT at Bole Wellness Hub"
+    assert body["event_provider_id"] == "fb-001"
+
+    system_prompt = fake.calls[0]["messages"][0]["content"]
+    assert "Available Upcoming Events" in system_prompt
+    assert "fe-001" in system_prompt
+    assert "Sunrise HIIT at Bole Wellness Hub" in system_prompt
+    assert "staff_user_id" not in system_prompt
+
+
+def test_unknown_event_id_is_dropped(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    _set_model_reply(monkeypatch, {
+        "reply": "Something is happening this weekend.",
+        "provider_id": None,
+        "provider_name": None,
+        "event_id": "does-not-exist-event",
+        "event_name": "Invented Workshop",
+    })
+    res = client.post("/ai/concierge", json={"message": "events this weekend"})
+    body = res.json()
+    assert body["event_id"] is None
+    assert body["event_name"] is None
+    assert body["event_provider_id"] is None
+
+
+def test_event_name_is_canonicalized_from_id(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    _set_model_reply(monkeypatch, {
+        "reply": "Try the restorative yoga session.",
+        "provider_id": None,
+        "provider_name": None,
+        "event_id": "fe-002",
+        "event_name": "Name The Model Invented",
+    })
+    res = client.post("/ai/concierge", json={"message": "yoga this weekend"})
+    body = res.json()
+    assert body["event_id"] == "fe-002"
+    assert body["event_name"] == "Weekend Restorative Yoga"
+    assert body["event_provider_id"] == "fb-002"
+
+
+def test_fetch_events_swallows_supabase_errors(monkeypatch):
+    class Boom:
+        def table(self, _name):
+            raise RuntimeError("events exploded")
+
+    monkeypatch.setattr(main, "supabase_client", Boom())
+    data, source = main.fetch_events()
+    assert data == []
+    assert source == "unavailable"
+
+
+def test_event_fetch_failure_does_not_break_providers(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    monkeypatch.setattr(main, "get_events", lambda: ([], "unavailable"))
+    _set_model_reply(monkeypatch, {
+        "reply": "Bole Wellness Hub has great group classes.",
+        "provider_id": "fb-001",
+        "provider_name": "Bole Wellness Hub",
+        "event_id": None,
+        "event_name": None,
+    })
+    res = client.post("/ai/concierge", json={"message": "gym in Bole"})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["provider_id"] == "fb-001"
+    assert body["event_id"] is None
+
+
+def test_events_are_cached_between_requests(client, monkeypatch):
+    calls = {"n": 0}
+
+    def counting_fetch():
+        calls["n"] += 1
+        return main.FALLBACK_EVENTS, "fallback"
+
+    monkeypatch.setattr(main, "supabase_client", None)
+    monkeypatch.setattr(main, "fetch_events", counting_fetch)
+    _set_model_reply(monkeypatch, {"reply": "ok", "provider_id": None, "provider_name": None})
+
+    client.post("/ai/concierge", json={"message": "one"})
+    client.post("/ai/concierge", json={"message": "two"})
+
+    assert calls["n"] == 1
+
+
+def test_event_extra_fields_are_not_sent_to_the_model(client, monkeypatch):
+    extra = dict(main.FALLBACK_EVENTS[0], staff_user_id="user-should-not-leak")
+    monkeypatch.setattr(main, "supabase_client", None)
+    monkeypatch.setattr(main, "fetch_events", lambda: ([extra], "fallback"))
+    fake = _set_model_reply(monkeypatch, {
+        "reply": "ok",
+        "provider_id": None,
+        "provider_name": None,
+        "event_id": None,
+        "event_name": None,
+    })
+    client.post("/ai/concierge", json={"message": "events"})
+    system_prompt = fake.calls[0]["messages"][0]["content"]
+    assert "staff_user_id" not in system_prompt
+    assert "user-should-not-leak" not in system_prompt

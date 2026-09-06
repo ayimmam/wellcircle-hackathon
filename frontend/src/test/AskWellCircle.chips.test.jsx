@@ -66,6 +66,26 @@ describe('AskWellCircle — concierge quick-request chips', () => {
     expect(body.message).toBe('Affordable gyms around Bole');
   });
 
+  it('renders a calendar pill when the concierge returns an event', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({
+        reply: 'Weekend Restorative Yoga is this Saturday.',
+        intro: '',
+        data_source: 'live',
+        event_id: 'fe-002',
+        event_name: 'Weekend Restorative Yoga',
+        event_provider_id: 'fb-002',
+      }),
+    });
+
+    renderWithProviders(<AskWellCircle />);
+    fireEvent.click(document.querySelector('.fab-ask'));
+    await screen.findByText(/Welcome to Well Circle/);
+    fireEvent.click(screen.getByText('Yoga classes this week'));
+
+    expect(await screen.findByText('Weekend Restorative Yoga')).toBeInTheDocument();
+  });
+
   it('prefills (does not auto-send) the location chip when no neighbourhood is set', async () => {
     renderWithProviders(<AskWellCircle />);
     fireEvent.click(document.querySelector('.fab-ask'));

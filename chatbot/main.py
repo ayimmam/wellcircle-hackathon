@@ -3,6 +3,7 @@ import json
 import time
 import uuid
 import logging
+from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,6 +42,7 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 GROQ_MAX_TOKENS = int(os.getenv("GROQ_MAX_TOKENS", "320"))
 GROQ_TIMEOUT_SECONDS = float(os.getenv("GROQ_TIMEOUT_SECONDS", "20"))
 PROVIDER_CACHE_TTL_SECONDS = float(os.getenv("PROVIDER_CACHE_TTL_SECONDS", "60"))
+EVENT_WINDOW_DAYS = int(os.getenv("EVENT_WINDOW_DAYS", "30"))
 
 # NEW: how many past messages (user + assistant, combined) to remember per session.
 MEMORY_MAX_MESSAGES = int(os.getenv("MEMORY_MAX_MESSAGES", "5"))
@@ -119,6 +121,40 @@ PROMPT_FIELDS = (
     "rating",
 )
 
+EVENT_PROMPT_FIELDS = (
+    "id",
+    "provider_id",
+    "service_name",
+    "description",
+    "starts_at",
+    "ends_at",
+    "price_etb",
+    "spots_remaining",
+)
+
+FALLBACK_EVENTS = [
+    {
+        "id": "fe-001",
+        "provider_id": "fb-001",
+        "service_name": "Sunrise HIIT at Bole Wellness Hub",
+        "description": "45-minute outdoor interval class for all levels.",
+        "starts_at": "2026-09-12T06:30:00+00:00",
+        "ends_at": "2026-09-12T07:15:00+00:00",
+        "price_etb": 250,
+        "spots_remaining": 8,
+    },
+    {
+        "id": "fe-002",
+        "provider_id": "fb-002",
+        "service_name": "Weekend Restorative Yoga",
+        "description": "Gentle 60-minute session to unwind after the week.",
+        "starts_at": "2026-09-13T10:00:00+00:00",
+        "ends_at": "2026-09-13T11:00:00+00:00",
+        "price_etb": 400,
+        "spots_remaining": 12,
+    },
+]
+
 
 class ChatMessage(BaseModel):
     role: str
@@ -139,12 +175,16 @@ class ConciergeResponse(BaseModel):
     reply: str
     provider_id: str | None = None
     provider_name: str | None = None
+    event_id: str | None = None
+    event_name: str | None = None
+    event_provider_id: str | None = None
     data_source: str = "unknown"
     # NEW: echoed/generated session id so the client can persist it.
     session_id: str = ""
 
 
 _provider_cache = {"data": None, "source": None, "ts": 0.0}
+_event_cache = {"data": None, "source": None, "ts": 0.0}
 
 # --- NEW: SESSION MEMORY (last N messages) ---------------------------------
 # Fast in-process cache: session_id -> list[{"role": ..., "content": ...}]
@@ -237,6 +277,57 @@ def compact_providers(providers):
     ]
 
 
+def fetch_events():
+    """Load upcoming, non-cancelled events. Never raises — empty list on failure."""
+    if supabase_client is None:
+        logger.info("Supabase client not initialized — using fallback events")
+        return FALLBACK_EVENTS, "fallback"
+
+    now = datetime.now(timezone.utc)
+    until = now + timedelta(days=EVENT_WINDOW_DAYS)
+    try:
+        db_response = (
+            supabase_client.table("provider_events")
+            .select(",".join(EVENT_PROMPT_FIELDS))
+            .eq("is_cancelled", False)
+            .gte("starts_at", now.isoformat())
+            .lt("starts_at", until.isoformat())
+            .execute()
+        )
+        if db_response.data:
+            return db_response.data, "live"
+        logger.info("Supabase returned 0 upcoming events")
+        return [], "empty"
+    except Exception:
+        logger.exception("Supabase events fetch failed — continuing without events")
+        return [], "unavailable"
+
+
+def get_events():
+    now = time.monotonic()
+    if (
+        _event_cache["data"] is not None
+        and (now - _event_cache["ts"]) < PROVIDER_CACHE_TTL_SECONDS
+    ):
+        return _event_cache["data"], _event_cache["source"]
+
+    data, source = fetch_events()
+    _event_cache.update(data=data, source=source, ts=now)
+    return data, source
+
+
+def compact_events(events):
+    compacted = []
+    for event in events:
+        row = {k: event[k] for k in EVENT_PROMPT_FIELDS if k in event}
+        if "id" in row:
+            row["id"] = str(row["id"])
+        if "provider_id" in row:
+            row["provider_id"] = str(row["provider_id"])
+        compacted.append(row)
+    return compacted
+
+
 @app.get("/")
 def health():
     db_status = "not_configured"
@@ -274,6 +365,32 @@ def _resolve_provider(parsed: dict, providers: list) -> tuple[str | None, str | 
     return provider_id, name_by_id[provider_id]
 
 
+def _normalize_optional_id(value):
+    if isinstance(value, str):
+        value = value.strip()
+        if value.lower() in ("", "null", "none"):
+            return None
+        return value
+    if value is not None:
+        return str(value)
+    return None
+
+
+def _resolve_event(parsed: dict, events: list) -> tuple[str | None, str | None, str | None]:
+    event_id = _normalize_optional_id(parsed.get("event_id"))
+    if event_id is None:
+        return None, None, None
+
+    by_id = {str(e["id"]): e for e in events}
+    event = by_id.get(event_id)
+    if event is None:
+        logger.info("Model returned unknown event_id %r — dropping it", event_id)
+        return None, None, None
+
+    provider_id = event.get("provider_id")
+    return event_id, event.get("service_name"), str(provider_id) if provider_id else None
+
+
 # Merges three behaviors requested:
 #   - Wellness-only scope with a polite redirect for off-topic questions
 #   - Exact, never-rounded price quoting straight from the database
@@ -286,31 +403,42 @@ SYSTEM_PROMPT_PREFIX = (
     "a warm, natural way, then invite them to describe what wellness service they're looking for.\n"
     "2. DATABASE PRIORITY: Always check the Available Providers list first. If a provider matches the "
     "user's stated category, location, or budget, recommend that exact provider using its EXACT id.\n"
-    "3. EXACT DATA RETRIEVAL: When quoting price, quote the provider's price_range EXACTLY as it appears "
-    "in the data. Never round, estimate, or invent a number. If the user gives a budget, only treat a "
-    "provider as a match if their price_range plausibly fits that budget.\n"
-    "4. CONSULTATIVE FALLBACK: If no provider in the list is a genuine match, do not invent one. Instead, "
-    "give brief, general, accurate wellness guidance relevant to their request, then invite them to refine "
-    "their ask (neighbourhood, budget, or service type). Set provider_id and provider_name to null in this case.\n"
-    "5. ADVISORY INTENT (pain, stress, weight, general health questions): give a short, practical, "
-    "evidence-based tip first, THEN suggest a relevant provider only if one genuinely fits.\n"
-    "6. SEARCH INTENT (explicitly looking for a gym, spa, yoga studio, etc.): lead directly with the "
-    "best-match provider from the data.\n"
-    "7. ENGAGING ENDING: End your 'reply' with a short, relevant, open-ended question that keeps the "
-    "conversation moving (e.g. asking about budget, neighbourhood, or whether they'd like to see the provider).\n\n"
+    "3. EVENTS: If the user asks about events, classes, something happening this week/weekend, or "
+    "upcoming sessions, check the Available Upcoming Events list. Recommend a matching event using its "
+    "EXACT id and its service_name. You may recommend a provider and an event in the same reply when both fit.\n"
+    "4. EXACT DATA RETRIEVAL: When quoting a provider price, quote price_range EXACTLY as it appears "
+    "in the data. When quoting an event price, quote price_etb EXACTLY. Never round, estimate, or invent "
+    "a number. If the user gives a budget, only treat a provider/event as a match if the listed price "
+    "plausibly fits that budget.\n"
+    "5. CONSULTATIVE FALLBACK: If no provider or event in the lists is a genuine match, do not invent one. "
+    "Instead, give brief, general, accurate wellness guidance relevant to their request, then invite them "
+    "to refine their ask (neighbourhood, budget, or service type). Set provider_id, provider_name, "
+    "event_id, and event_name to null in this case.\n"
+    "6. ADVISORY INTENT (pain, stress, weight, general health questions): give a short, practical, "
+    "evidence-based tip first, THEN suggest a relevant provider or event only if one genuinely fits.\n"
+    "7. SEARCH INTENT (explicitly looking for a gym, spa, yoga studio, event, etc.): lead directly with the "
+    "best-match provider or event from the data.\n"
+    "8. ENGAGING ENDING: End your 'reply' with a short, relevant, open-ended question that keeps the "
+    "conversation moving (e.g. asking about budget, neighbourhood, or whether they'd like to see the match).\n\n"
     "ABSOLUTE RULES:\n"
     "1. REPLY MUST BE 2-4 SENTENCES MAX, including the closing question. No filler greetings like "
     "'Hello' or 'I am an AI'.\n"
     "2. ONLY recommend a provider that appears in the Available Providers list below, using its EXACT id. "
-    "If nothing genuinely fits, set 'provider_id' and 'provider_name' to null. Never invent providers or prices.\n"
+    "ONLY recommend an event that appears in the Available Upcoming Events list below, using its EXACT id. "
+    "If nothing genuinely fits, set the matching id/name fields to null. Never invent providers, events, or prices.\n"
     "3. OUTPUT ONLY RAW JSON. NO MARKDOWN. NO CODE FENCES.\n"
-    'REQUIRED FORMAT: {"reply": "<advice/recommendation + closing question>", "provider_id": "<id or null>", "provider_name": "<name or null>"}\n\n'
+    'REQUIRED FORMAT: {"reply": "<advice/recommendation + closing question>", "provider_id": "<id or null>", "provider_name": "<name or null>", "event_id": "<id or null>", "event_name": "<service_name or null>"}\n\n'
     "Available Providers: "
 )
 
 
-def build_system_prompt(providers) -> str:
-    return SYSTEM_PROMPT_PREFIX + json.dumps(compact_providers(providers))
+def build_system_prompt(providers, events) -> str:
+    return (
+        SYSTEM_PROMPT_PREFIX
+        + json.dumps(compact_providers(providers))
+        + "\n\nAvailable Upcoming Events: "
+        + json.dumps(compact_events(events))
+    )
 
 FALLBACK_REPLY = (
     "I'm having trouble matching that request right now - try stating your "
@@ -327,8 +455,9 @@ def ai_concierge(req: ConciergeRequest):
     # Every message goes straight to the LLM matching engine.
     # Welcome/onboarding text is owned entirely by the frontend now.
     providers, data_source = get_providers()
+    events, _event_source = get_events()
 
-    system_prompt = build_system_prompt(providers)
+    system_prompt = build_system_prompt(providers, events)
 
     try:
         # NEW: pull server-side memory instead of trusting client-sent history.
@@ -360,6 +489,7 @@ def ai_concierge(req: ConciergeRequest):
         parsed = json.loads(raw_text)
 
         provider_id, provider_name = _resolve_provider(parsed, providers)
+        event_id, event_name, event_provider_id = _resolve_event(parsed, events)
 
         reply = parsed.get("reply") or ""
         if not isinstance(reply, str) or not reply.strip():
@@ -376,6 +506,9 @@ def ai_concierge(req: ConciergeRequest):
             reply=reply,
             provider_id=provider_id,
             provider_name=provider_name,
+            event_id=event_id,
+            event_name=event_name,
+            event_provider_id=event_provider_id,
             data_source=data_source,
             session_id=session_id,
         )
@@ -389,6 +522,9 @@ def ai_concierge(req: ConciergeRequest):
         reply=FALLBACK_REPLY,
         provider_id=None,
         provider_name=None,
+        event_id=None,
+        event_name=None,
+        event_provider_id=None,
         data_source=data_source,
         session_id=session_id,
     )

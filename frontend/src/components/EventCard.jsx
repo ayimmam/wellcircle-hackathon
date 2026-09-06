@@ -13,6 +13,9 @@ export default function EventCard({ event, variant = 'list' }) {
     ? Math.round(((event.capacity - event.spots_remaining) / event.capacity) * 100)
     : 0;
 
+  // Community run clubs list free sessions — "ETB 0" reads like a pricing bug.
+  const priceLabel = event.price_etb ? `ETB ${event.price_etb}` : 'Free';
+
   const book = () => navigate(
     `/booking/${event.provider_id}?event_id=${event.id}`,
     {
@@ -39,7 +42,7 @@ export default function EventCard({ event, variant = 'list' }) {
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 8 }}>{event.provider_name}</p>
         <p className="inline-icon-text" style={{ fontSize: '0.85rem', marginBottom: 16, gap: 8, flexWrap: 'wrap' }}>
           <span className="inline-icon-text"><Icon name="calendar" size={14} /> {new Date(event.starts_at).toLocaleString()}</span>
-          <span className="inline-icon-text"><Icon name="coins" size={14} /> {event.price_etb} ETB</span>
+          <span className="inline-icon-text"><Icon name="coins" size={14} /> {priceLabel}</span>
         </p>
         <button className="btn btn-primary btn-block" onClick={book}>Book This Session</button>
       </div>
@@ -59,7 +62,7 @@ export default function EventCard({ event, variant = 'list' }) {
           </span>
         </div>
         <p className="text-xs text-secondary mb-8">
-          {new Date(event.starts_at).toLocaleString()} · ETB {event.price_etb}
+          {new Date(event.starts_at).toLocaleString()} · {priceLabel}
         </p>
         <div className="admin-bar-track mb-12" style={{ height: 6, background: 'var(--bg-tertiary)', borderRadius: 4 }}>
           <div className="admin-bar-fill" style={{ width: `${fillPct}%`, height: '100%', borderRadius: 4 }} />

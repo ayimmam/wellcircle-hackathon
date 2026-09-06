@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
+import { useTelegramHeaderColor } from '../hooks/useTelegramHeaderColor';
 import { getProvider, createBooking } from '../api/client';
 import { MOCK_TIME_SLOTS, getNextDays } from '../data/mock';
 import { showToast } from '../components/Toast';
@@ -11,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { effectiveTimeFormat, formatSlot } from '../utils/timeFormat';
 import PhoneInput from '../components/PhoneInput';
 import { parsePhone } from '../utils/phone';
+import { clickableDivProps } from '../utils/a11y';
 
 const STEP_LABELS = ['Service', 'Date & Time', 'Confirm'];
 
@@ -24,6 +27,13 @@ export default function BookingFlow() {
   const timeFormat = effectiveTimeFormat(user);
   const eventId = searchParams.get('event_id') || location.state?.eventId || null;
   const [step, setStep] = useState(0);
+
+  const handleBack = useCallback(() => {
+    if (step > 0) setStep(s => s - 1);
+    else navigate(-1);
+  }, [step, navigate]);
+  const { isAvailable: nativeBack } = useTelegramBackButton(handleBack);
+  useTelegramHeaderColor('#000000');
   const [provider, setProvider] = useState(location.state?.provider || null);
   const [loading, setLoading] = useState(!provider);
 
@@ -46,6 +56,7 @@ export default function BookingFlow() {
   const [phoneResult, setPhoneResult] = useState({ valid: false, e164: null });
   const [booking, setBooking] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   // Kuriftu gap analysis (Jul 15): some services aren't booked in-app at all —
   // no fixed slots, no upfront payment. Selecting one skips straight to a
   // contact screen instead of the date/payment steps.
@@ -73,7 +84,14 @@ export default function BookingFlow() {
     // state: Explore cards carry the list shape, which lacks the per-user
     // `active_promotion.user_eligible` flag the pricing below depends on.
     getProvider(providerId)
-      .then(p => setProvider(p))
+      .then(p => {
+        if (p.is_coming_soon) {
+          showToast("This provider isn't taking bookings yet.");
+          navigate(`/provider/${providerId}`, { replace: true });
+          return;
+        }
+        setProvider(p);
+      })
       .catch(() => {
         // keep the route-state copy if the refresh fails; bail out only when
         // there is nothing at all to render
@@ -207,6 +225,8 @@ export default function BookingFlow() {
   // calls `phoneResult.e164` to confirm the slot — payment is collected in
   // person then, not through the app (see docs/API_CONTRACT.md's pay_on_site note).
   const handleConfirm = async () => {
+    if (submitting) return;
+    setSubmitting(true);
     try {
       const [primaryDate, ...extraDates] = sortedDates;
       const primaryTime = timeFor(primaryDate);
@@ -245,6 +265,8 @@ export default function BookingFlow() {
       }
     } catch (err) {
       showToast(err.message || 'Could not confirm booking. Try again.', 'error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -426,9 +448,11 @@ export default function BookingFlow() {
     <div className="page" id="booking-flow-screen">
       {/* Header */}
       <div className="flex items-center gap-12 mb-20">
-        <button className="btn btn-icon btn-secondary" onClick={() => step > 0 ? setStep(s => s - 1) : navigate(-1)} aria-label="Go back">
-          <Icon name="chevron-left" size={20} />
-        </button>
+        {!nativeBack && (
+          <button className="btn btn-icon btn-secondary" onClick={handleBack} aria-label="Go back">
+            <Icon name="chevron-left" size={20} />
+          </button>
+        )}
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Book at {provider.name}</h1>
         </div>
@@ -461,7 +485,8 @@ export default function BookingFlow() {
               <div
                 key={i}
                 className={`service-item ${selectedService?.name === service.name ? 'selected' : ''}`}
-                onClick={() => setSelectedService(service)}
+                {...clickableDivProps(() => setSelectedService(service))}
+                aria-label={service.name}
                 id={`booking-service-${i}`}
               >
                 <div>
@@ -475,7 +500,9 @@ export default function BookingFlow() {
                     )}
                   </div>
                 </div>
-                <div className="service-price">ETB {service.price?.toLocaleString()}</div>
+                <div className="service-price">
+                  {service.price != null ? `ETB ${service.price.toLocaleString()}` : t('Price on enquiry')}
+                </div>
               </div>
             ))}
           </div>
@@ -566,7 +593,7 @@ export default function BookingFlow() {
 
       {/* Step 2: Confirm */}
       {step === 2 && (
-        <div>
+        <div style={{ paddingBottom: 260 }}>
           <h2 className="section-title mb-12">{t('Review & Confirm')}</h2>
 
           {/* Order summary */}
@@ -676,9 +703,10 @@ export default function BookingFlow() {
           <button
             className="btn btn-primary btn-block btn-lg"
             onClick={handleConfirm}
-            disabled={!canNext()}
+            disabled={!canNext() || submitting}
             id="confirm-booking-btn"
           >
+            {submitting && <span className="btn-spinner" aria-hidden="true" />}
             {t('Send Booking Request')}
           </button>
         )}

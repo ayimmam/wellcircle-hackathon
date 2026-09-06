@@ -51,12 +51,34 @@ class Settings(BaseSettings):
     # Bot API Key - shared secret between bot and backend
     BOT_API_KEY: str = ""
 
+    # External integrations
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY: str = ""
+    CLOUDINARY_API_SECRET: str = ""
+    STRAVA_CLIENT_ID: str = ""
+    STRAVA_CLIENT_SECRET: str = ""
+    STRAVA_REDIRECT_URI: str = ""
+
+    # Vercel/serverless maintenance endpoint
+    CRON_SECRET: str = ""
+
+    # WhatsApp OTP delivery (Meta WhatsApp Cloud API / Twilio)
+    WHATSAPP_PHONE_NUMBER_ID: str = ""
+    WHATSAPP_API_TOKEN: str = ""
+    WHATSAPP_OTP_TEMPLATE_NAME: str = ""
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_VERIFY_SERVICE_SID: str = ""
+
     # CORS
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:5173",
+        "http://localhost:5174",
         "https://web.telegram.org",
         "https://wellcircle-hackathon.vercel.app",
+        "https://wellcircle.et",
+        "https://app.wellcircle.et",
     ]
 
     @property

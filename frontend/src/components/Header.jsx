@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { getNotificationUnreadCount } from '../api/client';
 import usePolling from '../hooks/usePolling';
 import Icon from './Icon';
+import { isProviderPortalDomain } from '../utils/providerPortal';
 import newLogo from '../new_logo.png';
 
 export default function Header({ onMenuOpen }) {
@@ -12,8 +13,10 @@ export default function Header({ onMenuOpen }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const { t } = useTranslation();
 
-  const hidden = ['/', '/onboarding', '/provider-onboard'].includes(location.pathname)
-    || location.pathname.startsWith('/admin');
+  const hidden = ['/', '/onboarding', '/provider-onboard', '/visit'].includes(location.pathname)
+    || location.pathname.startsWith('/admin')
+    || location.pathname.startsWith('/provider-portal')
+    || isProviderPortalDomain();
 
   const refreshUnread = async () => {
     try {
@@ -38,13 +41,13 @@ export default function Header({ onMenuOpen }) {
 
   return (
     <header className="top-header" id="top-header">
-      <div className="header-brand" onClick={() => navigate('/home')}>
-        <img src={newLogo} className="header-logo" alt="Well Circle Logo" />
+      <button type="button" className="header-brand" onClick={() => navigate('/home')} aria-label={t('Go to home')}>
+        <img src={newLogo} className="header-logo" alt="Well Circle Logo" width={38} height={38} />
         <div className="header-text">
           <span className="header-name">WELL CIRCLE</span>
           <span className="header-sub">{t('YOUR WELLNESS TRIBE')}</span>
         </div>
-      </div>
+      </button>
       <div className="header-actions">
         <button
           className="header-icon-btn"

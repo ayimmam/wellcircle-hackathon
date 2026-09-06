@@ -37,6 +37,46 @@ class TelegramAuthRequest(BaseModel):
     init_data: str = Field(..., description="Raw initData string from Telegram.WebApp")
 
 
+class TelegramWidgetLoginRequest(BaseModel):
+    """Telegram Login Widget callback payload (provider website login)."""
+    id: int
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    username: Optional[str] = None
+    photo_url: Optional[str] = None
+    auth_date: int
+    hash: str
+
+
+class ProviderPasswordLoginRequest(BaseModel):
+    """Provider portal username/password login (alt to the Telegram widget)."""
+    username: str
+    password: str
+
+
+class WhatsAppStartRequest(BaseModel):
+    """Start WhatsApp/SMS OTP flow — sends a 6-digit code."""
+    phone: str = Field(..., pattern=r"^\+?[0-9]{6,15}$", description="E.164 phone number")
+    channel: Optional[str] = Field("whatsapp", description="'whatsapp' or 'sms'")
+
+
+class WhatsAppVerifyRequest(BaseModel):
+    """Verify the OTP code from a WhatsApp/SMS delivery."""
+    request_id: str
+    code: str = Field(..., min_length=6, max_length=6)
+
+
+class GoogleAuthRequest(BaseModel):
+    """Google Identity Services — ID token from the Sign In With Google flow."""
+    credential: str = Field(..., description="Google ID token (JWT)")
+
+
+class WhatsAppStartResponse(BaseModel):
+    """Response after starting the OTP flow."""
+    request_id: str
+    expires_in: int = 600  # seconds
+
+
 class BotRegisterRequest(BaseModel):
     """Bot /start registration - minimal user creation."""
     telegram_id: int
@@ -63,13 +103,15 @@ class UserProfileUpdate(BaseModel):
     # refuses garbage (max length + loose digit pattern).
     phone_number: Optional[str] = Field(None, max_length=20, pattern=r"^\+?[0-9]{6,15}$")
     time_format: Optional[str] = Field(None, pattern=r"^(12h|24h)$")
+    bio: Optional[str] = Field(None, max_length=300)
+    profile_privacy: Optional[str] = Field(None, pattern=r"^(public|followers|private)$")
 
 
 # --- Response schemas ---
 class UserResponse(BaseModel):
     """Full user profile response."""
     id: str
-    telegram_id: int
+    telegram_id: Optional[int] = None
     telegram_handle: Optional[str] = None
     name: Optional[str] = None
     photo_url: Optional[str] = None
@@ -79,6 +121,9 @@ class UserResponse(BaseModel):
     points_balance: int = 0
     tier: str = "seed"
     tier_emoji: str = "🌱"
+    current_streak: int = 0
+    freeze_count: int = 0
+    longest_streak: int = 0
     is_onboarded: bool = False
     is_provider: bool = False
     is_super_admin: bool = False
@@ -86,6 +131,12 @@ class UserResponse(BaseModel):
     health_app_connected: bool = False
     phone_number: Optional[str] = None
     time_format: Optional[str] = None
+    bio: Optional[str] = None
+    profile_privacy: str = "public"
+    is_verified_trainer: bool = False
+    follower_count: int = 0
+    following_count: int = 0
+    strava_stats: Optional[dict] = None
     joined_communities: List[str] = []  # Community IDs
     created_at: datetime
 

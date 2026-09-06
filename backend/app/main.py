@@ -8,7 +8,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, providers, communities, bookings, payments, users, circles, posts, products, events, challenges, notifications, subscriptions, ranks, feedback
+from app.api import (
+    auth, providers, communities, bookings, payments, users, circles, posts,
+    products, events, challenges, notifications, subscriptions, ranks, feedback,
+    followers, maintenance, strava, trainer, uploads, home, feed,
+)
 from app.api.admin import router as admin_router
 from app.api.bot import router as bot_router
 from app.config import settings
@@ -39,18 +43,20 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Scheduler disabled on serverless host; run decay via cron/Render instead")
 
-    # Create tables if they don't exist (dev convenience)
-    if settings.ENVIRONMENT == "development":
-        try:
-            from app.database import engine, Base
-            from app.models import (  # noqa: ensure models loaded
-                User, Provider, ProviderInvite, Product, UserRedemption,
-                AdminNotification, Community, Booking, Circle, Post,
-            )
+    # Create tables & ensure columns exist across environments
+    try:
+        from app.database import engine, Base
+        from app.database_schema import ensure_db_schema
+        from app.models import (  # noqa: ensure models loaded
+            User, Provider, ProviderInvite, Product, UserRedemption,
+            AdminNotification, Community, Booking, Circle, Post,
+        )
+        if settings.ENVIRONMENT == "development":
             Base.metadata.create_all(bind=engine)
             logger.info("Database tables ensured")
-        except Exception:
-            logger.exception("DB table creation skipped")
+        ensure_db_schema(engine)
+    except Exception:
+        logger.exception("DB table and column migration check skipped")
 
     yield
 
@@ -105,6 +111,13 @@ app.include_router(notifications.router, prefix="/api", tags=["Notifications"])
 app.include_router(subscriptions.router, prefix="/api", tags=["Subscriptions"])
 app.include_router(ranks.router, prefix="/api", tags=["Ranks"])
 app.include_router(feedback.router, prefix="/api", tags=["Feedback"])
+app.include_router(followers.router, prefix="/api/users", tags=["Users"])
+app.include_router(trainer.router, prefix="/api", tags=["Trainer Verification"])
+app.include_router(strava.router, prefix="/api/strava", tags=["Strava"])
+app.include_router(uploads.router, prefix="/api", tags=["Uploads"])
+app.include_router(home.router, prefix="/api", tags=["Home"])
+app.include_router(feed.router, prefix="/api/feed", tags=["Feed"])
+app.include_router(maintenance.router, prefix="/api", tags=["Maintenance"])
 
 
 @app.get("/health", tags=["Health"])

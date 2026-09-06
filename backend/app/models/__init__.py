@@ -20,6 +20,11 @@ from app.models.event_inventory_log import EventInventoryLog
 from app.models.point_transaction import PointTransaction
 from app.models.evidence_submission import EvidenceSubmission
 from app.models.feedback import Feedback
+from app.models.follower import Follower
+from app.models.trainer_verification import TrainerVerification
+from app.models.circle_subscription import CircleSubscription, CircleRevenueLedger
+from app.models.strava_activity_cache import StravaActivityCache
+from app.models.auth_identity import AuthIdentity
 
 __all__ = [
     "User",
@@ -46,5 +51,11 @@ __all__ = [
     "PointTransaction",
     "EvidenceSubmission",
     "Feedback",
+    "Follower",
+    "TrainerVerification",
+    "CircleSubscription",
+    "CircleRevenueLedger",
+    "StravaActivityCache",
+    "AuthIdentity",
 ]
 

@@ -46,6 +46,18 @@ class Provider(Base):
     theme_primary_color = Column(String(7), nullable=True, default="#10B981")   # Hex color
     theme_accent_color = Column(String(7), nullable=True, default="#F59E0B")
 
+    # --- Provider launch state (For You / Boston Day Spa pilot) ---
+    # A newly self-onboarded provider is browsable but not bookable until an
+    # admin flips this — the gate is presentation plus a booking block, not a
+    # listing filter.
+    is_coming_soon = Column(Boolean, nullable=False, default=True)
+    sheets_export_enabled = Column(Boolean, nullable=False, default=False)
+    facilities = Column(JSONB, nullable=True)          # ["Massage room", ...]
+    # Direct Google Maps link — used for "Open in Maps" when we have a shared
+    # place link but no coordinates (short links carry no lat/lng).
+    map_url = Column(String(500), nullable=True)
+    navigation_tips = Column(JSONB, nullable=True)     # [{"title", "detail"}] — Phase 8
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))

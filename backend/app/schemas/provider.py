@@ -8,13 +8,23 @@ from typing import Optional, List
 class ServiceItem(BaseModel):
     """A single service offered by a provider."""
     name: str
-    price: int  # ETB
-    duration: str  # e.g. "60 min"
+    # Null until a price is confirmed with the provider (e.g. Boston Day
+    # Spa's 7 services pre-B1) — such services are priced-on-enquiry.
+    price: Optional[int] = None  # ETB
+    duration: Optional[str] = None  # e.g. "60 min"
+    description: Optional[str] = None
+    photo_url: Optional[str] = None
     # "online" (default, in-app booking + payment) or "phone" — booked
     # directly with the provider, who collects payment on-site after the
     # service (Kuriftu gap analysis: their standalone spa services work
     # this way, with no fixed time slots or upfront deposit).
     booking_method: Optional[str] = Field(None, pattern="^(online|phone)$")
+
+
+class NavigationTipItem(BaseModel):
+    """A single on-site orientation / getting-there tip (Phase 8)."""
+    title: str
+    detail: str
 
 
 class ProviderBase(BaseModel):
@@ -24,6 +34,7 @@ class ProviderBase(BaseModel):
     location_text: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
+    map_url: Optional[str] = Field(None, max_length=500)
     price_range: Optional[str] = None
     rating: Optional[float] = Field(None, ge=0, le=5)
     cover_photo_url: Optional[str] = None
@@ -48,6 +59,7 @@ class ProviderUpdate(BaseModel):
     location_text: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
+    map_url: Optional[str] = Field(None, max_length=500)
     price_range: Optional[str] = None
     rating: Optional[float] = Field(None, ge=0, le=5)
     cover_photo_url: Optional[str] = None
@@ -74,6 +86,7 @@ class ProviderListItem(BaseModel):
     location_text: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
+    map_url: Optional[str] = Field(None, max_length=500)
     price_range: Optional[str] = None
     rating: Optional[float] = None
     cover_photo_url: Optional[str] = None

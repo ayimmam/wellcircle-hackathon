@@ -5,6 +5,19 @@ const resources = {
   en: {
     translation: {
       "Appearance": "Appearance",
+      "Accent color": "Accent color",
+      "How Legacy Points Work": "How Legacy Points Work",
+      "Close": "Close",
+      "Seed (0+ pts)": "Seed (0+ pts)",
+      "earn +10 per daily check-in": "earn +10 per daily check-in",
+      "start here \u2014 check in daily to build your streak": "start here \u2014 check in daily to build your streak",
+      "Sprout (100+ pts)": "Sprout (100+ pts)",
+      "redeem vouchers in the store": "redeem vouchers in the store",
+      "Grove (300+ pts)": "Grove (300+ pts)",
+      "unlock partner merch rewards": "unlock partner merch rewards",
+      "Forest (700+ pts)": "Forest (700+ pts)",
+      "top-tier partner perks": "top-tier partner perks",
+      "Points pause (\u22125/day) after 3 days away \u2014 stay active to keep them growing.": "Points pause (\u22125/day) after 3 days away \u2014 stay active to keep them growing.",
       "Time Format": "Time Format",
       "Contact": "Contact",
       "No phone number saved": "No phone number saved",
@@ -35,6 +48,11 @@ const resources = {
       "Join a Circle": "Join a Circle",
       "Browse": "Browse",
       "Book Now": "Book Now",
+      "Welcome to Well Circle": "Welcome to Well Circle",
+      "Do you have Telegram?": "Do you have Telegram?",
+      "Yes — open in Telegram": "Yes — open in Telegram",
+      "No — continue on the web": "No — continue on the web",
+      "Free to join. No app download needed.": "Free to join. No app download needed.",
       "Your tribe, your wellness.": "Your tribe, your wellness.",
       "Right where you chat.": "Right where you chat.",
       "Retry": "Retry",
@@ -139,6 +157,7 @@ const resources = {
   am: {
     translation: {
       "Appearance": "ዕይታ",
+      "Accent color": "የቀለም ምርጫ",
       "Language": "ቋንቋ",
       "Light": "ቀላል",
       "Dark": "ጨለማ",
@@ -160,6 +179,11 @@ const resources = {
       "Join a Circle": "ክበብ ይቀላቀሉ",
       "Browse": "ያስሱ",
       "Book Now": "አሁን ይመዝገቡ",
+      "Welcome to Well Circle": "እንኳን ወደ ዌል ሰርክል በደህና መጡ",
+      "Do you have Telegram?": "ቴሌግራም አለዎት?",
+      "Yes — open in Telegram": "አዎ — በቴሌግራም ክፈት",
+      "No — continue on the web": "የለም — በድረ-ገጹ ይቀጥሉ",
+      "Free to join. No app download needed.": "መቀላቀል ነጻ ነው። መተግበሪያ ማውረድ አያስፈልግም።",
       "Your tribe, your wellness.": "የእርስዎ ነገድ፣ የእርስዎ ጤንነት።",
       "Right where you chat.": "ልክ እርስዎ በሚወያዩበት ቦታ።",
       "Retry": "እንደገና ሞክር",
@@ -225,6 +249,7 @@ const resources = {
   fr: {
     translation: {
       "Appearance": "Apparence",
+      "Accent color": "Couleur d'accent",
       "Language": "Langue",
       "Light": "Clair",
       "Dark": "Sombre",
@@ -311,6 +336,7 @@ const resources = {
   it: {
     translation: {
       "Appearance": "Aspetto",
+      "Accent color": "Colore principale",
       "Language": "Lingua",
       "Light": "Chiaro",
       "Dark": "Scuro",

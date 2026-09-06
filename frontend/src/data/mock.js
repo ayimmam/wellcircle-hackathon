@@ -19,11 +19,20 @@ export const MOCK_USER = {
   tier_emoji: '🌿',
   current_streak: 3,
   freeze_count: 0,
+  longest_streak: 3,
   is_onboarded: true,
   is_provider: false,
   is_super_admin: import.meta.env.VITE_MOCK_SUPER_ADMIN === 'true',
   location_neighborhood: null,
   health_app_connected: false,
+  bio: 'Finding balance through yoga, mindful movement, and community.',
+  follower_count: 2,
+  following_count: 2,
+  profile_privacy: 'public',
+  is_verified_trainer: false,
+  verified_trainer_expires_at: null,
+  strava_connected: false,
+  strava_visible_stats: ['distance', 'moving_time', 'elevation', 'activity_count', 'recent_activities'],
   phone_number: null,
   time_format: null,
   joined_communities: [
@@ -38,6 +47,11 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000001',
     name: 'Lifestyle Fitness Center',
+    // Kept bookable (unlike the other non-pilot mocks) so the online/promo/
+    // multi-day booking-flow tests still have a live, priced fixture to
+    // exercise — those mechanics are independent of the Boston Day Spa
+    // pilot-exclusivity rule and stay valid once other providers launch.
+    is_coming_soon: false,
     category: 'gym',
     description: "Addis Ababa's premier multi-level fitness club featuring cutting-edge equipment, certified personal trainers, and a rooftop functional training area.",
     location_text: 'Bole Sub-City, near Edna Mall, Addis Ababa',
@@ -75,6 +89,9 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000002',
     name: 'Iron & Soul Gym',
+    // Kept bookable — used as the generic no-promo/multi-day booking fixture
+    // across several tests (see Lifestyle Fitness Center's comment above).
+    is_coming_soon: false,
     category: 'gym',
     description: 'Raw, results-driven strength training facility in the heart of Kazanchis. Powerlifting platforms, Olympic lifting, and no fluff.',
     location_text: 'Kazanchis, Kirkos Sub-City, Addis Ababa',
@@ -100,6 +117,7 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000003',
     name: 'Shanti Yoga Addis',
+    is_coming_soon: true,
     category: 'yoga',
     description: "Addis Ababa's most loved yoga studio, blending Hatha and Vinyasa practices with breathwork and mindfulness rooted in Ethiopian wellness traditions.",
     location_text: 'Bole Medhanialem, Bole Sub-City, Addis Ababa',
@@ -128,6 +146,7 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000004',
     name: 'Zen Flow Studio',
+    is_coming_soon: true,
     category: 'yoga',
     description: 'Boutique hot yoga studio in CMC. Infrared heated rooms, Bikram sequences, and sound bath sessions.',
     location_text: 'CMC Road, Yeka Sub-City, Addis Ababa',
@@ -152,6 +171,7 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000005',
     name: 'Nourish Ethiopia',
+    is_coming_soon: true,
     category: 'nutrition',
     description: 'Registered dietitians specialising in Ethiopian food culture and modern sports nutrition. Meal plans that work with injera, not against it.',
     location_text: 'Sarbet, Nifas Silk-Lafto Sub-City, Addis Ababa',
@@ -177,6 +197,7 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000006',
     name: 'Green Plate Kitchen',
+    is_coming_soon: true,
     category: 'nutrition',
     description: 'Meal prep subscription and nutrition coaching service in Megenagna. Weekly healthy Ethiopian and Mediterranean meal boxes.',
     location_text: 'Megenagna, Yeka Sub-City, Addis Ababa',
@@ -202,6 +223,7 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000007',
     name: 'Haile Spa & Wellness',
+    is_coming_soon: true,
     category: 'spa',
     description: 'Luxury urban spa in Bole offering full-body massages, traditional Ethiopian coffee scrubs, hammam rituals, and facial treatments.',
     location_text: 'Bole Atlas, Bole Sub-City, Addis Ababa',
@@ -229,6 +251,7 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000008',
     name: 'Piassa Heritage Hammam',
+    is_coming_soon: true,
     category: 'spa',
     description: 'Authentic steam and hammam experience in the historic Piassa neighbourhood. Traditional Ethiopian and North African bathing rituals.',
     location_text: 'Piassa (Arada), Arada Sub-City, Addis Ababa',
@@ -254,6 +277,7 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000009',
     name: 'Biruh Mind Wellness',
+    is_coming_soon: true,
     category: 'therapy',
     description: "Addis Ababa's first Telegram-native mental wellness clinic. Licensed psychotherapists and counsellors. Bilingual: Amharic & English.",
     location_text: 'Kazanchis, Kirkos Sub-City, Addis Ababa',
@@ -279,6 +303,7 @@ export const MOCK_PROVIDERS = [
   {
     id: '11111111-0000-0000-0000-000000000010',
     name: 'MoveMind Running Club',
+    is_coming_soon: true,
     category: 'gym',
     description: 'Community-first running club training at altitude (2,355m). Weekly group runs around Entoto and the ring road.',
     location_text: 'Addis Ababa Stadium, Kirkos Sub-City',
@@ -303,36 +328,122 @@ export const MOCK_PROVIDERS = [
   },
   {
     id: '11111111-0000-0000-0000-000000000011',
-    name: 'Kuriftu Resort & Spa',
+    name: 'Boston Day Spa',
     category: 'spa',
-    description: 'Pilot partner resort offering spa, sauna, and wellness experiences. Wellness services are booked directly with Kuriftu (not paid in-app) — contact them to schedule; payment is collected on-site after your visit.',
-    location_text: 'Bishoftu, Ethiopia',
-    lat: 8.7833, lng: 38.9833,
-    price_range: 'ETB 600 – 5,500',
+    description: 'Boston Day Spa is where the Kuriftu brand was born, a testament to our commitment to community empowerment… What began as a capacity-building project in Addis Ababa has transformed into a sanctuary of well-being, showcasing the work of celebrated Ethiopian artists like Merikokeb Berhanu.',
+    location_text: 'Bole, Addis Ababa',
+    lat: null, lng: null,
+    map_url: 'https://maps.app.goo.gl/sXa4uMEJKqGmmmZC7',
+    price_range: 'Price on enquiry',
     rating: 4.9,
     cover_photo_url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
     photos: [
       'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
-      'https://images.unsplash.com/photo-1540541338287-41700207dee6?w=800'
+      'https://images.unsplash.com/photo-1540541338287-41700207dee6?w=800',
+      'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800',
+      'https://images.unsplash.com/photo-1560750133-c09be1a39f87?w=800',
+      'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?w=800',
+      'https://images.unsplash.com/photo-1519823551278-64ac92734fb1?w=800'
     ],
-    // Confirmed Jul 15 gap-analysis call — all booked directly, not in-app
-    // (see docs/kuriftu-gap-analysis.md)
+    // Confirmed from the official Boston Day Spa PDF — no prices yet (B1),
+    // priced-on-enquiry until the owner confirms them (see FEATURE_PLAN).
     services: [
-      { name: 'Aroma Massage (90 min)', price: 5500, duration: '90 min', booking_method: 'phone' },
-      { name: 'Swedish Massage (30 min)', price: 2000, duration: '30 min', booking_method: 'phone' },
-      { name: 'Deep Tissue Massage (50 min)', price: 3000, duration: '50 min', booking_method: 'phone' },
-      { name: 'Steam & Sauna', price: 2500, duration: '2 hours', booking_method: 'phone' },
-      { name: 'Morocco Bath (90 min)', price: 5000, duration: '90 min', booking_method: 'phone' },
-      { name: 'Manicure (Normal)', price: 600, duration: '—', booking_method: 'phone' },
-      { name: 'Swim + Steam & Sauna (package)', price: 3600, duration: '—', booking_method: 'phone' },
-      { name: 'Massage + Steam & Sauna (package)', price: 4950, duration: '—', booking_method: 'phone' }
+      { name: 'Hair Salon', description: 'Professional hair styling and barber studio.', price: null, duration: null, booking_method: 'phone' },
+      { name: 'Steam / Sauna / Jacuzzi', description: 'Steam, sauna, and jacuzzi facilities.', price: null, duration: null, booking_method: 'phone' },
+      { name: 'Massage Cave', description: 'Serene massage room experiences.', price: null, duration: null, booking_method: 'phone' },
+      { name: 'Mani / Pedi', description: 'Dedicated manicure lounge and pedicure space.', price: null, duration: null, booking_method: 'phone' },
+      { name: 'Facial', description: 'Luxury facial suite treatments.', price: null, duration: null, booking_method: 'phone' },
+      { name: 'Wax', description: 'Waxing studio services.', price: null, duration: null, booking_method: 'phone' },
+      { name: 'Barber', description: 'Full-service barber studio.', price: null, duration: null, booking_method: 'phone' }
     ],
-    contact_phone: '+251 98 056 5656',
+    facilities: [
+      'Professional hair styling and barber studio', 'Dedicated manicure lounge', 'Relaxing pedicure space',
+      'Serene massage room', 'Luxury facial suite', 'Waxing studio', 'Full-service spa'
+    ],
+    navigation_tips: [
+      { title: 'Location', detail: 'Located in the heart of Addis Ababa, Bole.' },
+      { title: 'Call ahead', detail: '+251 11 662 3808 or +251 11 663 6557 to confirm your visit.' },
+    ],
+    contact_phone: '+251 11 662 3808',
     contact_email: 'booking@kurifturesorts.com',
     is_featured: true,
-    community: { id: '22222222-0000-0000-0000-000000000011', name: 'Kuriftu Wellness Circle', member_count: 58, user_joined: false },
+    is_coming_soon: false,
+    community: { id: '22222222-0000-0000-0000-000000000011', name: 'Boston Day Spa Circle', member_count: 58, user_joined: false },
     member_count: 58,
     community_id: '22222222-0000-0000-0000-000000000011'
+  },
+  // ─── Poster clubs (docs/upcoming.png, Aug 2026) ───
+  // The four hosts from the "Upcoming Wellness Events" flyer. They're live
+  // rather than coming-soon: these are real open sessions people walk up to,
+  // and a coming-soon provider 400s every booking attempt from the feed's
+  // event banner. Mirrors backend/seed_upcoming_events.py.
+  {
+    id: '11111111-0000-0000-0000-000000000012',
+    name: 'AfroHeat Fitness',
+    category: 'gym',
+    is_coming_soon: false,
+    description: 'Dance-fitness studio in Welo Sefer running high-energy Zumba and cardio sessions for the Addis wellness community.',
+    location_text: 'Welo Sefer, Addis Ababa',
+    lat: null, lng: null,
+    price_range: 'ETB 1,000',
+    rating: 4.8,
+    cover_photo_url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800',
+    photos: ['https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800'],
+    services: [{ name: 'Zumba Class', price: 1000, duration: '60 min' }],
+    community: { id: '22222222-0000-0000-0000-000000000012', name: 'AfroHeat Crew', member_count: 64, user_joined: false },
+    member_count: 64,
+    community_id: '22222222-0000-0000-0000-000000000012'
+  },
+  {
+    id: '11111111-0000-0000-0000-000000000013',
+    name: 'Bole Burners',
+    category: 'running',
+    is_coming_soon: false,
+    description: 'Free community run club meeting at Riverside Park for early morning group runs around Bole.',
+    location_text: 'Riverside Park, Addis Ababa',
+    lat: null, lng: null,
+    price_range: 'Free',
+    rating: 4.7,
+    cover_photo_url: 'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800',
+    photos: ['https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800'],
+    services: [{ name: 'Group Run', price: 0, duration: '90 min' }],
+    community: { id: '22222222-0000-0000-0000-000000000013', name: 'Bole Burners', member_count: 118, user_joined: false },
+    member_count: 118,
+    community_id: '22222222-0000-0000-0000-000000000013'
+  },
+  {
+    id: '11111111-0000-0000-0000-000000000014',
+    name: 'Satenaw Runclub',
+    category: 'running',
+    is_coming_soon: false,
+    description: 'Riverside run club meeting at the Filwuha bridge for free weekend morning runs.',
+    location_text: 'Riverside, Filwuha bridge, Addis Ababa',
+    lat: null, lng: null,
+    price_range: 'Free',
+    rating: 4.8,
+    cover_photo_url: 'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800',
+    photos: ['https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800'],
+    services: [{ name: 'Group Run', price: 0, duration: '90 min' }],
+    community: { id: '22222222-0000-0000-0000-000000000014', name: 'Satenaw Runclub', member_count: 205, user_joined: false },
+    member_count: 205,
+    community_id: '22222222-0000-0000-0000-000000000014'
+  },
+  {
+    id: '11111111-0000-0000-0000-000000000015',
+    name: 'Bertusew Runningclub',
+    category: 'running',
+    is_coming_soon: false,
+    description: 'CMC-based running club meeting at Yetebaberut Square Sport Center for free group runs.',
+    location_text: 'Yetebaberut Square Sport Center, CMC, Addis Ababa',
+    lat: null, lng: null,
+    price_range: 'Free',
+    rating: 4.6,
+    cover_photo_url: 'https://images.unsplash.com/photo-1502904550040-7534597429ae?w=800',
+    photos: ['https://images.unsplash.com/photo-1502904550040-7534597429ae?w=800'],
+    services: [{ name: 'Group Run', price: 0, duration: '90 min' }],
+    community: { id: '22222222-0000-0000-0000-000000000015', name: 'Bertusew Runningclub', member_count: 87, user_joined: false },
+    member_count: 87,
+    community_id: '22222222-0000-0000-0000-000000000015'
   }
 ];
 
@@ -412,11 +523,11 @@ export const MOCK_FEED_EVENTS = [
 // ─── Points History ─────────────────────────────────
 export const MOCK_POINTS_HISTORY = {
   items: [
-    { action: 'checkin', points: 10, community_name: 'Shanti Yoga Circle', created_at: new Date(now - 1 * 3600000).toISOString() },
-    { action: 'checkin', points: 10, community_name: 'Nourish Community', created_at: new Date(now - 25 * 3600000).toISOString() },
-    { action: 'checkin', points: 10, community_name: 'Shanti Yoga Circle', created_at: new Date(now - 49 * 3600000).toISOString() },
+    { action: 'checkin', points: 0, community_name: 'Shanti Yoga Circle', created_at: new Date(now - 1 * 3600000).toISOString() },
+    { action: 'checkin', points: 0, community_name: 'Nourish Community', created_at: new Date(now - 25 * 3600000).toISOString() },
+    { action: 'checkin', points: 0, community_name: 'Shanti Yoga Circle', created_at: new Date(now - 49 * 3600000).toISOString() },
     { action: 'decay', points: -5, community_name: null, created_at: new Date(now - 72 * 3600000).toISOString() },
-    { action: 'checkin', points: 10, community_name: 'Shanti Yoga Circle', created_at: new Date(now - 96 * 3600000).toISOString() }
+    { action: 'checkin', points: 0, community_name: 'Shanti Yoga Circle', created_at: new Date(now - 96 * 3600000).toISOString() }
   ],
   current_balance: 120,
   tier: 'sprout',
@@ -427,9 +538,174 @@ export const MOCK_POINTS_HISTORY = {
 // is_joined/is_private mirror the real GET /api/circles shape — used to
 // build the onboarding "Available Circles" join list (not-joined, public).
 export const MOCK_CIRCLES = [
-  { id: '33333333-0000-0000-0000-000000000001', name: 'Addis Morning Runners', description: 'We run every morning at 6 AM around Meskel Square.', member_count: 24, join_code: 'RUN24AM', is_private: false, is_joined: false },
-  { id: '33333333-0000-0000-0000-000000000002', name: 'Zen Seekers', description: 'Mindfulness, yoga, and finding peace in the chaotic city.', member_count: 56, join_code: 'ZEN56', is_private: false, is_joined: false }
+  { id: '33333333-0000-0000-0000-000000000001', name: 'Addis Morning Runners', description: 'We run every morning at 6 AM around Meskel Square.', member_count: 24, banner_url: 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=960', join_code: 'RUN24AM', is_private: false, is_joined: false, owner_id: '00000000-0000-0000-0000-000000000097', owner_name: 'Selam Alemu', owner_telegram_handle: 'selam_well', owner_is_verified: false, is_paid: false, price_etb: null, paid_circle_status: 'free', total_revenue_etb: 0 },
+  { id: '33333333-0000-0000-0000-000000000002', name: 'Zen Seekers', description: 'Mindfulness, yoga, and finding peace in the chaotic city.', member_count: 112, banner_url: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=960', join_code: 'ZEN56', is_private: false, is_joined: true, owner_id: MOCK_USER.id, owner_name: MOCK_USER.name, owner_telegram_handle: MOCK_USER.telegram_handle, owner_is_verified: false, is_paid: false, price_etb: null, paid_circle_status: 'free', total_revenue_etb: 0 },
+  { id: '33333333-0000-0000-0000-000000000003', name: 'Hana Endurance Club', description: 'Monthly coached running plans and community accountability.', member_count: 124, banner_url: null, join_code: 'HANA124', is_private: false, is_joined: false, owner_id: '00000000-0000-0000-0000-000000000099', owner_name: 'Hana Girma', owner_telegram_handle: 'hana_runs', owner_is_verified: true, is_paid: true, price_etb: 350, paid_circle_status: 'approved', total_revenue_etb: 33250 }
 ];
+
+// ─── Circle stories (72h ephemeral) ──────────────────────────────────────
+// Mutable on purpose: the client's mock branch posts, views and deletes
+// against this array, so mock mode exercises the same rail transitions
+// (unseen ring → seen ring, empty rail) the real one does.
+const hoursAgo = (h) => new Date(Date.now() - h * 3600 * 1000).toISOString();
+const expiresFrom = (iso) => new Date(new Date(iso).getTime() + 72 * 3600 * 1000).toISOString();
+
+const mockStory = (over) => {
+  const created_at = over.created_at || hoursAgo(2);
+  return {
+    id: over.id,
+    circle_id: over.circle_id,
+    circle_name: over.circle_name,
+    user_id: over.user_id,
+    user_name: over.user_name,
+    user_photo_url: over.user_photo_url,
+    image_url: over.image_url,
+    created_at,
+    expires_at: expiresFrom(created_at),
+    seen: over.seen ?? false,
+    view_count: over.view_count ?? null,
+    is_mine: over.is_mine ?? false,
+  };
+};
+
+export const MOCK_STORIES = [
+  mockStory({
+    id: 'st-0001', circle_id: '33333333-0000-0000-0000-000000000002', circle_name: 'Zen Seekers',
+    user_id: '00000000-0000-0000-0000-000000000099', user_name: 'Hana Girma',
+    user_photo_url: 'https://i.pravatar.cc/150?u=hana',
+    image_url: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=960',
+    created_at: hoursAgo(3),
+  }),
+  mockStory({
+    id: 'st-0002', circle_id: '33333333-0000-0000-0000-000000000002', circle_name: 'Zen Seekers',
+    user_id: '00000000-0000-0000-0000-000000000099', user_name: 'Hana Girma',
+    user_photo_url: 'https://i.pravatar.cc/150?u=hana',
+    image_url: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=960',
+    created_at: hoursAgo(1),
+  }),
+  mockStory({
+    id: 'st-0003', circle_id: '33333333-0000-0000-0000-000000000002', circle_name: 'Zen Seekers',
+    user_id: '00000000-0000-0000-0000-000000000098', user_name: 'Dawit Bekele',
+    user_photo_url: 'https://i.pravatar.cc/150?u=dawit',
+    image_url: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=960',
+    created_at: hoursAgo(20), seen: true,
+  }),
+];
+
+// ─── Profiles, verification, paid circles & Strava ───────────────────────
+export const MOCK_PUBLIC_USERS = [
+  {
+    id: '00000000-0000-0000-0000-000000000099',
+    name: 'Hana Girma',
+    telegram_handle: 'hana_runs',
+    photo_url: 'https://i.pravatar.cc/150?u=hana',
+    bio: 'Certified running coach helping Addis athletes build joyful, sustainable routines.',
+    follower_count: 148,
+    following_count: 38,
+    profile_privacy: 'public',
+    is_verified_trainer: true,
+    is_following: false,
+    created_circles: [MOCK_CIRCLES[2]],
+    strava_connected: true,
+  },
+  {
+    id: '00000000-0000-0000-0000-000000000098',
+    name: 'Dawit Bekele',
+    telegram_handle: 'dawit_fit',
+    photo_url: 'https://i.pravatar.cc/150?u=dawit',
+    bio: 'Strength, mobility, and good coffee.',
+    follower_count: 76,
+    following_count: 51,
+    profile_privacy: 'followers',
+    is_verified_trainer: false,
+    is_following: true,
+    created_circles: [],
+    stats_hidden: false,
+    strava_connected: false,
+  },
+];
+
+export const MOCK_FOLLOWERS = [
+  { ...MOCK_PUBLIC_USERS[0], is_following: false },
+  { ...MOCK_PUBLIC_USERS[1], is_following: true },
+];
+
+export const MOCK_FOLLOWING = [
+  { ...MOCK_PUBLIC_USERS[1], is_following: true },
+  { id: '00000000-0000-0000-0000-000000000097', name: 'Selam Alemu', telegram_handle: 'selam_well', photo_url: 'https://i.pravatar.cc/150?u=selam', bio: 'Wellness enthusiast', is_verified_trainer: false, is_following: true },
+];
+
+export const MOCK_STRAVA_STATS = {
+  connected: true,
+  athlete_name: 'Hana Girma',
+  visible_stats: ['distance', 'moving_time', 'elevation', 'activity_count', 'recent_activities'],
+  // Backend aggregated stats use kilometres (recent activities do too).
+  distance: 128.43,
+  calories: 4820,
+  moving_time: 36720,
+  elevation: 1860,
+  activity_count: 18,
+  recent_activities: [
+    { id: 'strava-1', name: 'Entoto Morning Run', type: 'Run', distance: 10.24, moving_time: 3260, start_date: new Date(now - 86400000).toISOString() },
+    { id: 'strava-2', name: 'Recovery Walk', type: 'Walk', distance: 4.2, moving_time: 3010, start_date: new Date(now - 3 * 86400000).toISOString() },
+  ],
+};
+
+export const MOCK_TRAINER_VERIFICATIONS = [
+  {
+    id: 'verify-001',
+    user_id: MOCK_PUBLIC_USERS[1].id,
+    user_name: MOCK_PUBLIC_USERS[1].name,
+    user_handle: MOCK_PUBLIC_USERS[1].telegram_handle,
+    user_photo_url: MOCK_PUBLIC_USERS[1].photo_url,
+    certificate_url: 'https://example.com/certificate.pdf',
+    payment_receipt_url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500',
+    status: 'pending',
+    payment_status: 'paid',
+    rejection_reason: null,
+    created_at: new Date(now - 2 * 86400000).toISOString(),
+    expires_at: null,
+  },
+];
+
+export const MOCK_PAID_CIRCLE_APPLICATIONS = [
+  {
+    ...MOCK_CIRCLES[1],
+    member_count: 112,
+    price_etb: 250,
+    paid_circle_status: 'pending_approval',
+    owner_lifetime_points: 1320,
+    applied_at: new Date(now - 86400000).toISOString(),
+  },
+];
+
+export const MOCK_CIRCLE_SUBSCRIPTIONS = [
+  {
+    id: 'circle-sub-001',
+    circle_id: MOCK_CIRCLES[1].id,
+    user_id: MOCK_PUBLIC_USERS[1].id,
+    user_name: MOCK_PUBLIC_USERS[1].name,
+    user_handle: MOCK_PUBLIC_USERS[1].telegram_handle,
+    user_photo_url: MOCK_PUBLIC_USERS[1].photo_url,
+    amount_etb: 250,
+    status: 'pending_approval',
+    receipt_url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500',
+    created_at: new Date(now - 3600000).toISOString(),
+  },
+];
+
+export const MOCK_CIRCLE_REVENUE = {
+  total_revenue_etb: 33250,
+  creator_earnings_etb: 31588,
+  platform_fee_etb: 1662,
+  active_subscribers: 95,
+  pending_receipts: 1,
+  monthly_trend: [
+    { month: 'May', revenue: 21000, subscribers: 60 },
+    { month: 'June', revenue: 28000, subscribers: 80 },
+    { month: 'July', revenue: 33250, subscribers: 95 },
+  ],
+};
 
 export const MOCK_LEADERBOARD = [
   { user_id: '001', name: 'Dawit', photo_url: 'https://i.pravatar.cc/150?u=dawit', weekly_points: 120, total_points: 720 },
@@ -476,7 +752,7 @@ export const MOCK_POSTS = [
   },
   {
     id: '44444444-0000-0000-0000-000000000003',
-    content: "Dawit checked in for their workout today! 💪 Earned 10 Legacy Points.",
+    content: "Dawit checked in for their workout today! 💪 Keep it up!",
     user: { id: '001', name: 'Dawit', photo_url: 'https://i.pravatar.cc/150?u=dawit' },
     created_at: new Date(now - 2 * 3600000).toISOString(),
     reactions: { '🔥': 4, '🙌': 2 },
@@ -531,6 +807,69 @@ export const MOCK_POSTS = [
     total_points_gifted: 0,
     circle_id: '33333333-0000-0000-0000-000000000001',
     is_system_event: true
+  },
+  // Organic member posts. The For You feed splices provider/service/event
+  // cards between posts, so it needs enough member content for those cards to
+  // read as punctuation rather than as the feed itself.
+  {
+    id: '44444444-0000-0000-0000-000000000008',
+    content: "Booked the sauna at Boston Day Spa after leg day. Genuinely the best recovery decision I've made all month.",
+    user: { id: '007', name: 'Kalkidan', photo_url: 'https://i.pravatar.cc/150?u=kalkidan' },
+    created_at: new Date(now - 3 * 3600000).toISOString(),
+    photo_url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800',
+    reactions: { '🔥': 9, '💆': 4 },
+    total_points_gifted: 10,
+    circle_id: '33333333-0000-0000-0000-000000000001'
+  },
+  {
+    id: '44444444-0000-0000-0000-000000000009',
+    content: "Week 3 of showing up at 6am. It stopped being hard around day 11. Whoever needs to hear that today — keep going.",
+    user: { id: '008', name: 'Selam', photo_url: 'https://i.pravatar.cc/150?u=selam' },
+    created_at: new Date(now - 8 * 3600000).toISOString(),
+    reactions: { '🔥': 14, '👏': 6 },
+    total_points_gifted: 20,
+    circle_id: '33333333-0000-0000-0000-000000000002'
+  },
+  {
+    id: '44444444-0000-0000-0000-000000000010',
+    content: "Ran Entoto this morning with two people from this circle. Met them here three weeks ago. Wild.",
+    user: { id: '009', name: 'Bereket', photo_url: 'https://i.pravatar.cc/150?u=bereket' },
+    created_at: new Date(now - 15 * 3600000).toISOString(),
+    activity_type: 'run',
+    distance_km: 8.4,
+    duration_min: 52,
+    photo_url: 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800',
+    reactions: { '🔥': 11, '🏃': 5 },
+    total_points_gifted: 15,
+    circle_id: '33333333-0000-0000-0000-000000000001'
+  },
+  {
+    id: '44444444-0000-0000-0000-000000000011',
+    content: "Does anyone know a good physio around Bole? Tweaked my shoulder on the bench and don't want to guess at it.",
+    user: { id: '010', name: 'Nahom', photo_url: 'https://i.pravatar.cc/150?u=nahom' },
+    created_at: new Date(now - 30 * 3600000).toISOString(),
+    reactions: { '🙏': 3 },
+    total_points_gifted: 0,
+    circle_id: '33333333-0000-0000-0000-000000000002'
+  },
+  {
+    id: '44444444-0000-0000-0000-000000000012',
+    content: "Meal prepped for the whole week for the first time. Sunday me is going to be very smug about this.",
+    user: { id: '011', name: 'Rahel', photo_url: 'https://i.pravatar.cc/150?u=rahel' },
+    created_at: new Date(now - 40 * 3600000).toISOString(),
+    photo_url: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800',
+    reactions: { '🥗': 8, '👏': 4 },
+    total_points_gifted: 5,
+    circle_id: '33333333-0000-0000-0000-000000000001'
+  },
+  {
+    id: '44444444-0000-0000-0000-000000000013',
+    content: "Missed two days and my streak froze instead of resetting. Small thing but it genuinely kept me from quitting.",
+    user: { id: '012', name: 'Tsion', photo_url: 'https://i.pravatar.cc/150?u=tsion' },
+    created_at: new Date(now - 60 * 3600000).toISOString(),
+    reactions: { '❤️': 16, '🔥': 3 },
+    total_points_gifted: 0,
+    circle_id: '33333333-0000-0000-0000-000000000002'
   }
 ];
 
@@ -558,23 +897,86 @@ export const MOCK_PROVIDER_STATS = {
   recent_feed: MOCK_FEED_EVENTS.slice(0, 5).map(e => ({ ...e, community_name: 'Shanti Yoga Circle' }))
 };
 
-// ─── Neighbourhood Alerts ───────────────────────────
-export const NEIGHBOURHOOD_ALERTS = {
-  "Bole": "New yoga session opening in Bole this Saturday — only 3 spots left. Book now via Well Circle.",
-  "Kazanchis": "Iron & Soul Gym is running a 2-for-1 day pass offer in Kazanchis this week.",
-  "Piassa": "Piassa Heritage Hammam is offering a free herbal steam add-on for all bookings today.",
-  "CMC": "Zen Flow Studio in CMC just opened evening slots — hot yoga at 7 PM starting Monday.",
-  "Sarbet": "Nourish Ethiopia is hosting a free nutrition consultation clinic in Sarbet this weekend.",
-  "Megenagna": "Green Plate Kitchen is delivering free trial meal boxes to Megenagna — order by 12 PM.",
-  "Other": "Three new wellness providers just joined Well Circle near you. Tap Explore to discover them."
+// ─── Provider Website: bookings, service mix, demographics, custom-range metrics ──
+export const MOCK_PROVIDER_BOOKINGS = {
+  bookings: MOCK_PROVIDER_STATS.recent_bookings.map((b, i) => ({
+    ...b,
+    user_name: ['Meron Tadesse', 'Dawit Hailu', 'Sara Alemayehu', 'Abel Kebede'][i] || 'Guest',
+    customer_demographics: [
+      { location_neighborhood: 'Bole', interest_categories: ['yoga', 'nutrition'], exercise_frequency: 'sometimes' },
+      { location_neighborhood: 'CMC', interest_categories: ['gym'], exercise_frequency: 'daily' },
+      { location_neighborhood: 'Sarbet', interest_categories: ['nutrition'], exercise_frequency: 'rarely' },
+      { location_neighborhood: 'Bole', interest_categories: ['running', 'yoga'], exercise_frequency: 'regular' },
+    ][i] || { location_neighborhood: null, interest_categories: [], exercise_frequency: null },
+  })),
+  total: MOCK_PROVIDER_STATS.recent_bookings.length,
+  page: 1,
+  per_page: 20,
 };
 
+export const MOCK_PROVIDER_SERVICE_BREAKDOWN = {
+  services: [
+    { service_name: 'Drop-in Yoga Class', bookings_count: 18, revenue_etb: 9000 },
+    { service_name: 'Monthly Unlimited Pass', bookings_count: 6, revenue_etb: 16800 },
+    { service_name: 'Private 1-on-1 Session', bookings_count: 4, revenue_etb: 7200 },
+  ],
+};
+
+export const MOCK_PROVIDER_DEMOGRAPHICS = {
+  total_customers: 4,
+  by_neighborhood: [
+    { label: 'Bole', count: 2 },
+    { label: 'CMC', count: 1 },
+    { label: 'Sarbet', count: 1 },
+  ],
+  by_interest_category: [
+    { label: 'yoga', count: 2 },
+    { label: 'nutrition', count: 2 },
+    { label: 'gym', count: 1 },
+    { label: 'running', count: 1 },
+  ],
+  by_exercise_frequency: [
+    { label: 'sometimes', count: 1 },
+    { label: 'daily', count: 1 },
+    { label: 'rarely', count: 1 },
+    { label: 'regular', count: 1 },
+  ],
+};
+
+export function buildMockProviderTimeseries(startDate, endDate) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const series = [];
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    series.push({
+      date: d.toISOString().slice(0, 10),
+      bookings: Math.floor(Math.random() * 4),
+      revenue_etb: Math.floor(Math.random() * 4) * 500,
+      checkins: Math.floor(Math.random() * 6),
+    });
+  }
+  return {
+    provider_id: MOCK_PROVIDER_STATS.provider_id,
+    start_date: series[0]?.date || startDate,
+    end_date: series[series.length - 1]?.date || endDate,
+    series,
+    totals: {
+      bookings: series.reduce((s, d) => s + d.bookings, 0),
+      revenue_etb: series.reduce((s, d) => s + d.revenue_etb, 0),
+      checkins: series.reduce((s, d) => s + d.checkins, 0),
+      unique_customers: 4,
+    },
+  };
+}
+
 // ─── Tiers ──────────────────────────────────────────
+// `color` drives the tier icon's tint (Icon name="leaf") — a quiet progression
+// from muted to deep green instead of four unrelated emoji.
 export const TIERS = [
-  { name: 'Seed',   tier: 'seed',   emoji: '🌱', min: 0,   max: 99 },
-  { name: 'Sprout', tier: 'sprout', emoji: '🌿', min: 100, max: 299 },
-  { name: 'Grove',  tier: 'grove',  emoji: '🌳', min: 300, max: 699 },
-  { name: 'Forest', tier: 'forest', emoji: '🌲', min: 700, max: Infinity }
+  { name: 'Seed',   tier: 'seed',   emoji: '🌱', color: '#8CA88C', min: 0,   max: 99 },
+  { name: 'Sprout', tier: 'sprout', emoji: '🌿', color: '#5FA86A', min: 100, max: 299 },
+  { name: 'Grove',  tier: 'grove',  emoji: '🌳', color: '#3E8E4F', min: 300, max: 699 },
+  { name: 'Forest', tier: 'forest', emoji: '🌲', color: '#1F6B37', min: 700, max: Infinity }
 ];
 
 export function getTier(points) {
@@ -616,7 +1018,107 @@ export const NEIGHBOURHOODS = ['Bole', 'Kazanchis', 'Piassa', 'CMC', 'Sarbet', '
 // getEvents()/getFeaturedEvents() previously always returned an empty mock
 // array — the "Happening Soon" carousel and the location-nearby matching
 // both needed at least one real event to have anything to show in mock mode.
+// The four community sessions from the August 2026 poster (docs/upcoming.png),
+// on their real calendar dates rather than offsets from "now". They need no
+// hand-holding to retire: POSTER_EVENTS is split against the current clock
+// below, so a session moves out of MOCK_EVENTS and into MOCK_PAST_EVENTS —
+// losing its booking CTA and gaining an attendee count — the moment it
+// starts, which is exactly what the backend's starts_at comparison does.
+// Kept in sync with backend/seed_upcoming_events.py.
+const POSTER_EVENTS = [
+  {
+    id: 'evt-afroheat-zumba',
+    provider_id: '11111111-0000-0000-0000-000000000012',
+    provider_name: 'AfroHeat Fitness',
+    provider_category: 'gym',
+    provider_cover_photo_url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800',
+    service_name: 'Zumba with Vahe',
+    description: 'High-energy Zumba session with Vahe at AfroHeat Fitness, Welo Sefer, Addis Ababa, Ethiopia.',
+    price_etb: 1000,
+    capacity: 50,
+    spots_remaining: 18,
+    urgency: 'low',
+    is_boosted: true,
+    // 6:15 PM Addis (UTC+3).
+    starts_at: '2026-08-20T15:15:00Z',
+  },
+  {
+    id: 'evt-bole-burners',
+    provider_id: '11111111-0000-0000-0000-000000000013',
+    provider_name: 'Bole Burners',
+    provider_category: 'running',
+    provider_cover_photo_url: 'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800',
+    service_name: 'Riverside Park Morning Run',
+    description: 'Free morning group run with Bole Burners at Riverside Park, Addis Ababa.',
+    price_etb: 0,
+    capacity: 50,
+    spots_remaining: 20,
+    urgency: 'low',
+    is_boosted: true,
+    starts_at: '2026-08-22T03:00:00Z',
+  },
+  {
+    id: 'evt-satenaw-runclub',
+    provider_id: '11111111-0000-0000-0000-000000000014',
+    provider_name: 'Satenaw Runclub',
+    provider_category: 'running',
+    provider_cover_photo_url: 'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800',
+    service_name: 'Filwuha Bridge Morning Run',
+    description: 'Free morning group run with Satenaw Runclub, starting at the Filwuha bridge, Riverside.',
+    price_etb: 0,
+    capacity: 50,
+    spots_remaining: 12,
+    urgency: 'low',
+    is_boosted: true,
+    starts_at: '2026-08-23T03:30:00Z',
+  },
+  {
+    id: 'evt-bertusew-runningclub',
+    provider_id: '11111111-0000-0000-0000-000000000015',
+    provider_name: 'Bertusew Runningclub',
+    provider_category: 'running',
+    provider_cover_photo_url: 'https://images.unsplash.com/photo-1502904550040-7534597429ae?w=800',
+    service_name: 'CMC Morning Run',
+    description: 'Free morning group run with Bertusew Runningclub from Yetebaberut Square Sport Center, CMC, Addis Ababa.',
+    price_etb: 0,
+    capacity: 50,
+    spots_remaining: 26,
+    urgency: 'low',
+    is_boosted: true,
+    starts_at: '2026-08-23T04:00:00Z',
+  },
+];
+
+const posterUpcoming = POSTER_EVENTS.filter(e => new Date(e.starts_at).getTime() > Date.now());
+// Same reshaping the backend's serialize_event(is_past=True) does: spots left
+// is meaningless once a session is over, so it becomes "how many turned up".
+const posterPast = POSTER_EVENTS
+  .filter(e => new Date(e.starts_at).getTime() <= Date.now())
+  .map(({ spots_remaining, urgency, ...e }) => ({
+    ...e,
+    is_past: true,
+    attendee_count: Math.max(0, e.capacity - spots_remaining),
+  }))
+  .sort((a, b) => new Date(b.starts_at) - new Date(a.starts_at));
+
 export const MOCK_EVENTS = [
+  {
+    // Pilot spotlight — the boosted Boston Day Spa event that leads the For
+    // You feed alongside the provider card and one of its services.
+    id: 'evt-boston-01',
+    provider_id: '11111111-0000-0000-0000-000000000011',
+    provider_name: 'Boston Day Spa',
+    provider_category: 'spa',
+    provider_cover_photo_url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
+    service_name: 'Sunset Hammam & Massage Evening',
+    description: 'An evening of steam, sauna, and a 45-minute massage, hosted by the Boston Day Spa Circle.',
+    price_etb: 1800,
+    capacity: 16,
+    spots_remaining: 5,
+    urgency: 'medium',
+    is_boosted: true,
+    starts_at: new Date(Date.now() + 3 * 86400000).toISOString(),
+  },
   {
     id: 'evt-shanti-01',
     provider_id: '11111111-0000-0000-0000-000000000003', // Shanti Yoga Addis, Bole
@@ -641,7 +1143,136 @@ export const MOCK_EVENTS = [
     is_boosted: false,
     starts_at: new Date(Date.now() + 4 * 86400000).toISOString(),
   },
+  ...posterUpcoming,
 ];
+
+// Events that have already happened. They can't be booked, so they carry an
+// `attendee_count` instead of `spots_remaining` — the recap card uses it as
+// social proof ("22 members went") and converts the interest it creates into
+// the provider's next session rather than a dead end.
+export const MOCK_PAST_EVENTS = [
+  {
+    id: 'evt-boston-past-01',
+    provider_id: '11111111-0000-0000-0000-000000000011',
+    provider_name: 'Boston Day Spa',
+    provider_category: 'spa',
+    provider_cover_photo_url: 'https://images.unsplash.com/photo-1540541338287-41700207dee6?w=800',
+    service_name: 'Members Facial & Sauna Morning',
+    description: 'A morning of facials, steam, and sauna for the Boston Day Spa Circle.',
+    price_etb: 1500,
+    capacity: 24,
+    attendee_count: 22,
+    is_past: true,
+    is_boosted: true,
+    starts_at: new Date(Date.now() - 6 * 86400000).toISOString(),
+  },
+  {
+    id: 'evt-shanti-past-01',
+    provider_id: '11111111-0000-0000-0000-000000000003',
+    provider_name: 'Shanti Yoga Addis',
+    provider_category: 'yoga',
+    provider_cover_photo_url: null,
+    service_name: 'Full Moon Rooftop Flow',
+    price_etb: 350,
+    capacity: 20,
+    attendee_count: 18,
+    is_past: true,
+    is_boosted: false,
+    starts_at: new Date(Date.now() - 13 * 86400000).toISOString(),
+  },
+  ...posterPast,
+];
+
+// ─── For You Feed (Phase 4/5) ───────────────────────
+// Mirrors the backend's fixed section order (see docs/API_CONTRACT.md #2b):
+// upcoming events at the top, then member posts, then provider content
+// (services, providers, past-event recaps). Mock mode has no pagination, so
+// this builds the single-page shape — which on the backend is the case where
+// the first and last page are the same page, and therefore carries all three
+// sections.
+function buildMockForYouFeed() {
+  const postItems = MOCK_POSTS
+    .filter(p => !p.is_system_event)
+    .map(p => {
+      const circle = MOCK_CIRCLES.find(c => c.id === p.circle_id);
+      return {
+        type: 'post',
+        render_cost: p.photo_url ? 'media' : 'instant',
+        id: p.id,
+        created_at: p.created_at,
+        post: {
+          ...p,
+          comment_count: (p.comments || []).length,
+          truncated: false,
+          source: circle
+            ? { kind: 'circle', id: circle.id, name: circle.name, member_count: circle.member_count }
+            : { kind: 'community', id: null, name: null, member_count: 0 },
+        },
+      };
+    });
+
+  const providerBrief = (p) => ({
+    id: p.id, name: p.name, category: p.category, location_text: p.location_text,
+    rating: p.rating, cover_photo_url: p.cover_photo_url, is_coming_soon: !!p.is_coming_soon,
+  });
+
+  const boston = MOCK_PROVIDERS.find(p => p.name === 'Boston Day Spa');
+  const serviceItems = (boston?.services || []).map((service, idx) => ({
+    type: 'service',
+    render_cost: 'media',
+    id: `${boston.id}:${idx}`,
+    provider: providerBrief(boston),
+    service,
+  }));
+
+  // Coming-soon providers are included too — FeedProviderCard shows a
+  // "Coming soon" badge and hides the booking CTA for them, so they stay
+  // visible in the feed pre-launch instead of being invisible until then.
+  // Featured first, then by rating, matching the backend's ordering, so the
+  // provider block opens with Boston Day Spa rather than whatever happens to
+  // be first in the array.
+  const providerItems = [...MOCK_PROVIDERS]
+    .sort((a, b) => (Number(!!b.is_featured) - Number(!!a.is_featured)) || ((b.rating || 0) - (a.rating || 0)))
+    .map(p => ({
+      type: 'provider',
+      render_cost: 'media',
+      id: p.id,
+      provider: providerBrief(p),
+      promotion: p.active_promotion || null,
+    }));
+
+  const toEventItem = (e) => ({
+    type: e.is_past ? 'past_event' : 'event',
+    render_cost: 'media',
+    id: e.id,
+    event: e,
+    provider: {
+      id: e.provider_id,
+      name: e.provider_name,
+      category: e.provider_category || null,
+      cover_photo_url: e.provider_cover_photo_url || null,
+    },
+  });
+
+  const eventItems = MOCK_EVENTS.filter(e => e.is_boosted).map(toEventItem);
+  const pastEventItems = MOCK_PAST_EVENTS.map(toEventItem);
+
+  // Section order mirrors backend/app/services/feed_service.py::_order_feed —
+  // upcoming events, then member posts, then provider content. Mock mode is
+  // what the tests and offline dev render against, so a different order here
+  // would quietly hide an ordering regression in the real feed.
+  const items = [
+    ...eventItems,
+    ...postItems,
+    ...serviceItems,
+    ...providerItems,
+    ...pastEventItems,
+  ];
+
+  return items;
+}
+
+export const MOCK_FOR_YOU_FEED = buildMockForYouFeed();
 
 // ─── Ranks (V2 UX Phase 5 — weekly leaderboard) ─────
 export const MOCK_RANKS = {
@@ -652,12 +1283,18 @@ export const MOCK_RANKS = {
     { community_id: '22222222-0000-0000-0000-000000000004', name: 'Zen Flow Hot Yoga', member_count: 35, weekly_points: 860, rank: 4 },
   ],
   users: [
+    // Top 20 stops well above "me" (rank 8 of many) — this is exactly the
+    // "nobody wants to see they're #82,491" case the league section covers.
     { user_id: '00000000-0000-0000-0000-000000000099', name: 'Hana Girma', photo_url: 'https://i.pravatar.cc/150?u=hana', weekly_points: 340, rank: 1 },
     { user_id: '00000000-0000-0000-0000-000000000098', name: 'Dawit Bekele', photo_url: 'https://i.pravatar.cc/150?u=dawit', weekly_points: 295, rank: 2 },
     { user_id: '00000000-0000-0000-0000-000000000097', name: 'Selam Alemu', photo_url: 'https://i.pravatar.cc/150?u=selam', weekly_points: 210, rank: 3 },
-    { user_id: '00000000-0000-0000-0000-000000000001', name: 'Meron Tadesse', photo_url: 'https://i.pravatar.cc/150?u=meron', weekly_points: 120, rank: 8 },
   ],
   me: { rank: 8, weekly_points: 120 },
+  league: [
+    { user_id: '00000000-0000-0000-0000-000000000050', name: 'Bereket Assefa', photo_url: 'https://i.pravatar.cc/150?u=bereket', weekly_points: 140, rank: 1, is_me: false },
+    { user_id: '00000000-0000-0000-0000-000000000001', name: 'Meron Tadesse', photo_url: 'https://i.pravatar.cc/150?u=meron', weekly_points: 120, rank: 2, is_me: true },
+    { user_id: '00000000-0000-0000-0000-000000000051', name: 'Liya Fikru', photo_url: 'https://i.pravatar.cc/150?u=liya', weekly_points: 100, rank: 3, is_me: false },
+  ],
 };
 
 // ─── Time Slots ─────────────────────────────────────
@@ -811,8 +1448,9 @@ export const MOCK_PENDING_PROVIDERS = [
 ];
 
 export const MOCK_ADMIN_PROVIDERS = [
-  { id: '11111111-0000-0000-0000-000000000003', name: 'Shanti Yoga Addis', category: 'yoga', status: 'active', location_text: 'Bole', owner_name: 'Sara M.', member_count: 83, onboarded_by_admin: true },
-  { id: '11111111-0000-0000-0000-000000000001', name: 'Lifestyle Fitness Center', category: 'gym', status: 'active', location_text: 'Bole', owner_name: 'Admin', member_count: 47, onboarded_by_admin: true }
+  { id: '11111111-0000-0000-0000-000000000003', name: 'Shanti Yoga Addis', category: 'yoga', status: 'active', location_text: 'Bole', owner_name: 'Sara M.', member_count: 83, onboarded_by_admin: true, is_coming_soon: true },
+  { id: '11111111-0000-0000-0000-000000000001', name: 'Lifestyle Fitness Center', category: 'gym', status: 'active', location_text: 'Bole', owner_name: 'Admin', member_count: 47, onboarded_by_admin: true, is_coming_soon: true },
+  { id: '22222222-0000-0000-0000-000000000010', name: 'Boston Day Spa', category: 'spa', status: 'active', location_text: 'Bole, Addis Ababa', owner_name: 'Kuriftu', member_count: 58, onboarded_by_admin: true, is_coming_soon: false }
 ];
 
 export const MOCK_ADMIN_PRODUCTS = MOCK_PRODUCTS.map(p => ({

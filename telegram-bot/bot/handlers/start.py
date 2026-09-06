@@ -1,4 +1,6 @@
-"""/start command handler — registers user via backend API and shows Mini App button."""
+"""/start command handler — shows the Mini App button immediately, registers
+the user via the backend API in the background so a cold Vercel function
+never delays the user's first interaction."""
 
 import logging
 
@@ -12,22 +14,12 @@ from bot.config import MINI_APP_URL, BOT_TOKEN, BACKEND_URL
 logger = logging.getLogger(__name__)
 
 
-async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Handle /start command:
-    1. Capture telegram_id + handle
-    2. Register via backend API
-    3. Show welcome message + Open Well Circle button
-    """
-    user = update.effective_user
-    if not user:
-        return
-
-    telegram_id = user.id
-    telegram_handle = user.username
+async def _register_in_background(telegram_id: int, telegram_handle, user) -> None:
+    """Profile-photo fetch + backend registration — both Telegram/HTTP round
+    trips that must never block the welcome message. Registration failure
+    already degrades gracefully (the Mini App button was shown regardless),
+    so failures here are logged, never surfaced to the user."""
     photo_url = None
-
-    # Try to get profile photo URL
     try:
         photos = await user.get_profile_photos(limit=1)
         if photos.total_count > 0:
@@ -38,7 +30,6 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     except Exception:
         pass
 
-    # Register user via backend API
     try:
         result = await register_user(
             telegram_id=telegram_id,
@@ -46,15 +37,24 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             photo_url=photo_url,
         )
         is_new = result.get("created", False)
-        name = result.get("telegram_handle") or f"User {telegram_id}"
         logger.info(f"{'New' if is_new else 'Returning'} user: @{telegram_handle} ({telegram_id})")
     except Exception as e:
         logger.error(f"Backend registration failed: {e}")
-        # Still show the app even if registration fails
-        is_new = True
-        name = telegram_handle or f"User {telegram_id}"
 
-    # Build Mini App button
+
+async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Handle /start command:
+    1. Show welcome message + Open Well Circle button immediately
+    2. Register the user (and fetch their profile photo) in the background
+    """
+    user = update.effective_user
+    if not user:
+        return
+
+    telegram_id = user.id
+    telegram_handle = user.username
+
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(
             text="🟢 Open Well Circle",
@@ -62,10 +62,16 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )],
     ])
 
-    welcome_text = WELCOME_MESSAGE.format(name=user.first_name or name)
+    welcome_text = WELCOME_MESSAGE.format(name=user.first_name or telegram_handle or f"User {telegram_id}")
 
     await update.message.reply_text(
         text=welcome_text,
         reply_markup=keyboard,
         parse_mode="HTML",
+    )
+
+    # Fire-and-forget: the bot's own event loop owns this task's lifecycle,
+    # so it keeps running after this handler returns.
+    context.application.create_task(
+        _register_in_background(telegram_id, telegram_handle, user)
     )

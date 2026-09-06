@@ -6,6 +6,7 @@ import Icon from './Icon';
 import { getApiBase } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { track } from '../analytics';
+import useDismissOnEscape from '../hooks/useDismissOnEscape';
 
 const CONCIERGE_CHIPS = [
   { label: 'Affordable gyms around me', needsLocation: true },
@@ -20,6 +21,7 @@ export default function AskWellCircle() {
   const { t } = useTranslation();
   const inputRef = useRef(null);
   const [isOpen, setIsOpen] = useState(false);
+  useDismissOnEscape(() => setIsOpen(false), isOpen);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isFirstMessage, setIsFirstMessage] = useState(() => {
@@ -55,6 +57,24 @@ export default function AskWellCircle() {
   useEffect(() => {
     localStorage.setItem('concierge_is_first', JSON.stringify(isFirstMessage));
   }, [isFirstMessage]);
+
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    if (isOpen && tg?.BackButton) {
+      tg.BackButton.show();
+      tg.disableClosingConfirmation?.();
+      const handler = () => setIsOpen(false);
+      tg.onEvent('backButtonClicked', handler);
+      return () => {
+        tg.offEvent('backButtonClicked', handler);
+        // Restore visibility logic for the underlying screen
+        if (['/home', '/'].includes(window.location.pathname)) {
+          tg.BackButton.hide();
+          tg.enableClosingConfirmation?.();
+        }
+      };
+    }
+  }, [isOpen]);
 
   const messagesEndRef = useRef(null);
 
@@ -217,7 +237,7 @@ export default function AskWellCircle() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)'
+              paddingTop: 'calc(var(--tg-content-safe-area-inset-top, 0px) + var(--tg-safe-area-inset-top, env(safe-area-inset-top, 0px)) + 16px)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div className="burger-logo" style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -249,9 +269,6 @@ export default function AskWellCircle() {
                   title="Clear Chat"
                 >
                   Clear
-                </button>
-                <button className="burger-close" onClick={() => setIsOpen(false)} aria-label="Close chat">
-                  <Icon name="x" size={18} />
                 </button>
               </div>
             </div>
@@ -368,7 +385,7 @@ export default function AskWellCircle() {
                 />
                 <button
                   className="btn btn-primary"
-                  onClick={handleSend}
+                  onClick={() => handleSend()}
                   disabled={!input.trim() || isLoading}
                   style={{
                     width: '46px',

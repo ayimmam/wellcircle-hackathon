@@ -40,8 +40,19 @@ async def proxy_telegram_photo(file_path: str):
             resp = await client.get(download_url, timeout=10.0)
             resp.raise_for_status()
             content_type = resp.headers.get("content-type", "image/jpeg")
-            return Response(content=resp.content, media_type=content_type)
-    except Exception as e:
+            return Response(
+                content=resp.content,
+                media_type=content_type,
+                # A Telegram file path addresses one immutable upload — a new
+                # avatar gets a new path. Without this every avatar on every
+                # screen woke a cold function to re-fetch the same bytes; now
+                # the browser and Vercel's edge serve it for a week.
+                headers={
+                    "Cache-Control": "public, max-age=604800, immutable",
+                    "CDN-Cache-Control": "public, max-age=604800",
+                },
+            )
+    except Exception:
         raise HTTPException(status_code=502, detail="Could not fetch photo from Telegram")
 
 

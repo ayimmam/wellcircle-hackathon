@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getProduct } from '../api/client';
 import Icon from '../components/Icon';
+import SmartImage from '../components/SmartImage';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  useTelegramBackButton(() => navigate(-1));
   const [product, setProduct] = useState(null);
   const [imgIdx, setImgIdx] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -26,9 +29,9 @@ export default function ProductDetail() {
 
       {images.length > 0 && (
         <div className="product-carousel mb-16">
-          <button className="carousel-btn" onClick={() => setImgIdx(i => (i - 1 + images.length) % images.length)}>◀</button>
-          <img src={images[imgIdx]} alt={product.name} className="product-detail-img" />
-          <button className="carousel-btn" onClick={() => setImgIdx(i => (i + 1) % images.length)}>▶</button>
+          <button className="carousel-btn" onClick={() => setImgIdx(i => (i - 1 + images.length) % images.length)} aria-label="Previous photo">◀</button>
+          <SmartImage src={images[imgIdx]} alt={product.name} className="product-detail-img" width={430} priority />
+          <button className="carousel-btn" onClick={() => setImgIdx(i => (i + 1) % images.length)} aria-label="Next photo">▶</button>
         </div>
       )}
 

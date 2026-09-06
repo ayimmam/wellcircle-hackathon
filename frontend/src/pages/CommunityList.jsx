@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { getCommunities, joinCommunity, getCircles, createCircle, getRanks } from '../api/client';
+import { useState } from 'react';
+import { getCommunities, joinCommunity, getCircles, createCircle, getRanks, cacheKeys } from '../api/client';
+import useResource from '../hooks/useResource';
 import { CATEGORIES } from '../data/mock';
 import CommunityCard from '../components/CommunityCard';
 import { showToast } from '../components/Toast';
@@ -7,60 +8,112 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
+import SmartImage from '../components/SmartImage';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
+import { clickableDivProps } from '../utils/a11y';
 
-const MEDALS = ['🥇', '🥈', '🥉'];
+// Rank is carried by the numeral itself — the top three are marked with the
+// accent colour rather than medal emoji, which reads calmer at list density.
+const rankStyle = (rank) => ({
+  fontSize: '0.95rem',
+  fontWeight: 800,
+  width: 28,
+  fontVariantNumeric: 'tabular-nums',
+  color: rank <= 3 ? 'var(--accent)' : 'var(--text-tertiary)',
+});
+const EMPTY_LIST = [];
 
 export default function CommunityList() {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
+  useTelegramBackButton(() => navigate('/home'));
   const { t } = useTranslation();
-  const [communities, setCommunities] = useState([]);
-  const [circles, setCircles] = useState([]);
   const [tab, setTab] = useState('explore'); // 'explore' | 'joined' | 'circles' | 'ranks'
   const [category, setCategory] = useState('all');
-  const [loading, setLoading] = useState(true);
   const [newCircleName, setNewCircleName] = useState('');
-  const [ranks, setRanks] = useState(null);
   const [ranksView, setRanksView] = useState('communities'); // 'communities' | 'individuals'
 
-  useEffect(() => {
-    setLoading(true);
-    if (tab === 'circles') {
-      getCircles()
-        .then(res => setCircles(res.circles || []))
-        .finally(() => setLoading(false));
-    } else if (tab === 'ranks') {
-      getRanks()
-        .then(res => setRanks(res))
-        .finally(() => setLoading(false));
-    } else {
-      Promise.all([
-        getCommunities(tab === 'joined' ? true : null, category !== 'all' ? category : null),
-        tab === 'explore' ? getCircles() : Promise.resolve({ circles: [] })
-      ])
-        .then(([commRes, circRes]) => {
-          setCommunities(commRes.communities);
-          setCircles(circRes.circles || []);
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [tab, category]);
+  // Each tab reads its own cache key, so switching between them is a render
+  // rather than a refetch — and the lists Home already loaded are reused.
+  const joinedOnly = tab === 'joined' ? true : null;
+  const categoryFilter = category !== 'all' ? category : null;
+  const showsCommunities = tab === 'explore' || tab === 'joined';
+
+  const {
+    data: communities, loading: communitiesLoading, setData: setCommunities,
+  } = useResource(
+    cacheKeys.communities(joinedOnly, categoryFilter),
+    () => getCommunities(joinedOnly, categoryFilter),
+    {
+      enabled: showsCommunities,
+      initialData: EMPTY_LIST,
+      select: res => res.communities || EMPTY_LIST,
+    },
+  );
+
+  const {
+    data: circles, loading: circlesLoading, refresh: refreshCircles,
+  } = useResource(
+    cacheKeys.circles(),
+    getCircles,
+    {
+      enabled: tab === 'circles' || tab === 'explore',
+      initialData: EMPTY_LIST,
+      select: res => res.circles || EMPTY_LIST,
+    },
+  );
+
+  const { data: ranks, loading: ranksLoading } = useResource(
+    cacheKeys.ranks(),
+    getRanks,
+    { enabled: tab === 'ranks' },
+  );
+
+  const loading = tab === 'ranks' ? ranksLoading
+    : tab === 'circles' ? circlesLoading
+      : communitiesLoading;
+
+  const [joiningId, setJoiningId] = useState(null);
 
   const handleJoin = async (id) => {
+    if (joiningId) return;
+    setJoiningId(id);
+    
+    // Optimistic UI Update
+    setCommunities(prev => prev.map(c =>
+      c.id === id ? { ...c, user_joined: true, member_count: (c.member_count || 0) + 1 } : c
+    ));
+    if (user) {
+      setUser(prev => ({
+        ...prev,
+        joined_communities: [...(prev.joined_communities || []), id]
+      }));
+    }
+
     try {
       const res = await joinCommunity(id);
       showToast('Joined the circle!', 'success');
+      // Sync real member count
       setCommunities(prev => prev.map(c =>
-        c.id === id ? { ...c, user_joined: true, member_count: res.member_count } : c
+        c.id === id ? { ...c, member_count: res.member_count } : c
+      ));
+      // Land on the circle's Activity tab with a pre-filled intro, same as
+      // joining directly from the detail page (CommunityDetail's justJoined flow).
+      navigate(`/community/${id}`, { state: { justJoined: true } });
+    } catch (err) {
+      showToast('Already a member');
+      // Revert optimistic update
+      setCommunities(prev => prev.map(c =>
+        c.id === id ? { ...c, user_joined: false, member_count: Math.max(0, (c.member_count || 1) - 1) } : c
       ));
       if (user) {
         setUser(prev => ({
           ...prev,
-          joined_communities: [...(prev.joined_communities || []), id]
+          joined_communities: (prev.joined_communities || []).filter(cid => cid !== id)
         }));
       }
-    } catch (err) {
-      showToast('Already a member');
+    } finally {
+      setJoiningId(null);
     }
   };
   const [isPrivate, setIsPrivate] = useState(false);
@@ -78,7 +131,7 @@ export default function CommunityList() {
       setJoinCode('');
       setIsPrivate(false);
       showToast('Circle created!', 'success');
-      getCircles().then(res => setCircles(res.circles || []));
+      refreshCircles();
     } catch (err) {
       showToast('Error creating circle', 'error');
     }
@@ -168,19 +221,18 @@ export default function CommunityList() {
           {ranksView === 'communities' ? (
             ranks?.communities?.length > 0 ? (
               <div className="flex-col gap-8">
-                {ranks.communities.map((c, i) => (
+                {ranks.communities.map((c) => (
                   <div
                     key={c.community_id}
                     className="card"
                     style={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/community/${c.community_id}`)}
+                    aria-label={c.name}
+                    {...clickableDivProps(() => navigate(`/community/${c.community_id}`))}
                     id={`rank-community-${c.community_id}`}
                   >
                     <div className="card-body flex items-center justify-between">
                       <div className="flex items-center gap-12">
-                        <span style={{ fontSize: '1.1rem', fontWeight: 800, width: 28 }}>
-                          {MEDALS[i] || `#${c.rank}`}
-                        </span>
+                        <span style={rankStyle(c.rank)}>{c.rank}</span>
                         <div>
                           <div style={{ fontWeight: 700 }}>{c.name}</div>
                           <div className="inline-icon-text" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -201,7 +253,7 @@ export default function CommunityList() {
             )
           ) : ranks?.users?.length > 0 ? (
             <div className="flex-col gap-8">
-              {ranks.users.map((u, i) => {
+              {ranks.users.map((u) => {
                 const isMe = u.user_id === user?.id;
                 return (
                   <div
@@ -212,9 +264,7 @@ export default function CommunityList() {
                   >
                     <div className="card-body flex items-center justify-between">
                       <div className="flex items-center gap-12">
-                        <span style={{ fontSize: '1.1rem', fontWeight: 800, width: 28 }}>
-                          {MEDALS[i] || `#${u.rank}`}
-                        </span>
+                        <span style={rankStyle(u.rank)}>{u.rank}</span>
                         <div style={{ fontWeight: 700 }}>{u.name}{isMe ? ` (${t('You')})` : ''}</div>
                       </div>
                       <div style={{ fontWeight: 800 }}>{u.weekly_points} pts</div>
@@ -222,12 +272,28 @@ export default function CommunityList() {
                   </div>
                 );
               })}
-              {ranks?.me && !ranks.users.some(u => u.user_id === user?.id) && (
-                <div className="card" id="rank-me-footer" style={{ border: '2px dashed var(--brand-primary)' }}>
-                  <div className="card-body flex items-center justify-between">
-                    <div style={{ fontWeight: 700 }}>
-                      {t('You')} — {ranks.me.rank != null ? `#${ranks.me.rank} · ${ranks.me.weekly_points} pts` : t('Unranked')}
-                    </div>
+              {ranks?.league?.length > 0 && !ranks.users.some(u => u.user_id === user?.id) && (
+                <div id="rank-my-league" style={{ marginTop: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.85rem', margin: '4px 0 8px' }}>
+                    {t('Your League — this week')}
+                  </div>
+                  <div className="flex-col gap-8">
+                    {ranks.league.map((u) => (
+                      <div
+                        key={u.user_id}
+                        className="card"
+                        id={`league-user-${u.user_id}`}
+                        style={u.is_me ? { border: '2px solid var(--brand-primary)' } : undefined}
+                      >
+                        <div className="card-body flex items-center justify-between">
+                          <div className="flex items-center gap-12">
+                            <span style={rankStyle(u.rank)}>{u.rank}</span>
+                            <div style={{ fontWeight: 700 }}>{u.name}{u.is_me ? ` (${t('You')})` : ''}</div>
+                          </div>
+                          <div style={{ fontWeight: 800 }}>{u.weekly_points} pts</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -244,13 +310,15 @@ export default function CommunityList() {
           <div className="card" style={{ marginBottom: 16 }}>
             <div className="card-body">
               <div className="flex gap-8 mb-8">
-                <input 
-                  type="text" 
-                  placeholder="New Circle Name..." 
-                  className="input" 
+                <input
+                  type="text"
+                  placeholder="New Circle Name…"
+                  className="input"
                   value={newCircleName}
                   onChange={e => setNewCircleName(e.target.value)}
                   style={{ flex: 1 }}
+                  aria-label="New circle name"
+                  autoComplete="off"
                 />
                 <button className="btn btn-primary" onClick={handleCreateCircle} disabled={!newCircleName.trim()}>Create</button>
               </div>
@@ -260,20 +328,28 @@ export default function CommunityList() {
                   <span style={{ fontSize: '0.85rem' }}>Private Circle</span>
                 </label>
                 {isPrivate && (
-                  <input 
-                    type="text" 
-                    placeholder="Join Code (e.g. VIP2024)" 
-                    className="input" 
+                  <input
+                    type="text"
+                    placeholder="Join Code (e.g. VIP2024)"
+                    className="input"
                     style={{ flex: 1, padding: '4px 8px' }}
                     value={joinCode}
                     onChange={e => setJoinCode(e.target.value)}
+                    aria-label="Join code"
+                    autoComplete="off"
+                    spellCheck={false}
                   />
                 )}
               </div>
             </div>
           </div>
           {circles.map(c => (
-            <div key={c.id} className="card" onClick={() => navigate(`/circle/${c.id}`)}>
+            <div key={c.id} className="card" aria-label={c.name} {...clickableDivProps(() => navigate(`/circle/${c.id}`))}>
+              {c.banner_url && (
+                <div className="circle-card-banner">
+                  <SmartImage src={c.banner_url} alt="" width={480} fallback={null} />
+                </div>
+              )}
               <div className="card-body">
                 <h3 className="flex items-center gap-6" style={{ fontSize: '1.1rem', marginBottom: 4 }}>
                   {c.is_private && <Icon name="lock" size={14} />}
@@ -290,13 +366,18 @@ export default function CommunityList() {
       ) : tab === 'explore' ? (
         <div className="flex-col gap-12">
           {communities.filter(c => !c.user_joined).map(c => (
-            <CommunityCard key={c.id} community={c} onJoin={handleJoin} />
+            <CommunityCard key={c.id} community={c} onJoin={handleJoin} joining={joiningId === c.id} />
           ))}
           {circles.filter(c => !c.user_joined).length > 0 && (
             <>
               <h2 style={{ fontSize: '1.1rem', fontWeight: 800, marginTop: 16 }}>Community User Circles</h2>
               {circles.filter(c => !c.user_joined).map(c => (
-                <div key={c.id} className="card" onClick={() => navigate(`/circle/${c.id}`)}>
+                <div key={c.id} className="card" aria-label={c.name} {...clickableDivProps(() => navigate(`/circle/${c.id}`))}>
+                  {c.banner_url && (
+                    <div className="circle-card-banner">
+                      <SmartImage src={c.banner_url} alt="" width={480} fallback={null} />
+                    </div>
+                  )}
                   <div className="card-body">
                     <h3 className="flex items-center gap-6" style={{ fontSize: '1.1rem', marginBottom: 4 }}>
                       {c.is_private && <Icon name="lock" size={14} />}
@@ -320,7 +401,7 @@ export default function CommunityList() {
       ) : communities.length > 0 ? (
         <div className="flex-col gap-12">
           {communities.map(c => (
-            <CommunityCard key={c.id} community={c} onJoin={handleJoin} />
+            <CommunityCard key={c.id} community={c} onJoin={handleJoin} joining={joiningId === c.id} />
           ))}
         </div>
       ) : (

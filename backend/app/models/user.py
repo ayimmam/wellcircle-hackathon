@@ -15,7 +15,7 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     # --- From Telegram Bot /start ---
-    telegram_id = Column(BigInteger, unique=True, nullable=False, index=True)
+    telegram_id = Column(BigInteger, unique=True, nullable=True, index=True)
     telegram_handle = Column(String(255), nullable=True)  # @username from Telegram
 
     # --- From Mini App Onboarding ---
@@ -58,6 +58,7 @@ class User(Base):
     last_checkin_at = Column(DateTime(timezone=True), nullable=True)
     current_streak = Column(Integer, default=0)          # C2: consecutive check-in days
     freeze_count = Column(Integer, default=0)             # C2: streak freezes earned (1 per 7-day streak)
+    longest_streak = Column(Integer, default=0)           # Personal best — "reward getting better"
 
     # --- Referral (E1) ---
     referred_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
@@ -71,6 +72,13 @@ class User(Base):
     is_provider = Column(Boolean, default=False)
     is_super_admin = Column(Boolean, default=False)
 
+    # --- Provider portal username/password login (alt to Telegram widget) ---
+    # Lets a provider staff account sign in without a linked Telegram login
+    # (e.g. Boston Day Spa's front-desk account). Both nullable — only set
+    # for accounts that use this login path.
+    login_username = Column(String(100), unique=True, nullable=True, index=True)
+    password_hash = Column(String(255), nullable=True)
+
     # --- Personalized Engagement (v1.1) ---
     location_neighborhood = Column(String(100), nullable=True)   # Bole, Kazanchis, etc.
     health_app_connected = Column(Boolean, default=False)
@@ -78,6 +86,18 @@ class User(Base):
     # --- User preferences (V2 UX) ---
     phone_number = Column(String(20), nullable=True)  # E.164, e.g. +251911234567
     time_format = Column(String(3), nullable=True)    # '12h' | '24h'
+
+    # --- Public profile / trainer / Strava (Phase 15) ---
+    bio = Column(Text, nullable=True)
+    profile_privacy = Column(String(20), nullable=False, default="public")
+    is_verified_trainer = Column(Boolean, nullable=False, default=False)
+    verified_trainer_expires_at = Column(DateTime(timezone=True), nullable=True)
+    strava_athlete_id = Column(BigInteger, nullable=True, unique=True)
+    # Tokens are Fernet-encrypted at rest; plaintext never enters this model.
+    strava_access_token = Column(Text, nullable=True)
+    strava_refresh_token = Column(Text, nullable=True)
+    strava_token_expires_at = Column(DateTime(timezone=True), nullable=True)
+    strava_visible_stats = Column(JSONB, nullable=True)
 
     # --- Timestamps ---
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

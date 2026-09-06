@@ -1,6 +1,6 @@
 """Community Challenge ORM models."""
 
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Boolean, UniqueConstraint
+from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Text, Boolean, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime, timezone
@@ -14,7 +14,9 @@ class CommunityChallenge(Base):
     community_id = Column(UUID(as_uuid=True), ForeignKey("communities.id", ondelete="CASCADE"), nullable=False)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    target_checkins = Column(Integer, nullable=False)
+    challenge_type = Column(String(50), nullable=False, default="checkin") # 'checkin' or 'strava_distance'
+    target_checkins = Column(Integer, nullable=False, default=0) # Kept for backward compatibility
+    target_value = Column(Float, nullable=True) # Target in km for strava distance
     reward_points = Column(Integer, nullable=False)
     starts_at = Column(DateTime(timezone=True), nullable=False)
     ends_at = Column(DateTime(timezone=True), nullable=False)

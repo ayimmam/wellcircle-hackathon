@@ -20,6 +20,7 @@ from app.crud.provider import (
     create_provider, update_provider, delete_provider,
     get_pending_providers, approve_provider, reject_provider,
     promote_user_to_provider, user_has_active_provider, get_admin_providers,
+    set_provider_launch_state,
 )
 from app.crud.product import admin_list_products, update_product_stock, update_redemption_status, admin_list_redemptions
 from app.crud.booking import admin_list_bookings
@@ -33,18 +34,26 @@ from app.services.telegram_bot import fetch_telegram_file
 from app.schemas.evidence import EvidenceReviewRequest
 from app.schemas.feedback import FeedbackListResponse, FeedbackStatusUpdate
 from app.schemas.provider import ProviderCreate, ProviderUpdate
-from app.schemas.admin import PlatformAnalytics, AdminUserListResponse, AdminUserItem, AdminBookingListResponse, AdminBookingItem
+from app.schemas.admin import (
+    PlatformAnalytics, AdminUserListResponse, AdminUserItem,
+    AdminBookingListResponse, AdminBookingItem,
+    AdminPointsAwardRequest, AdminPointsAwardResponse
+)
 from app.schemas.provider_onboarding import (
     PendingProvidersResponse, ProviderApproveRequest, ProviderApproveResponse,
     ProviderRejectRequest, ProviderRejectResponse,
     PromoteUserRequest, PromoteUserResponse,
     AdminNotificationsResponse, AdminProviderListResponse,
+    ProviderLaunchStateUpdate, ProviderLaunchStateResponse,
 )
 from app.schemas.product import (
     AdminProductListResponse, StockUpdateRequest, StockUpdateResponse,
     RedemptionStatusUpdateRequest, RedemptionStatusUpdateResponse,
     AdminRedemptionListResponse, AdminRedemptionItem,
 )
+from app.schemas.circle_subscription import PaidCircleAdminReviewRequest
+from app.models.circle import Circle, CircleMember
+from app.crud.circle_subscription import owner_lifetime_points, review_paid_circle
 
 router = APIRouter()
 
@@ -125,6 +134,46 @@ async def get_user_by_tg_id(
     return AdminUserItem.model_validate(user)
 
 
+@router.post("/users/award-points", response_model=AdminPointsAwardResponse)
+async def award_points_to_users(
+    request: AdminPointsAwardRequest,
+    admin: User = Depends(get_super_admin),
+    db: Session = Depends(get_db),
+):
+    from app.services.points import apply_transaction, TXN_ADMIN_ADJUST
+    from app.services.notification_service import create_notification
+    from app.crud.user import get_user_by_id
+    
+    if request.amount <= 0 or request.amount > 50:
+        raise HTTPException(status_code=400, detail="Amount must be between 1 and 50")
+        
+    awarded_count = 0
+    for uid_str in request.user_ids:
+        try:
+            uid = UUID(uid_str)
+        except ValueError:
+            continue
+            
+        user = get_user_by_id(db, uid)
+        if user:
+            apply_transaction(
+                db, user, request.amount, TXN_ADMIN_ADJUST, 
+                note=request.note
+            )
+            create_notification(
+                db, str(user.id), "points_awarded", 
+                "Points Awarded", 
+                f"You have been awarded {request.amount} points! Reason: {request.note}"
+            )
+            awarded_count += 1
+            
+    db.commit()
+    return AdminPointsAwardResponse(
+        awarded_count=awarded_count, 
+        total_points=awarded_count * request.amount
+    )
+
+
 @router.post("/providers", status_code=201)
 async def create_new_provider(
     request: ProviderCreate,
@@ -179,6 +228,19 @@ async def list_all_providers(
 ):
     providers = get_admin_providers(db, status=status, search=search)
     return AdminProviderListResponse(providers=providers, total=len(providers))
+
+
+@router.patch("/providers/{provider_id}/launch-state", response_model=ProviderLaunchStateResponse)
+async def update_provider_launch_state(
+    provider_id: str,
+    request: ProviderLaunchStateUpdate,
+    admin: User = Depends(get_super_admin),
+    db: Session = Depends(get_db),
+):
+    provider = set_provider_launch_state(db, UUID(provider_id), request.is_coming_soon)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    return ProviderLaunchStateResponse(provider_id=str(provider.id), is_coming_soon=provider.is_coming_soon)
 
 
 @router.get("/providers/pending", response_model=PendingProvidersResponse)
@@ -451,3 +513,44 @@ def patch_feedback_status(
     if not fb:
         raise HTTPException(status_code=404, detail="Feedback not found")
     return {"id": str(fb.id), "status": fb.status}
+
+
+@router.get("/paid-circle-applications")
+def list_paid_circle_applications(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    admin: User = Depends(get_super_admin),
+    db: Session = Depends(get_db),
+):
+    query = db.query(Circle).filter(Circle.paid_circle_status == "pending_approval")
+    total = query.count()
+    rows = query.order_by(Circle.paid_circle_applied_at).offset((page - 1) * per_page).limit(per_page).all()
+    circle_ids = [c.id for c in rows]
+    counts = dict(db.query(CircleMember.circle_id, func.count(CircleMember.user_id)).filter(
+        CircleMember.circle_id.in_(circle_ids)
+    ).group_by(CircleMember.circle_id).all()) if circle_ids else {}
+    points = {c.owner_id: owner_lifetime_points(db, c.owner_id) for c in rows}
+    return {"items": [
+        {"id": str(c.id), "name": c.name, "owner_id": str(c.owner_id),
+         "price_etb": c.price_etb, "member_count": counts.get(c.id, 0),
+         "owner_lifetime_points": points[c.owner_id],
+         "applied_at": c.paid_circle_applied_at}
+        for c in rows
+    ], "total": total, "page": page}
+
+
+@router.post("/paid-circle-applications/{circle_id}/review")
+def review_paid_circle_application(
+    circle_id: UUID,
+    body: PaidCircleAdminReviewRequest,
+    admin: User = Depends(get_super_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        circle = review_paid_circle(db, circle_id, body.action, body.reason)
+        return {"id": str(circle.id), "is_paid": circle.is_paid,
+                "paid_circle_status": circle.paid_circle_status}
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))

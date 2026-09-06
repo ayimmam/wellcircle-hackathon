@@ -44,16 +44,27 @@ def join_circle(db: Session, circle_id: UUID, user_id: UUID, join_code: str = No
     if not circle:
         return None
         
+    member = db.query(CircleMember).filter(
+        CircleMember.circle_id == circle_id,
+        CircleMember.user_id == user_id
+    ).first()
+
+    # Existing members retain access when a formerly-free circle is monetized.
+    if getattr(circle, "is_paid", False) and not member and circle.owner_id != user_id:
+        from app.crud.circle_subscription import get_user_active_subscription
+        if not get_user_active_subscription(db, circle_id, user_id):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=402, detail={
+                "message": "Paid circle — subscription required",
+                "price_etb": circle.price_etb,
+                "circle_id": str(circle.id),
+            })
+
     if getattr(circle, 'is_private', False):
         if not join_code or getattr(circle, 'join_code', None) != join_code:
             from fastapi import HTTPException
             raise HTTPException(status_code=403, detail="Invalid or missing join code for private circle")
 
-    
-    member = db.query(CircleMember).filter(
-        CircleMember.circle_id == circle_id,
-        CircleMember.user_id == user_id
-    ).first()
     
     if not member:
         member = CircleMember(circle_id=circle_id, user_id=user_id)
@@ -64,13 +75,25 @@ def join_circle(db: Session, circle_id: UUID, user_id: UUID, join_code: str = No
 
 def get_circles(db: Session, user_id: Optional[UUID] = None) -> List[dict]:
     circles = db.query(Circle).all()
+    circle_ids = [c.id for c in circles]
+    counts = dict(
+        db.query(CircleMember.circle_id, func.count(CircleMember.user_id))
+        .filter(CircleMember.circle_id.in_(circle_ids))
+        .group_by(CircleMember.circle_id).all()
+    ) if circle_ids else {}
+    joined = {
+        row[0] for row in db.query(CircleMember.circle_id)
+        .filter(CircleMember.circle_id.in_(circle_ids), CircleMember.user_id == user_id).all()
+    } if user_id and circle_ids else set()
+    verified_owner_ids = {
+        row[0] for row in db.query(User.id).filter(
+            User.id.in_([c.owner_id for c in circles]), User.is_verified_trainer == True
+        ).all()
+    } if circles else set()
     result = []
     for c in circles:
-        member_count = db.query(CircleMember).filter(CircleMember.circle_id == c.id).count()
-        is_joined = False
-        if user_id:
-            m = db.query(CircleMember).filter(CircleMember.circle_id == c.id, CircleMember.user_id == user_id).first()
-            is_joined = m is not None
+        member_count = counts.get(c.id, 0)
+        is_joined = c.id in joined
         result.append({
             "id": c.id,
             "name": c.name,
@@ -83,9 +106,75 @@ def get_circles(db: Session, user_id: Optional[UUID] = None) -> List[dict]:
             # access gate for private circles, so browsers who haven't joined
             # shouldn't see it.
             "join_code": c.join_code if is_joined else None,
+            "is_paid": c.is_paid,
+            "price_etb": c.price_etb,
+            "paid_circle_status": c.paid_circle_status,
+            "owner_is_verified": c.owner_id in verified_owner_ids,
+            "banner_url": c.banner_url,
             "created_at": c.created_at
         })
     return result
+
+def get_circle_detail(db: Session, circle_id: UUID, user_id: UUID) -> Optional[dict]:
+    """Circle detail for the preview + Join CTA flow (Phase 6).
+
+    Access rules:
+    - Private circle, non-member -> None (caller returns 404; don't leak existence).
+    - Paid circle, non-subscriber -> metadata only, no preview_posts.
+    - Public free circle, non-member -> metadata + up to 5 preview_posts.
+    """
+    circle = db.query(Circle).filter(Circle.id == circle_id).first()
+    if not circle:
+        return None
+
+    is_owner = circle.owner_id == user_id
+    member = db.query(CircleMember).filter(
+        CircleMember.circle_id == circle_id, CircleMember.user_id == user_id
+    ).first()
+    is_joined = is_owner or member is not None
+
+    if circle.is_private and not is_joined:
+        return None
+
+    member_count = (
+        db.query(func.count(CircleMember.user_id))
+        .filter(CircleMember.circle_id == circle_id)
+        .scalar() or 0
+    )
+
+    owner = db.query(User).filter(User.id == circle.owner_id).first()
+
+    result = {
+        "id": circle.id,
+        "name": circle.name,
+        "description": circle.description,
+        "member_count": member_count,
+        "is_joined": is_joined,
+        "is_owner": is_owner,
+        "is_private": bool(circle.is_private),
+        "is_paid": bool(circle.is_paid),
+        "price_etb": circle.price_etb,
+        "paid_circle_status": circle.paid_circle_status,
+        "join_code": circle.join_code if is_joined else None,
+        "banner_url": circle.banner_url,
+        "owner": {
+            "id": owner.id,
+            "name": owner.name,
+            "telegram_handle": owner.telegram_handle,
+            "is_verified_trainer": bool(owner.is_verified_trainer),
+        } if owner else None,
+        "owner_is_verified": bool(owner and owner.is_verified_trainer),
+        "preview_posts": None,
+    }
+
+    # Metadata-only for a paid circle the caller hasn't unlocked; a public
+    # free circle gets a read-only preview of recent activity.
+    if not is_joined and not circle.is_paid:
+        from app.crud.post import get_posts
+        result["preview_posts"] = get_posts(db, circle_id=circle_id, limit=5)
+
+    return result
+
 
 def _weekly_points_by_user(db: Session, user_ids: List[UUID]) -> dict:
     """Sum of positive ledger transactions in the trailing 7 days, per user.
@@ -138,15 +227,7 @@ def join_circle_by_code(db: Session, join_code: str, user_id: UUID) -> Optional[
     if not circle:
         return None
 
-    member = db.query(CircleMember).filter(
-        CircleMember.circle_id == circle.id,
-        CircleMember.user_id == user_id,
-    ).first()
-    if not member:
-        member = CircleMember(circle_id=circle.id, user_id=user_id)
-        db.add(member)
-        db.commit()
-    return circle
+    return join_circle(db, circle.id, user_id, join_code=join_code)
 
 
 def get_circle_social_proof(db: Session, user_id: UUID) -> dict:
@@ -208,3 +289,30 @@ def get_weekly_digest_circles(db: Session) -> List[dict]:
             "member_telegram_ids": [u.telegram_id for _, u in members if u.telegram_id],
         })
     return result
+
+
+def set_circle_banner(db: Session, circle_id: UUID, owner_id: UUID,
+                      banner_url: Optional[str], banner_public_id: Optional[str]) -> Circle:
+    """Owner-only cover image. Passing nulls clears it.
+
+    Whatever asset the banner is replacing is destroyed on the way through —
+    a circle only ever has one cover, so the previous one is dead weight in
+    Cloudinary the moment this succeeds.
+    """
+    circle = db.query(Circle).filter(Circle.id == circle_id).first()
+    if not circle:
+        raise LookupError("Circle not found")
+    if circle.owner_id != owner_id:
+        raise PermissionError("Only the circle owner can change the banner")
+
+    previous = circle.banner_public_id
+    circle.banner_url = banner_url
+    circle.banner_public_id = banner_public_id
+    db.commit()
+    db.refresh(circle)
+
+    if previous and previous != banner_public_id:
+        from app.crud.circle_story import _destroy_asset
+        _destroy_asset(previous)
+
+    return circle

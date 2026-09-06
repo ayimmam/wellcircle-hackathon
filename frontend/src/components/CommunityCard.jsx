@@ -1,13 +1,15 @@
 import { useNavigate } from 'react-router-dom';
 import Icon from './Icon';
+import { clickableDivProps } from '../utils/a11y';
 
-export default function CommunityCard({ community, onJoin }) {
+export default function CommunityCard({ community, onJoin, joining = false }) {
   const navigate = useNavigate();
 
   return (
     <div
       className="card community-card"
-      onClick={() => navigate(`/community/${community.id}`)}
+      {...clickableDivProps(() => navigate(`/community/${community.id}`))}
+      aria-label={community.name}
       id={`community-card-${community.id}`}
     >
       <div className="card-body">
@@ -35,8 +37,10 @@ export default function CommunityCard({ community, onJoin }) {
                 e.stopPropagation();
                 onJoin?.(community.id);
               }}
+              disabled={joining}
               id={`join-btn-${community.id}`}
             >
+              {joining && <span className="btn-spinner" aria-hidden="true" />}
               Join
             </button>
           )}

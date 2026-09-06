@@ -3,45 +3,26 @@
 This document tracks implementation status against `PRD.md`, `IMPLEMENTATION_PROMPT.md`, and `PHASE3_IMPLEMENTATION_PLAN.md`.  
 
 
-**Last updated:** July 2026 — after Phase 11 (multi-passion onboarding + real circle creation, `feature/multi-passion-onboarding-circles`). Phase 9 (Kuriftu direct-contact booking fix) is detailed in `kuriftu-gap-analysis.md`; Phase 8 (UX Psychology Growth Loop) in `UX_GROWTH_LOOP_PLAN.md`; Phase 7 (Biniyam's presale/re-entry sprint track) in `BINIYAM_SPRINT_PLAN.md`. **Note:** a separate Phase 10 (booking UX polish + multi-day booking) exists on the not-yet-merged `feature/booking-ux-polish` branch, forked before this one — the two haven't been reconciled yet.
-
+**Last updated:** August 2026 — after Phase 20 (navigation & UX audit). Phase 9
+(Kuriftu direct-contact booking fix) is detailed in `kuriftu-gap-analysis.md`;
+Phase 8 (UX Psychology Growth Loop) in `UX_GROWTH_LOOP_PLAN.md`; Phase 7
+(Biniyam's presale/re-entry sprint track) in `BINIYAM_SPRINT_PLAN.md`; the For
+You feed and pilot focus in `FEATURE_PLAN_FOR_YOU_AND_PILOT_FOCUS.md`.
 
 For Phase 3 detail and LLM continuation notes, see also **`PHASE3_HANDOFF.md`**.
+For the planned non-Telegram web app, see **`WEB_APP_PLAN.md`**.
 
 ---
 
+## Branch status
 
-`main` does **not** yet include the two most recent features. Both are complete,
-tested, and pushed to `origin`, but not merged — **check these branches before
-assuming `main` is the full story**, and before starting new work that might
-overlap with either.
-
-### `feature/booking-ux-polish` (commits `726aae5` on top of `1fe390d`)
-Booking UX polish + **multi-day booking**: date-chip selection is now
-multi-select (one real `Booking` row per day, one combined payment via a new
-`booking_group_id` correlation key); a fixed CSS overflow bug on date chips;
-a swapped onboarding emoji; Kuriftu's confirmed phone number wired into the
-direct-contact screen's Call button (now primary, ahead of Email); and a new
-`backend/.vercelignore` (the Vercel Python builder was bundling every test/
-loadtest/maintenance script into the production Lambda). Full detail: that
-branch's own `HANDOFF.md` **Phase 10** entry (not visible from `main` until
-merged).
-
-### `feature/multi-passion-onboarding-circles` (commit `8415faa` on top of `1fe390d`)
-**Multi-select passions** at onboarding (`User.interest_category` → `interest_categories`,
-a full-replacement refactor across ~15 backend/frontend consumers — community
-suggestions, product personalization, admin analytics all now OR-match across
-every selected interest) + a rebuilt circles onboarding step: a one-sentence
-explainer, an "Available Circles" list to join an existing real `Circle`
-directly, and a "create your own circle" form — either path shows an inline
-Telegram invite-friends action. Full detail: that branch's own `HANDOFF.md`
-**Phase 11** entry (not visible from `main` until merged).
-
-**Both branches fork independently from the same `main` commit (`1fe390d`) and
-have not been reconciled with each other** — they touch almost entirely
-different files, so a normal merge/rebase of both into `main` (in either
-order) should be low-conflict, but this hasn't been verified. Do that check
-before merging.
+The two branches this document previously flagged as unmerged —
+`feature/booking-ux-polish` (Phase 10, multi-day booking) and
+`feature/multi-passion-onboarding-circles` (Phase 11, multi-select passions +
+real circle creation) — **are both in `main` now**. `Booking.booking_group_id`
+and `User.interest_categories` are present in the models, and
+`backend/app/tests/test_multi_day_booking.py` runs against `main`. The
+reconciliation warning that used to live here no longer applies.
 
 ---
 
@@ -1090,5 +1071,326 @@ HANDOFF.md
 
 ---
 
+### Phase 15 — Paid Circles, Verified Trainers & Strava Integration (This Session)
+
+Executed `docs/new_implementation_plan.md` end to end: file uploads (Cloudinary), a follower system with privacy-aware public profiles, a verified-trainer badge flow, paid circle subscriptions with revenue sharing, and real Strava OAuth integration. Landed directly on `main` (no separate feature branch this time). This entry documents what the code actually does today, including several deliberate/organizational deviations from the plan and a couple of real gaps — not just a restatement of the plan.
+
+#### What shipped
+
+**Uploads.** `POST /api/uploads` (`app/api/uploads.py` + `app/services/cloudinary_service.py`) — multipart upload to Cloudinary, two folders only (`certificates` ≤10MB pdf/jpg/png, `receipts` ≤5MB jpg/png), 422 on bad folder/type/size, 503 if `CLOUDINARY_*` env vars aren't set. Any authenticated user can upload to either folder — there's no check that the uploader is actually mid-trainer-application or mid-circle-subscription, and uploaded files are never cleaned up on rejection (a `delete_file()` helper exists but nothing calls it).
+
+**Followers & public profiles.** New `followers` table + `app/api/followers.py` (mounted on the `users` router): follow/unfollow (both idempotent), paginated follower/following lists (counts batched — no N+1), and `GET /api/users/:id/profile`. Privacy (`profile_privacy`: public/followers/private, default public) gates only `strava_stats` and owned `circles` on that response — identity fields (name, bio, badge, counts) are always visible to any authenticated viewer, even on a "private" profile. `ProfileScreen.jsx` grew a bio editor (300 char max), follower/following stat row, and a 3-way privacy selector; `PublicProfile.jsx` and `FollowersList.jsx` are new pages at `/users/:id` and `/users/:id/followers|following`.
+
+**Verified trainer badge.** `trainer_verifications` table + `app/api/trainer.py`: apply with a certificate + a 200 ETB/year payment-receipt screenshot (both just Cloudinary URLs — no payment gateway, no backend fee enforcement beyond "a receipt exists"), super-admin approve/reject. Approval sets `is_verified_trainer=true` and a 1-year expiry; a new daily scheduler job unsets the badge past expiry (but leaves the verification row's `status` as `"approved"` — `status` alone isn't a reliable "currently verified" signal, use `user.is_verified_trainer`). New pages `TrainerVerification.jsx` (`/trainer/verify`, 4-step flow) and `AdminTrainerVerifications.jsx` (`/admin/trainers`). **Deviation:** the plan put the admin review endpoints on the main `admin.py` router; they actually live on the `trainer` router instead, so they're `/api/admin/trainer-verifications*` served from `app/api/trainer.py`, not `app/api/admin.py`.
+
+**Paid circles.** `circle_subscriptions` + `circle_revenue_ledger` tables + new endpoints on the existing `circles`/`admin` routers (`app/crud/circle_subscription.py` has all the business logic). Eligibility to apply: ≥100 members **and** owner ≥1000 lifetime points (sum of positive, non-reversed point-transactions — not current decaying balance). Revenue split is `floor(5%)` platform / remainder creator (so a creator can net slightly over 95% on amounts that don't divide evenly by 20). Subscriptions run 30 days from approval; receipts pending >72h get escalated to admin. **Access is membership-based, not subscription-status-based** — once approved, a subscriber gets a permanent `CircleMember` row and keeps access even after their subscription formally expires unless the expiry job specifically revokes a membership created inside that subscription's window; this is what makes "grandfathered" free members (who joined before a circle went paid) keep access forever, by the same mechanism. Non-member join attempts on a paid circle get a `402` whose `detail` is a JSON object (`{message, price_etb, circle_id}`), not the usual plain string. `has_circle_access` also gates circle-post create/list/react (`app/api/posts.py`), so paid-circle activity feeds are actually protected, not just the join endpoint. Frontend: monetization, subscribe, and revenue-dashboard UI were merged into the existing `CircleDetailScreen.jsx` (no separate pages), plus a new `AdminPaidCircles.jsx` (`/admin/paid-circles`).
+
+**Strava integration.** `app/services/strava_service.py` + `app/api/strava.py` (`/api/strava/*`): OAuth2 connect/callback/disconnect, `PATCH /strava/visibility` to choose which of 6 stat keys (`distance`/`calories`/`moving_time`/`elevation`/`activity_count`/`recent_activities`) show publicly, and `GET /strava/stats`. Tokens are Fernet-encrypted at rest (key derived from `JWT_SECRET`, so rotating `JWT_SECRET` would strand existing connections — not handled). Activity data is cached (`strava_activity_cache` table) with a **15-minute TTL** as planned, refreshed from Strava's recent-activities endpoint (not the all-time `/athletes/{id}/stats` totals endpoint the plan sketched — "stats" here are an aggregation over the cached recent-activity window instead). `ProfileScreen.jsx` got the connect/disconnect/visibility UI; `PublicProfile.jsx` renders the same stats plus the Strava-required "Powered by Strava" attribution via a new `StravaStats.jsx` component.
+
+**Serverless maintenance job.** The plan called for 3 separate scheduler jobs (expired trainer verifications, expired subscriptions, stale-receipt escalation). They're implemented as one combined `phase15_maintenance_job()` in `scheduler.py`, registered as a single daily APScheduler cron **and** exposed as `POST /api/cron/maintenance` (new `app/api/maintenance.py`, new `CRON_SECRET` env var) — needed because, per this repo's existing convention, APScheduler doesn't run on Vercel's serverless functions, so production needs an external cron (e.g. Vercel Cron or a scheduled GitHub Action) hitting this endpoint daily instead of relying on the in-process scheduler.
+
+#### Known deviations from `docs/new_implementation_plan.md`
+
+- **No verified-trainer search-ranking boost.** The plan's Phase 3 called for `crud/provider.py`'s `get_all_providers()` to boost verified trainers in discovery surfaces. This was not built — `crud/provider.py` has no verified-trainer-aware logic at all. Verified trainers only get a visible badge (profile, followers list, circle ownership `owner_is_verified` flag); they get no ranking/priority boost anywhere.
+- **Profile field wiring lives in `app/api/users.py`, not `app/crud/user.py`.** The plan specified `_build_response()` in `crud/user.py` would grow the new fields; in the actual code, `api/users.py` owns that response-building function and `crud/user.py` was left untouched for this phase. Functionally equivalent, just a different file than documented.
+- **Test suite consolidation.** The plan specified 6 separate test files (`test_cloudinary_upload.py`, `test_followers.py`, `test_trainer_verification.py`, `test_paid_circles.py`, `test_strava_integration.py`, `test_cross_feature.py`) totaling ~79 tests. What actually exists is one focused script, `app/tests/test_phase15_backend.py`, that runs a single happy-path scenario across all five features (follow/unfollow + self-follow rejection, trainer apply→approve, paid-circle eligibility→subscribe→approve→95/5 ledger split→grandfathered access, Strava token encrypt/decrypt, activity caching). It's a real, passing regression check, but it is **not** equivalent coverage to the ~79 planned tests — there is, notably, **no automated test at all for the upload endpoint** (no mocked-Cloudinary test exists anywhere in the repo), and no dedicated edge-case coverage (duplicate applications, pagination, admin-list filtering, expiry/escalation scheduler jobs, Strava rate-limit handling, privacy-permutation matrix). Frontend coverage is broader relative to plan: `FollowersList.test.jsx`, `PublicProfile.test.jsx`, `TrainerVerification.test.jsx`, `CircleDetailScreen.paid.test.jsx`, `ProfileScreen.healthApp.test.jsx` (covers the Strava UI despite the name), `AdminLaunchFeatures.test.jsx` (covers both new admin tabs in one file), and `phase15.client.test.js` (client-layer upload/402/Strava-stats tests) — 6 files, not 8, and no separate admin test files, but real assertions rather than a single script.
+- **Admin paid-circle review doesn't require a rejection reason**, unlike trainer-verification rejection which does (schema-level: `reason` is optional on `PaidCircleAdminReviewRequest`, required on `AdminTrainerReviewRequest`). Not necessarily wrong, just inconsistent between the two review flows.
+
+#### Verification
+- Backend: `python -m app.tests.test_phase15_backend` — passes (see script for exact assertions covered, described above). Full regression re-run clean with no failures: `test_integration`, `test_points_economy` (65/65), `test_presale_reentry`, `test_engagement_loop`, `test_circle_activity` (20/20), `test_ranks` (10/10), `test_feedback` (15/15), `test_user_prefs` (7/7), `test_multi_day_booking`, `test_multi_passion_circles`, `test_provider_contact`, `test_bot_security`, and `pytest app/tests/test_sheets.py`. `app.main` imports cleanly — **135 routes** (up from 105 in Phase 14).
+- Frontend: `npm run build` ✅ (clean, no warnings). `npm test` → **176/176 passing** across 37 files, including the new `routes.smoke.test.jsx` entries for `/trainer/verify`, `/users/:id`, `/users/:id/followers`, `/users/:id/following`, `/admin/trainers`, `/admin/paid-circles`.
+- `docs/API_CONTRACT.md` updated: new `## 9e`–`## 9i` sections (File Uploads, Followers & Public Profiles, Trainer Verification, Paid Circles, Strava Integration), `GET`/`PATCH /users/me` examples updated with the new profile fields, Quick Reference table extended, and a pre-existing duplicate-`## 10`-heading bug (two sections both numbered 10) fixed while in the area (`Frontend Flow Summary` → `## 11`, `CORS & Headers` → `## 12`).
+- Not verified live in this sandbox: no headless-browser pass and no real Cloudinary/Strava credentials were available here, so the actual OAuth round-trip and file upload were verified by code review + the unit test's mocked/direct-function-call coverage only, not an end-to-end request against the real Cloudinary/Strava APIs.
+
+#### Post-deploy fixes (same session, after the initial push)
+- **Real bug found in production (#1):** the first production deploy 500'd on every request (Vercel logs: `ModuleNotFoundError: No module named 'cloudinary'` on `import cloudinary` inside `app/services/cloudinary_service.py`, raised while importing `app.main`, which crashed the whole Lambda — every route, not just uploads). Root cause: this repo has **two** requirements files for the backend — `backend/requirements.txt` (used by Render) and `backend/api/requirements.txt` (a separate copy Vercel's `@vercel/python` builder actually reads, since it resolves dependencies relative to the `api/index.py` entrypoint). `cloudinary` and `cryptography` had been added to the former when Phase 15 was built, but nobody updated the latter, so Vercel installed a dependency set one release behind. **Fix:** added the two missing packages to `backend/api/requirements.txt`; verified by installing that exact file into a clean venv and confirming `app.main` imports (135 routes). **This is a standing footgun** — any future new dependency must be added to both files, or this exact class of Vercel-only outage will recur; there's no automated check preventing the two files from drifting.
+- **Real bug found in production (#2):** immediately after fix #1 landed, `POST /api/auth/telegram` (and by extension every other endpoint touching `users`) started 500ing with `psycopg2.errors.UndefinedColumn: column users.bio does not exist`. Confirmed the exact scenario flagged as a known gap below: the Phase 15 migration was never applied to the live Supabase database — the ORM's full `users` column list (including `bio`, `profile_privacy`, `is_verified_trainer`, `strava_*`) doesn't match the live schema. **Fix:** ran the idempotent SQL from `apply_phase15_migration.py` directly against production. Also observed (not fixed, since it's outside this incident's scope): the Vercel deployment logs `"Well Circle API starting (env=development, serverless=True)"`, meaning production has `ENVIRONMENT=development` set rather than `production` — worth correcting in the Vercel project settings, since `development` mode triggers `Base.metadata.create_all` on every cold start (harmless for schema drift on already-existing tables like `users`, since `create_all` never runs `ALTER TABLE`, but not the intended production posture either).
+
+#### Known Gaps / Next Steps
+- ~~Production Supabase migration status is unconfirmed for this phase~~ — **confirmed and fixed** (see post-deploy fix #2 above): it had not been applied; it now has.
+- `CLOUDINARY_CLOUD_NAME`/`API_KEY`/`API_SECRET` and `STRAVA_CLIENT_ID`/`CLIENT_SECRET`/`REDIRECT_URI` must be set in the Vercel (and Render, if used) project's environment for uploads/trainer-verification/paid-circle receipts/Strava to work at all — without them, uploads 503 and Strava connect 503s. See `.env.example`, which already documents all of these.
+- Vercel's `ENVIRONMENT` var is set to `development`, not `production` — should be corrected in the Vercel project settings to match this repo's intended serverless posture (see post-deploy fix #2).
+- No external cron is confirmed wired up to `POST /api/cron/maintenance` in production — without one, expired trainer badges, expired subscriptions, and stale-receipt escalation never run on Vercel (the in-process APScheduler job is Vercel-skipped by design, matching this repo's existing serverless convention).
+- Verified-trainer search-ranking boost (plan Phase 3) is unbuilt, as noted above — a reasonable fast-follow if trainer discoverability becomes a priority.
+- No automated test exists for the upload endpoint itself; worth adding a mocked-Cloudinary test before depending on it further.
+- No live/manual walkthrough of the real Strava OAuth round-trip or an actual file upload was possible in this sandbox (no credentials, no browser) — do a manual pass through connect → grant → visibility toggle → disconnect, and a real certificate/receipt upload, before treating this phase as launch-verified.
+
+#### Files Changed / Added (Phase 15)
+```
+backend/app/services/cloudinary_service.py   (new)
+backend/app/services/strava_service.py   (new)
+backend/app/api/uploads.py   (new)
+backend/app/api/followers.py   (new)
+backend/app/api/trainer.py   (new)
+backend/app/api/strava.py   (new)
+backend/app/api/maintenance.py   (new — not in original plan; serverless cron entry point)
+backend/app/models/follower.py   (new)
+backend/app/models/trainer_verification.py   (new)
+backend/app/models/circle_subscription.py   (new)
+backend/app/models/strava_activity_cache.py   (new)
+backend/app/schemas/trainer_verification.py   (new)
+backend/app/schemas/circle_subscription.py   (new)
+backend/app/crud/follower.py   (new)
+backend/app/crud/trainer_verification.py   (new)
+backend/app/crud/circle_subscription.py   (new)
+backend/app/crud/strava.py   (new)
+backend/alembic/versions/012_phase15_foundation.py   (new)
+backend/apply_phase15_migration.py   (new)
+backend/app/tests/test_phase15_backend.py   (new — consolidated, see deviations above)
+backend/requirements.txt
+backend/api/requirements.txt   (fixed post-deploy — see above)
+backend/.env.example
+backend/app/config.py
+backend/app/main.py
+backend/app/models/user.py
+backend/app/models/circle.py
+backend/app/models/__init__.py
+backend/app/schemas/user.py
+backend/app/crud/circle.py
+backend/app/api/users.py
+backend/app/api/circles.py
+backend/app/api/admin.py
+backend/app/api/posts.py
+backend/app/services/scheduler.py
+frontend/src/pages/FollowersList.jsx   (new)
+frontend/src/pages/PublicProfile.jsx   (new)
+frontend/src/pages/TrainerVerification.jsx   (new)
+frontend/src/pages/admin/AdminTrainerVerifications.jsx   (new)
+frontend/src/pages/admin/AdminPaidCircles.jsx   (new)
+frontend/src/components/StravaStats.jsx   (new)
+frontend/src/components/VerifiedBadge.jsx   (new)
+frontend/src/pages/ProfileScreen.jsx
+frontend/src/pages/CircleDetailScreen.jsx
+frontend/src/pages/admin/AdminLayout.jsx
+frontend/src/App.jsx
+frontend/src/api/client.js
+frontend/src/data/mock.js
+frontend/src/test/FollowersList.test.jsx   (new)
+frontend/src/test/PublicProfile.test.jsx   (new)
+frontend/src/test/TrainerVerification.test.jsx   (new)
+frontend/src/test/CircleDetailScreen.paid.test.jsx   (new)
+frontend/src/test/ProfileScreen.healthApp.test.jsx   (new)
+frontend/src/test/AdminLaunchFeatures.test.jsx   (new)
+frontend/src/test/phase15.client.test.js   (new)
+frontend/src/test/routes.smoke.test.jsx
+docs/API_CONTRACT.md
+HANDOFF.md
+```
+
+---
+
+### Phase 16 — Production Schema Auto-Migration & Navigation/Verification Hardening (This Session)
+
+Focus: resolved production database schema column mismatch (`activity_type` in `posts` table) and fixed Telegram Mini App navigation and trainer verification state rendering issues.
+
+#### Backend Schema Auto-Migration (`ensure_db_schema`)
+- **Dynamic Schema Synchronization (`backend/app/database_schema.py`):** Added automated PostgreSQL schema migration utility that issues safe `ALTER TABLE <table_name> ADD COLUMN IF NOT EXISTS ...` SQL statements on server boot.
+- **Coverage:** Ensures `posts` columns (`activity_type`, `distance_km`, `duration_min`, `photo_url`, `circle_id`, `is_system_event`), `users` columns (`bio`, `profile_privacy`, `is_verified_trainer`, `verified_trainer_expires_at`, `strava_*`), and `trainer_verifications` columns (`certificate_public_id`, `payment_receipt_public_id`) are automatically present in PostgreSQL database without requiring manual SQL script execution on Supabase/Neon.
+- **Vercel Lifespan Hook (`backend/app/main.py`):** Updated FastAPI `lifespan` manager so `ensure_db_schema(engine)` runs across all environments (including production on Vercel), eliminating `psycopg2.errors.UndefinedColumn` errors on `POST` and `GET` requests.
+
+#### Frontend Navigation & Trainer Verification UX
+- **API Client Parsing (`frontend/src/api/client.js`):** Fixed `getTrainerVerificationStatus()` return value logic (`result?.application ?? null`). Previously, `result.application ?? result` returned `{ application: null }` when application was null, which JavaScript evaluated as truthy, causing users without applications to see an erroneous status card ("Application needs attention").
+- **Unified Back Navigation (`frontend/src/pages/TrainerVerification.jsx`):** Synchronized native Telegram back-gesture (`useTelegramBackButton`) and top-bar chevron button (`onClick={handleBack}`) to handle multi-step form navigation (`step > 0`) step-by-step before navigating back.
+- **Explicit Status Cards:** Updated status badge rendering to clearly distinguish between Approved (*"You are a verified trainer"*), Pending (*"Application under review"*), and Rejected (*"Application rejected"*) statuses.
+- **Onboarding Mini Circle Descriptions (`frontend/src/pages/OnboardingFlow.jsx`):** Added mini circle descriptions to both "Recommended for you" and "Available Circles" suggestion cards during onboarding.
+
+#### Verification
+- Backend: `PYTHONPATH=. pytest` → **14/14 test suites passing**.
+- Frontend: `npx vitest run` → **176/176 tests passing**, `npm run build` → **Clean build, 0 errors**.
+
+#### Files Changed / Added (Phase 16)
+```
+backend/app/database_schema.py   (new)
+backend/app/main.py
+frontend/src/api/client.js
+frontend/src/pages/TrainerVerification.jsx
+frontend/src/pages/OnboardingFlow.jsx
+docs/HANDOFF.md
+```
+
+---
+
+### Phase 17 — For You Feed, Boston Day Spa Pilot & Instant Open
+
+Focus: replaced the Home dashboard with a single ranked feed, made the pilot
+provider impossible to miss, and cut perceived load time to near zero.
+
+#### For You feed
+- **`GET /api/feed/for-you?limit&before`** (`backend/app/services/feed_service.py`)
+  — one feed of mixed item types: `post`, `event`, `service`, `provider`.
+  Ranking is a **fixed deterministic interleave**, not a scoring model (see
+  `API_CONTRACT.md` §2b): posts newest-first with one non-post item spliced in
+  after every 3rd, cycling categories and skipping empty ones. Leftovers drain
+  at the end so a user with zero posts still sees a populated feed.
+- **Card components** `frontend/src/components/feed/` — `FeedPostCard`,
+  `FeedServiceCard`, `FeedEventBanner`, `FeedProviderCard`.
+- `post.source` carries the owning circle/community, which is what makes
+  "tap a post → land in its circle" work. Private/paid-circle posts and
+  system-generated join/check-in posts never enter the public feed.
+
+#### Boston Day Spa pilot
+- **Direct-contact booking** — services with `booking_method: 'phone'` skip
+  the date/payment steps entirely and show Call (primary) and Email actions.
+- **Coming-soon providers stay visible** — they render with a "Coming soon"
+  badge and no booking CTA (`is_coming_soon`) instead of being filtered out,
+  so the pilot has company in the feed pre-launch.
+- **`Provider.map_url`** — an explicit Google Maps link, used by
+  ProviderDetail's navigation tips where lat/lng is absent.
+
+#### Instant open
+- **`GET /api/home/bootstrap`** — Home used to open with six parallel calls,
+  each able to land on its own cold serverless function. One aggregate
+  request now answers all of them from a single warm invocation, and
+  `warmFromBootstrap()` seeds the per-endpoint cache keys so Explore and the
+  circles tab open with no request at all. The individual endpoints still
+  exist; the client falls back to them on 404, so a frontend deploy landing
+  ahead of the backend degrades rather than breaks.
+- **`useResource`** (`frontend/src/hooks/useResource.js`) — stale-while-
+  revalidate rendering: screens paint from the last known value on first
+  render, so `loading` is only ever true on a genuine cold miss.
+- **`prefetchTabs()`** (`App.jsx`) — warms the bottom-nav route chunks and the
+  live provider's detail payload on idle, so a tab tap is a render rather than
+  a download over a Telegram in-app connection.
+- **`usePolling`** — pauses while the tab is hidden and refreshes on return,
+  so background tabs stop waking cold functions.
+
+---
+
+### Phase 18 — Provider Web Portal (`provider.wellcircle.et`)
+
+Focus: gave providers a real desktop back office, reachable outside Telegram.
+
+- **Separate auth path** — the portal authenticates with the **Telegram Login
+  Widget** (`backend/app/services/telegram_login_widget.py`), not Mini App
+  `initData`. Same HMAC-over-bot-token idea, different payload shape.
+- **Landscape shell** — `ProviderPortalShell` with a sidebar nav and one page
+  per section: Overview, Bookings, Events, Products, Customers, Promotions,
+  Subscriptions. Independent of the Mini App's mobile-tabbed
+  `ProviderDashboard`, which still exists.
+- **Domain-aware routing** (`frontend/src/utils/providerPortal.js`) — on
+  `provider.wellcircle.et` the portal claims the root paths (`/`, `/login`,
+  `/overview`); everywhere else it lives under `/provider-portal`. The Mini
+  App chrome (Header, BottomNav, BurgerMenu) hides itself on that domain.
+- `ProviderPortalGuard` + `ProviderPortalAuthContext` hold the portal session
+  separately from the Mini App's `AuthContext`.
+
+---
+
+### Phase 19 — Retention Loop: Streaks, Ranks, Sharing & Milestones
+
+Focus: gave people a reason to come back tomorrow rather than only today.
+
+- **Streak freezes** (`backend/app/crud/community.py`) — a 7-day streak earns
+  a freeze (`User.freeze_count`); missing a single day spends one instead of
+  resetting the streak. `User.longest_streak` tracks the personal best so a
+  reset isn't a total loss. Migration: `alembic/versions/016_longest_streak.py`
+  (plus the idempotent `backend/apply_retention_migration.py`).
+- **Weekly ranks** — `GET /api/ranks` (`app/api/ranks.py`, `app/crud/ranks.py`)
+  behind the circles list.
+- **Check-in card** (`CheckinCard` + `useCheckin`) — the Home habit loop:
+  per-circle state, at-risk styling when nothing has been checked in today.
+- **Share card** (`ShareCard`) — one shareable "Day N on Well Circle" moment
+  per user, shown once on first Home load for new and existing accounts alike.
+- **Milestone badges** (`frontend/src/utils/milestones.js`) — derived from
+  fields that already exist (join date, tier, longest streak) rather than a
+  separate achievements table.
+- **`PointsInfoSheet`** — explains where points come from, opened from the
+  points badge.
+
+---
+
+### Phase 20 — Navigation & UX Audit (This Session)
+
+Focus: removed duplicated navigation, gave the orphaned screens a home, and
+reordered the feed so the pilot leads it.
+
+#### Navigation
+- **Burger menu trimmed to four items** (`BurgerMenu.jsx`): Points Store,
+  Bookings, Events, About — each with a one-line description. Home, Explore,
+  Communities, Profile and Notifications were removed because they are
+  already permanent on the bottom nav and header; repeating them made the
+  menu longer to scan without making anything reachable. The menu no longer
+  reads `useAuth` at all.
+- **New `/about`** (`AboutScreen.jsx`) — what the app is, the four-step loop
+  (join a circle → check in → earn points → book), get-started links, and the
+  **provider pitch** ("List your business") that used to sit in the burger.
+  Role-gated **Provider Dashboard** and **Admin** rows live here too.
+- **New `/events`** (`EventsScreen.jsx`) — events previously existed only as a
+  carousel inside Explore: no URL of their own, no way to see past the first
+  few. Now an Upcoming tab (grouped *This week* / *Later*, 90-day window) and
+  a **Past** tab of recaps. Supports `?tab=past` and `?provider=<id>`.
+
+#### Feed
+- **Lead-in ordering** (`feed_service.py` `_interleave`, mirrored in
+  `frontend/src/data/mock.js`): the feed now opens with the spotlight provider,
+  one of its services, its next event, and its last event's recap — each
+  separated by a member post, so the top reads as a community rather than a
+  storefront. The mock previously pinned `MOCK_PROVIDERS[0]` (Lifestyle
+  Fitness Center) while claiming to pin Boston Day Spa; provider items are now
+  sorted featured-first, matching the backend.
+- **New `past_event` item type** + `FeedPastEventCard` — a recap with
+  attendance as social proof and no booking CTA, linking instead to that
+  provider's upcoming sessions.
+- **`GET /api/events?past=true`** (`app/api/events.py` `query_past_events`) —
+  already-started, non-cancelled events, newest first, carrying `is_past` and
+  `attendee_count` (`capacity - spots_remaining`) instead of booking urgency.
+
+#### Profile
+- Header restyled as a card; the bio moved **behind an explicit Edit action**
+  (a permanently open textarea made the top of the screen read as a form).
+- **Appearance moved directly below Milestones** — it is the one setting
+  people change for fun, and it was buried under five preference panels.
+- **Pink accent added** (`ThemeContext` `ACCENTS` + light/dark
+  `[data-accent="pink"]` blocks in `index.css`).
+- A `Settings` divider separates profile content from configuration.
+- Removed the duplicated "My Bookings", "Redeem Points" and "Provider
+  Dashboard" entries — all three now have a permanent home elsewhere.
+
+#### Test infrastructure
+- **Fixed the whole suite** (`src/test/setup.js`): Node 22+ defines
+  `localStorage`/`sessionStorage` globals that are `undefined` unless the
+  process is started with `--localstorage-file`. Those shadowed the ones
+  happy-dom installs, so every component reading a saved token, theme, or
+  seen-flag threw on mount. On Node 26 that was **155 of 207 tests failing**
+  before any of this session's changes. Setup now installs an in-memory
+  implementation when the environment didn't provide one.
+
+#### Verification
+- Frontend: `npm test` → **232/232 passing** (46 files), `npm run build` clean.
+- Backend: the new `_interleave` was verified in isolation against the mock's
+  output plus empty-pool edge cases. **`python -m app.tests.test_integration`
+  was not run — `psycopg2-binary` fails to build in this environment's venv.**
+  Run it before merging.
+
+#### Files Changed / Added (Phase 20)
+```
+backend/app/api/events.py
+backend/app/schemas/event.py
+backend/app/services/feed_service.py
+docs/API_CONTRACT.md
+docs/HANDOFF.md
+docs/UX_AUDIT_2026_08.md              (new)
+docs/WEB_APP_PLAN.md                  (new)
+frontend/src/App.jsx
+frontend/src/api/client.js
+frontend/src/components/BurgerMenu.jsx
+frontend/src/components/Icon.jsx
+frontend/src/components/feed/FeedPastEventCard.jsx   (new)
+frontend/src/context/ThemeContext.jsx
+frontend/src/data/mock.js
+frontend/src/index.css
+frontend/src/pages/AboutScreen.jsx    (new)
+frontend/src/pages/EventsScreen.jsx   (new)
+frontend/src/pages/ForYouScreen.jsx
+frontend/src/pages/ProfileScreen.jsx
+frontend/src/test/setup.js
+frontend/src/test/{AboutScreen,EventsScreen,accents}.test.jsx  (new)
+frontend/src/test/feedLeadIn.test.js  (new)
+frontend/src/test/{BurgerMenu,ForYouScreen,ProfileScreen.healthApp,routes.smoke}.test.jsx
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
+
 

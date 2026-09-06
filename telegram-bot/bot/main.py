@@ -14,6 +14,9 @@ from bot.handlers.evidence import evidence_conversation
 from bot.services.reengagement import schedule_reengagement
 from bot.services.weekly_digest import send_weekly_digest
 from bot.services.streak_nudge import send_streak_nudges
+from bot.services.keep_warm import (
+    ping_backend, KEEP_WARM_ENABLED, KEEP_WARM_INTERVAL_SECONDS,
+)
 from bot.config import BOT_TOKEN
 
 logging.basicConfig(
@@ -83,6 +86,18 @@ def main():
             name="streak_nudge",
         )
         logger.info("🔥 Streak nudge job scheduled (daily 16:00 UTC)")
+
+        if KEEP_WARM_ENABLED:
+            job_queue.run_repeating(
+                ping_backend,
+                interval=KEEP_WARM_INTERVAL_SECONDS,
+                first=30,
+                name="keep_warm",
+            )
+            logger.info(
+                "♨️  Backend keep-warm ping scheduled (every %ss)",
+                KEEP_WARM_INTERVAL_SECONDS,
+            )
 
     # Start polling
     logger.info("🤖 Bot polling started...")

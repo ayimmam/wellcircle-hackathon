@@ -32,27 +32,45 @@ def list_challenges(
     results = []
     for c in challenges:
         # compute user progress
-        checkins = db.query(CommunityFeedEvent).filter(
-            CommunityFeedEvent.user_id == current_user.id,
-            CommunityFeedEvent.community_id == community_id,
-            CommunityFeedEvent.event_type == "checkin",
-            CommunityFeedEvent.created_at >= c.starts_at,
-            CommunityFeedEvent.created_at <= c.ends_at
-        ).count()
+        checkins = 0
+        strava_distance = None
+        completed = False
+        
+        if c.challenge_type == "checkin":
+            checkins = db.query(CommunityFeedEvent).filter(
+                CommunityFeedEvent.user_id == current_user.id,
+                CommunityFeedEvent.community_id == community_id,
+                CommunityFeedEvent.event_type == "checkin",
+                CommunityFeedEvent.created_at >= c.starts_at,
+                CommunityFeedEvent.created_at <= c.ends_at
+            ).count()
+            completed = checkins >= c.target_checkins
+        elif c.challenge_type == "strava_distance":
+            from app.models.strava_activity_cache import StravaActivityCache
+            distance_meters = db.query(func.coalesce(func.sum(StravaActivityCache.distance_meters), 0)).filter(
+                StravaActivityCache.user_id == current_user.id,
+                StravaActivityCache.start_date >= c.starts_at,
+                StravaActivityCache.start_date <= c.ends_at
+            ).scalar()
+            strava_distance = distance_meters / 1000.0
+            completed = strava_distance >= c.target_value if c.target_value else False
         
         c_dict = {
             "id": str(c.id),
             "community_id": str(c.community_id),
             "title": c.title,
             "description": c.description,
+            "challenge_type": c.challenge_type,
             "target_checkins": c.target_checkins,
+            "target_value": c.target_value,
             "reward_points": c.reward_points,
             "starts_at": c.starts_at,
             "ends_at": c.ends_at,
             "is_active": c.is_active,
             "user_progress": {
                 "checkins_this_period": checkins,
-                "completed": checkins >= c.target_checkins
+                "strava_distance": strava_distance,
+                "completed": completed
             }
         }
         results.append(c_dict)
@@ -80,7 +98,9 @@ def create_challenge(
         community_id=community.id,
         title=challenge_in.title,
         description=challenge_in.description,
+        challenge_type=challenge_in.challenge_type,
         target_checkins=challenge_in.target_checkins,
+        target_value=challenge_in.target_value,
         reward_points=challenge_in.reward_points,
         starts_at=challenge_in.starts_at,
         ends_at=challenge_in.ends_at
@@ -94,7 +114,9 @@ def create_challenge(
         "community_id": str(new_challenge.community_id),
         "title": new_challenge.title,
         "description": new_challenge.description,
+        "challenge_type": new_challenge.challenge_type,
         "target_checkins": new_challenge.target_checkins,
+        "target_value": new_challenge.target_value,
         "reward_points": new_challenge.reward_points,
         "starts_at": new_challenge.starts_at,
         "ends_at": new_challenge.ends_at,

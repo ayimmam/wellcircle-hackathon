@@ -73,3 +73,14 @@ class AdminBookingListResponse(BaseModel):
 class AdminProviderCreateResponse(BaseModel):
     provider: dict
     community: Optional[dict] = None
+
+
+class AdminPointsAwardRequest(BaseModel):
+    user_ids: List[str]
+    amount: int
+    note: str
+
+
+class AdminPointsAwardResponse(BaseModel):
+    awarded_count: int
+    total_points: int

@@ -170,12 +170,12 @@ def test_all():
         print("   ✅ get_community_detail (joined, not checked in)")
 
         checkin = checkin_community(db, community.id, user)
-        assert checkin["points_earned"] == 10
-        # onboarding awarded POINTS_WELCOME (20), so first check-in lands at 30
-        assert checkin["new_balance"] == 30
+        assert checkin["points_earned"] == 0
+        # Check-in no longer earns points; balance stays at POINTS_WELCOME (20)
+        assert checkin["new_balance"] == 20
         assert checkin["tier"] == "seed"
         assert checkin["feed_event"]["event_type"] == "checkin"
-        print("   ✅ checkin_community (+10 pts on top of welcome award, seed tier)")
+        print("   ✅ checkin_community (streak-only, 0 pts, seed tier)")
 
         dup = checkin_community(db, community.id, user)
         assert dup == "already_checked_in"
@@ -314,6 +314,185 @@ def test_all():
         items, total = browse_products(db)
         assert total >= 1
         print("   ✅ browse_products")
+
+        # === 9. PROVIDER WEBSITE — bookings, analytics, demographics, widget auth, redeem mgmt ===
+        print("\n9. Provider Website")
+        from datetime import timedelta
+        import hmac, hashlib, time
+        from app.crud.provider import (
+            get_provider_bookings, get_provider_service_breakdown,
+            get_provider_customer_demographics, get_provider_metrics_timeseries,
+        )
+        from app.crud.product import provider_update_redemption_status, get_provider_redemptions
+        from app.services.telegram_login_widget import validate_login_widget_data
+        from app.config import settings
+
+        bk_items, bk_total = get_provider_bookings(db, provider.id)
+        assert bk_total == 1
+        assert bk_items[0]["service_name"] == "Morning Vinyasa Flow"
+        assert bk_items[0]["customer_demographics"]["location_neighborhood"] == "Bole"
+        assert bk_items[0]["customer_demographics"]["interest_categories"] == ["yoga"]
+        print("   ✅ get_provider_bookings (with customer demographics)")
+
+        services = get_provider_service_breakdown(db, provider.id)
+        assert services[0]["service_name"] == "Morning Vinyasa Flow"
+        assert services[0]["bookings_count"] == 1
+        assert services[0]["revenue_etb"] == 800
+        print("   ✅ get_provider_service_breakdown (most booked service)")
+
+        demo = get_provider_customer_demographics(db, provider.id)
+        assert demo["total_customers"] >= 1
+        assert any(b["label"] == "Bole" for b in demo["by_neighborhood"])
+        assert any(b["label"] == "yoga" for b in demo["by_interest_category"])
+        print("   ✅ get_provider_customer_demographics")
+
+        now = datetime.now(timezone.utc)
+        series = get_provider_metrics_timeseries(db, provider.id, now - timedelta(days=7), now)
+        assert series["totals"]["bookings"] == 1
+        assert len(series["series"]) == 8  # inclusive 7-day range
+        print("   ✅ get_provider_metrics_timeseries (custom time metrics)")
+
+        updated_redemption = provider_update_redemption_status(
+            db, provider.id, uuid.UUID(result["redemption_id"]), "shipped", notes="Sent via Bole courier",
+        )
+        assert updated_redemption.delivery_status == "shipped"
+        assert updated_redemption.provider_notes == "Sent via Bole courier"
+        print("   ✅ provider_update_redemption_status (redeem management)")
+
+        redemption_items, redemption_total = get_provider_redemptions(db, provider.id)
+        assert redemption_total == 1
+        assert redemption_items[0]["delivery_status"] == "shipped"
+        print("   ✅ get_provider_redemptions (paginated)")
+
+        # Telegram Login Widget HMAC — provider website login
+        widget_payload = {
+            "id": str(user.telegram_id),
+            "first_name": "Meron",
+            "username": "test_meron",
+            "auth_date": str(int(time.time())),
+        }
+        check_string = "\n".join(sorted(f"{k}={v}" for k, v in widget_payload.items()))
+        secret_key = hashlib.sha256(settings.TELEGRAM_BOT_TOKEN.encode()).digest()
+        widget_payload["hash"] = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
+        widget_payload["id"] = int(widget_payload["id"])
+        widget_payload["auth_date"] = int(widget_payload["auth_date"])
+
+        validated = validate_login_widget_data(widget_payload)
+        assert validated is not None
+        assert validated["telegram_id"] == user.telegram_id
+        print("   ✅ validate_login_widget_data (valid HMAC)")
+
+        tampered = dict(widget_payload)
+        tampered["first_name"] = "Attacker"
+        assert validate_login_widget_data(tampered) is None
+        print("   ✅ validate_login_widget_data (rejects tampered payload)")
+
+        # === 10. CIRCLE STORIES ===
+        print("\n10. Circle Stories (72h ephemeral)")
+        from app.crud.circle import create_circle, join_circle, set_circle_banner
+        from app.crud.circle_story import (
+            MAX_ACTIVE_STORIES_PER_CIRCLE, create_story, delete_story,
+            get_circle_stories, get_story_rail, mark_story_viewed, purge_expired_stories,
+        )
+        from app.models.circle_story import CircleStory
+
+        story_circle = create_circle(db, name="Story Circle", description="", owner_id=user.id)
+        join_circle(db, story_circle.id, user2.id)
+
+        story = create_story(db, story_circle.id, user.id, "https://cdn/a.jpg", "wellcircle/stories/a")
+        assert story.expires_at > story.created_at
+        # The TTL is stamped at write time, not derived on read.
+        ttl_hours = (story.expires_at - story.created_at).total_seconds() / 3600
+        assert 71.9 < ttl_hours < 72.1, ttl_hours
+        print("   ✅ create_story (stamps a 72h expiry)")
+
+        # A non-member cannot post into the circle.
+        outsider = create_user_from_bot(db, telegram_id=777666555, telegram_handle="test_outsider")
+        try:
+            create_story(db, story_circle.id, outsider.id, "https://cdn/x.jpg", "x")
+            assert False, "outsider should not be able to post a story"
+        except PermissionError:
+            pass
+        print("   ✅ create_story (rejects non-members)")
+
+        # ...and sees nothing when reading.
+        assert get_circle_stories(db, story_circle.id, outsider.id) == []
+        assert get_story_rail(db, outsider.id) == []
+        print("   ✅ stories are member-only on read")
+
+        member_view = get_circle_stories(db, story_circle.id, user2.id)
+        assert len(member_view) == 1
+        assert member_view[0]["seen"] is False
+        # A viewer count is the author's feedback, not another member's.
+        assert member_view[0]["view_count"] is None
+        print("   ✅ get_circle_stories (unseen, count hidden from non-authors)")
+
+        count = mark_story_viewed(db, story.id, user2.id)
+        assert count == 1
+        # View receipts are idempotent — replaying the viewer must not inflate.
+        assert mark_story_viewed(db, story.id, user2.id) == 1
+        assert get_circle_stories(db, story_circle.id, user2.id)[0]["seen"] is True
+        assert get_circle_stories(db, story_circle.id, user.id)[0]["view_count"] == 1
+        print("   ✅ mark_story_viewed (idempotent, count visible to the author)")
+
+        rail = get_story_rail(db, user2.id)
+        assert len(rail) == 1 and rail[0]["user_id"] == str(user.id)
+        assert rail[0]["story_count"] == 1 and rail[0]["has_unseen"] is False
+        print("   ✅ get_story_rail (grouped by author)")
+
+        # Your own group is pinned to the front of the rail.
+        create_story(db, story_circle.id, user2.id, "https://cdn/b.jpg", "wellcircle/stories/b")
+        own_rail = get_story_rail(db, user2.id)
+        assert own_rail[0]["is_mine"] is True, [g["is_mine"] for g in own_rail]
+        print("   ✅ get_story_rail (own group first)")
+
+        # The per-circle cap is what bounds one member flooding the rail.
+        try:
+            for i in range(MAX_ACTIVE_STORIES_PER_CIRCLE):
+                create_story(db, story_circle.id, user.id, f"https://cdn/{i}.jpg", f"cap-{i}")
+            assert False, "the active-story cap should have tripped"
+        except ValueError:
+            pass
+        print(f"   ✅ create_story (caps at {MAX_ACTIVE_STORIES_PER_CIRCLE} active per circle)")
+
+        # An expired story is invisible before any purge job runs — that is the
+        # guarantee that a late cron can never leak one back onto a screen.
+        stale = db.query(CircleStory).filter(CircleStory.id == story.id).first()
+        stale.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+        db.commit()
+        assert all(s["id"] != str(story.id) for s in get_circle_stories(db, story_circle.id, user2.id))
+        print("   ✅ expired stories drop out of reads before the purge runs")
+
+        # The purge marks what it deleted. Cloudinary is not configured in the
+        # test environment, so _destroy_asset fails softly and the row is left
+        # for the next run — which is exactly the retry behaviour we want.
+        purged = purge_expired_stories(db)
+        assert isinstance(purged, int)
+        print("   ✅ purge_expired_stories (retries rows whose delete failed)")
+
+        # Early delete: the author can pull their own story, and it goes even
+        # though the Cloudinary call fails here — an unreachable CDN must never
+        # keep a story the author asked to remove on screen.
+        own = create_story(db, story_circle.id, user2.id, "https://cdn/c.jpg", "wellcircle/stories/c")
+        try:
+            delete_story(db, own.id, outsider.id)
+            assert False, "an outsider should not be able to delete a story"
+        except PermissionError:
+            pass
+        delete_story(db, own.id, user2.id)
+        assert all(x["id"] != str(own.id) for x in get_circle_stories(db, story_circle.id, user2.id))
+        print("   ✅ delete_story (author only, survives a CDN failure)")
+
+        # Banner: owner-only.
+        try:
+            set_circle_banner(db, story_circle.id, user2.id, "https://cdn/banner.jpg", "b1")
+            assert False, "non-owner should not be able to set the banner"
+        except PermissionError:
+            pass
+        set_circle_banner(db, story_circle.id, user.id, "https://cdn/banner.jpg", "b1")
+        db.refresh(story_circle)
+        assert story_circle.banner_url == "https://cdn/banner.jpg"
+        print("   ✅ set_circle_banner (owner only)")
 
         # === DONE ===
         print("\n" + "=" * 50)

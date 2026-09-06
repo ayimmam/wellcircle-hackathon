@@ -1,4 +1,4 @@
-# Well Circle — API Contract v1.1
+# Well Circle — API Contract v1.2
 
 > **Base URL:** `https://<render-host>/api`
 > **Auth:** Bearer JWT token in `Authorization` header (except where noted)
@@ -11,9 +11,14 @@
 | Area | Method | Endpoint | Auth | Owner |
 |------|--------|----------|------|-------|
 | Auth | POST | `/auth/telegram` | None | Frontend |
+| Auth | POST | `/auth/whatsapp/start` | None | Web app |
+| Auth | POST | `/auth/whatsapp/verify` | None | Web app |
+| Auth | POST | `/auth/google` | None | Web app |
 | Bot | POST | `/bot/register` | Bot API Key | Bot |
 | Bot | GET | `/bot/inactive-users` | Bot API Key | Bot |
 | Bot | GET | `/bot/streaks-at-risk` | Bot API Key | Bot |
+| Home | GET | `/home/lite` | JWT | Frontend |
+| Home | GET | `/home/bootstrap` | JWT | Frontend |
 | Users | GET | `/users/me` | JWT | Frontend |
 | Users | PATCH | `/users/me` | JWT | Frontend |
 | Users | POST | `/users/me/onboard` | JWT | Frontend |
@@ -66,10 +71,46 @@
 | Circles | GET | `/circles/:id/leaderboard` | JWT | Frontend |
 | Circles | POST | `/circles/join-by-code` | JWT | Frontend |
 | Circles | GET | `/circles/social-proof/today` | JWT | Frontend |
+| Circles | GET | `/circles/stories/feed` | JWT | Frontend |
+| Circles | GET | `/circles/:id/stories` | JWT (member) | Frontend |
+| Circles | POST | `/circles/:id/stories` | JWT (member) | Frontend |
+| Circles | POST | `/circles/stories/:id/view` | JWT (member) | Frontend |
+| Circles | DELETE | `/circles/stories/:id` | JWT (author or owner) | Frontend |
+| Circles | PUT | `/circles/:id/banner` | JWT (owner) | Frontend |
 | Ranks | GET | `/ranks` | JWT | Frontend |
 | Feedback | POST | `/feedback` | JWT | Frontend |
 | Admin | GET | `/admin/feedback` | JWT (admin) | Frontend |
 | Admin | PATCH | `/admin/feedback/:id` | JWT (admin) | Frontend |
+| Auth | POST | `/auth/telegram-widget` | None | Provider website |
+| Providers | GET | `/providers/me/bookings` | JWT (provider) | Provider website |
+| Providers | GET | `/providers/me/analytics/services` | JWT (provider) | Provider website |
+| Providers | GET | `/providers/me/analytics/demographics` | JWT (provider) | Provider website |
+| Providers | GET | `/providers/me/analytics/timeseries` | JWT (provider) | Provider website |
+| Providers | POST | `/providers/me/redemptions/:id/update-status` | JWT (provider) | Provider website |
+| Uploads | POST | `/uploads` | JWT | Frontend |
+| Users | POST | `/users/:id/follow` | JWT | Frontend |
+| Users | DELETE | `/users/:id/follow` | JWT | Frontend |
+| Users | GET | `/users/:id/followers` | JWT | Frontend |
+| Users | GET | `/users/:id/following` | JWT | Frontend |
+| Users | GET | `/users/:id/profile` | JWT | Frontend |
+| Trainer | POST | `/trainer/apply` | JWT | Frontend |
+| Trainer | GET | `/trainer/status` | JWT | Frontend |
+| Admin | GET | `/admin/trainer-verifications` | JWT (admin) | Frontend |
+| Admin | POST | `/admin/trainer-verifications/:id/review` | JWT (admin) | Frontend |
+| Circles | POST | `/circles/:id/apply-paid` | JWT (owner) | Frontend |
+| Circles | POST | `/circles/:id/subscribe` | JWT | Frontend |
+| Circles | GET | `/circles/:id/subscriptions/pending` | JWT (owner) | Frontend |
+| Circles | POST | `/circles/subscriptions/:id/review` | JWT (owner) | Frontend |
+| Circles | GET | `/circles/:id/revenue` | JWT (owner) | Frontend |
+| Circles | GET | `/circles/:id/subscription-status` | JWT | Frontend |
+| Admin | GET | `/admin/paid-circle-applications` | JWT (admin) | Frontend |
+| Admin | POST | `/admin/paid-circle-applications/:id/review` | JWT (admin) | Frontend |
+| Strava | GET | `/strava/connect` | JWT | Frontend |
+| Strava | GET | `/strava/callback` | None (OAuth redirect) | Strava |
+| Strava | POST | `/strava/disconnect` | JWT | Frontend |
+| Strava | GET | `/strava/stats` | JWT | Frontend |
+| Strava | PATCH | `/strava/visibility` | JWT | Frontend |
+| Maintenance | POST | `/cron/maintenance` | `X-Cron-Secret` / Bearer `CRON_SECRET` | Vercel Cron |
 
 ---
 
@@ -120,6 +161,79 @@ Authenticate via Telegram Mini App `initData`. Creates user if first login.
 - POST to this endpoint → store token in memory/localStorage
 - If `user.is_onboarded === false` → show onboarding flow
 - If `user.is_onboarded === true` → go to Home screen
+
+---
+
+### `POST /api/auth/whatsapp/start`
+Start the WhatsApp/SMS OTP flow — sends a 6-digit code to the phone. Used by
+the standalone web app (`app.wellcircle.et`), never by the Mini App.
+
+**No auth required.**
+
+```json
+// REQUEST
+{
+  "phone": "+251911234567",   // E.164; pattern ^\+?[0-9]{6,15}$
+  "channel": "whatsapp"       // optional: "whatsapp" (default) or "sms"
+}
+
+// RESPONSE 200
+{
+  "request_id": "opaque-string",
+  "expires_in": 600
+}
+
+// RESPONSE 429 — rate limited
+{ "detail": "Too many OTP requests. Please wait a moment and try again." }
+```
+
+**Delivery depends on backend config.** With `WHATSAPP_PHONE_NUMBER_ID` +
+`WHATSAPP_API_TOKEN` (Meta Cloud API) or the `TWILIO_*` trio set, the code is
+sent over that channel. With none of them set the code goes to an in-process
+store and **is never delivered** — the endpoint still returns 200, so a
+misconfigured environment looks healthy while no user can ever log in.
+
+### `POST /api/auth/whatsapp/verify`
+Exchange the OTP for a JWT. Returns the same `AuthResponse` shape as
+`/auth/telegram`.
+
+**No auth required.**
+
+```json
+// REQUEST
+{ "request_id": "opaque-string", "code": "123456" }   // code is exactly 6 chars
+
+// RESPONSE 200
+{ "token": "eyJ...", "user": { /* same user shape as /auth/telegram */ }, "is_new_user": true }
+
+// RESPONSE 401
+{ "detail": "Invalid or expired verification code" }
+```
+
+**Account resolution, in order:** existing `whatsapp` identity for that phone →
+existing user whose `phone_number` matches (the identity is linked to them) →
+brand-new user. A user created this way has **no `telegram_id`**.
+
+### `POST /api/auth/google`
+Google Identity Services — the ID token is verified server-side. Identity
+subject is Google's `sub`, never the email.
+
+**No auth required.**
+
+```json
+// REQUEST
+{ "credential": "<google-id-token-jwt>" }
+
+// RESPONSE 200
+{ "token": "eyJ...", "user": { /* same user shape */ }, "is_new_user": false }
+```
+
+> **⚠️ Not safe to expose yet.** `google-auth` is absent from
+> `backend/requirements.txt`, and the handler catches that `ImportError` by
+> falling back to an *unverified* base64 decode of the ID token — any forged
+> credential would be accepted as any `sub`. Add `google-auth` and set
+> `GOOGLE_CLIENT_ID` (also absent from `app/config.py`) before this endpoint is
+> reachable in production.
 
 ---
 
@@ -206,6 +320,182 @@ tracks it as `reentry_open` and lands on Home's check-in card).
 
 ---
 
+## 2a. Home
+
+### `GET /api/home/bootstrap`
+
+Everything the Home screen renders, in one round trip. Home otherwise opens
+with six parallel calls, each able to land on its own cold serverless function.
+
+Each key is assembled independently — a section that fails comes back empty
+rather than failing the whole response.
+
+The arrays are the same shapes the individual endpoints return, so the client
+seeds their caches from this payload and Explore / Circles open without a
+request of their own:
+
+| Key | Equivalent endpoint |
+|-----|---------------------|
+| `providers` | `GET /providers` |
+| `communities` | `GET /communities` |
+| `events` | `GET /events` (next 7 days, limit 20) |
+| `featured_events` | `GET /events?boosted_only=true` (next 7 days, limit 10) |
+| `social_proof` | `GET /circles/social-proof/today` |
+| `unread_count` | `unread_count` from `GET /users/me/notifications` |
+| `feed` | first page of `GET /feed/for-you` (Phase 4 — For You screen) |
+| `stories` | `GET /circles/stories/feed` — the story rail, grouped by author |
+
+```json
+// RESPONSE 200
+{
+  "providers": [ /* ...same objects as GET /providers... */ ],
+  "communities": [ /* ...same objects as GET /communities... */ ],
+  "events": [ /* ...same objects as GET /events... */ ],
+  "featured_events": [ /* ...boosted events... */ ],
+  "social_proof": { "checked_in_today": 4 },
+  "unread_count": 3,
+  "feed": { "items": [ /* ...see GET /feed/for-you... */ ], "next_before": "2026-06-06T10:00:00Z" },
+  "stories": [ /* ...see GET /circles/stories/feed... */ ]
+}
+```
+
+Clients should treat this endpoint as optional: on `404` fall back to calling
+the six endpoints individually, so a frontend deploy that lands ahead of the
+backend degrades instead of breaking Home.
+
+`feed` calls the same builder `GET /feed/for-you` uses directly (not the HTTP
+route) — the For You screen still opens with exactly one request; scrolling
+past the first page is what hits `GET /feed/for-you?before=...`. Keep this
+payload under the **150 KB working ceiling** (192 KB is the hard cap past
+which `frontend/src/api/cache.js` stops persisting the entry to
+`localStorage`, so it's lost the moment Telegram tears the WebView down) — see
+`backend/check_bootstrap_payload_size.py`.
+
+### `GET /api/home/lite`
+
+The text-first half of the same payload, so For You has something readable on
+it while `/home/bootstrap` is still running. The client fires **both together**
+on open — this is not a replacement for the bootstrap, it is the head start.
+
+`/home/bootstrap` cannot answer until the provider directory, every provider's
+services, and the upcoming- and past-event queries are done. None of that is
+needed to render the part of the feed that is words. This endpoint runs the two
+queries the first screenful actually depends on, plus two counters:
+
+| Key | Notes |
+|-----|-------|
+| `partial` | Always `true`. Marks the payload as a subset, so it is never cached as the whole thing. |
+| `communities` | `GET /communities?joined=true` — the user's own circles, which is all the check-in card needs. |
+| `social_proof` | Same as the bootstrap's. |
+| `unread_count` | Same as the bootstrap's. |
+| `feed` | First page of `GET /feed/for-you`, **posts only** — no `event`, `service`, `provider` or `past_event` items, and no lead-in or interleave. |
+| `stories` | The **whole** story rail, not a subset — it is two indexed queries over the caller's own circles, and it sits at the very top of the screen, so it ships in the cheap payload rather than waiting behind the provider fan-out. |
+
+```json
+// RESPONSE 200
+{
+  "partial": true,
+  "communities": [ /* ...joined circles only... */ ],
+  "social_proof": { "checked_in_today": 4 },
+  "unread_count": 3,
+  "feed": { "items": [ /* ...only type: "post"... */ ], "next_before": "2026-06-06T10:00:00Z", "partial": true },
+  "stories": [ /* ...the full rail; see GET /circles/stories/feed... */ ]
+}
+```
+
+`feed.next_before` is derived from the same posts query the full payload uses,
+so it is identical in both and a client that starts paginating off a lite page
+stays consistent once the full page replaces it.
+
+Optional in the same way as the bootstrap: on `404` the client falls back to
+sharing `/home/bootstrap`'s in-flight request, so a frontend deploy ahead of
+the backend loses the head start rather than the screen.
+
+---
+
+## 2b. For You Feed
+
+### `GET /api/feed/for-you?limit=10&before=<iso8601>`
+
+Discovery feed replacing Home (Phase 4/5). Returns:
+
+```json
+// RESPONSE 200
+{
+  "items": [
+    { "type": "post", "render_cost": "instant", "id": "uuid", "created_at": "2026-06-06T10:00:00Z",
+      "post": { "...": "same shape as GET /posts, but comment_count instead of comments, and content truncated to ~280 chars with truncated: true/false",
+                "source": { "kind": "circle", "id": "uuid", "name": "Addis Morning Runners", "member_count": 24 } } },
+    { "type": "event", "render_cost": "media", "id": "uuid",
+      "event": { "...": "same shape as GET /events" }, "provider": { "id", "name", "category", "cover_photo_url" } },
+    { "type": "service", "render_cost": "media", "id": "<provider_id>:<service_index>",
+      "provider": { "id", "name", "category", "location_text", "rating", "cover_photo_url", "is_coming_soon" },
+      "service": { "name", "price", "duration", "description", "photo_url", "booking_method" } },
+    { "type": "provider", "render_cost": "media", "id": "uuid",
+      "provider": { "...": "same brief shape as the service item's provider" }, "promotion": null },
+    { "type": "past_event", "render_cost": "media", "id": "uuid",
+      "event": { "...": "same shape as GET /events?past=true, incl. is_past and attendee_count" },
+      "provider": { "id", "name", "category", "cover_photo_url" } }
+  ],
+  "next_before": "2026-06-05T09:00:00Z"
+}
+```
+
+**Ranking is a fixed, deterministic section order — not a scoring model.**
+
+The feed is laid out in three sections:
+
+1. **Upcoming events** — boosted events starting within the next 14 days, at
+   the very top.
+2. **User content** — member posts, newest-first. This is the paginated part.
+3. **Provider content** — services, then providers, then `past_event` recaps.
+
+Sections 1 and 3 bind to the ends of the **whole feed, not of each page**:
+
+| Page | Carries |
+| --- | --- |
+| First (`before` absent) | events → posts |
+| Middle | posts only |
+| Last (`next_before: null`) | posts → services → providers → past events |
+
+A feed short enough to fit one page is first and last at once, so it carries
+all three sections. Emitting the sections per-page instead would repeat the
+same event cards on every scroll and strand provider cards mid-stream.
+
+The trade-off is deliberate and worth knowing: **provider content is only
+reached by scrolling to the end of the post stream.** On a high-volume post
+day, a user who doesn't scroll that far sees no service or provider cards at
+all. If provider inventory needs guaranteed impressions, that wants a slot
+inside section 2 rather than a section after it.
+
+Both live and coming-soon providers may appear as `service` or `provider`
+items — coming-soon ones render with a "Coming soon" badge and no booking CTA
+(see `is_coming_soon` on the embedded `provider` object) rather than being
+excluded from the feed. An `event` item is emitted only for a boosted/featured
+event.
+
+A **`past_event`** item is a recap of a session that already ran. It carries
+`attendee_count` instead of booking urgency and never renders a booking CTA —
+its CTA links to that provider's upcoming sessions (`/events?provider=<id>`),
+which turns "I'd have gone to that" into intent rather than a dead end.
+
+`render_cost` (`"instant"` or `"media"`) drives the Phase 2 two-tier first
+paint: on a cached first render the client shows `instant` items (no image
+needed to be readable) above `media` items, then settles into server order
+once the revalidated response lands.
+
+`next_before` paginates the **posts** only (keyset on `created_at`); the event
+and provider sections are additional and outside that cursor. `null` means no
+more posts — and is also what tells the builder to append the provider
+section.
+
+`post.source` is what makes "tap a post → land in its circle/community" work
+— `kind` is `"circle"` or `"community"`. Posts from private or paid circles,
+and system-generated join/check-in posts (`is_system_event: true`), never
+appear in this feed.
+
+---
+
 ## 3. Users
 
 ### `GET /api/users/me`
@@ -232,10 +522,25 @@ Get current user's full profile.
   "health_app_connected": false,
   "phone_number": null,
   "time_format": null,
+  "bio": "Yoga instructor & marathon runner 🧘‍♀️",
+  "profile_privacy": "public",
+  "is_verified_trainer": true,
+  "follower_count": 42,
+  "following_count": 18,
+  "strava_stats": null,
   "joined_communities": ["uuid-1", "uuid-2"],
   "created_at": "2026-06-06T10:00:00Z"
 }
 ```
+
+> **Note:** `strava_stats` on `GET /users/me` and `PATCH /users/me` is always
+> `null` — the authenticated user's own Strava data is fetched separately via
+> `GET /api/strava/stats` (§9i), not embedded here. It **is** populated on the
+> public-profile endpoint (`GET /api/users/:id/profile`, §9f) when viewable.
+> `health_app_connected` is a legacy field kept for backward compatibility —
+> it's now derived from Strava connection status (`strava_athlete_id is not
+> null`) and any value sent for it in `PATCH /users/me` is silently
+> overwritten with the real Strava state.
 
 ### `POST /api/users/me/onboard`
 Complete Mini App onboarding. Sets `is_onboarded = true`.
@@ -297,7 +602,9 @@ Update profile fields (personalization, neighborhood opt-in, contact/format pref
   "location_neighborhood": "Bole",
   "health_app_connected": true,
   "phone_number": "+251911234567",   // E.164; backend only checks shape (6-15 digits, optional +)
-  "time_format": "12h"               // '12h' | '24h' — 422 on any other value
+  "time_format": "12h",              // '12h' | '24h' — 422 on any other value
+  "bio": "Yoga instructor & marathon runner 🧘‍♀️",  // max 300 chars — 422 if longer
+  "profile_privacy": "followers"     // 'public' | 'followers' | 'private' — 422 on any other value
 }
 
 // RESPONSE 200 — same as GET /users/me
@@ -364,12 +671,18 @@ List all providers. Supports filtering.
       "rating": 4.7,
       "cover_photo_url": "https://...",
       "member_count": 45,
-      "community_id": "uuid-comm"
+      "community_id": "uuid-comm",
+      "is_featured": false,
+      "is_coming_soon": false   // true = browsable, not bookable (For You / launch gating, Phase 1)
     }
   ],
   "count": 10
 }
 ```
+
+Coming-soon providers stay in this list (the gate is presentation + a booking
+block, not a listing filter) but sort behind live providers —
+`is_coming_soon ASC` is the first sort key, ahead of `is_featured`/`rating`.
 
 ### `GET /api/providers/:id`
 Full provider detail with services, photos, linked community.
@@ -394,8 +707,10 @@ Full provider detail with services, photos, linked community.
   "services": [
     {
       "name": "Morning Vinyasa Flow",
-      "price": 800,
-      "duration": "60 min"
+      "price": 800,          // null = priced on enquiry (no confirmed price yet)
+      "duration": "60 min",  // null when price is also null
+      "description": null,   // optional descriptive copy
+      "photo_url": null      // optional per-service photo
       // "booking_method" omitted here = "online" (default, in-app booking + payment)
     },
     {
@@ -404,6 +719,12 @@ Full provider detail with services, photos, linked community.
       "duration": "90 min"
     }
   ],
+  "facilities": ["Steam room", "Sauna"],  // optional on-site facility list (Phase 1)
+  "navigation_tips": [       // optional, detail-only (Phase 8) — [] when the provider hasn't set any
+    { "title": "Parking", "detail": "Free parking behind the building." }
+  ],
+  "map_url": "https://maps.app.goo.gl/xxxx",  // optional Google Maps place link; drives "Open in Maps" (falls back to lat/lng when null)
+  "is_coming_soon": false,   // true = banner shown, booking blocked, service rows non-tappable
   "community": {
     "id": "uuid-comm",
     "name": "Zen Yoga Community",
@@ -516,6 +837,38 @@ Provider dashboard stats. **Provider-only access.**
   ]
 }
 ```
+
+### `GET /api/providers/me` / `PATCH /api/providers/me`
+Provider self-service profile. **Provider-only access** (`get_current_provider`).
+
+```json
+// RESPONSE 200 (GET)
+{
+  "id": "uuid-string",
+  "name": "Zen Yoga Studio",
+  "category": "yoga",
+  "status": "active",
+  "description": "...",
+  "location_text": "Bole, Addis Ababa",
+  "lat": 9.0054, "lng": 38.7636,
+  "services": [ /* same shape as provider detail */ ],
+  "theme_primary_color": "#10B981",
+  "theme_accent_color": "#F59E0B",
+  "contact_phone": null,
+  "contact_email": null,
+  "facilities": ["Free parking", "Wheelchair accessible"],
+  "navigation_tips": [
+    { "title": "Parking", "detail": "Free parking behind the building, ask for the yellow gate." }
+  ],
+  "map_url": "https://maps.app.goo.gl/xxxx",
+  "dashboard_stats": { "total_members": 45, "new_members_today": 3, "total_products": 6, "active_products": 4 }
+}
+```
+
+`PATCH` accepts the same fields (all optional) minus `id`/`status`/`dashboard_stats`.
+`facilities`/`navigation_tips` (Phase 8) are the provider-editable source for
+the "Getting there" section on `GET /api/providers/:id` — repeatable-field UI
+in `pages/provider-portal/ProviderPortalOverview.jsx`.
 
 ---
 
@@ -797,6 +1150,10 @@ capped by the giver's balance.
 ### `POST /api/bookings`
 Create a booking.
 
+**Coming-soon providers are rejected.** If `provider.is_coming_soon` is true,
+this returns `400 { "detail": "This provider isn't taking bookings yet." }`
+before any booking row (or its siblings) is written.
+
 **`payment_method: "pay_on_site"` (WP1, consumer booking flow default).** No
 payment gateway is involved — the guest pays the provider in person after the
 service. The backend marks the booking (and every sibling in a multi-day
@@ -1032,6 +1389,21 @@ Update a provider. Same body as POST (all fields optional).
 ### `DELETE /api/admin/providers/:id`
 Delete a provider and its linked community.
 
+### `PATCH /api/admin/providers/:id/launch-state`
+Flip a provider's coming-soon gate. Admin-created providers (`POST
+/api/admin/providers`, promote-user) default `is_coming_soon: false`
+(immediately live); self-onboarded providers default `true` until an admin
+uses this endpoint. `GET /api/admin/providers` list items carry
+`is_coming_soon` so the admin UI can render a Live/Coming soon toggle.
+
+```json
+// REQUEST
+{ "is_coming_soon": false }
+
+// RESPONSE 200
+{ "provider_id": "uuid-string", "is_coming_soon": false }
+```
+
 ```json
 // RESPONSE 200
 { "deleted": true, "provider_id": "uuid" }
@@ -1091,7 +1463,13 @@ Bole | Kazanchis | Piassa | CMC | Sarbet | Megenagna | Other
 ## 9. Phase 2 & 3 Endpoints (Overview)
 
 ### Events & Booking
-- `GET /api/events` — Discover events
+- `GET /api/events` — Discover upcoming events
+- `GET /api/events?past=true[&provider_id=&category=]` — Events that already
+  started, newest first. Cancelled events are excluded (they never happened,
+  so there is nothing to recap). Each row swaps booking urgency for
+  `is_past: true` and `attendee_count` (`capacity - spots_remaining`), because
+  "3 spots left" on a finished session reads as a live booking prompt. Backs
+  the Events screen's **Past** tab and the feed's `past_event` recap cards.
 - `GET /api/events/{id}` — Event details
 - `GET /api/providers/me/events` — Provider dashboard events
 - `POST /api/providers/me/events` — Provider create event
@@ -1181,6 +1559,159 @@ Every circle gets a `join_code` — auto-generated (8-char uppercase/digits, uni
 ```
 Now returns `join_code` (previously just a bare message) so the client can build the invite link immediately after joining, without a second `GET /api/circles` round-trip.
 
+### Circle preview + Join CTA (Phase 6)
+
+**`GET /api/circles/:id`** — JWT. Circle detail for a non-member's preview
+page, replacing `CircleDetailScreen.jsx`'s old hack of fetching the whole
+`GET /circles` list and `.find()`-ing it.
+
+```json
+// RESPONSE 200
+{
+  "id": "uuid-circle",
+  "name": "Addis Morning Runners",
+  "description": "We run every morning at 6 AM around Meskel Square.",
+  "member_count": 24,
+  "is_joined": false,
+  "is_owner": false,
+  "is_private": false,
+  "is_paid": false,
+  "price_etb": null,
+  "paid_circle_status": "free",
+  "join_code": null,           // only exposed once is_joined is true
+  "banner_url": "https://res.cloudinary.com/.../circle_banners/x.jpg",  // null when unset
+  "owner": { "id": "uuid", "name": "Selam Alemu", "telegram_handle": "selam_well", "is_verified_trainer": false },
+  "preview_posts": [ /* up to 5 recent posts, same shape as GET /posts — omitted (null) for paid or private circles */ ]
+}
+```
+
+Access rules:
+- **Private circle, non-member** → `404` (does not leak that the circle exists).
+- **Paid circle, non-subscriber** → metadata only, `preview_posts: null`; the existing subscribe flow takes over.
+- **Public free circle, non-member** → metadata + `preview_posts`.
+- A member or the owner always gets `is_joined`/`is_owner: true` and a non-null `join_code`; `preview_posts` is only ever populated for the non-member preview case (members render the full `PostFeed` instead).
+
+**Frontend:** when `!is_joined` on a public circle, `PostFeed` is replaced by
+a read-only render of `preview_posts` (no composer, no reaction buttons, no
+comment boxes), the `leaderboard`/`members` tabs and invite button are
+hidden, and a sticky bottom **Join circle** CTA takes over. On success the
+screen flips to full mode in place — no navigation. The same read-only
+preview + Join CTA pattern applies to `CommunityDetail.jsx` for provider
+communities (reusing `POST /api/communities/:id/join`).
+
+---
+
+## 9a-bis. Circle stories & banners
+
+### Stories — 72-hour ephemeral photos
+
+A story is one image posted into one circle. Membership in that circle is the
+only thing that grants access: there is no public story anywhere, and a paid
+circle applies the same `has_circle_access` gate the leaderboard does.
+
+Two clocks govern a story, and the difference between them is the contract:
+
+- **`expires_at`** is the visibility clock. Every read filters on it, so a story
+  stops being served the moment it turns 72 hours old — **no job is involved**.
+- **`deleted_at`** is the storage clock. It is stamped only once the bytes are
+  actually gone from Cloudinary, which the daily maintenance job does (see
+  §Maintenance below).
+
+A late, failed or skipped purge therefore cannot leak an expired story back onto
+a screen. The worst case is an orphaned Cloudinary asset, which the next run
+picks up.
+
+Uploads go through the existing two-step flow: `POST /api/uploads` with
+`folder=stories` (JPEG/PNG/WebP, 10 MB cap) returns `{url, public_id}`, and both
+are posted back here.
+
+**`POST /api/circles/:id/stories`** — JWT (member). `201`.
+```json
+// REQUEST
+{ "image_url": "https://res.cloudinary.com/.../stories/abc.jpg", "image_public_id": "wellcircle/stories/abc" }
+// RESPONSE 201
+{ "id": "uuid-story", "image_url": "https://...", "created_at": "2026-08-26T09:00:00Z", "expires_at": "2026-08-29T09:00:00Z" }
+```
+- `403` — not a member, or a paid circle the caller has not unlocked.
+- `429` — the caller already has 10 active stories in this circle. The cap
+  bounds one member flooding the rail; it self-heals as the oldest expire.
+
+**`GET /api/circles/:id/stories`** — JWT. Active stories in one circle, **oldest
+first** (playback order). Returns `[]` rather than `403` for a non-member, so
+the circle screen renders without a special case.
+```json
+// RESPONSE 200
+{ "stories": [
+  {
+    "id": "uuid-story",
+    "circle_id": "uuid-circle", "circle_name": "Zen Seekers",
+    "user_id": "uuid", "user_name": "Hana Girma", "user_photo_url": "https://...",
+    "image_url": "https://...",
+    "created_at": "2026-08-26T09:00:00Z",
+    "expires_at": "2026-08-29T09:00:00Z",
+    "seen": false,
+    "view_count": null,          // number for your own stories, null for everyone else's
+    "is_mine": false
+  }
+] }
+```
+`view_count` is deliberately **author-only**: it is the poster's feedback, not
+another member's business.
+
+**`GET /api/circles/stories/feed`** — JWT. The For You rail: every active story
+from every circle the caller is in, **grouped by author**.
+```json
+// RESPONSE 200
+{ "groups": [
+  {
+    "user_id": "uuid", "user_name": "Hana Girma", "user_photo_url": "https://...",
+    "is_mine": false,
+    "has_unseen": true,
+    "story_count": 2,
+    "latest_at": "2026-08-26T09:00:00Z",
+    "stories": [ /* ...same objects as above, oldest first... */ ]
+  }
+] }
+```
+Ordering is fixed and the client must not re-sort: **your own group first**,
+then anyone with something unseen, then most recent. `has_unseen` is what dims
+the ring on the rail.
+
+**`POST /api/circles/stories/:id/view`** — JWT (member). Idempotent view
+receipt. `{ "view_count": 4 }`. The client fires this once per story as it is
+played and does **not** invalidate the rail cache on the response — a receipt
+fires on every frame, and refetching mid-playback would fight the viewer. The
+dimmed ring comes from the client's own optimistic update.
+
+**`DELETE /api/circles/stories/:id`** — JWT (author or circle owner).
+`{ "deleted": true }`. Destroys the Cloudinary asset immediately and stamps both
+`deleted_at` and `expires_at`, so a failed CDN call still takes the story off
+the rail on the next read.
+
+### Banner
+
+**`PUT /api/circles/:id/banner`** — JWT (**owner only**). Upload first via
+`POST /api/uploads` with `folder=circle_banners` (JPEG/PNG/WebP, 10 MB).
+```json
+// REQUEST — nulls clear the banner
+{ "banner_url": "https://res.cloudinary.com/.../circle_banners/x.jpg", "banner_public_id": "wellcircle/circle_banners/x" }
+// RESPONSE 200
+{ "id": "uuid-circle", "banner_url": "https://..." }
+```
+`403` for a non-owner. Replacing a banner destroys the asset it supersedes — a
+circle only ever has one cover, so the old one is dead weight the moment this
+succeeds.
+
+`banner_url` is also returned by `GET /api/circles` (list cards render it) and
+`GET /api/circles/:id`.
+
+### Maintenance
+
+`phase15_maintenance_job` (daily, `POST /api/cron/maintenance` on serverless)
+now also returns `purged_stories` — the number of expired stories whose
+Cloudinary assets were destroyed on that run, capped at 500 per run. Rows whose
+delete failed keep `deleted_at` NULL and are retried the next day.
+
 ### Social proof & streaks (C2 / E2)
 - `POST /api/communities/{id}/checkin` response now also includes `current_streak` and `freeze_count`.
 - `GET /api/circles/social-proof/today` — JWT. `{ "checked_in_today": 3 }` — how many of the caller's circle-mates checked in today, across all their circles.
@@ -1244,6 +1775,387 @@ Mock parity: `submitFeedback()`, `getAdminFeedback()`, `updateFeedbackStatus()` 
 
 ---
 
+## 9d. Provider Website (`/provider-portal`)
+
+A standalone website for providers, separate from the Telegram Mini App —
+`frontend/src/pages/provider-portal/*`, gated by `ProviderPortalGuard` +
+`ProviderPortalAuthContext` (its own `wc_provider_token` localStorage key,
+independent of the Mini App's `wc_token` session). It reuses
+`ProviderDashboard.jsx` (`hideBackButton` prop) for the actual dashboard, so
+Analytics/Events/Products/Customers/Promotions/Subscriptions tabs are
+unchanged; only the items below are new.
+
+### Login — Telegram Login Widget
+
+**`POST /api/auth/telegram-widget`** — No JWT required. Validates the
+[Telegram Login Widget](https://core.telegram.org/widgets/login) callback
+payload (HMAC-SHA256, secret key = `SHA256(bot_token)` — **not** the Mini App
+`initData` scheme, which prefixes with `"WebAppData"`). Unlike
+`POST /api/auth/telegram`, this **never creates a user** — it only signs in
+an existing account with `is_provider = true`.
+
+```json
+// REQUEST
+{ "id": 123456789, "first_name": "Meron", "username": "meron_fitness", "photo_url": "https://...", "auth_date": 1752800000, "hash": "..." }
+
+// RESPONSE 200 — same AuthResponse shape as POST /auth/telegram
+{ "token": "eyJ...", "user": { ... }, "is_new_user": false }
+
+// RESPONSE 401 — bad/expired/tampered signature
+// RESPONSE 403 — { "detail": "No provider account found for this Telegram account" }
+```
+
+Frontend: `authTelegramWidget()` in `client.js`. The widget itself requires
+the deployed domain to be registered with BotFather (`/setdomain`) and HTTPS
+— it does not render on `localhost`; local/dev and the Vitest mock mode use
+a "Continue as Demo Provider" button instead (`VITE_USE_MOCK=true`).
+
+### Bookings, service mix, demographics, custom time metrics
+
+All **JWT (provider)**, scoped to the caller's own provider via `get_provider_by_owner`.
+
+**`GET /api/providers/me/bookings?page=&per_page=&start_date=&end_date=&payment_status=&service_name=`**
+Full paginated booking list — each row also carries the customer's
+demographic fields, so the table doubles as a lightweight CRM view.
+```json
+{
+  "bookings": [
+    { "id": "uuid", "user_handle": "meron_fitness", "user_name": "Meron Tadesse",
+      "service_name": "Morning Vinyasa Flow", "slot_datetime": "2026-06-07T07:00:00Z",
+      "amount_etb": 800, "payment_status": "success", "created_at": "2026-06-06T10:30:00Z",
+      "customer_demographics": { "location_neighborhood": "Bole", "interest_categories": ["yoga"], "exercise_frequency": "sometimes" } }
+  ],
+  "total": 1, "page": 1, "per_page": 20
+}
+```
+
+**`GET /api/providers/me/analytics/services?start_date=&end_date=`** — Most-booked-service breakdown, sorted by bookings count descending.
+```json
+{ "services": [ { "service_name": "Morning Vinyasa Flow", "bookings_count": 18, "revenue_etb": 9000 } ] }
+```
+
+**`GET /api/providers/me/analytics/demographics`** — Breakdown of this
+provider's customers using only the fields that exist today (no age/gender
+column) — `location_neighborhood`, `interest_categories` (multi-select, so a
+customer can land in more than one bucket), `exercise_frequency`.
+```json
+{
+  "total_customers": 4,
+  "by_neighborhood": [ { "label": "Bole", "count": 2 } ],
+  "by_interest_category": [ { "label": "yoga", "count": 2 } ],
+  "by_exercise_frequency": [ { "label": "sometimes", "count": 1 } ]
+}
+```
+
+**`GET /api/providers/me/analytics/timeseries?start_date=&end_date=`** —
+Custom time metrics: daily bookings/revenue/check-ins for a provider-chosen
+date range (max 366 days; 422 if `end_date < start_date` or range exceeded).
+```json
+{
+  "provider_id": "uuid", "start_date": "2026-07-12", "end_date": "2026-07-18",
+  "series": [ { "date": "2026-07-12", "bookings": 3, "revenue_etb": 0, "checkins": 4 } ],
+  "totals": { "bookings": 8, "revenue_etb": 3500, "checkins": 18, "unique_customers": 4 }
+}
+```
+
+### Redeem management
+
+**`GET /api/providers/me/redemptions?page=&per_page=&status=`** — Now
+paginated (previously a bare 10-item list). Each item also carries
+`provider_notes`, `delivery_address`, `points_spent`.
+```json
+{ "redemptions": [ { "id": "uuid", "user_name": "Meron", "product_name": "Private Yoga Session", "redemption_code": "YOGA-ABC123", "delivery_status": "pending", "provider_notes": null, "delivery_address": null, "points_spent": 400, "redeemed_at": "2026-07-07T09:00:00Z" } ], "count": 1, "total": 1, "page": 1, "per_page": 20 }
+```
+
+**`POST /api/providers/me/redemptions/{redemption_id}/update-status`** —
+Provider-scoped equivalent of the admin redemption-status endpoint; 404 if
+the redemption doesn't belong to one of this provider's products.
+```json
+// REQUEST
+{ "status": "shipped", "notes": "Sent via Bole courier" }   // status: pending|confirmed|shipped|delivered
+
+// RESPONSE 200
+{ "redemption_id": "uuid", "delivery_status": "shipped", "provider_notes": "Sent via Bole courier" }
+```
+
+Mock parity: `getProviderBookings()`, `getProviderServiceBreakdown()`,
+`getProviderDemographics()`, `getProviderMetricsTimeseries()`,
+`updateProviderRedemptionStatus()` in `client.js`.
+
+---
+
+## 9e. File Uploads (Phase 15)
+
+Generic upload endpoint backing certificate/receipt uploads for trainer
+verification (§9g) and paid-circle receipts (§9h). Wraps Cloudinary
+(`app/services/cloudinary_service.py`); requires `CLOUDINARY_CLOUD_NAME` /
+`CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` to be set, or every call
+503s.
+
+**`POST /api/uploads`** — JWT required. `multipart/form-data`: `file`
+(binary) + `folder` (`certificates` | `receipts` — any other value is a 422,
+there is no generic/other folder).
+
+| Folder | Max size | Allowed types |
+|--------|----------|---------------|
+| `certificates` | 10 MB | `application/pdf`, `image/jpeg`, `image/png` |
+| `receipts` | 5 MB | `image/jpeg`, `image/png` |
+
+```json
+// RESPONSE 200
+{ "url": "https://res.cloudinary.com/.../wellcircle/certificates/abc123.pdf", "public_id": "wellcircle/certificates/abc123" }
+
+// RESPONSE 422 — wrong folder, wrong content-type, oversized, or empty file
+{ "detail": "File exceeds the 10MB limit for certificates" }
+
+// RESPONSE 503 — Cloudinary env vars not configured
+{ "detail": "Cloudinary is not configured" }
+```
+
+Note: any authenticated user may upload to either folder — the backend does
+not check that the uploader is actually applying for trainer verification or
+subscribing to a circle. Files are stored under `wellcircle/{folder}/` in
+Cloudinary; there is a `delete_file(public_id)` helper in the service but no
+endpoint calls it today (uploaded files are never cleaned up on
+rejection/replacement).
+
+---
+
+## 9f. Followers & Public Profiles (Phase 15)
+
+Instagram-style follow graph plus a privacy-aware public profile. Mounted
+under `/api/users` (`app/api/followers.py`), alongside the `users` router.
+
+| Method | Endpoint | Notes |
+|--------|----------|-------|
+| POST | `/api/users/:id/follow` | Idempotent — following twice returns the same `{following: true}`. 404 if target doesn't exist, 400 on self-follow. |
+| DELETE | `/api/users/:id/follow` | Idempotent — unfollowing when not following returns `{following: false, removed: false}`, not a 404. |
+| GET | `/api/users/:id/followers?page=&per_page=` | `per_page` 1–100, default 20. 404 if `:id` doesn't exist. |
+| GET | `/api/users/:id/following?page=&per_page=` | Same pagination/shape. |
+| GET | `/api/users/:id/profile` | Public profile, privacy-gated (see below). |
+
+```json
+// RESPONSE 200 — GET /api/users/:id/followers
+{
+  "items": [
+    { "id": "uuid", "name": "Hana", "telegram_handle": "hana_runs", "photo_url": "https://...",
+      "bio": "Marathon coach", "is_verified_trainer": true, "follower_count": 340, "following_count": 12 }
+  ],
+  "total": 1, "page": 1, "per_page": 20
+}
+
+// RESPONSE 200 — GET /api/users/:id/profile
+{
+  "id": "uuid", "name": "Hana", "telegram_handle": "hana_runs", "photo_url": "https://...",
+  "bio": "Marathon coach", "is_verified_trainer": true, "follower_count": 340, "following_count": 12,
+  "profile_privacy": "followers",
+  "is_following": true,
+  "strava_stats": { "distance": 42.1, "activity_count": 5, "recent_activities": [ /* ... */ ] },
+  "circles": [
+    { "id": "uuid", "name": "Endurance Club", "description": "...", "is_paid": true, "price_etb": 350 }
+  ]
+}
+```
+
+**Privacy enforcement** (`profile_privacy` on the target user — `public` |
+`followers` | `private`, default `public`):
+- Identity fields (`name`, `handle`, `photo_url`, `bio`, `is_verified_trainer`,
+  follower/following counts) are **always visible to any authenticated
+  viewer**, regardless of privacy setting — privacy only gates `strava_stats`
+  and `circles`.
+- `public`: `strava_stats` + `circles` visible to anyone.
+- `followers`: visible only if the viewer follows the target (or is the
+  target).
+- `private`: visible only to the target themselves; everyone else gets
+  `strava_stats: null` and `circles: []`.
+- `circles` lists **every** circle the target owns (not just ones they're
+  active in) — there's no membership or paid-access filter on this list.
+- If the target has Strava connected but the live fetch fails (rate limit,
+  token issue), `strava_stats` silently falls back to `null` rather than
+  erroring the whole profile request.
+
+---
+
+## 9g. Trainer Verification (Phase 15)
+
+Users apply for a "Verified Trainer" badge by uploading a certificate +
+proof of a 200 ETB/year fee (`app/api/trainer.py`, mounted at `/api`, so
+routes are `/api/trainer/*` and — unusually — the admin routes for this
+feature also live here as `/api/admin/trainer-verifications*`, not on the
+main `admin` router). The 200 ETB fee is enforced only as UI copy — the
+backend just stores whatever receipt URL is submitted; there's no payment
+gateway integration.
+
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| POST | `/api/trainer/apply` | JWT | 201 on success. 409 if an application is already `pending`, or `approved` and not yet expired. |
+| GET | `/api/trainer/status` | JWT | `{ "application": null \| {...} }` |
+| GET | `/api/admin/trainer-verifications?page=&per_page=&status=` | JWT (super admin) | `status`: `pending` (default) \| `approved` \| `rejected` \| `all`. |
+| POST | `/api/admin/trainer-verifications/:id/review` | JWT (super admin) | `{action: "approve"\|"reject", rejection_reason?}`. `rejection_reason` required (max 1000 chars) when rejecting. |
+
+```json
+// REQUEST — POST /api/trainer/apply
+{
+  "certificate_url": "https://res.cloudinary.com/.../cert.pdf",
+  "certificate_public_id": "wellcircle/certificates/cert123",
+  "payment_receipt_url": "https://res.cloudinary.com/.../receipt.png",
+  "payment_receipt_public_id": "wellcircle/receipts/receipt123"
+}
+
+// RESPONSE 201
+{
+  "id": "uuid", "user_id": "uuid", "status": "pending", "payment_status": "pending",
+  "rejection_reason": null, "certificate_url": "https://...", "payment_receipt_url": "https://...",
+  "created_at": "2026-07-26T10:00:00Z", "expires_at": null
+}
+```
+
+- **Approve** sets `user.is_verified_trainer = true`,
+  `verified_trainer_expires_at = approved_at + 365 days`, and
+  `payment_status = "paid"` (approval implicitly confirms payment — there's
+  no separate payment-verification step).
+- **Reject** clears `is_verified_trainer` and stores `rejection_reason`;
+  the user can re-apply immediately (re-applying reuses the same row rather
+  than creating a new one, since `user_id` is unique on this table).
+- A daily scheduler job (`check_expired_verifications`, part of the combined
+  `phase15_maintenance` job — see §5 note in HANDOFF) flips
+  `is_verified_trainer` back to `false` once `verified_trainer_expires_at`
+  passes, and sends a renewal-nudge notification. It does **not** reset the
+  `TrainerVerification.status` field back from `"approved"` — the row stays
+  "approved" even after the badge itself has expired, so `status` alone is
+  not a reliable "is currently verified" check; use `user.is_verified_trainer`
+  for that.
+- Verified trainers get an `owner_is_verified` flag on circles they own
+  (`GET /api/circles`, batched — not N+1) and a `VerifiedBadge` on their
+  profile, follower lists, and public profile.
+
+---
+
+## 9h. Paid Circles (Phase 15)
+
+Circle owners can apply to monetize their circle once it's grown; members
+subscribe by uploading a payment-receipt screenshot that the owner manually
+approves — there's no payment gateway integration, same pattern as trainer
+verification. Well Circle takes a 5% platform fee. Endpoints live on the
+existing `circles` (`/api/circles`) and `admin` (`/api/admin`) routers.
+
+**Eligibility to apply** (checked both on apply and again on admin approval):
+- Circle has **≥ 100 members**
+- Circle owner has **≥ 1000 lifetime points** — sum of positive,
+  non-reversed `point_transactions.amount` rows for the owner (not their
+  current balance, which decays)
+
+**Revenue split** — integer ETB, no fractional currency: platform fee is
+`floor(amount_etb * 5 / 100)`, creator gets the remainder (so creator gets
+slightly *more* than a clean 95% on amounts that don't divide evenly by 20,
+e.g. ETB 101 → platform 5, creator 96).
+
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| POST | `/api/circles/:id/apply-paid` | JWT (circle owner) | `{price_etb}` (1–10000). 403 if not owner, 400 if eligibility not met or already applied/approved. |
+| POST | `/api/circles/:id/subscribe` | JWT | Uploads a receipt; 201. 409 if circle isn't an approved paid circle, caller is the owner, or a current (active/pending) subscription already exists. |
+| GET | `/api/circles/:id/subscriptions/pending` | JWT (owner) | Receipts awaiting the owner's review. |
+| POST | `/api/circles/subscriptions/:id/review` | JWT (owner) | `{action: "approve"\|"reject"}`. Approve creates the revenue-ledger row and adds a `CircleMember` if missing. |
+| GET | `/api/circles/:id/revenue` | JWT (owner) | Lifetime totals + monthly trend. |
+| GET | `/api/circles/:id/subscription-status` | JWT | Caller's own subscription (active one preferred, else most recent of any status). |
+| GET | `/api/admin/paid-circle-applications?page=&per_page=` | JWT (super admin) | Circles with `paid_circle_status = "pending_approval"`. |
+| POST | `/api/admin/paid-circle-applications/:id/review` | JWT (super admin) | `{action, reason?}` — `reason` is optional here (unlike trainer rejection, which requires one). |
+
+```json
+// RESPONSE 201 — POST /api/circles/:id/subscribe
+{ "id": "uuid", "status": "pending_approval", "period_start": "2026-07-26T10:00:00Z", "period_end": "2026-08-25T10:00:00Z", "amount_etb": 350 }
+
+// RESPONSE 200 — GET /api/circles/:id/revenue
+{
+  "total_revenue_etb": 1050, "creator_earnings_etb": 998, "platform_fee_etb": 52,
+  "active_subscribers": 3, "pending_receipts": 1,
+  "monthly_trend": [ { "month": "2026-07", "revenue": 1050, "subscribers": 3 } ]
+}
+```
+
+**Access model — important deviation from a typical "active subscription
+required" gate:** access to a paid circle's activity feed/leaderboard
+(`has_circle_access`) is **membership-based**, not subscription-status-based.
+Once a subscription is approved, the subscriber gets a permanent
+`CircleMember` row; access checks just look for that membership row (or
+circle ownership), not whether a subscription is currently `active`. This is
+intentional for **grandfathering**: members who joined before a circle went
+paid keep access indefinitely. The practical effect is that a subscriber
+whose 30-day period lapses is **not** immediately locked out — a daily
+scheduler job (`check_expired_subscriptions`) marks the subscription
+`expired` and only revokes membership if the member's `joined_at` falls
+within that specific subscription's period (so it won't accidentally evict a
+grandfathered free member).
+
+**Join gate:** `POST /api/circles/:id/join` on a paid, non-member returns
+**402** with a JSON object as the `detail` (not a plain string, which is
+unusual for this codebase's error convention):
+```json
+// RESPONSE 402
+{ "detail": { "message": "Paid circle — subscription required", "price_etb": 350, "circle_id": "uuid" } }
+```
+
+**Stale-receipt escalation:** a receipt sitting in `pending_approval` for
+more than 72 hours is escalated once (an `AdminNotification` is created for
+every super-admin) via the same daily scheduler job — the owner isn't
+blocked from still approving/rejecting it after escalation.
+
+---
+
+## 9i. Strava Integration (Phase 15)
+
+Full OAuth2 flow (`app/api/strava.py`, mounted at `/api/strava`). Users
+connect Strava, choose which stat categories to expose, and stats are
+fetched on-demand (pull model, not a webhook subscription) and cached.
+
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| GET | `/api/strava/connect` | JWT | Returns `{authorization_url}`. 503 if `STRAVA_CLIENT_ID`/`SECRET`/`REDIRECT_URI` aren't all set. |
+| GET | `/api/strava/callback` | None — Strava redirect | `code` + `state` query params. `state` is a short-lived (10 min) signed JWT carrying the user id, not a raw CSRF token. Redirects to `{FRONTEND_URL}/profile?strava=connected` on success; 502 on token-exchange failure. |
+| POST | `/api/strava/disconnect` | JWT | Clears tokens, visibility prefs, and the activity cache. |
+| GET | `/api/strava/stats` | JWT | `{connected, stats}` — refreshes from Strava if the cache is stale (see TTL below); 503 if Strava errors (e.g. rate-limited) and there's nothing usable cached. |
+| PATCH | `/api/strava/visibility` | JWT | `{visible_stats: [...]}`. 422 on unknown or duplicate keys. |
+
+**Valid `visible_stats` keys** (exactly these six):
+`distance`, `calories`, `moving_time`, `elevation`, `activity_count`, `recent_activities`
+
+On first connect, all of these are enabled **except `calories`**
+(`["distance", "moving_time", "elevation", "activity_count", "recent_activities"]`)
+unless the user already had a preference saved from a prior connection.
+
+```json
+// RESPONSE 200 — GET /api/strava/stats
+{
+  "connected": true,
+  "stats": {
+    "distance": 42.1, "moving_time": 14400, "elevation": 320.5,
+    "activity_count": 5,
+    "recent_activities": [
+      { "id": 77, "name": "Morning run", "type": "Run", "distance": 5.0, "moving_time": 1500, "start_date": "2026-07-25T06:00:00Z" }
+    ]
+  }
+}
+```
+
+- Access/refresh tokens are stored **Fernet-encrypted** (key derived from
+  `SHA256(JWT_SECRET)`), never in plaintext, in `strava_access_token` /
+  `strava_refresh_token`.
+- Stats are computed from a **15-minute-TTL cache** of the user's recent
+  activities (`strava_activity_cache` table, `crud/strava.py`) — Strava's
+  dedicated `/athletes/{id}/stats` all-time-totals endpoint is not used;
+  "stats" here means an aggregation over cached recent activities
+  (`distance` in km, `calories`/`elevation` summed, `activity_count` = rows
+  cached, `recent_activities` = latest 5). On a fresh/expired cache, a live
+  call to Strava fetches the 100 most recent activities and re-caches them.
+- `disconnect` sets the legacy `health_app_connected` flag back to `false`;
+  connecting sets it `true` (see the note on `PATCH /users/me` in §3 — this
+  field is no longer independently settable by the client).
+- The public-profile endpoint (§9f) reuses this same cache/refresh logic, so
+  viewing someone's public profile can trigger a live Strava refresh on
+  their behalf if their cache is stale.
+
+---
+
 ## 10. Error Responses
 
 All errors follow this shape:
@@ -1251,6 +2163,9 @@ All errors follow this shape:
 ```json
 // 401 Unauthorized
 { "detail": "Could not validate credentials" }
+
+// 402 Payment Required — paid-circle join gate (§9h); detail is an object, not a string
+{ "detail": { "message": "Paid circle — subscription required", "price_etb": 350, "circle_id": "uuid" } }
 
 // 403 Forbidden
 { "detail": "Provider access required" }
@@ -1271,11 +2186,14 @@ All errors follow this shape:
     { "loc": ["body", "name"], "msg": "Field required", "type": "missing" }
   ]
 }
+
+// 503 Service Unavailable — Cloudinary/Strava not configured, or Strava temporarily erroring
+{ "detail": "Cloudinary is not configured" }
 ```
 
 ---
 
-## 10. Frontend Flow Summary
+## 11. Frontend Flow Summary
 
 ```
 Telegram Bot /start
@@ -1342,7 +2260,7 @@ if user.is_super_admin === true OR telegram_id in SUPER_ADMIN_TELEGRAM_IDS:
 
 ---
 
-## 11. CORS & Headers
+## 12. CORS & Headers
 
 **Allowed origins** (configurable via env):
 - `http://localhost:5173` (dev)

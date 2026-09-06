@@ -393,27 +393,71 @@ def update_redemption_status(
     return redemption
 
 
-def get_provider_redemptions(db: Session, provider_id: UUID, limit: int = 10) -> List[dict]:
-    rows = (
+def get_provider_redemptions(
+    db: Session,
+    provider_id: UUID,
+    page: int = 1,
+    per_page: int = 20,
+    status: Optional[str] = None,
+) -> tuple[List[dict], int]:
+    query = (
         db.query(UserRedemption, Product, User)
         .join(Product, UserRedemption.product_id == Product.id)
         .join(User, UserRedemption.user_id == User.id)
         .filter(Product.provider_id == provider_id)
-        .order_by(UserRedemption.redeemed_at.desc())
-        .limit(limit)
+    )
+    if status:
+        query = query.filter(UserRedemption.delivery_status == status)
+
+    total = query.count()
+    rows = (
+        query.order_by(UserRedemption.redeemed_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
         .all()
     )
     items = []
     for redemption, product, user in rows:
         items.append({
             "id": str(redemption.id),
-            "user_name": user.name,
+            "user_name": user.name or user.telegram_handle or "User",
             "product_name": product.name,
             "redemption_code": redemption.redemption_code,
             "redeemed_at": redemption.redeemed_at.isoformat(),
             "delivery_status": redemption.delivery_status,
+            "provider_notes": redemption.provider_notes,
+            "delivery_address": redemption.delivery_address,
+            "points_spent": redemption.points_spent,
         })
-    return items
+    return items, total
+
+
+def provider_update_redemption_status(
+    db: Session,
+    provider_id: UUID,
+    redemption_id: UUID,
+    status: str,
+    notes: Optional[str] = None,
+) -> Optional[UserRedemption]:
+    """Same as update_redemption_status (admin), but scoped to redemptions of
+    this provider's own products — a provider may only manage their own."""
+    redemption = (
+        db.query(UserRedemption)
+        .join(Product, UserRedemption.product_id == Product.id)
+        .filter(UserRedemption.id == redemption_id, Product.provider_id == provider_id)
+        .first()
+    )
+    if not redemption:
+        return None
+    redemption.delivery_status = status
+    if notes:
+        redemption.provider_notes = notes
+    if status == "delivered":
+        redemption.delivered_at = datetime.now(timezone.utc)
+    redemption.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(redemption)
+    return redemption
 
 
 def admin_list_redemptions(

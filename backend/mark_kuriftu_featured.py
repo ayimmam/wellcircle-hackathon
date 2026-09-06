@@ -17,8 +17,8 @@ conn = psycopg2.connect(DATABASE_URL)
 cur = conn.cursor()
 
 cur.execute(
-    "UPDATE providers SET is_featured = TRUE WHERE name ILIKE %s RETURNING id, name",
-    ("%kuriftu%",),
+    "UPDATE providers SET is_featured = TRUE WHERE name ILIKE %s OR name ILIKE %s RETURNING id, name",
+    ("%kuriftu%", "%boston day spa%"),
 )
 providers = cur.fetchall()
 for pid, name in providers:
@@ -32,7 +32,7 @@ if providers:
     for eid, title in cur.fetchall():
         print(f"boosted event: {title} ({eid})")
 else:
-    print("No provider matching 'kuriftu' found — seed it first.")
+    print("No provider matching 'kuriftu' or 'boston day spa' found — seed it first.")
 
 conn.commit()
 cur.close()

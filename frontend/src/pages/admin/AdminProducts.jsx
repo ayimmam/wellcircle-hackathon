@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getAdminProducts, getAdminRedemptions, updateProductStock, updateRedemptionStatus } from '../../api/client';
 import { showToast } from '../../components/Toast';
+import useDismissOnEscape from '../../hooks/useDismissOnEscape';
 
 const REDEMPTION_STATUSES = ['pending', 'confirmed', 'shipped', 'delivered'];
 
@@ -14,6 +15,8 @@ export default function AdminProducts() {
   const [stockModal, setStockModal] = useState(null);
   const [newStock, setNewStock] = useState('');
   const [loading, setLoading] = useState(true);
+
+  useDismissOnEscape(() => setStockModal(null), Boolean(stockModal));
 
   const loadProducts = async () => {
     setLoading(true);
@@ -75,8 +78,8 @@ export default function AdminProducts() {
       {view === 'products' ? (
         <>
           <div className="flex gap-8 mb-16 flex-wrap">
-            <input className="input" style={{ flex: 1, minWidth: 140 }} placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} />
-            <select className="input" value={status} onChange={e => setStatus(e.target.value)}>
+            <input className="input" type="search" style={{ flex: 1, minWidth: 140 }} placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} aria-label="Search products" autoComplete="off" />
+            <select className="input" value={status} onChange={e => setStatus(e.target.value)} aria-label="Filter by status">
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
@@ -113,7 +116,7 @@ export default function AdminProducts() {
       ) : (
         <>
           <div className="flex gap-8 mb-16">
-            <select className="input" value={redemptionStatus} onChange={e => setRedemptionStatus(e.target.value)}>
+            <select className="input" value={redemptionStatus} onChange={e => setRedemptionStatus(e.target.value)} aria-label="Filter redemptions by status">
               <option value="">All statuses</option>
               {REDEMPTION_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -153,7 +156,7 @@ export default function AdminProducts() {
             <h3 className="card-title mb-12">Adjust Stock</h3>
             <p className="text-sm mb-8">Product: {stockModal.name}</p>
             <p className="text-sm mb-16">Current Stock: {stockModal.quantity_in_stock}</p>
-            <input className="input mb-16" type="number" min="0" value={newStock} onChange={e => setNewStock(e.target.value)} />
+            <input className="input mb-16" type="number" inputMode="numeric" min="0" value={newStock} onChange={e => setNewStock(e.target.value)} aria-label="New stock quantity" />
             <div className="flex gap-8">
               <button className="btn btn-primary" onClick={saveStock}>Save</button>
               <button className="btn btn-secondary" onClick={() => setStockModal(null)}>Cancel</button>

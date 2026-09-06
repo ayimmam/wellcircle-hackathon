@@ -11,6 +11,8 @@ alembic==1.12.1
 # Authentication & Security
 python-jose[cryptography]==3.3.0
 python-multipart==0.0.6
+cryptography>=42.0.0
+cloudinary>=1.40.0
 
 # HTTP client (payment APIs)
 httpx==0.25.2
@@ -20,6 +22,9 @@ apscheduler==3.10.4
 
 # Utilities
 python-dotenv==1.0.0
+
+# cPanel / Passenger deployment (ASGI → WSGI bridge)
+a2wsgi==1.10.4
 
 # Development & Testing
 pytest==7.4.3

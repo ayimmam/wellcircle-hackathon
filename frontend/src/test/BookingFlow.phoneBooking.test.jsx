@@ -12,8 +12,8 @@ vi.mock('../analytics', () => ({
   track: vi.fn(),
 }));
 
-// Kuriftu Resort & Spa: every service is phone-booked (Jul 15 gap analysis)
-const kuriftu = MOCK_PROVIDERS.find(p => p.name === 'Kuriftu Resort & Spa');
+// Boston Day Spa: every service is phone-booked, priced on enquiry (B1 blocked)
+const bostonDaySpa = MOCK_PROVIDERS.find(p => p.name === 'Boston Day Spa');
 
 function renderBooking() {
   return renderWithProviders(
@@ -21,14 +21,14 @@ function renderBooking() {
       <Route path="/booking/:providerId" element={<BookingFlow />} />
       <Route path="*" element={<div />} />
     </Routes>,
-    { route: `/booking/${kuriftu.id}` }
+    { route: `/booking/${bostonDaySpa.id}` }
   );
 }
 
-describe('BookingFlow direct-contact booking (Kuriftu gap analysis)', () => {
+describe('BookingFlow direct-contact booking (Boston Day Spa pilot)', () => {
   it('tags phone-booked services and skips date/payment steps', async () => {
     renderBooking();
-    const service = await screen.findByText('Aroma Massage (90 min)');
+    const service = await screen.findByText('Massage Cave');
     expect(service.closest('.service-item').textContent).toMatch(/Book directly/);
 
     fireEvent.click(service.closest('.service-item'));
@@ -36,17 +36,17 @@ describe('BookingFlow direct-contact booking (Kuriftu gap analysis)', () => {
     fireEvent.click(continueBtn);
 
     // Lands on the contact screen, not the date/time step
-    expect(await screen.findByText('Book Directly with Kuriftu Resort & Spa')).toBeInTheDocument();
+    expect(await screen.findByText('Book Directly with Boston Day Spa')).toBeInTheDocument();
     expect(screen.queryByText('Pick a Date')).not.toBeInTheDocument();
     expect(screen.queryByText('Review & Confirm')).not.toBeInTheDocument();
   });
 
   it('shows both a call and an email link, call prioritized, and tracks analytics', async () => {
     renderBooking();
-    const service = await screen.findByText('Deep Tissue Massage (50 min)');
+    const service = await screen.findByText('Facial');
     fireEvent.click(service.closest('.service-item'));
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
-    await screen.findByText('Book Directly with Kuriftu Resort & Spa');
+    await screen.findByText('Book Directly with Boston Day Spa');
 
     await waitFor(() => expect(track).toHaveBeenCalledWith('booking_contact_requested', expect.objectContaining({
       has_phone: true,
@@ -57,7 +57,7 @@ describe('BookingFlow direct-contact booking (Kuriftu gap analysis)', () => {
     const callLink = document.getElementById('contact-call-btn');
     expect(callLink).toBeInTheDocument();
     expect(callLink.className).toContain('btn-primary');
-    expect(callLink.getAttribute('href')).toBe('tel:+251980565656');
+    expect(callLink.getAttribute('href')).toBe('tel:+251116623808');
 
     const emailLink = document.getElementById('contact-email-btn');
     expect(emailLink).toBeInTheDocument();
@@ -72,10 +72,10 @@ describe('BookingFlow direct-contact booking (Kuriftu gap analysis)', () => {
 
   it('Back returns to service selection without losing the pick', async () => {
     renderBooking();
-    const service = await screen.findByText('Steam & Sauna');
+    const service = await screen.findByText('Barber');
     fireEvent.click(service.closest('.service-item'));
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
-    await screen.findByText('Book Directly with Kuriftu Resort & Spa');
+    await screen.findByText('Book Directly with Boston Day Spa');
 
     fireEvent.click(screen.getByLabelText('Go back'));
     expect(await screen.findByText('Select a Service')).toBeInTheDocument();

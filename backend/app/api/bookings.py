@@ -60,6 +60,10 @@ async def create_new_booking(
             detail="Multi-day booking isn't supported for event bookings — an event already has one fixed date",
         )
 
+    provider = db.query(Provider).filter(Provider.id == UUID(request.provider_id)).first()
+    if provider and provider.is_coming_soon:
+        raise HTTPException(status_code=400, detail="This provider isn't taking bookings yet.")
+
     promo = get_eligible_promotion(db, UUID(request.provider_id), user.id)
     discount_etb = compute_discount_etb(request.amount_etb, promo["discount_pct"]) if promo else 0
     charged_etb = request.amount_etb - discount_etb
@@ -144,9 +148,8 @@ async def create_new_booking(
         str(request.slot_datetime)
     )
 
-    # 5. Sync to Google Sheets for Kuriftu
-    provider = db.query(Provider).filter(Provider.id == UUID(request.provider_id)).first()
-    if provider and "kuriftu" in provider.name.lower():
+    # 5. Sync to Google Sheets for providers the marketing team tracks there.
+    if provider and provider.sheets_export_enabled:
         # Service type is Event if event_id is present, otherwise Service
         service_type = "Event" if request.event_id else "Service"
         user_name = user.name or user.telegram_handle or "Unknown User"

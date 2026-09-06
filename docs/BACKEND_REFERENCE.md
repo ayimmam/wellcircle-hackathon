@@ -4,6 +4,17 @@
 > **Auth:** `Authorization: Bearer <JWT>` on all routes except auth + payment callbacks
 > **API Docs (live):** `https://your-backend.onrender.com/docs`
 
+> [!WARNING]
+> **This doc is stale and predates Phases 2–15** (multi-interest onboarding,
+> circles, posts/activity feed, ranks, feedback, provider portal, followers,
+> trainer verification, paid circles, Strava — none of it is reflected below;
+> e.g. `interest_category` is shown here as a single string, but the real
+> schema has been `interest_categories` (an array) since Phase 11). It's kept
+> for historical context on the original Phase-1 structure only. **For
+> current, accurate endpoint/schema documentation, use
+> [`API_CONTRACT.md`](./API_CONTRACT.md) instead** — see `docs/HANDOFF.md`
+> for the full phase-by-phase change history.
+
 ---
 
 ## 📂 Backend Project Structure

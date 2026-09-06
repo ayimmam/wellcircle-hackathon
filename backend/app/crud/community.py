@@ -10,6 +10,8 @@ from app.models.community import Community, CommunityMember, CommunityFeedEvent
 from app.models.provider import Provider
 from app.models.user import User
 
+MAX_COMMUNITY_LIST = 200
+
 
 def get_all_communities(
     db: Session,
@@ -29,7 +31,9 @@ def get_all_communities(
         )
         query = query.filter(Community.id.in_(joined_ids))
 
-    communities = query.order_by(Community.member_count.desc()).all()
+    # Bounded for the same reason as the provider directory: the client renders
+    # the full list, so this caps the payload without introducing paging.
+    communities = query.order_by(Community.member_count.desc()).limit(MAX_COMMUNITY_LIST).all()
 
     # Batch the per-row lookups below into two queries instead of one per
     # community (was N+1 — under concurrent load each request held its DB
@@ -185,10 +189,16 @@ def leave_community(db: Session, community_id: UUID, user_id: UUID) -> Optional[
 
 
 def checkin_community(db: Session, community_id: UUID, user: User):
-    """Daily check-in. Returns dict, or string sentinel for errors."""
+    """Daily check-in (streak-only — no points earned).
+
+    Check-in used to mint POINTS_CHECKIN (10) via TXN_CHECKIN; as of the
+    points-economy rework it only maintains streaks/freezes and triggers
+    challenge completion checks. Returns dict, or string sentinel for errors.
+    """
     from app.services.points import (
-        apply_transaction, get_points_tier, POINTS_CHECKIN,
-        TXN_CHECKIN, TXN_CHALLENGE,
+        apply_transaction, get_points_tier,
+        TXN_CHALLENGE, TXN_COMEBACK,
+        POINTS_COMEBACK, COMEBACK_MIN_PREVIOUS_STREAK,
     )
 
     community = db.query(Community).filter(Community.id == community_id).first()
@@ -215,10 +225,8 @@ def checkin_community(db: Session, community_id: UUID, user: User):
     if existing:
         return "already_checked_in"
 
-    points_earned = POINTS_CHECKIN
-    apply_transaction(db, user, points_earned, TXN_CHECKIN,
-                      reference_id=community.id,
-                      note=f"Check-in: {community.name}")
+    # Check-in no longer earns points — streak-only.
+    points_earned = 0
 
     # E1: Referral credit — fires once, on the invitee's first-ever check-in
     # (not mere signup), to resist farming. last_checkin_at is still None here.
@@ -247,6 +255,8 @@ def checkin_community(db: Session, community_id: UUID, user: User):
     # C2: Streak tracking
     now = datetime.now(timezone.utc)
     freeze_used = False
+    comeback_bonus = False
+    previous_streak = user.current_streak or 0
     if user.last_checkin_at:
         days_since = (now.date() - user.last_checkin_at.date()).days
         if days_since == 1:
@@ -258,6 +268,12 @@ def checkin_community(db: Session, community_id: UUID, user: User):
             user.current_streak = (user.current_streak or 0) + 1
             freeze_used = True
         elif days_since > 1:
+            # Streak broke with no freeze to save it — returning should still
+            # feel like a win, not just a reset ("reward the comeback").
+            if previous_streak >= COMEBACK_MIN_PREVIOUS_STREAK:
+                apply_transaction(db, user, POINTS_COMEBACK, TXN_COMEBACK,
+                                  note=f"Comeback bonus: restarted after a {previous_streak}-day streak")
+                comeback_bonus = True
             user.current_streak = 1
         # same day = no change (shouldn't reach here due to duplicate check)
     else:
@@ -266,6 +282,10 @@ def checkin_community(db: Session, community_id: UUID, user: User):
     # C2: Award streak freeze every 7-day streak
     if user.current_streak and user.current_streak % 7 == 0:
         user.freeze_count = (user.freeze_count or 0) + 1
+
+    # Personal best — "reward getting better," not just participating
+    is_personal_best = user.current_streak > (user.longest_streak or 0)
+    user.longest_streak = max(user.longest_streak or 0, user.current_streak or 0)
 
     user.last_checkin_at = now
     event = CommunityFeedEvent(community_id=community_id, user_id=user.id, event_type="checkin")
@@ -285,6 +305,9 @@ def checkin_community(db: Session, community_id: UUID, user: User):
     ).all()
     
     for challenge in active_challenges:
+        if challenge.challenge_type != "checkin":
+            continue
+        
         # check user progress
         checkins = db.query(CommunityFeedEvent).filter(
             CommunityFeedEvent.user_id == user.id,
@@ -326,6 +349,9 @@ def checkin_community(db: Session, community_id: UUID, user: User):
         "current_streak": user.current_streak or 0,
         "freeze_count": user.freeze_count or 0,
         "freeze_used": freeze_used,
+        "comeback_bonus": comeback_bonus,
+        "longest_streak": user.longest_streak or 0,
+        "is_personal_best": is_personal_best,
         "tier": tier,
         "tier_emoji": tier_emoji,
         "feed_event": {
@@ -342,19 +368,27 @@ def get_community_feed(db: Session, community_id: UUID, since: Optional[datetime
     query = db.query(CommunityFeedEvent).filter(CommunityFeedEvent.community_id == community_id)
     if since:
         query = query.filter(CommunityFeedEvent.created_at > since)
-    events = query.order_by(CommunityFeedEvent.created_at.desc()).limit(min(limit, 50)).all()
-    result = []
-    for e in events:
-        user = db.query(User).filter(User.id == e.user_id).first()
-        result.append({
+    # Outer-joined rather than looked up per event: the feed polls every few
+    # seconds, so a per-row User query meant up to 50 round trips per poll.
+    rows = (
+        query.outerjoin(User, User.id == CommunityFeedEvent.user_id)
+        .add_entity(User)
+        .order_by(CommunityFeedEvent.created_at.desc())
+        .limit(min(limit, 50))
+        .all()
+    )
+    return [
+        {
             "id": str(e.id),
             "event_type": e.event_type,
-            "user_name": user.name or user.telegram_handle if user else None,
+            "user_id": str(user.id) if user else None,
+            "user_name": (user.name or user.telegram_handle) if user else None,
             "user_photo": user.photo_url if user else None,
             "event_metadata": e.event_metadata,
             "created_at": e.created_at,
-        })
-    return result
+        }
+        for e, user in rows
+    ]
 
 
 def get_suggested_communities(db: Session, interest_categories: List[str], user_id: UUID, limit: int = 5) -> List[dict]:
@@ -364,21 +398,21 @@ def get_suggested_communities(db: Session, interest_categories: List[str], user_
         .filter(CommunityMember.user_id == user_id)
         .subquery()
     )
-    communities = (
-        db.query(Community)
+    rows = (
+        db.query(Community, Provider)
+        .outerjoin(Provider, Provider.id == Community.provider_id)
         .filter(Community.category.in_(interest_categories), ~Community.id.in_(joined_ids))
         .order_by(Community.member_count.desc())
         .limit(limit)
         .all()
     )
-    result = []
-    for c in communities:
-        provider = db.query(Provider).filter(Provider.id == c.provider_id).first()
-        result.append({
+    return [
+        {
             "id": str(c.id),
             "name": c.name,
             "category": c.category,
             "member_count": c.member_count,
             "provider_name": provider.name if provider else None,
-        })
-    return result
+        }
+        for c, provider in rows
+    ]

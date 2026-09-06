@@ -27,7 +27,7 @@ describe('PostFeed — Strava-style activity', () => {
     renderWithProviders(<PostFeed circleId={CIRCLE_ID} />);
 
     await screen.findByText(/just finished a 5k run/i);
-    const giftButtons = screen.getAllByTitle(/Gift \d+ Legacy Points/);
+    const giftButtons = screen.getAllByTitle(/Gift Legacy Points/);
     expect(giftButtons.length).toBeGreaterThan(0);
     giftButtons.forEach(btn => expect(btn.querySelector('svg.icon')).toBeTruthy());
   });

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-accent="gold">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Well Circle — Your wellness tribe in Addis Ababa. Join circles, check in daily, earn points, and book sessions with verified providers." />
+  <meta name="theme-color" content="#F5F6FA" />
+  <title>Well Circle — Your Wellness Tribe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" onload="this.rel='stylesheet'" />
+  <noscript>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  </noscript>
+  <script>
+    (function () {
+      var saved = localStorage.getItem('wellcircle-theme');
+      document.documentElement.dataset.theme = saved === 'dark' ? 'dark' : 'light';
+      var savedAccent = localStorage.getItem('wellcircle-accent') || 'gold';
+      if (savedAccent !== 'blue') {
+        document.documentElement.dataset.accent = savedAccent;
+      }
+    })();
+  </script>
+</head>
+<body class="in-web">
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>

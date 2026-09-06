@@ -1,16 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
+import { useTelegramHeaderColor } from '../hooks/useTelegramHeaderColor';
 import { getProvider, joinCommunity, getProviderEvents } from '../api/client';
 import EventCard from '../components/EventCard';
 import { showToast } from '../components/Toast';
 import Icon from '../components/Icon';
+import SmartImage from '../components/SmartImage';
 import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
 import { promoApplies, daysLeft, expiryLabel } from '../utils/promo';
+import { clickableDivProps } from '../utils/a11y';
 
 export default function ProviderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAvailable: nativeBack } = useTelegramBackButton(() => navigate(-1));
+  useTelegramHeaderColor('#000000');
   const { t } = useTranslation();
   const [provider, setProvider] = useState(null);
   const [activePhoto, setActivePhoto] = useState(0);
@@ -27,6 +33,13 @@ export default function ProviderDetail() {
       .then(res => setEvents((res.events || []).filter(e => !e.is_cancelled)))
       .catch(() => setEvents([]));
   }, [id, navigate]);
+
+  // Prefer the provider's shared Google Maps place link — short links carry no
+  // coordinates, so fall back to a lat/lng search only when there's no link.
+  const mapsHref = provider?.map_url
+    || (provider?.lat != null && provider?.lng != null
+      ? `https://www.google.com/maps/search/?api=1&query=${provider.lat},${provider.lng}`
+      : null);
 
   const promo = provider?.active_promotion;
   useEffect(() => {
@@ -73,23 +86,40 @@ export default function ProviderDetail() {
     <div className="page" id="provider-detail-screen" style={{ paddingTop: 0 }}>
       {/* Header with cover photo */}
       <div className="detail-header">
-        <img className="detail-cover" src={provider.photos?.[activePhoto] || provider.cover_photo_url} alt={provider.name} />
-        <button className="detail-back" onClick={() => navigate(-1)} id="detail-back-btn" aria-label="Go back">
-          <Icon name="chevron-left" size={20} />
-        </button>
+        <SmartImage
+          className="detail-cover"
+          src={provider.photos?.[activePhoto] || provider.cover_photo_url}
+          alt={provider.name}
+          width={430}
+          priority
+          fallback={<div className="detail-cover" />}
+        />
+        {!nativeBack && (
+          <button className="detail-back" onClick={() => navigate(-1)} id="detail-back-btn" aria-label="Go back">
+            <Icon name="chevron-left" size={20} />
+          </button>
+        )}
       </div>
 
       {/* Photo gallery */}
       {provider.photos?.length > 1 && (
         <div className="detail-gallery">
           {provider.photos.map((url, i) => (
-            <img
+            <button
               key={i}
-              src={url}
-              alt={`${provider.name} photo ${i + 1}`}
-              className={i === activePhoto ? 'active' : ''}
+              type="button"
+              style={{ padding: 0, flexShrink: 0 }}
+              aria-label={t('View photo {{n}}', { n: i + 1 })}
+              aria-pressed={i === activePhoto}
               onClick={() => setActivePhoto(i)}
-            />
+            >
+              <SmartImage
+                src={url}
+                alt={`${provider.name} photo ${i + 1}`}
+                width={80}
+                className={i === activePhoto ? 'active' : ''}
+              />
+            </button>
           ))}
         </div>
       )}
@@ -108,8 +138,22 @@ export default function ProviderDetail() {
         <p className="detail-desc">{provider.description}</p>
       </div>
 
+      {/* Coming soon (Boston Day Spa pilot: browsable, not bookable) */}
+      {provider.is_coming_soon && (
+        <div className="card" style={{ marginBottom: 16 }} id="coming-soon-banner">
+          <div className="card-body" style={{ padding: '12px 14px' }}>
+            <div className="inline-icon-text" style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+              <Icon name="clock" size={14} /> {t('Coming soon')}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 4 }}>
+              {t("Coming soon to Well Circle — this provider isn't taking bookings yet.")}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Active promotion (presale loop) */}
-      {provider.active_promotion && (
+      {!provider.is_coming_soon && provider.active_promotion && (
         <div className="card" style={{ marginBottom: 16, border: '1px solid var(--accent)' }} id="promo-banner">
           <div className="card-body" style={{ padding: '12px 14px' }}>
             <div className="inline-icon-text" style={{ fontWeight: 700, fontSize: '0.9rem' }}>
@@ -153,6 +197,53 @@ export default function ProviderDetail() {
         </>
       )}
 
+      {/* Getting there (Phase 8) — detail-only content, rendered only when
+          the provider has tips or facilities on file (no empty header). */}
+      {(provider.navigation_tips?.length > 0 || provider.facilities?.length > 0) && (
+        <>
+          <div className="section-header">
+            <h2 className="section-title">{t('Getting there')}</h2>
+          </div>
+          <div className="card mb-24">
+            <div className="card-body">
+              {provider.navigation_tips?.map((tip, i) => (
+                <div key={i} className="flex items-start gap-8" style={{ marginBottom: 10 }}>
+                  <Icon name="map-pin" size={16} style={{ marginTop: 2, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{tip.title}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{tip.detail}</div>
+                  </div>
+                </div>
+              ))}
+              {mapsHref && (
+                <a
+                  className="btn btn-secondary btn-sm"
+                  href={mapsHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  id="open-in-maps-link"
+                  style={{ marginTop: 4 }}
+                >
+                  <Icon name="map-pin" size={14} /> {t('Open in Maps')}
+                </a>
+              )}
+              {provider.facilities?.length > 0 && (
+                <div style={{ marginTop: provider.navigation_tips?.length > 0 ? 16 : 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: 8 }}>{t('Facilities')}</div>
+                  <div className="flex-col gap-6">
+                    {provider.facilities.map((facility, i) => (
+                      <div key={i} className="inline-icon-text" style={{ fontSize: '0.82rem' }}>
+                        <Icon name="check" size={14} strokeWidth={2.5} /> {facility}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Services */}
       <div className="section-header">
         <h2 className="section-title">{t('Services')}</h2>
@@ -162,7 +253,11 @@ export default function ProviderDetail() {
           <div
             key={i}
             className="service-item"
-            onClick={() => navigate(`/booking/${provider.id}`, { state: { provider, selectedService: service } })}
+            style={provider.is_coming_soon ? { cursor: 'default', opacity: 0.6 } : undefined}
+            aria-label={service.name}
+            {...(provider.is_coming_soon
+              ? {}
+              : clickableDivProps(() => navigate(`/booking/${provider.id}`, { state: { provider, selectedService: service } })))}
             id={`service-${i}`}
           >
             <div>
@@ -176,7 +271,9 @@ export default function ProviderDetail() {
                 )}
               </div>
             </div>
-            <div className="service-price">ETB {service.price?.toLocaleString()}</div>
+            <div className="service-price">
+              {service.price != null ? `ETB ${service.price.toLocaleString()}` : t('Price on enquiry')}
+            </div>
           </div>
         ))}
       </div>
@@ -216,14 +313,20 @@ export default function ProviderDetail() {
       )}
 
       {/* Book Now CTA */}
-      <button
-        className="btn btn-primary btn-block btn-lg"
-        onClick={() => navigate(`/booking/${provider.id}`, { state: { provider } })}
-        id="book-now-btn"
-        style={{ marginBottom: 16 }}
-      >
-        <Icon name="calendar" size={18} /> {t('Book Now')}
-      </button>
+      {provider.is_coming_soon ? (
+        <button className="btn btn-secondary btn-block btn-lg" disabled id="book-now-btn" style={{ marginBottom: 16 }}>
+          {t('Coming soon')}
+        </button>
+      ) : (
+        <button
+          className="btn btn-primary btn-block btn-lg"
+          onClick={() => navigate(`/booking/${provider.id}`, { state: { provider } })}
+          id="book-now-btn"
+          style={{ marginBottom: 16 }}
+        >
+          <Icon name="calendar" size={18} /> {t('Book Now')}
+        </button>
+      )}
     </div>
   );
 }

@@ -15,7 +15,6 @@ const CONCIERGE_CHIPS = [
   { label: 'Wellness events this week', needsLocation: false },
   { label: 'Affordable gyms around me', needsLocation: true },
   { label: 'Yoga classes this week', needsLocation: false },
-  { label: 'Nutrition coaching options', needsLocation: false },
 ];
 
 export default function AskWellCircle() {

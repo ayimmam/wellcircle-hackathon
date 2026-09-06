@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import time
 import uuid
@@ -38,11 +39,13 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
-GROQ_MAX_TOKENS = int(os.getenv("GROQ_MAX_TOKENS", "320"))
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+GROQ_MAX_TOKENS = int(os.getenv("GROQ_MAX_TOKENS", "1024"))
 GROQ_TIMEOUT_SECONDS = float(os.getenv("GROQ_TIMEOUT_SECONDS", "20"))
 PROVIDER_CACHE_TTL_SECONDS = float(os.getenv("PROVIDER_CACHE_TTL_SECONDS", "60"))
 EVENT_WINDOW_DAYS = int(os.getenv("EVENT_WINDOW_DAYS", "30"))
+
+logger.info("Groq model configured: %s", GROQ_MODEL)
 
 # NEW: how many past messages (user + assistant, combined) to remember per session.
 MEMORY_MAX_MESSAGES = int(os.getenv("MEMORY_MAX_MESSAGES", "5"))
@@ -426,8 +429,10 @@ SYSTEM_PROMPT_PREFIX = (
     "2. ONLY recommend a provider that appears in the Available Providers list below, using its EXACT id. "
     "ONLY recommend an event that appears in the Available Upcoming Events list below, using its EXACT id. "
     "If nothing genuinely fits, set the matching id/name fields to null. Never invent providers, events, or prices.\n"
-    "3. OUTPUT ONLY RAW JSON. NO MARKDOWN. NO CODE FENCES.\n"
-    'REQUIRED FORMAT: {"reply": "<advice/recommendation + closing question>", "provider_id": "<id or null>", "provider_name": "<name or null>", "event_id": "<id or null>", "event_name": "<service_name or null>"}\n\n'
+    "3. OUTPUT FORMAT: Return ONLY a single JSON object — no conversational text before or after it, "
+    "no markdown, and no code fences. The entire response must be valid JSON that can be parsed directly.\n"
+    'REQUIRED KEYS: {"reply": "<advice/recommendation + closing question>", "provider_id": "<id or null>", '
+    '"provider_name": "<name or null>", "event_id": "<id or null>", "event_name": "<service_name or null>"}\n\n'
     "Available Providers: "
 )
 
@@ -444,6 +449,75 @@ FALLBACK_REPLY = (
     "I'm having trouble matching that request right now - try stating your "
     "health goal, budget, or neighbourhood."
 )
+
+_JSON_FENCE_RE = re.compile(r"```(?:json)?\s*\n?(.*?)\n?```", re.DOTALL | re.IGNORECASE)
+
+
+def extract_json_object(text: str) -> dict | None:
+    """Parse a JSON object from plain text or markdown-fenced model output."""
+    if not text or not isinstance(text, str):
+        return None
+
+    stripped = text.strip()
+    if not stripped:
+        return None
+
+    candidates = [stripped]
+
+    fence_match = _JSON_FENCE_RE.search(stripped)
+    if fence_match:
+        candidates.insert(0, fence_match.group(1).strip())
+
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start != -1 and end > start:
+        candidates.append(stripped[start : end + 1])
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+
+    return None
+
+
+def validate_concierge_payload(parsed: dict) -> bool:
+    """Ensure the parsed model output matches the concierge response contract."""
+    if not isinstance(parsed, dict):
+        return False
+    if "reply" not in parsed:
+        return False
+    reply = parsed.get("reply")
+    if reply is not None and not isinstance(reply, str):
+        return False
+    return True
+
+
+def _is_groq_api_error(exc: BaseException) -> bool:
+    return type(exc).__module__.startswith("groq")
+
+
+def _extract_model_text(message) -> str:
+    """Return assistant text from content, falling back to reasoning for OSS models."""
+    content = getattr(message, "content", None)
+    if content is not None and str(content).strip():
+        return str(content).strip()
+
+    reasoning = getattr(message, "reasoning", None)
+    if reasoning is None and hasattr(message, "model_dump"):
+        reasoning = message.model_dump().get("reasoning")
+    if reasoning is not None and str(reasoning).strip():
+        logger.info("Model returned empty content; attempting JSON extraction from reasoning")
+        return str(reasoning).strip()
+
+    return ""
 
 
 @app.post("/ai/concierge", response_model=ConciergeResponse)
@@ -479,14 +553,40 @@ def ai_concierge(req: ConciergeRequest):
 
         response = groq_client.chat.completions.create(
             model=GROQ_MODEL,
-            response_format={"type": "json_object"},
             messages=messages,
             temperature=0.2,
             max_tokens=GROQ_MAX_TOKENS,
         )
 
-        raw_text = response.choices[0].message.content.strip()
-        parsed = json.loads(raw_text)
+        if not response.choices:
+            logger.error("Model failure: Groq returned no choices (model=%s)", GROQ_MODEL)
+            raise ValueError("model_no_choices")
+
+        raw_content = _extract_model_text(response.choices[0].message)
+        if not raw_content:
+            logger.error("Model failure: Groq returned empty content (model=%s)", GROQ_MODEL)
+            raise ValueError("model_empty_content")
+
+        raw_text = raw_content
+        parsed = extract_json_object(raw_text)
+        if parsed is None:
+            preview = raw_text[:200].replace("\n", " ")
+            logger.error(
+                "JSON parsing failure: could not extract object from model output "
+                "(model=%s, preview=%r)",
+                GROQ_MODEL,
+                preview,
+            )
+            raise ValueError("json_parse_failed")
+
+        if not validate_concierge_payload(parsed):
+            logger.error(
+                "Response validation failure: missing or invalid required fields "
+                "(keys=%s, model=%s)",
+                sorted(parsed.keys()) if isinstance(parsed, dict) else type(parsed).__name__,
+                GROQ_MODEL,
+            )
+            raise ValueError("validation_failed")
 
         provider_id, provider_name = _resolve_provider(parsed, providers)
         event_id, event_name, event_provider_id = _resolve_event(parsed, events)
@@ -513,10 +613,19 @@ def ai_concierge(req: ConciergeRequest):
             session_id=session_id,
         )
 
-    except json.JSONDecodeError:
-        logger.exception("Model returned non-JSON output")
-    except Exception:
-        logger.exception("AI processing error")
+    except ValueError as exc:
+        if str(exc) not in (
+            "model_no_choices",
+            "model_empty_content",
+            "json_parse_failed",
+            "validation_failed",
+        ):
+            logger.exception("Unexpected validation error during AI processing")
+    except Exception as exc:
+        if _is_groq_api_error(exc):
+            logger.exception("Groq API failure (model=%s)", GROQ_MODEL)
+        else:
+            logger.exception("Unexpected AI processing error")
 
     return ConciergeResponse(
         reply=FALLBACK_REPLY,

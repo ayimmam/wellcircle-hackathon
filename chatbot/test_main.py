@@ -7,6 +7,7 @@ that matter most for this service: that it never invents providers
 """
 
 import json
+import os
 import types
 
 import pytest
@@ -183,6 +184,140 @@ def test_non_json_model_output_returns_graceful_reply(client, monkeypatch):
     res = client.post("/ai/concierge", json={"message": "anything"})
     assert res.status_code == 200
     assert "trouble matching" in res.json()["reply"]
+
+
+def test_fenced_json_model_output_is_parsed(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    payload = {
+        "reply": "Sunrise HIIT is a great weekend option.",
+        "provider_id": None,
+        "provider_name": None,
+        "event_id": "fe-001",
+        "event_name": "Sunrise HIIT at Bole Wellness Hub",
+    }
+    fenced = f"```json\n{json.dumps(payload)}\n```"
+    fake = FakeGroqClient(content=fenced)
+    monkeypatch.setattr(main, "groq_client", fake)
+    res = client.post("/ai/concierge", json={"message": "events this weekend"})
+    body = res.json()
+    assert body["event_id"] == "fe-001"
+    assert body["event_name"] == "Sunrise HIIT at Bole Wellness Hub"
+    assert body["event_provider_id"] == "fb-001"
+
+
+def test_malformed_json_returns_graceful_reply(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    fake = FakeGroqClient(content='{"reply": "broken", "provider_id":')
+    monkeypatch.setattr(main, "groq_client", fake)
+    res = client.post("/ai/concierge", json={"message": "anything"})
+    assert res.status_code == 200
+    assert "trouble matching" in res.json()["reply"]
+
+
+def test_missing_event_id_leaves_event_fields_none(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    _set_model_reply(monkeypatch, {
+        "reply": "Check back soon for new events.",
+        "provider_id": None,
+        "provider_name": None,
+    })
+    res = client.post("/ai/concierge", json={"message": "any wellness events this weekend?"})
+    body = res.json()
+    assert body["event_id"] is None
+    assert body["event_name"] is None
+    assert body["event_provider_id"] is None
+
+
+def test_missing_event_provider_id_is_derived_from_event_lookup(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    _set_model_reply(monkeypatch, {
+        "reply": "Weekend restorative yoga is available.",
+        "provider_id": None,
+        "provider_name": None,
+        "event_id": "fe-002",
+        "event_name": "Weekend Restorative Yoga",
+    })
+    res = client.post("/ai/concierge", json={"message": "yoga this weekend"})
+    body = res.json()
+    assert body["event_id"] == "fe-002"
+    assert body["event_provider_id"] == "fb-002"
+
+
+def test_groq_api_error_returns_graceful_reply(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+
+    class FakeGroqAPIError(Exception):
+        pass
+
+    FakeGroqAPIError.__module__ = "groq"
+    _set_model_reply(monkeypatch, raises=FakeGroqAPIError("400 bad request"))
+    res = client.post("/ai/concierge", json={"message": "anything"})
+    assert res.status_code == 200
+    body = res.json()
+    assert "trouble matching" in body["reply"]
+    assert body["provider_id"] is None
+
+
+def test_groq_call_does_not_use_strict_json_response_format(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    fake = _set_model_reply(monkeypatch, {
+        "reply": "Tell me your neighbourhood.",
+        "provider_id": None,
+        "provider_name": None,
+        "event_id": None,
+        "event_name": None,
+    })
+    client.post("/ai/concierge", json={"message": "hello"})
+    assert "response_format" not in fake.calls[0]
+
+
+def test_groq_model_config_is_used_in_api_call(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    monkeypatch.setattr(main, "GROQ_MODEL", "openai/gpt-oss-20b")
+    fake = _set_model_reply(monkeypatch, {
+        "reply": "ok",
+        "provider_id": None,
+        "provider_name": None,
+        "event_id": None,
+        "event_name": None,
+    })
+    client.post("/ai/concierge", json={"message": "hello"})
+    assert fake.calls[0]["model"] == "openai/gpt-oss-20b"
+
+
+def test_default_groq_model_is_gpt_oss_20b():
+    assert main.GROQ_MODEL == "openai/gpt-oss-20b" or os.getenv("GROQ_MODEL") == main.GROQ_MODEL
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        (
+            '{"reply": "hi", "provider_id": null, "provider_name": null, "event_id": null, "event_name": null}',
+            "hi",
+        ),
+        (
+            'Here you go:\n```json\n{"reply": "fenced", "provider_id": null, "provider_name": null, "event_id": null, "event_name": null}\n```',
+            "fenced",
+        ),
+        ("not json at all", None),
+    ],
+)
+def test_extract_json_object(raw, expected):
+    parsed = main.extract_json_object(raw)
+    if expected is None:
+        assert parsed is None
+    else:
+        assert parsed is not None
+        assert parsed["reply"] == expected
+
+
+def test_validate_concierge_payload_rejects_missing_reply():
+    assert main.validate_concierge_payload({"provider_id": None}) is False
+
+
+def test_validate_concierge_payload_accepts_valid_payload():
+    assert main.validate_concierge_payload({"reply": "hello"}) is True
 
 
 def test_empty_reply_is_replaced_with_fallback(client, monkeypatch):

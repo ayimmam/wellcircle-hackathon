@@ -43,8 +43,8 @@ uvicorn main:app --reload     # http://localhost:8000  (health: GET /)
 | `GROQ_API_KEY` | yes | — | Groq API key |
 | `SUPABASE_URL` | yes | — | Supabase project URL |
 | `SUPABASE_SERVICE_KEY` | yes | — | Supabase service key |
-| `GROQ_MODEL` | no | `llama-3.1-8b-instant` | Groq model id |
-| `GROQ_MAX_TOKENS` | no | `320` | Generation cap |
+| `GROQ_MODEL` | no | `openai/gpt-oss-20b` | Groq model id |
+| `GROQ_MAX_TOKENS` | no | `1024` | Generation cap |
 | `GROQ_TIMEOUT_SECONDS` | no | `20` | Upstream timeout |
 | `PROVIDER_CACHE_TTL_SECONDS` | no | `60` | Provider cache lifetime |
 | `PORT` | no | `8000` | Server port |

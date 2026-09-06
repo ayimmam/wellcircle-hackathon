@@ -8,9 +8,12 @@ import { useAuth } from '../context/AuthContext';
 import { track } from '../analytics';
 import useDismissOnEscape from '../hooks/useDismissOnEscape';
 
+const WELCOME_MESSAGE =
+  "Hi! 👋 I'm Circler, your personal wellness chatbot. Tell me what you're looking for  from wellness services and events to spas, gyms, yoga, and more  and I'll help you find the right options for you.";
+
 const CONCIERGE_CHIPS = [
+  { label: 'Wellness events this week', needsLocation: false },
   { label: 'Affordable gyms around me', needsLocation: true },
-  { label: 'Best-rated spas', needsLocation: false },
   { label: 'Yoga classes this week', needsLocation: false },
   { label: 'Nutrition coaching options', needsLocation: false },
 ];
@@ -45,7 +48,7 @@ export default function AskWellCircle() {
     }
     return [{
       id: 0,
-      text: "Hi! Welcome to Well Circle. Tell me what wellness service you need, your neighborhood in Addis Ababa, or your budget range, and I will find your perfect match!",
+      text: WELCOME_MESSAGE,
       sender: 'assistant'
     }];
   });
@@ -143,7 +146,8 @@ export default function AskWellCircle() {
           id: Date.now() + 2,
           text: data.reply,
           sender: 'assistant',
-          provider: data.provider_name ? { id: data.provider_id, name: data.provider_name, data_source: data.data_source } : null
+          provider: data.provider_name ? { id: data.provider_id, name: data.provider_name, data_source: data.data_source } : null,
+          event: data.event_name ? { id: data.event_id, name: data.event_name, providerId: data.event_provider_id } : null
         }]);
       }
 
@@ -256,7 +260,7 @@ export default function AskWellCircle() {
                     if (window.confirm("Clear chat history?")) {
                       setMessages([{
                         id: 0,
-                        text: "Hi! Welcome to Well Circle. Tell me what wellness service you need, your neighborhood in Addis Ababa, or your budget range, and I will find your perfect match!",
+                        text: WELCOME_MESSAGE,
                         sender: 'assistant'
                       }]);
                       setIsFirstMessage(true);
@@ -326,6 +330,32 @@ export default function AskWellCircle() {
                         style={{ fontSize: '0.8rem', padding: '6px 12px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                       >
                         <Icon name="map-pin" size={13} /> {msg.provider.name}
+                      </button>
+                    </div>
+                  )}
+                  {msg.event && (
+                    <div style={{ alignSelf: 'flex-start', marginTop: '4px' }}>
+                      <button
+                        className="chip"
+                        onClick={() => {
+                          setIsOpen(false);
+                          if (msg.event.id && msg.event.providerId) {
+                            navigate(
+                              `/booking/${msg.event.providerId}?event_id=${msg.event.id}`,
+                              {
+                                state: {
+                                  eventId: msg.event.id,
+                                  eventServiceName: msg.event.name,
+                                },
+                              },
+                            );
+                          } else {
+                            navigate('/events');
+                          }
+                        }}
+                        style={{ fontSize: '0.8rem', padding: '6px 12px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <Icon name="calendar" size={13} /> {msg.event.name}
                       </button>
                     </div>
                   )}

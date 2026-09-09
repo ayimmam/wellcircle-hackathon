@@ -35,6 +35,7 @@ cp .env.example .env                  # set DATABASE_URL, TELEGRAM_BOT_TOKEN, JW
 uvicorn app.main:app --reload         # docs at http://localhost:8000/docs
 python -m app.db.seed                 # seed test users/providers
 python -m app.tests.test_integration  # full integration test (in-memory SQLite, run as a script not via pytest)
+pytest app/tests -q                   # the suite CI runs; needs Python 3.10+ (app/ uses `X | None` at runtime)
 ```
 
 ### Frontend (`cd frontend`)
@@ -44,6 +45,7 @@ npm run dev                          # http://localhost:5173, proxies /api → b
 npm run build
 npm test                             # Vitest + RTL (happy-dom), runs once
 npm run test:watch                   # Vitest watch mode
+npm run lint                         # ESLint (flat config); `npm run lint:fix` autofixes
 npx vitest run src/test/Header.test.jsx   # single test file
 ```
 Tests run the API client in **mock mode** (`test.env` sets `VITE_USE_MOCK=true` in
@@ -57,6 +59,61 @@ pip install -r requirements.txt
 cp .env.example .env   # BOT_TOKEN, BACKEND_URL, BOT_API_KEY, MINI_APP_URL
 python -m bot.main
 ```
+
+## Branching and CI
+
+`main` is the deploy branch — Vercel and Railway build from it, so **nothing
+lands on `main` directly**. `dev` is the integration branch and mirrors `main`
+at all times.
+
+```
+feature/my-thing ──PR──► dev ──PR──► main ──► Vercel / Railway deploy
+                    │           │
+                 CI runs     CI re-runs against main's tree
+```
+
+1. Branch off `dev`, not `main`.
+2. Open your PR against `dev`. The full gate below must be green to merge.
+3. Pushing to `dev` opens (or reuses) a standing **"Release: promote dev → main"**
+   PR — see `.github/workflows/promote-dev-to-main.yml`. It never auto-merges.
+4. Merging that release PR moves `main` and triggers the deployments.
+
+After a release, fast-forward `dev` so it mirrors `main` again:
+
+```bash
+git checkout dev && git merge --ff-only origin/main && git push origin dev
+```
+
+### The gate
+
+`.github/workflows/ci.yml` runs on every PR into `dev` or `main`, and on every
+push to either. One job per service, so a failure points straight at the culprit:
+
+| Job | Gate |
+|---|---|
+| `frontend · lint` / `test` / `build` | ESLint (0 errors), 263 Vitest tests, Vite build |
+| `web · build` | Vite build (no test suite yet) |
+| `backend · test` | `compileall` + `pytest app/tests` on Python 3.11, SQLite + dummy secrets |
+| `chatbot · test` | `pytest` (36 tests) |
+| `telegram-bot · compile` | `compileall bot` (no test suite yet) |
+| `security · npm audit` | **advisory only** — see the TODO in the workflow |
+
+Two backlogs are tracked as TODOs rather than hidden, and both should be burned
+down so the gates can be tightened:
+
+- The react-hooks v7 compiler rules are set to `warn` in
+  `frontend/eslint.config.js`. CI blocks *new* errors; the existing findings
+  (state set inside effects, refs read during render) still need fixing.
+- `npm audit` is non-blocking until the vite 5→8 / vitest 2→5 majors land.
+  Both are dev-only dependencies, so neither ships in the deployed bundle.
+
+`backend/test_api.py` and `test_auth.py` are manual scripts that POST to the
+live server — CI runs `pytest app/tests` only, so they are excluded by design.
+
+Dependabot (`.github/dependabot.yml`) opens weekly update PRs for both npm
+workspaces, all three Python services, and the workflow actions. Those PRs
+target the repo's default branch — retarget them to `dev` if you flip the
+default to `main`.
 
 ## Backend architecture
 

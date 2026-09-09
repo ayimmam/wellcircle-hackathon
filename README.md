@@ -134,6 +134,35 @@ the repo root are manual scripts against a running server, not part of either su
 
 ---
 
+## Contributing — branches and CI
+
+`main` is the deploy branch: Vercel and Railway build from it, so nothing lands on `main`
+directly. **`dev` is the integration branch** and mirrors `main`.
+
+```
+feature/my-thing ──PR──► dev ──PR──► main ──► deploy
+                    │           │
+                 CI runs     CI re-runs
+```
+
+1. Branch off `dev`.
+2. Open your PR against `dev`.
+3. CI (`.github/workflows/ci.yml`) must be green — it lints and builds both frontends, runs
+   the 263 Vitest tests, and runs the backend and chatbot pytest suites.
+4. Pushing to `dev` opens a standing **"Release: promote dev → main"** PR. Merging it — a
+   deliberate human step, never automatic — moves `main` and triggers the deployments.
+
+```bash
+cd frontend && npm run lint    # ESLint; npm run lint:fix autofixes
+cd backend  && pytest app/tests -q   # needs Python 3.10+
+cd chatbot  && pytest -q
+```
+
+See [CLAUDE.md](./CLAUDE.md#branching-and-ci) for the full gate table and the two known
+lint/audit backlogs.
+
+---
+
 ## Repository Layout
 
 Each service also has its own README with a fuller tour of its internals:

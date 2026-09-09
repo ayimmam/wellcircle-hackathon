@@ -1,0 +1,56 @@
+name: Promote dev → main
+
+# Keeps a standing "release" PR from `dev` into `main` open, so promoting is
+# always one reviewed click rather than a hand-made PR.
+#
+# It never merges anything. Merging that PR is the deliberate human action that
+# ships — it's what moves `main`, and `main` is what Vercel and Railway deploy
+# from. CI re-runs on the PR itself (ci.yml listens on PRs into `main`), so the
+# gate is verified against main's exact tree before the merge button lights up.
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Open or refresh the dev → main PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Nothing to promote if dev has no commits main is missing.
+          if [ -z "$(git log --oneline origin/main..origin/dev)" ]; then
+            echo "dev is not ahead of main — nothing to promote."
+            exit 0
+          fi
+
+          existing=$(gh pr list --base main --head dev --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "Release PR #$existing is already open; it tracks dev automatically."
+            exit 0
+          fi
+
+          {
+            echo 'Promotes the current `dev` integration branch to `main`.'
+            echo
+            echo 'Merging this PR moves `main`, which is what triggers the Vercel and'
+            echo 'Railway deployments. Do not merge until every CI check on this PR is green.'
+            echo
+            echo '_Opened automatically by `.github/workflows/promote-dev-to-main.yml`._'
+          } > /tmp/pr-body.md
+
+          gh pr create --base main --head dev \
+            --title "Release: promote dev → main" \
+            --body-file /tmp/pr-body.md

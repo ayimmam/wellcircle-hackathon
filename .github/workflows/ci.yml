@@ -1,0 +1,178 @@
+name: CI
+
+# Contributions land on `dev` first. `dev` is the integration branch: every
+# feature PR targets it, the full gate below runs, and only a green `dev` is
+# promoted to `main` — which is what the Vercel/Railway integrations deploy
+# from. Running on PRs into `main` too means the promotion PR is re-verified
+# against main's exact tree before anything ships.
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+# A new push to a PR makes the in-flight run obsolete — cancel it rather than
+# paying for a result nobody will read.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # ---------------------------------------------------------------- frontend
+  # The Telegram mini-app. Lint, tests and build run as separate jobs so a
+  # lint failure reports in seconds instead of waiting behind the test suite.
+  frontend-lint:
+    name: frontend · lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run lint
+        working-directory: frontend
+
+  frontend-test:
+    name: frontend · test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
+
+  frontend-build:
+    name: frontend · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+
+  # ------------------------------------------------------------ web (public)
+  # wellcircle-web has no test suite yet; the build is the gate that catches
+  # broken imports and bad JSX before it reaches the marketing site.
+  web-build:
+    name: web · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: wellcircle-web/package-lock.json
+      - run: npm ci
+        working-directory: wellcircle-web
+      - run: npm run build
+        working-directory: wellcircle-web
+
+  # ----------------------------------------------------------------- backend
+  backend-test:
+    name: backend · test
+    runs-on: ubuntu-latest
+    # app/ uses `X | None` annotations at runtime (PEP 604), which need 3.10+.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r requirements.txt
+        working-directory: backend
+      - name: Byte-compile (syntax gate)
+        run: python -m compileall -q app api
+        working-directory: backend
+      - name: Tests
+        run: pytest app/tests -q
+        working-directory: backend
+        env:
+          # Settings requires these at import time. SQLite keeps the suite
+          # self-contained; the dummy token/secret are never valid credentials.
+          DATABASE_URL: sqlite:///./ci_test.db
+          TELEGRAM_BOT_TOKEN: ci-test-token
+          JWT_SECRET: ci-test-secret
+
+  # ----------------------------------------------------------------- chatbot
+  chatbot-test:
+    name: chatbot · test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: chatbot/requirements*.txt
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+        working-directory: chatbot
+      - run: pytest -q
+        working-directory: chatbot
+
+  # ------------------------------------------------------------ telegram-bot
+  # No test suite yet — byte-compiling still catches syntax and import-time
+  # breakage before it ships to Railway.
+  telegram-bot-compile:
+    name: telegram-bot · compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: telegram-bot/requirements.txt
+      - run: pip install -r requirements.txt
+        working-directory: telegram-bot
+      - run: python -m compileall -q bot
+        working-directory: telegram-bot
+
+  # ---------------------------------------------------------------- security
+  # ADVISORY, NOT A GATE — deliberately, and temporarily.
+  #
+  # Every advisory that a non-breaking `npm audit fix` could clear has been
+  # cleared. What remains is one high (vite, both frontends) and one critical
+  # (vitest, frontend) that only major upgrades resolve: vite 5 -> 8 and
+  # vitest 2 -> 5. Both are dev dependencies, so neither ships in the deployed
+  # bundle, but they are real and they should be done.
+  #
+  # TODO(security): land the vite/vitest majors, then delete the
+  # `continue-on-error` below so this becomes a blocking gate like the rest.
+  audit:
+    name: security · npm audit (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Audit frontend
+        run: npm audit --audit-level=high
+        working-directory: frontend
+      - name: Audit web
+        run: npm audit --audit-level=high
+        working-directory: wellcircle-web

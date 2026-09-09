@@ -133,10 +133,12 @@ jobs:
         working-directory: chatbot
 
   # ------------------------------------------------------------ telegram-bot
-  # No test suite yet — byte-compiling still catches syntax and import-time
-  # breakage before it ships to Railway.
-  telegram-bot-compile:
-    name: telegram-bot · compile
+  # bot/tests/ exists and passes; byte-compiling on top of it still catches
+  # syntax and import-time breakage in the modules no test imports yet.
+  # bot/config.py reads every setting with a default, so the suite needs no
+  # secrets — unlike the backend.
+  telegram-bot-test:
+    name: telegram-bot · test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -144,10 +146,14 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: telegram-bot/requirements.txt
-      - run: pip install -r requirements.txt
+          cache-dependency-path: telegram-bot/requirements*.txt
+      - run: pip install -r requirements.txt -r requirements-dev.txt
         working-directory: telegram-bot
-      - run: python -m compileall -q bot
+      - name: Byte-compile (syntax gate)
+        run: python -m compileall -q bot
+        working-directory: telegram-bot
+      - name: Tests
+        run: pytest bot/tests -q
         working-directory: telegram-bot
 
   # ---------------------------------------------------------------- security

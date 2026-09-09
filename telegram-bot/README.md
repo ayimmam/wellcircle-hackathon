@@ -16,6 +16,19 @@ cp .env.example .env   # Edit with your credentials
 python -m bot.main
 ```
 
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest bot/tests -q
+```
+
+CI runs this suite on every PR. `bot/config.py` reads every setting through
+`os.getenv` with a default, so the tests need no credentials.
+
+Coverage is currently thin — one test file against ~976 lines. New handlers and
+services should arrive with a test; follow the style in `bot/tests/test_nudges.py`.
+
 ## Structure
 
 ```

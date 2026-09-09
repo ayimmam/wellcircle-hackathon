@@ -35,6 +35,11 @@ documented in [`../CLAUDE.md`](../CLAUDE.md#branching-and-ci), with the change l
 - [FEATURE_PLAN_V2_UX_UPGRADES.md](./FEATURE_PLAN_V2_UX_UPGRADES.md) — location-aware nearby surfacing, weekly ranks, feedback, and concierge chips plan (Phase 14 in `HANDOFF.md`).
 - [new_implementation_plan.md](./new_implementation_plan.md) — paid circles, verified trainers, and profile/Strava integration plan (Phase 15 in `HANDOFF.md`; see that entry for deviations from this plan as actually built).
 
+## Current sprint (Sep 9–18, 2026 — polish sprint, Phase 22)
+- [POLISH_SPRINT_PLAN_SEP2026.docx](./POLISH_SPRINT_PLAN_SEP2026.docx) — implementation plan for the UX testing findings: 13 tasks, per-person assignments, dependency map and wave sequencing. The working document for this sprint.
+- [app flow suggestions.pdf](./app%20flow%20suggestions.pdf) — the team's raw testing notes (5 findings).
+- [UX Testing Report & Marketing Recommendations .pdf](./UX%20Testing%20Report%20&%20Marketing%20Recommendations%20.pdf) — UX audit (4 findings, severity-ranked) plus marketing recommendations. The marketing half is explicitly out of scope for Phase 22.
+
 ## Implementation history
 - [HANDOFF.md](./HANDOFF.md) — implementation status and change log, by phase. Phase 21 covers CI, the `dev` integration branch, and the manual repo settings still outstanding.
 - [PHASE3_HANDOFF.md](./PHASE3_HANDOFF.md) — Phase 3 (events, challenges, notifications, subscriptions) notes.

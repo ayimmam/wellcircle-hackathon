@@ -60,7 +60,7 @@ export default function SmartImage({
       data-loaded={state === 'loaded' ? 'true' : 'false'}
       loading={priority ? 'eager' : 'lazy'}
       decoding={priority ? 'sync' : 'async'}
-      fetchpriority={priority ? 'high' : undefined}
+      fetchPriority={priority ? 'high' : undefined}
       onLoad={(event) => { setState('loaded'); onLoad?.(event); }}
       onError={(event) => { setState('failed'); onError?.(event); }}
       {...rest}

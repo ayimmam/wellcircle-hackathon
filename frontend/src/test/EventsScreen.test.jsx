@@ -44,7 +44,7 @@ describe('EventsScreen', () => {
 
     const recap = await screen.findByText('Members Facial & Sauna Morning');
     expect(recap).toBeInTheDocument();
-    expect(screen.getByText(/22/)).toBeInTheDocument();
+    expect(screen.getByText(/22 went/)).toBeInTheDocument();
     // A past session can't be booked — offering the CTA anyway is the dead end
     // this tab exists to avoid.
     expect(screen.queryByText('Book This Session')).not.toBeInTheDocument();

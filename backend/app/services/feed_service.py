@@ -163,7 +163,16 @@ def build_for_you_feed(
     text_only: bool = False,
 ) -> dict:
     """`limit`/`before` paginate the underlying posts (keyset on created_at);
-    the event and provider sections are additional and outside that cursor."""
+    the event and provider sections are additional and outside that cursor.
+
+    `text_only` builds the post stream and nothing else — one keyset query
+    instead of five, and no event/provider sections. It is what GET
+    /api/home/lite serves so the For You screen can paint readable text while
+    the other pools are still being assembled for the full payload (see
+    app/api/home.py). The cursor is identical either way, because it is derived
+    from the same posts query, so a client that paginates off a lite page stays
+    consistent once the full page replaces it.
+    """
     now = datetime.now(timezone.utc)
 
     posts = section(db, "feed_posts", lambda: get_public_feed_posts(db, limit=limit, before=before), [])
@@ -180,6 +189,15 @@ def build_for_you_feed(
     ]
 
     next_before = posts[-1]["created_at"] if len(posts) == limit else None
+
+    if text_only:
+        return {"items": post_items, "next_before": next_before, "partial": True}
+
+    providers = section(db, "feed_providers", lambda: _feed_providers(db), [])
+    event_items = section(db, "feed_events", lambda: _build_event_items(db, now), [])
+    service_items = section(db, "feed_service_items", lambda: _build_service_items(providers), [])
+    provider_items = section(db, "feed_provider_items", lambda: _build_provider_items(db, providers), [])
+    past_event_items = section(db, "feed_past_events", lambda: _build_past_event_items(db), [])
 
     items = _order_feed(
         post_items, event_items, service_items, provider_items, past_event_items,

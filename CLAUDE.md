@@ -110,6 +110,19 @@ down so the gates can be tightened:
 `backend/test_api.py` and `test_auth.py` are manual scripts that POST to the
 live server — CI runs `pytest app/tests` only, so they are excluded by design.
 
+### One-time repo settings
+
+Two things CI cannot grant itself. Both need repo admin:
+
+- **Branch protection on `main` and `dev`** — require the CI checks and at
+  least one review, and disallow force-pushes. Without it the flow above is a
+  convention, not a rule, and anyone can still push straight to `main`.
+- **Settings → Actions → General → Workflow permissions → "Allow GitHub
+  Actions to create and approve pull requests"** — currently off, so the
+  promote job cannot open the release PR. It degrades cleanly: the run summary
+  carries a compare link to open it by hand. Turn it on and the PR appears by
+  itself on every push to `dev`.
+
 Dependabot (`.github/dependabot.yml`) opens weekly update PRs for both npm
 workspaces, all three Python services, and the workflow actions. Those PRs
 target the repo's default branch — retarget them to `dev` if you flip the

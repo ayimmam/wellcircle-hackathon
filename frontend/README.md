@@ -12,6 +12,19 @@ npm run dev
 
 Opens at `http://localhost:5173`
 
+## Quality checks
+
+```bash
+npm run lint       # ESLint (flat config); npm run lint:fix autofixes
+npm test           # Vitest + RTL (happy-dom), 263 tests, runs once
+npm run build      # Vite production build
+```
+
+All three run in CI on every PR. `npm run lint` must report **0 errors** — the
+react-hooks v7 compiler rules are set to `warn` on purpose while their backlog
+is burned down, so warnings are expected and errors are not. Contributions
+branch off `dev`, not `main`: see the [root README](../README.md#contributing-branches-and-ci).
+
 ## Architecture
 
 ```

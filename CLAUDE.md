@@ -34,7 +34,7 @@ pip install -r requirements.txt
 cp .env.example .env                  # set DATABASE_URL, TELEGRAM_BOT_TOKEN, JWT_SECRET, BOT_API_KEY
 uvicorn app.main:app --reload         # docs at http://localhost:8000/docs
 python -m app.db.seed                 # seed test users/providers
-python -m app.tests.test_integration  # full integration test (in-memory SQLite, run as a script not via pytest)
+python -m app.tests.test_integration  # same integration test as a standalone script (prints a narrative trace)
 pytest app/tests -q                   # the suite CI runs; needs Python 3.10+ (app/ uses `X | None` at runtime)
 ```
 

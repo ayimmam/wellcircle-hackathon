@@ -3,7 +3,9 @@
 This document tracks implementation status against `PRD.md`, `IMPLEMENTATION_PROMPT.md`, and `PHASE3_IMPLEMENTATION_PLAN.md`.  
 
 
-**Last updated:** August 2026 — after Phase 20 (navigation & UX audit). Phase 9
+**Last updated:** September 2026 — after Phase 21 (CI, the `dev` integration
+branch, and three latent bugs it caught). Phase 20 was the navigation & UX
+audit. Phase 9
 (Kuriftu direct-contact booking fix) is detailed in `kuriftu-gap-analysis.md`;
 Phase 8 (UX Psychology Growth Loop) in `UX_GROWTH_LOOP_PLAN.md`; Phase 7
 (Biniyam's presale/re-entry sprint track) in `BINIYAM_SPRINT_PLAN.md`; the For
@@ -16,6 +18,27 @@ For the planned non-Telegram web app, see **`WEB_APP_PLAN.md`**.
 
 ## Branch status
 
+**As of Phase 21 the repo runs a two-branch flow.** `main` is the deploy
+branch — Vercel and Railway build from it — so nothing lands on it directly.
+`dev` is the integration branch and mirrors `main`.
+
+```
+feature/my-thing ──PR──► dev ──PR──► main ──► deploy
+                    │           │
+                 CI runs     CI re-runs against main's tree
+```
+
+Branch off `dev`, PR into `dev`, and let the release PR (opened by
+`.github/workflows/promote-dev-to-main.yml`) carry `dev` into `main`. After a
+release, fast-forward `dev` so it mirrors `main` again:
+
+```bash
+git checkout dev && git merge --ff-only origin/main && git push origin dev
+```
+
+The full gate and the branch-protection settings this depends on are in
+[`../CLAUDE.md`](../CLAUDE.md#branching-and-ci).
+
 The two branches this document previously flagged as unmerged —
 `feature/booking-ux-polish` (Phase 10, multi-day booking) and
 `feature/multi-passion-onboarding-circles` (Phase 11, multi-select passions +
@@ -23,6 +46,9 @@ real circle creation) — **are both in `main` now**. `Booking.booking_group_id`
 and `User.interest_categories` are present in the models, and
 `backend/app/tests/test_multi_day_booking.py` runs against `main`. The
 reconciliation warning that used to live here no longer applies.
+
+`circle-features` is also fully merged into `main` and can be deleted; the
+Phase 21 work was rebuilt on top of `main` rather than pushed from it.
 
 ---
 
@@ -120,6 +146,30 @@ reconciliation warning that used to live here no longer applies.
 | Database | Supabase PostgreSQL | Phase 2 + Phase 3 migrations |
 | Frontend Mini App | Vercel | Deployed (`VITE_USE_MOCK=false` in prod) |
 | Telegram Bot | Railway | Deployed |
+| CI | GitHub Actions | Green on `dev` (Phase 21) |
+
+### CI (Phase 21)
+
+`.github/workflows/ci.yml` runs on every PR into `dev` or `main` and every
+push to either — one job per service, so a failure names the culprit:
+
+| Job | Gate |
+|---|---|
+| `frontend · lint` / `test` / `build` | ESLint (0 errors), 263 Vitest tests, Vite build |
+| `web · build` | Vite build (no test suite yet) |
+| `backend · test` | `compileall` + `pytest app/tests` (21 tests) on Python 3.11 |
+| `chatbot · test` | `pytest` (36 tests) |
+| `telegram-bot · compile` | `compileall bot` (no test suite yet) |
+| `security · npm audit` | advisory only — see Known Gaps |
+
+Backend tests run against SQLite with dummy `DATABASE_URL` /
+`TELEGRAM_BOT_TOKEN` / `JWT_SECRET`, so CI needs no real secrets. Python 3.11
+is required, not optional: `app/` uses `X | None` annotations at runtime.
+`backend/test_api.py` and `test_auth.py` are manual scripts that POST to the
+live server and are excluded by design.
+
+Dependabot (`.github/dependabot.yml`) opens weekly PRs for both npm
+workspaces, all three Python services, and the workflow actions.
 
 ### Database (Phase 2 schema)
 - `providers` — added `status`, `onboarded_by_admin`, `submitted_at`, `reviewed_at`
@@ -159,6 +209,11 @@ Super admin is granted if **either** condition is true:
 | PDF report generation | Placeholder toast in Reports tab |
 | Event cancellation refunds | Events cancelled with user notifications; payment refund logic deferred (Phase 4) |
 | Dedicated Phase 3 CRUD modules | Logic in route handlers + `subscription_service` / `promotion_service` (optional refactor) |
+| Branch protection on `main` / `dev` | ⚠️ **Not set.** Until it is, the flow above is a convention, not a rule — `main` is still directly pushable. Needs repo admin |
+| Actions may open PRs | ⚠️ **Off.** The promote job cannot open the release PR; it writes a compare link into the run summary instead. Settings → Actions → General |
+| react-hooks v7 lint backlog | Compiler rules set to `warn` in `frontend/eslint.config.js`. CI blocks *new* errors; the existing findings (setState in effects, refs read during render) still need real refactors |
+| `npm audit` as a blocking gate | Advisory until the vite 5→8 / vitest 2→5 majors land. Both are dev-only deps, so neither ships in the deployed bundle |
+| Test coverage: `wellcircle-web`, `telegram-bot` | Neither has a suite; CI only builds / byte-compiles them |
 
 ---
 
@@ -203,6 +258,13 @@ frontend/src/pages/ProviderDashboard.jsx
 ---
 
 ## Quick Verification Checklist
+
+### Phase 21 — CI
+- [x] All 7 blocking jobs green on `dev` (verified on GitHub runners)
+- [ ] Branch protection set on `main` and `dev` with those 7 checks required
+- [ ] "Allow GitHub Actions to create and approve pull requests" enabled
+- [ ] Release PR `dev → main` merged, and the deploy fired from `main`
+- [ ] `dev` fast-forwarded back to `main` after the release
 
 ### MVP + Phase 2
 - [ ] User can browse `/products` and redeem with points
@@ -1387,6 +1449,98 @@ frontend/src/test/setup.js
 frontend/src/test/{AboutScreen,EventsScreen,accents}.test.jsx  (new)
 frontend/src/test/feedLeadIn.test.js  (new)
 frontend/src/test/{BurgerMenu,ForYouScreen,ProfileScreen.healthApp,routes.smoke}.test.jsx
+```
+
+---
+
+### Phase 21 — CI, the `dev` Integration Branch, and Three Latent Bugs
+
+Focus: the repo had no CI at all. Every check that existed — tests, builds,
+lint — depended on somebody remembering to run it. This phase made them
+automatic and put a branch between contributions and production.
+
+#### The gate
+- **`.github/workflows/ci.yml`** — eight jobs, one per service, running in
+  parallel on every PR into `dev` or `main` and every push to either. Whole
+  pipeline finishes in well under a minute; the slowest job (`frontend ·
+  test`, 263 tests) is ~46s. `concurrency` cancels superseded runs.
+- **`.github/dependabot.yml`** — weekly updates for both npm workspaces, all
+  three Python services, and the workflow actions. Minor/patch grouped into
+  one PR; majors kept separate so a breaking upgrade is reviewed alone.
+
+#### The branching model
+- **`dev` created from `main`** and pushed. Feature branches PR into `dev`;
+  only a green `dev` is promoted to `main`, which is what deploys.
+- **`.github/workflows/promote-dev-to-main.yml`** — keeps a standing
+  "Release: promote dev → main" PR open. It never merges: moving `main` stays
+  a deliberate human click, and CI re-runs on that PR against main's exact
+  tree first.
+
+#### Bugs CI caught on its first run
+All three were live on `main` and none had a failing check to catch them:
+
+- **`feed_service.build_for_you_feed` raised `NameError` on every non-lite
+  call.** A merge had dropped the block that assembles `event_items`,
+  `service_items`, `provider_items` and `past_event_items`, along with the
+  `text_only` early return that `GET /api/home/lite` depends on. The helpers
+  that build each section were all still there — only the calls were gone.
+  Restored from `90b3ce6` and adapted to the newer `_order_feed` signature.
+- **`EventsScreen` Past-tab test asserted `/22/`** for an attendance count,
+  which also matched the rendered date `8/22/2026`. It passed only while those
+  two happened to differ — a date-dependent test that would have failed on its
+  own schedule. Tightened to `/22 went/`.
+- **`SmartImage` passed `fetchpriority`.** React only forwards the camelCase
+  `fetchPriority`, so the priority hint was silently dropped on every image.
+
+#### Lint
+`frontend/eslint.config.js` was in the repo, but none of the packages it
+imports were installed and there was no `lint` script — the config had never
+run. Installed ESLint 9 + its plugins, added `lint` / `lint:fix`, and cleared
+every error (11 of them: unused React imports, empty catch blocks, dead
+bindings). Config decisions, all deliberate rather than convenient:
+
+- `react/prop-types` off — plain-JS app documenting props in comments; the
+  rule fired at 359 sites and flagged nothing real.
+- `react/no-unescaped-entities` off — apostrophes in JSX copy read fine.
+- `no-unused-vars` ignores unused catch bindings (a pattern used throughout)
+  but still errors on unused variables.
+- The react-hooks v7 compiler rules are `warn` **with a TODO**, not off. They
+  flag real issues needing real refactors; warning blocks new errors while the
+  backlog is burned down.
+
+Also applied every non-breaking `npm audit fix` to both frontends. What
+remains needs the vite/vitest majors, so `npm audit` is advisory and says so
+in the workflow.
+
+#### Still manual (needs repo admin)
+1. **Branch protection** on `main` and `dev` — require the 7 blocking checks
+   (not `security · npm audit (advisory)`, which is `continue-on-error` by
+   design) plus a review, and block force-pushes.
+2. **Settings → Actions → General → "Allow GitHub Actions to create and
+   approve pull requests"** — currently off, which is why the release PR is
+   not opening on its own.
+3. Optionally switch the **default branch to `dev`** so new PRs and Dependabot
+   target it. If you do, re-check Vercel's production branch is still `main`.
+
+#### Files Changed / Added (Phase 21)
+```
+.github/workflows/ci.yml                        (new)
+.github/workflows/promote-dev-to-main.yml       (new)
+.github/dependabot.yml                          (new)
+CLAUDE.md
+README.md
+docs/HANDOFF.md
+docs/README.md
+backend/app/services/feed_service.py
+frontend/eslint.config.js
+frontend/package.json
+frontend/src/components/{AskWellCircle,ChallengesList,Leaderboard,PostFeed,SmartImage}.jsx
+frontend/src/data/mock.js
+frontend/src/pages/MyRedemptions.jsx
+frontend/src/pages/provider-portal/ProviderPortalEvents.jsx
+frontend/src/test/EventsScreen.test.jsx
+frontend/src/test/renderWithProviders.jsx
+frontend/package-lock.json, wellcircle-web/package-lock.json  (npm audit fix)
 ```
 
 ---

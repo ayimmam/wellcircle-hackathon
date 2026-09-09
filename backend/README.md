@@ -14,6 +14,24 @@ uvicorn app.main:app --reload
 
 API docs: http://localhost:8000/docs
 
+**Python 3.10+ is required** — `app/` uses `X | None` annotations at runtime,
+which raise `TypeError` on 3.9. CI runs 3.11.
+
+## Tests
+
+```bash
+pytest app/tests -q                    # the suite CI runs (21 tests)
+python -m app.tests.test_integration   # the same integration test standalone, with a narrative trace
+```
+
+Settings are validated at import, so the suite needs `DATABASE_URL`,
+`TELEGRAM_BOT_TOKEN` and `JWT_SECRET` set — dummy values are fine, and SQLite
+keeps it self-contained. See `.github/workflows/ci.yml` for exactly what CI uses.
+
+`test_api.py` and `test_auth.py` at the top of this directory are manual
+scripts that POST to a running server. They are not part of the suite and CI
+does not run them.
+
 ## Project Structure
 
 ```

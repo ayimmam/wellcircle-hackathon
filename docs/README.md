@@ -5,6 +5,11 @@ setup and architecture, and [`../CLAUDE.md`](../CLAUDE.md) if you're a coding ag
 this repo. Everything below is a design/status doc, not source of truth for current code — if a
 doc and the code disagree, trust the code.
 
+**Contributing:** `main` deploys, so nothing lands on it directly — branch off `dev`, PR into
+`dev`, and let the release PR carry it to `main`. The branching model and the CI gate are
+documented in [`../CLAUDE.md`](../CLAUDE.md#branching-and-ci), with the change log in
+[HANDOFF.md](./HANDOFF.md) under Phase 21.
+
 ## Reference
 - [API_CONTRACT.md](./API_CONTRACT.md) — full endpoint specification, request/response shapes, and flow diagrams (source of truth across services).
 - [BACKEND_REFERENCE.md](./BACKEND_REFERENCE.md) — backend internals and conventions from the original Phase-1 build. **Stale since Phase 2** (see the warning at the top of that file) — use `API_CONTRACT.md` for current endpoint shapes.
@@ -31,7 +36,7 @@ doc and the code disagree, trust the code.
 - [new_implementation_plan.md](./new_implementation_plan.md) — paid circles, verified trainers, and profile/Strava integration plan (Phase 15 in `HANDOFF.md`; see that entry for deviations from this plan as actually built).
 
 ## Implementation history
-- [HANDOFF.md](./HANDOFF.md) — implementation status and change log, by phase.
+- [HANDOFF.md](./HANDOFF.md) — implementation status and change log, by phase. Phase 21 covers CI, the `dev` integration branch, and the manual repo settings still outstanding.
 - [PHASE3_HANDOFF.md](./PHASE3_HANDOFF.md) — Phase 3 (events, challenges, notifications, subscriptions) notes.
 - [CONCIERGE_HANDOFF.md](./CONCIERGE_HANDOFF.md) — AI Concierge microservice integration notes.
 - [IMPLEMENTATION_PROMPT.md](./IMPLEMENTATION_PROMPT.md) — original build specification.

@@ -77,4 +77,4 @@ pip install -r requirements-dev.txt
 pytest -q
 ```
 
-The suite mocks Groq and Supabase, so it runs offline and fast. It focuses on the anti-hallucination guards (unknown ids dropped, names canonicalised, no field leakage) and graceful degradation (model/JSON errors → friendly reply, never a 500).
+CI runs this suite on every PR. It mocks Groq and Supabase, so it runs offline and fast. It focuses on the anti-hallucination guards (unknown ids dropped, names canonicalised, no field leakage) and graceful degradation (model/JSON errors → friendly reply, never a 500).

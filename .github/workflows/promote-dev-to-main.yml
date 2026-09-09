@@ -7,6 +7,11 @@ name: Promote dev → main
 # ships — it's what moves `main`, and `main` is what Vercel and Railway deploy
 # from. CI re-runs on the PR itself (ci.yml listens on PRs into `main`), so the
 # gate is verified against main's exact tree before the merge button lights up.
+#
+# Opening a PR from Actions requires Settings → Actions → General → Workflow
+# permissions → "Allow GitHub Actions to create and approve pull requests".
+# Without it this job cannot open the PR; rather than painting every push to
+# `dev` red, it writes the compare link into the run summary and says so.
 on:
   push:
     branches: [dev]
@@ -20,28 +25,39 @@ jobs:
   promote:
     runs-on: ubuntu-latest
     steps:
-      - name: Open or refresh the dev → main PR
+      - name: How far ahead is dev?
+        id: compare
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-
           # Compare through the API rather than local git: actions/checkout
-          # does not leave an origin/main remote-tracking ref behind, so
-          # `git log origin/main..origin/dev` would fail on an unknown revision.
+          # leaves no origin/main remote-tracking ref, so `git log
+          # origin/main..origin/dev` would die on an unknown revision.
           ahead=$(gh api "repos/$REPO/compare/main...dev" --jq '.ahead_by')
-          if [ "$ahead" -eq 0 ]; then
-            echo "dev is not ahead of main — nothing to promote."
-            exit 0
-          fi
+          echo "ahead=$ahead" >> "$GITHUB_OUTPUT"
           echo "dev is $ahead commit(s) ahead of main."
 
-          existing=$(gh pr list --repo "$REPO" --base main --head dev --state open --json number --jq '.[0].number // empty')
-          if [ -n "$existing" ]; then
-            echo "Release PR #$existing is already open; it tracks dev automatically."
-            exit 0
-          fi
+      - name: Is a release PR already open?
+        id: existing
+        if: steps.compare.outputs.ahead != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          number=$(gh pr list --repo "$REPO" --base main --head dev --state open --json number --jq '.[0].number // empty')
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+
+      - name: Open the release PR
+        if: steps.compare.outputs.ahead != '0' && steps.existing.outputs.number == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          AHEAD: ${{ steps.compare.outputs.ahead }}
+        run: |
+          set -uo pipefail
 
           {
             echo 'Promotes the current `dev` integration branch to `main`.'
@@ -52,12 +68,31 @@ jobs:
             echo '_Opened automatically by `.github/workflows/promote-dev-to-main.yml`._'
           } > pr-body.md
 
-          # Creating a PR from Actions needs "Allow GitHub Actions to create and
-          # approve pull requests" (Settings → Actions → General). Without it
-          # the API returns 403 — say so plainly instead of failing cryptically.
-          if ! gh pr create --repo "$REPO" --base main --head dev \
-                 --title "Release: promote dev → main" \
-                 --body-file pr-body.md; then
-            echo "::error::Could not open the release PR. Enable Settings → Actions → General → 'Allow GitHub Actions to create and approve pull requests', or open the dev → main PR by hand."
-            exit 1
+          if gh pr create --repo "$REPO" --base main --head dev \
+               --title "Release: promote dev → main" \
+               --body-file pr-body.md; then
+            exit 0
           fi
+
+          # Almost always the repo setting named at the top of this file.
+          echo "::warning::Could not open the release PR automatically — see the run summary."
+          {
+            echo "### Release PR not opened automatically"
+            echo
+            echo "\`dev\` is **$AHEAD commit(s)** ahead of \`main\` and ready to promote,"
+            echo "but this job could not open the pull request."
+            echo
+            echo "Enable **Settings → Actions → General → Workflow permissions →"
+            echo "\"Allow GitHub Actions to create and approve pull requests\"**, or open it by hand:"
+            echo
+            echo "[Open the dev → main pull request](https://github.com/$REPO/compare/main...dev?expand=1)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Release PR already open
+        if: steps.existing.outputs.number != ''
+        env:
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ steps.existing.outputs.number }}
+        run: |
+          echo "Release PR #$NUMBER is already open; it tracks dev automatically."
+          echo "Release PR [#$NUMBER](https://github.com/$REPO/pull/$NUMBER) is open and tracking \`dev\`." >> "$GITHUB_STEP_SUMMARY"

@@ -20,23 +20,24 @@ jobs:
   promote:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Open or refresh the dev → main PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
 
-          # Nothing to promote if dev has no commits main is missing.
-          if [ -z "$(git log --oneline origin/main..origin/dev)" ]; then
+          # Compare through the API rather than local git: actions/checkout
+          # does not leave an origin/main remote-tracking ref behind, so
+          # `git log origin/main..origin/dev` would fail on an unknown revision.
+          ahead=$(gh api "repos/$REPO/compare/main...dev" --jq '.ahead_by')
+          if [ "$ahead" -eq 0 ]; then
             echo "dev is not ahead of main — nothing to promote."
             exit 0
           fi
+          echo "dev is $ahead commit(s) ahead of main."
 
-          existing=$(gh pr list --base main --head dev --state open --json number --jq '.[0].number // empty')
+          existing=$(gh pr list --repo "$REPO" --base main --head dev --state open --json number --jq '.[0].number // empty')
           if [ -n "$existing" ]; then
             echo "Release PR #$existing is already open; it tracks dev automatically."
             exit 0
@@ -49,8 +50,14 @@ jobs:
             echo 'Railway deployments. Do not merge until every CI check on this PR is green.'
             echo
             echo '_Opened automatically by `.github/workflows/promote-dev-to-main.yml`._'
-          } > /tmp/pr-body.md
+          } > pr-body.md
 
-          gh pr create --base main --head dev \
-            --title "Release: promote dev → main" \
-            --body-file /tmp/pr-body.md
+          # Creating a PR from Actions needs "Allow GitHub Actions to create and
+          # approve pull requests" (Settings → Actions → General). Without it
+          # the API returns 403 — say so plainly instead of failing cryptically.
+          if ! gh pr create --repo "$REPO" --base main --head dev \
+                 --title "Release: promote dev → main" \
+                 --body-file pr-body.md; then
+            echo "::error::Could not open the release PR. Enable Settings → Actions → General → 'Allow GitHub Actions to create and approve pull requests', or open the dev → main PR by hand."
+            exit 1
+          fi

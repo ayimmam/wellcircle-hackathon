@@ -95,7 +95,7 @@ push to either. One job per service, so a failure points straight at the culprit
 | `web · build` | Vite build (no test suite yet) |
 | `backend · test` | `compileall` + `pytest app/tests` on Python 3.11, SQLite + dummy secrets |
 | `chatbot · test` | `pytest` (36 tests) |
-| `telegram-bot · compile` | `compileall bot` (no test suite yet) |
+| `telegram-bot · test` | `compileall bot` + `pytest bot/tests` (needs no secrets) |
 | `security · npm audit` | **advisory only** — see the TODO in the workflow |
 
 Two backlogs are tracked as TODOs rather than hidden, and both should be burned
@@ -114,9 +114,12 @@ live server — CI runs `pytest app/tests` only, so they are excluded by design.
 
 Two things CI cannot grant itself. Both need repo admin:
 
-- **Branch protection on `main` and `dev`** — require the CI checks and at
-  least one review, and disallow force-pushes. Without it the flow above is a
-  convention, not a rule, and anyone can still push straight to `main`.
+- **Branch protection on `main` and `dev`** — require the seven blocking
+  checks and at least one review, and disallow force-pushes. Without it the
+  flow above is a convention, not a rule, and anyone can still push straight
+  to `main`. The seven names are the job names in the table above; do **not**
+  require `security · npm audit (advisory)`, which is `continue-on-error` by
+  design and would turn an advisory into a gate.
 - **Settings → Actions → General → Workflow permissions → "Allow GitHub
   Actions to create and approve pull requests"** — currently off, so the
   promote job cannot open the release PR. It degrades cleanly: the run summary

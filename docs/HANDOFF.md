@@ -3,9 +3,10 @@
 This document tracks implementation status against `PRD.md`, `IMPLEMENTATION_PROMPT.md`, and `PHASE3_IMPLEMENTATION_PLAN.md`.  
 
 
-**Last updated:** September 2026 — after Phase 21 (CI, the `dev` integration
-branch, and three latent bugs it caught). Phase 20 was the navigation & UX
-audit. Phase 9
+**Last updated:** September 2026 — Phase 22 (polish sprint) in progress; see
+`POLISH_SPRINT_PLAN_SEP2026.docx` for the task breakdown and dependency map.
+Phase 21 was CI and the `dev` integration branch. Phase 20 was the navigation
+& UX audit. Phase 9
 (Kuriftu direct-contact booking fix) is detailed in `kuriftu-gap-analysis.md`;
 Phase 8 (UX Psychology Growth Loop) in `UX_GROWTH_LOOP_PLAN.md`; Phase 7
 (Biniyam's presale/re-entry sprint track) in `BINIYAM_SPRINT_PLAN.md`; the For
@@ -159,7 +160,7 @@ push to either — one job per service, so a failure names the culprit:
 | `web · build` | Vite build (no test suite yet) |
 | `backend · test` | `compileall` + `pytest app/tests` (21 tests) on Python 3.11 |
 | `chatbot · test` | `pytest` (36 tests) |
-| `telegram-bot · compile` | `compileall bot` (no test suite yet) |
+| `telegram-bot · test` | `compileall bot` + `pytest bot/tests` |
 | `security · npm audit` | advisory only — see Known Gaps |
 
 Backend tests run against SQLite with dummy `DATABASE_URL` /
@@ -213,7 +214,8 @@ Super admin is granted if **either** condition is true:
 | Actions may open PRs | ⚠️ **Off.** The promote job cannot open the release PR; it writes a compare link into the run summary instead. Settings → Actions → General |
 | react-hooks v7 lint backlog | Compiler rules set to `warn` in `frontend/eslint.config.js`. CI blocks *new* errors; the existing findings (setState in effects, refs read during render) still need real refactors |
 | `npm audit` as a blocking gate | Advisory until the vite 5→8 / vitest 2→5 majors land. Both are dev-only deps, so neither ships in the deployed bundle |
-| Test coverage: `wellcircle-web`, `telegram-bot` | Neither has a suite; CI only builds / byte-compiles them |
+| Test coverage: `wellcircle-web` | No suite; CI only builds it |
+| Test coverage: `telegram-bot` | Thin — one test (`bot/tests/test_nudges.py`) for ~976 lines. It does run in CI as of Phase 22; broadening it is task Y1 in the September polish sprint |
 
 ---
 
@@ -1541,6 +1543,55 @@ frontend/src/pages/provider-portal/ProviderPortalEvents.jsx
 frontend/src/test/EventsScreen.test.jsx
 frontend/src/test/renderWithProviders.jsx
 frontend/package-lock.json, wellcircle-web/package-lock.json  (npm audit fix)
+```
+
+---
+
+### Phase 22 — Polish Sprint (In Progress, due Fri 18 Sep 2026)
+
+Closing the nine findings from the team's UX testing (`app flow suggestions.pdf`
+and `UX Testing Report & Marketing Recommendations.pdf`). Full task breakdown,
+dependency map and per-person assignments in
+**`docs/POLISH_SPRINT_PLAN_SEP2026.docx`**.
+
+Ownership: Beza — chatbot · Yoni — Telegram bot · Bini — mini app ·
+Anteneh — scoping, access-gated work, deployment health.
+
+#### Landed
+
+- **A3 — the Telegram bot's tests now run in CI.** `bot/tests/test_nudges.py`
+  existed and passed, but the `telegram-bot` job only byte-compiled the
+  package, so the suite had never once run in CI. The job now installs a new
+  `telegram-bot/requirements-dev.txt` (mirroring the chatbot's split) and runs
+  `compileall` *and* `pytest bot/tests`. **The job is renamed
+  `telegram-bot · compile` → `telegram-bot · test`, which matters for A2:**
+  branch protection must require the new name.
+  Phase 21's docs claimed this service had no test suite — corrected here, in
+  `CLAUDE.md`, `README.md` and `telegram-bot/README.md`.
+
+#### Blocked on repo/dashboard access (Anteneh)
+
+- **A1 — Cloudinary cloud name.** `CLOUDINARY_CLOUD_NAME` is set on the
+  `wellcircle-hackathon-backend` Vercel project for Preview and Production, but
+  it is stored as a **Sensitive** variable, so its value cannot be read back by
+  anyone — CLI or dashboard. The correct value has to come from the Cloudinary
+  console. Probing Cloudinary for a valid cloud name does not work either: an
+  invalid cloud and a valid-cloud-missing-asset both return `404 Resource not
+  found`, so there is nothing to infer from. This must be set by hand.
+- **A2 — branch protection and the Actions PR permission.** Needs repo admin.
+
+#### Pending (see the plan)
+
+B1–B7 (Bini), C1–C2 (Beza), Y1–Y2 (Yoni), and decisions D-1 (email contact
+behaviour — blocks B7) and D-2 (who collects partner base prices).
+
+#### Files Changed / Added (Phase 22, so far)
+```
+.github/workflows/ci.yml
+telegram-bot/requirements-dev.txt          (new)
+telegram-bot/README.md
+docs/POLISH_SPRINT_PLAN_SEP2026.docx       (new)
+CLAUDE.md, README.md, docs/HANDOFF.md
 ```
 
 ---

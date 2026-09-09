@@ -152,7 +152,7 @@ feature/my-thing ──PR──► dev ──PR──► main ──► deploy
 1. Branch off `dev`.
 2. Open your PR against `dev`.
 3. CI (`.github/workflows/ci.yml`) must be green — it lints and builds both frontends, runs
-   the 263 Vitest tests, and runs the backend and chatbot pytest suites.
+   the 263 Vitest tests, and runs the backend, chatbot and Telegram-bot pytest suites.
 4. Pushing to `dev` opens a standing **"Release: promote dev → main"** PR. Merging it — a
    deliberate human step, never automatic — moves `main` and triggers the deployments.
 
@@ -160,6 +160,7 @@ feature/my-thing ──PR──► dev ──PR──► main ──► deploy
 cd frontend && npm run lint    # ESLint; npm run lint:fix autofixes
 cd backend  && pytest app/tests -q   # needs Python 3.10+
 cd chatbot  && pytest -q
+cd telegram-bot && pytest bot/tests -q
 ```
 
 See [CLAUDE.md](./CLAUDE.md#branching-and-ci) for the full gate table and the two known

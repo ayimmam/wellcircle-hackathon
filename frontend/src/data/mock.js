@@ -1094,7 +1094,7 @@ const posterUpcoming = POSTER_EVENTS.filter(e => new Date(e.starts_at).getTime()
 // is meaningless once a session is over, so it becomes "how many turned up".
 const posterPast = POSTER_EVENTS
   .filter(e => new Date(e.starts_at).getTime() <= Date.now())
-  .map(({ spots_remaining, urgency, ...e }) => ({
+  .map(({ spots_remaining, urgency: _urgency, ...e }) => ({
     ...e,
     is_past: true,
     attendee_count: Math.max(0, e.capacity - spots_remaining),

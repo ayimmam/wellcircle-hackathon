@@ -12,7 +12,7 @@ import '../i18n';
  * `route` may be a plain path string, or `{ pathname, state }` to simulate a
  * `navigate(path, { state })` deep link (e.g. the location nudges' openNeighbourhood flag).
  */
-export function renderWithProviders(ui, { route = '/', routes, state } = {}) {
+export function renderWithProviders(ui, { route = '/', state } = {}) {
   const entry = state ? { pathname: route, state } : route;
   return render(
     <MemoryRouter initialEntries={[entry]}>

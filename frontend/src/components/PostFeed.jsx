@@ -12,7 +12,7 @@ const ACTIVITY_TYPES = ['run', 'walk', 'ride', 'yoga', 'gym', 'swim'];
 
 export default function PostFeed({ communityId, circleId, initialDraft, onDraftConsumed }) {
   const navigate = useNavigate();
-  const { user, refreshUser } = useAuth();
+  const { refreshUser } = useAuth();
   const [posts, setPosts] = useState([]);
   const [newPostContent, setNewPostContent] = useState(initialDraft || '');
   const [loading, setLoading] = useState(true);

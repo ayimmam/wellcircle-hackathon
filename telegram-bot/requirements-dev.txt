@@ -1,0 +1,3 @@
+# Test/dev dependencies (install on top of requirements.txt).
+# Mirrors the chatbot service's split so both Python services work the same way.
+pytest

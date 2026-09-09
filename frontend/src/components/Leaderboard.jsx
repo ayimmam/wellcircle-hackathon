@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getLeaderboard, createInteraction } from '../api/client';
 import { showToast } from './Toast';

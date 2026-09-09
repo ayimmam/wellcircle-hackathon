@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Icon from './Icon';
@@ -43,7 +43,7 @@ export default function AskWellCircle() {
       try {
         const parsed = JSON.parse(saved);
         if (parsed.length > 0) return parsed;
-      } catch (e) {}
+      } catch { /* corrupt saved history: fall through to the default greeting */ }
     }
     return [{
       id: 0,
@@ -129,7 +129,7 @@ export default function AskWellCircle() {
               data.provider_name = matched.name;
               data.data_source = 'live';
           }
-        } catch (err) { }
+        } catch { /* provider lookup is best-effort; leave the reply as the model wrote it */ }
       }
 
       // Only append the intro bubble if it has real content

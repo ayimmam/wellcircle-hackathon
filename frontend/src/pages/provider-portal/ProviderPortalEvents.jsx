@@ -4,7 +4,7 @@ import { getProviderEvents, createProviderEvent, updateProviderEvent, getProvide
 import { showToast } from '../../components/Toast';
 import useDismissOnEscape from '../../hooks/useDismissOnEscape';
 
-function EditableEventItem({ event, customers, providerId, onChanged }) {
+function EditableEventItem({ event, customers, onChanged }) {
   const [isEditing, setIsEditing] = useState(false);
   const [spots, setSpots] = useState(event.spots_remaining);
   const [staffId, setStaffId] = useState(event.staff_user_id || '');

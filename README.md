@@ -123,14 +123,48 @@ See each service's `.env.example` for the full list. **Never commit real secrets
 ## Testing
 
 ```bash
-cd frontend && npm test                        # navigation, error-boundary, and route smoke tests (Vitest + RTL)
-cd backend && python -m app.tests.test_integration  # full integration test, in-memory SQLite — run as a script, not via pytest
+cd frontend && npm test                             # navigation, error-boundary, and route smoke tests (Vitest + RTL)
+cd backend  && pytest app/tests -q                  # the suite CI runs (21 tests, in-memory SQLite)
+cd backend  && python -m app.tests.test_integration # the same integration test standalone, with a narrative trace
+cd chatbot  && pytest -q                            # concierge suite (36 tests)
 ```
 
 The frontend suite runs the API client in mock mode, so it needs no backend. The route smoke test
-mounts every reachable screen and fails if any crashes. Backend `test_api.py`/`test_auth.py` at
-the repo root are manual scripts against a running server, not part of either suite — see
+mounts every reachable screen and fails if any crashes. The backend suite needs Python 3.10+
+(`app/` uses `X | None` at runtime) and dummy `DATABASE_URL` / `TELEGRAM_BOT_TOKEN` / `JWT_SECRET`
+— see `.github/workflows/ci.yml` for the exact values CI uses. Backend `test_api.py`/`test_auth.py`
+at the repo root are manual scripts that POST to a running server, not part of either suite — see
 "Repository Layout" below.
+
+---
+
+## Contributing — branches and CI
+
+`main` is the deploy branch: Vercel and Railway build from it, so nothing lands on `main`
+directly. **`dev` is the integration branch** and mirrors `main`.
+
+```
+feature/my-thing ──PR──► dev ──PR──► main ──► deploy
+                    │           │
+                 CI runs     CI re-runs
+```
+
+1. Branch off `dev`.
+2. Open your PR against `dev`.
+3. CI (`.github/workflows/ci.yml`) must be green — it lints and builds both frontends, runs
+   the 263 Vitest tests, and runs the backend, chatbot and Telegram-bot pytest suites.
+4. Pushing to `dev` opens a standing **"Release: promote dev → main"** PR. Merging it — a
+   deliberate human step, never automatic — moves `main` and triggers the deployments.
+
+```bash
+cd frontend && npm run lint    # ESLint; npm run lint:fix autofixes
+cd backend  && pytest app/tests -q   # needs Python 3.10+
+cd chatbot  && pytest -q
+cd telegram-bot && pytest bot/tests -q
+```
+
+See [CLAUDE.md](./CLAUDE.md#branching-and-ci) for the full gate table and the two known
+lint/audit backlogs.
 
 ---
 

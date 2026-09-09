@@ -49,7 +49,7 @@ export default function MyRedemptions() {
         <p className="text-secondary text-center">No redemptions yet.</p>
       ) : (
         <div className="admin-card-list">
-          {filtered.map((r, i) => (
+          {filtered.map((r) => (
             <div key={r.id} className="card">
               <div className="card-body">
                 <div className="flex gap-12">

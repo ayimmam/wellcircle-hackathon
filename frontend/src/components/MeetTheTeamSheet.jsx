@@ -23,41 +23,38 @@ import Icon from './Icon';
 // `photo` must be a path relative to /public (e.g. '/team/yoni.jpg') or null.
 const TEAM = [
   {
-    id: 'pm',
-    name: 'Team Member 1',
+    id: 'anteneh',
+    name: 'Anteneh Yimmam',
     role: 'Product Manager',
     photo: null,
-    linkedin: 'https://linkedin.com',
-    phone: '+251900000001',
-    email: 'member1@wellcircle.et',
+    linkedin: 'https://www.linkedin.com/in/anteneh-yimmam0/',
+    email: 'anteneh@wellcircle.et',
   },
   {
-    id: 'dev1',
-    name: 'Team Member 2',
-    role: 'Frontend Developer',
+    id: 'yonatan',
+    name: 'Yonatan Berihun',
+    role: 'Fullstack Software Engineer',
     photo: null,
-    linkedin: 'https://linkedin.com',
-    phone: '+251900000002',
-    email: 'member2@wellcircle.et',
+    linkedin: 'https://www.linkedin.com/in/yoni-berihun/',
+    email: 'yonatan@wellcircle.et',
   },
   {
-    id: 'dev2',
-    name: 'Team Member 3',
-    role: 'Backend Developer',
+    id: 'bezawit',
+    name: 'Bezawit Assefa',
+    role: 'Data Engineer',
     photo: null,
-    linkedin: 'https://linkedin.com',
-    phone: '+251900000003',
-    email: 'member3@wellcircle.et',
+    linkedin: 'https://www.linkedin.com/in/bezawit-assefa-4964592aa/',
+    email: 'bezawit@wellcircle.et',
   },
   {
-    id: 'dev3',
-    name: 'Team Member 4',
-    role: 'Bot & Integrations',
+    id: 'biniyam',
+    name: 'Biniyam Fisseha',
+    role: 'Software Developer',
     photo: null,
-    linkedin: 'https://linkedin.com',
-    phone: '+251900000004',
-    email: 'member4@wellcircle.et',
+    linkedin: 'https://www.linkedin.com/in/biniyam-fisseha/',
+    email: 'biniyam@wellcircle.et',
   },
+
 ];
 
 // ─── Initials avatar fallback ────────────────────────────────────────────────
@@ -125,13 +122,6 @@ function TeamCard({ member, index }) {
           aria-label={`${member.name} on LinkedIn`}
         >
           <Icon name="linkedin" size={15} />
-        </a>
-        <a
-          href={`tel:${member.phone}`}
-          className="team-contact-btn"
-          aria-label={`Call ${member.name}`}
-        >
-          <Icon name="phone" size={15} />
         </a>
         <a
           href={`mailto:${member.email}`}

@@ -25,7 +25,7 @@ const TEAM = [
   {
     id: 'anteneh',
     name: 'Anteneh Yimmam',
-    role: 'Product Manager',
+    role: 'Technical Product Manager',
     photo: '/team/anteneh.JPG',
     objectPosition: 'center top',
     linkedin: 'https://www.linkedin.com/in/anteneh-yimmam0/',

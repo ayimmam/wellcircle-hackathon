@@ -27,6 +27,7 @@ const TEAM = [
     name: 'Anteneh Yimmam',
     role: 'Product Manager',
     photo: '/team/anteneh.JPG',
+    objectPosition: 'center top',
     linkedin: 'https://www.linkedin.com/in/anteneh-yimmam0/',
     email: 'anteneh@wellcircle.et',
   },
@@ -35,6 +36,7 @@ const TEAM = [
     name: 'Yonatan Berihun',
     role: 'Fullstack Software Engineer',
     photo: '/team/yonatan.png',
+    objectPosition: 'center',
     linkedin: 'https://www.linkedin.com/in/yoni-berihun/',
     email: 'yonatan@wellcircle.et',
   },
@@ -43,6 +45,7 @@ const TEAM = [
     name: 'Bezawit Assefa',
     role: 'Data Engineer',
     photo: '/team/bezawit.jpg',
+    objectPosition: 'center 20%', // slightly down from the very top to frame the face
     linkedin: 'https://www.linkedin.com/in/bezawit-assefa-4964592aa/',
     email: 'bezawit@wellcircle.et',
   },
@@ -51,10 +54,10 @@ const TEAM = [
     name: 'Biniyam Fisseha',
     role: 'Software Developer',
     photo: '/team/biniyam.png',
+    objectPosition: 'center',
     linkedin: 'https://www.linkedin.com/in/biniyam-fisseha/',
     email: 'biniyam@wellcircle.et',
   },
-
 ];
 
 // ─── Initials avatar fallback ────────────────────────────────────────────────
@@ -102,6 +105,7 @@ function TeamCard({ member, index }) {
             src={member.photo}
             alt={member.name}
             className="team-card-avatar-img"
+            style={{ objectPosition: member.objectPosition || 'center' }}
           />
         ) : (
           <InitialsAvatar name={member.name} index={index} />

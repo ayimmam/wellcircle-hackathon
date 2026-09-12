@@ -28,7 +28,6 @@ const TEAM = [
     role: 'Product Manager',
     photo: null,
     linkedin: 'https://www.linkedin.com/in/anteneh-yimmam0/',
-    phone: '+251900000001',
     email: 'anteneh@wellcircle.et',
   },
   {
@@ -37,7 +36,6 @@ const TEAM = [
     role: 'Fullstack Software Engineer',
     photo: null,
     linkedin: 'https://www.linkedin.com/in/yoni-berihun/',
-    phone: '+251900000002',
     email: 'yonatan@wellcircle.et',
   },
   {
@@ -46,7 +44,6 @@ const TEAM = [
     role: 'Data Engineer',
     photo: null,
     linkedin: 'https://www.linkedin.com/in/bezawit-assefa-4964592aa/',
-    phone: '+251900000003',
     email: 'bezawit@wellcircle.et',
   },
   {
@@ -55,9 +52,9 @@ const TEAM = [
     role: 'Software Developer',
     photo: null,
     linkedin: 'https://www.linkedin.com/in/biniyam-fisseha/',
-    phone: '+251900000004',
     email: 'biniyam@wellcircle.et',
   },
+
 ];
 
 // ─── Initials avatar fallback ────────────────────────────────────────────────
@@ -125,13 +122,6 @@ function TeamCard({ member, index }) {
           aria-label={`${member.name} on LinkedIn`}
         >
           <Icon name="linkedin" size={15} />
-        </a>
-        <a
-          href={`tel:${member.phone}`}
-          className="team-contact-btn"
-          aria-label={`Call ${member.name}`}
-        >
-          <Icon name="phone" size={15} />
         </a>
         <a
           href={`mailto:${member.email}`}

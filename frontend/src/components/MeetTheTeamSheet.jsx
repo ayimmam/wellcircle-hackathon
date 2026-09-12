@@ -25,7 +25,7 @@ const TEAM = [
   {
     id: 'anteneh',
     name: 'Anteneh Yimmam',
-    role: 'Product Manager',
+    role: 'Technical Product Manager',
     photo: '/team/anteneh.JPG',
     objectPosition: 'center top',
     linkedin: 'https://www.linkedin.com/in/anteneh-yimmam0/',
@@ -43,7 +43,7 @@ const TEAM = [
   {
     id: 'bezawit',
     name: 'Bezawit Assefa',
-    role: 'Data Engineer',
+    role: 'ML Engineer',
     photo: '/team/bezawit.jpg',
     objectPosition: 'center 20%', // slightly down from the very top to frame the face
     linkedin: 'https://www.linkedin.com/in/bezawit-assefa-4964592aa/',

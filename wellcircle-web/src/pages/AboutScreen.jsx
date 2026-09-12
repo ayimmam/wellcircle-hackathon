@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { isSuperAdmin } from '../utils/auth';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import Icon from '../components/Icon';
+import MeetTheTeamSheet from '../components/MeetTheTeamSheet';
 
 // The four things a first-time user has to understand before anything else in
 // the app makes sense. Ordered as the loop is actually lived, not as the data
@@ -52,6 +54,7 @@ export default function AboutScreen() {
   useTelegramBackButton(() => navigate('/home'));
 
   const appVersion = import.meta.env.VITE_APP_VERSION || null;
+  const [showTeamSheet, setShowTeamSheet] = useState(false);
 
   return (
     <div className="page" id="about-screen">
@@ -157,10 +160,29 @@ export default function AboutScreen() {
         </div>
       )}
 
+      {/* Meet the Team — visible to all users, sits just above the footer */}
+      <div className="profile-section">
+        <div className="profile-section-title">{t('The Team')}</div>
+        <div className="about-rows">
+          <Row
+            icon="users"
+            title="Meet the Team 👨💻"
+            sub="The people who built Well Circle"
+            onClick={() => setShowTeamSheet(true)}
+            id="about-meet-team-row"
+          />
+        </div>
+      </div>
+
       <p className="about-footer">
         {t('Made in Addis Ababa')}
         {appVersion && <span> · v{appVersion}</span>}
       </p>
+
+      {/* Bottom sheet overlay — rendered in-place, no portal needed */}
+      {showTeamSheet && (
+        <MeetTheTeamSheet onClose={() => setShowTeamSheet(false)} />
+      )}
     </div>
   );
 }

@@ -157,20 +157,9 @@ jobs:
         working-directory: telegram-bot
 
   # ---------------------------------------------------------------- security
-  # ADVISORY, NOT A GATE — deliberately, and temporarily.
-  #
-  # Every advisory that a non-breaking `npm audit fix` could clear has been
-  # cleared. What remains is one high (vite, both frontends) and one critical
-  # (vitest, frontend) that only major upgrades resolve: vite 5 -> 8 and
-  # vitest 2 -> 5. Both are dev dependencies, so neither ships in the deployed
-  # bundle, but they are real and they should be done.
-  #
-  # TODO(security): land the vite/vitest majors, then delete the
-  # `continue-on-error` below so this becomes a blocking gate like the rest.
   audit:
     name: security · npm audit (advisory)
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

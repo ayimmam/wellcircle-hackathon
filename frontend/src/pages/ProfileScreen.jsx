@@ -15,6 +15,7 @@ import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import { getEarnedMilestoneBadges } from '../utils/milestones';
 import useDismissOnEscape from '../hooks/useDismissOnEscape';
 import ProfileHeader from './profile/ProfileHeader';
+import PersonalRecordsSection from './profile/PersonalRecordsSection';
 import AccountSection from './profile/AccountSection';
 import PreferencesSection from './profile/PreferencesSection';
 import PrivacySection from './profile/PrivacySection';
@@ -169,6 +170,7 @@ export default function ProfileScreen() {
       />
 
       <div className="profile-settings-heading">{t('Account')}</div>
+      <PersonalRecordsSection t={t} user={user} updateProfile={updateProfile} showToast={showToast} />
       <AccountSection
         user={user} t={t} navigate={navigate}
         pointsHistory={pointsHistory} joinedCommunities={joinedCommunities} milestoneBadges={milestoneBadges}

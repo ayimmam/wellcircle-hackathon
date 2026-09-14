@@ -180,11 +180,11 @@ export default function ExploreScreen() {
                   src={p.cover_photo_url}
                   alt={p.name}
                   width={430}
-                  style={{ height: 160, filter: p.is_coming_soon ? 'brightness(0.35)' : 'brightness(0.5)' }}
+                  style={{ height: 160, filter: p.is_coming_soon ? 'brightness(0.6)' : 'brightness(0.85)' }}
                   fallback={<div className="card-cover" style={{ height: 160 }} />}
                 />
                 {p.is_coming_soon ? (
-                  <span className="category-badge" style={{ position: 'absolute', top: 10, left: 10, background: 'var(--text-tertiary)' }}>Coming soon</span>
+                  <span className="category-badge" style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(17,17,17,0.85)', color: '#FFFFFF' }}>{t('Coming soon')}</span>
                 ) : p.is_featured && (
                   <span className="category-badge" style={{ position: 'absolute', top: 10, left: 10, background: 'var(--accent)' }}>Featured</span>
                 )}

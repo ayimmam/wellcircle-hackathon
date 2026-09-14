@@ -112,6 +112,19 @@ export default function PublicProfile() {
           This profile&apos;s activity and circles are private.
         </div>
       )}
+      {!statsHidden && (profile.personal_records || []).length > 0 && (
+        <div className="profile-section">
+          <div className="profile-section-title">Personal Records</div>
+          <div className="profile-card">
+            {profile.personal_records.map(r => (
+              <div key={r.id} className="confirmation-row">
+                <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{r.label}</span>
+                <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>{r.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {!statsHidden && stats && (
         <div className="profile-section">
           <div className="profile-section-title">Strava Activity</div>

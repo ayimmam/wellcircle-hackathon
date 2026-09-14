@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getPosts, createPost, reactToPost, commentOnPost } from '../api/client';
+import { getPosts, createPost, reactToPost, commentOnPost, getCircleLeaderboard, getLeaderboard } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { showToast } from './Toast';
 import Icon from './Icon';
 import SmartImage from './SmartImage';
+import MentionText from './MentionText';
 import { haptic } from '../utils/haptic';
 import { clickableDivProps } from '../utils/a11y';
+import { buildMembersByHandle, findActiveMention, insertMention } from '../utils/mentions';
 
 const ACTIVITY_TYPES = ['run', 'walk', 'ride', 'yoga', 'gym', 'swim'];
 
@@ -31,8 +33,29 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
   const [durationMin, setDurationMin] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
 
+  // @mention autocomplete — members of this circle/community, and the
+  // in-progress "@query" being typed in the main composer.
+  const [members, setMembers] = useState([]);
+  const [mention, setMention] = useState(null); // { start, query } | null
+  const composerRef = useRef(null);
+  const membersByHandle = buildMembersByHandle(members);
+  const mentionSuggestions = mention
+    ? members.filter(m => {
+        const handle = (m.telegram_handle || m.name || '').toLowerCase().replace(/\s+/g, '');
+        return handle.startsWith(mention.query.toLowerCase());
+      }).slice(0, 5)
+    : [];
+
   useEffect(() => {
     loadPosts();
+  }, [communityId, circleId]);
+
+  useEffect(() => {
+    const fetchMembers = circleId ? getCircleLeaderboard(circleId) : communityId ? getLeaderboard(communityId) : null;
+    if (!fetchMembers) return;
+    fetchMembers
+      .then(res => setMembers(res.leaderboard || []))
+      .catch(() => {});
   }, [communityId, circleId]);
 
   // Consume the one-time join-intro draft so leaving and returning to this
@@ -61,6 +84,22 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
     setDurationMin('');
     setPhotoUrl('');
     setComposerExpanded(false);
+    setMention(null);
+  };
+
+  const handleComposerChange = (e) => {
+    const value = e.target.value;
+    setNewPostContent(value);
+    setMention(members.length ? findActiveMention(value, e.target.selectionStart) : null);
+  };
+
+  const pickMention = (member) => {
+    if (!mention) return;
+    const handle = member.telegram_handle || member.name.toLowerCase().replace(/\s+/g, '');
+    const next = insertMention(newPostContent, mention.start, mention.query, handle);
+    setNewPostContent(next);
+    setMention(null);
+    composerRef.current?.focus();
   };
 
   const handlePost = async () => {
@@ -178,15 +217,38 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
             </div>
           ) : (
             <>
-              <textarea
-                value={newPostContent}
-                onChange={e => setNewPostContent(e.target.value)}
-                placeholder="Share an update, milestone, or encouragement..."
-                className="input post-composer-field"
-                style={{ minHeight: 80, resize: 'none' }}
-                autoFocus
-                id="post-composer"
-              />
+              <div style={{ position: 'relative' }}>
+                <textarea
+                  ref={composerRef}
+                  value={newPostContent}
+                  onChange={handleComposerChange}
+                  onClick={e => setMention(members.length ? findActiveMention(newPostContent, e.target.selectionStart) : null)}
+                  onKeyUp={e => setMention(members.length ? findActiveMention(newPostContent, e.target.selectionStart) : null)}
+                  placeholder="Share an update, milestone, or encouragement... Type @ to mention someone"
+                  className="input post-composer-field"
+                  style={{ minHeight: 80, resize: 'none' }}
+                  autoFocus
+                  id="post-composer"
+                />
+                {mentionSuggestions.length > 0 && (
+                  <div className="mention-suggestions" id="mention-suggestions">
+                    {mentionSuggestions.map(m => (
+                      <button
+                        type="button"
+                        key={m.user_id}
+                        className="mention-suggestion"
+                        onClick={() => pickMention(m)}
+                      >
+                        <SmartImage src={m.photo_url} width={24} fallback={<Icon name="user" size={12} />} />
+                        <span>{m.name}</span>
+                        <span className="text-tertiary" style={{ fontSize: '0.72rem' }}>
+                          @{m.telegram_handle || m.name.toLowerCase().replace(/\s+/g, '')}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {!showActivityDetails ? (
                 <button
@@ -274,7 +336,9 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
               </div>
 
               {/* Content */}
-              <p className={`post-content ${post.activity_type ? 'has-stats' : ''}`}>{post.content}</p>
+              <p className={`post-content ${post.activity_type ? 'has-stats' : ''}`}>
+                <MentionText text={post.content} membersByHandle={membersByHandle} />
+              </p>
 
               {/* Activity stat strip */}
               {post.activity_type && (
@@ -345,7 +409,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                           </div>
                           <div className="comment-body">
                             <div className="comment-author">{comment.user.name} <span className="comment-meta">• {timeAgo(comment.created_at)}</span></div>
-                            <div className="comment-text">{comment.content}</div>
+                            <div className="comment-text"><MentionText text={comment.content} membersByHandle={membersByHandle} /></div>
                             <button
                               className="btn btn-secondary comment-reply-btn"
                               onClick={() => { setReplyingToId(comment.id); setReplyContent(''); }}
@@ -369,7 +433,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                                 </div>
                                 <div className="comment-body">
                                   <div style={{ fontWeight: 600, fontSize: '0.75rem' }}>{reply.user.name} <span className="comment-meta">• {timeAgo(reply.created_at)}</span></div>
-                                  <div className="comment-text">{reply.content}</div>
+                                  <div className="comment-text"><MentionText text={reply.content} membersByHandle={membersByHandle} /></div>
                                 </div>
                               </div>
                             ))}
@@ -423,6 +487,9 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
           <div className="empty-state">
             <div className="empty-state-icon"><Icon name="message-circle" size={32} /></div>
             <div className="empty-state-text">No posts yet. Start the conversation!</div>
+            <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={() => setComposerExpanded(true)}>
+              Create first post
+            </button>
           </div>
         )}
       </div>

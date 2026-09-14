@@ -280,6 +280,13 @@ export default function CommunityDetail() {
             <div className="empty-state">
               <div className="empty-state-icon"><Icon name="chart" size={32} /></div>
               <div className="empty-state-text">No activity yet. Be the first to join!</div>
+              <button
+                className="btn btn-primary btn-sm"
+                style={{ marginTop: 12 }}
+                onClick={() => document.getElementById(community.user_joined ? 'checkin-btn' : 'join-btn')?.focus()}
+              >
+                {community.user_joined ? 'Go check in' : 'Join Circle'}
+              </button>
             </div>
           )}
         </>

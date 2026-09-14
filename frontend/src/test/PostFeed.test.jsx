@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import PostFeed from '../components/PostFeed';
 import { renderWithProviders } from './renderWithProviders';
 
@@ -41,5 +42,16 @@ describe('PostFeed — Strava-style activity', () => {
     await screen.findByText(/just finished a 5k run/i);
     expect(screen.getByDisplayValue("Hi I'm Meron, I'm glad to join you guys!")).toBeInTheDocument();
     expect(onDraftConsumed).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers a "Create first post" CTA that opens the composer when the feed is empty', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<PostFeed circleId="no-such-circle" />);
+
+    const cta = await screen.findByRole('button', { name: /create first post/i });
+    expect(screen.getByText(/no posts yet/i)).toBeInTheDocument();
+
+    await user.click(cta);
+    expect(screen.getByPlaceholderText(/share an update/i).tagName).toBe('TEXTAREA');
   });
 });

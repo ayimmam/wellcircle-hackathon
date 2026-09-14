@@ -49,12 +49,19 @@ describe('Accent palettes', () => {
 });
 
 describe('Profile layout', () => {
-  it('puts Appearance directly after Milestones', async () => {
+  it('groups sections into Account, Preferences, Privacy, Integrations, in that order, with Appearance first in Preferences', async () => {
     renderProfile();
     await screen.findByText('Legacy Points');
 
-    const titles = [...document.querySelectorAll('.profile-section-title')].map(el => el.textContent);
-    expect(titles.indexOf('Appearance')).toBe(titles.indexOf('Milestones') + 1);
+    const groupHeadings = [...document.querySelectorAll('.profile-settings-heading')].map(el => el.textContent);
+    expect(groupHeadings).toEqual(['Account', 'Preferences', 'Privacy', 'Integrations']);
+
+    // Appearance is deliberately first under Preferences — the one setting
+    // people change for fun rather than out of need.
+    const sections = [...document.querySelectorAll('.profile-settings-heading, .profile-section-title')]
+      .map(el => el.textContent);
+    const preferencesIndex = sections.indexOf('Preferences');
+    expect(sections[preferencesIndex + 1]).toBe('Appearance');
   });
 
   it('drops the entries that now live in the menu or on About', async () => {

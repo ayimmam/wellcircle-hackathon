@@ -1559,7 +1559,10 @@ export async function createCommunityChallenge(communityId, data) {
 
 export async function getLeaderboard(communityId) {
   return cached(cacheKeys.leaderboard(communityId), async () => {
-    if (USE_MOCK) return { leaderboard: [] };
+    if (USE_MOCK) {
+      await delay();
+      return { leaderboard: [...MOCK_LEADERBOARD] };
+    }
     return request('GET', `/communities/${communityId}/leaderboard`);
   });
 }

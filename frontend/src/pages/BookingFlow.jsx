@@ -330,14 +330,23 @@ export default function BookingFlow() {
           </a>
         )}
         {hasEmail && (
-          <a
+          // Copy-to-clipboard, not a mailto: anchor — Telegram's WebView has
+          // no mailto handler, so a navigation attempt throws
+          // ERR_UNKNOWN_URL_SCHEME and locks the Back button. The address
+          // stays visible on screen (below) so it can be typed manually too.
+          <button
+            type="button"
             className={`btn btn-block ${hasPhone ? 'btn-outline' : 'btn-primary'}`}
-            href={`mailto:${provider.contact_email}?subject=${encodeURIComponent(`Booking: ${selectedService?.name || ''}`)}`}
-            onClick={() => track('booking_contact_clicked', { provider_id: providerId, method: 'email' })}
+            onClick={() => {
+              track('booking_contact_clicked', { provider_id: providerId, method: 'email' });
+              navigator.clipboard.writeText(provider.contact_email)
+                .then(() => showToast(t('Email address copied!'), 'success'))
+                .catch(() => showToast(provider.contact_email));
+            }}
             id="contact-email-btn"
           >
-            <Icon name="message-circle" size={18} /> {t('Email')} {provider.contact_email}
-          </a>
+            <Icon name="message-circle" size={18} /> {t('Copy email')} {provider.contact_email}
+          </button>
         )}
         {!hasPhone && !hasEmail && (
           <div className="empty-state">

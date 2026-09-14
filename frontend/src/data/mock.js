@@ -39,6 +39,10 @@ export const MOCK_USER = {
     '22222222-0000-0000-0000-000000000003',
     '22222222-0000-0000-0000-000000000005'
   ],
+  personal_records: [
+    { id: 'pr-001', label: '5K', value: '24:10' },
+    { id: 'pr-002', label: 'Longest streak', value: '3 days' },
+  ],
   created_at: '2026-06-06T10:00:00Z'
 };
 
@@ -607,6 +611,10 @@ export const MOCK_PUBLIC_USERS = [
     is_following: false,
     created_circles: [MOCK_CIRCLES[2]],
     strava_connected: true,
+    personal_records: [
+      { id: 'pr-101', label: '10K', value: '48:32' },
+      { id: 'pr-102', label: 'Half Marathon', value: '1:52:10' },
+    ],
   },
   {
     id: '00000000-0000-0000-0000-000000000098',
@@ -708,12 +716,12 @@ export const MOCK_CIRCLE_REVENUE = {
 };
 
 export const MOCK_LEADERBOARD = [
-  { user_id: '001', name: 'Dawit', photo_url: 'https://i.pravatar.cc/150?u=dawit', weekly_points: 120, total_points: 720 },
-  { user_id: '002', name: 'Meron Tadesse', photo_url: 'https://i.pravatar.cc/150?u=meron', weekly_points: 85, total_points: 420 },
-  { user_id: '003', name: 'Sara', photo_url: 'https://i.pravatar.cc/150?u=sara', weekly_points: 70, total_points: 310 },
-  { user_id: '004', name: 'Abel', photo_url: 'https://i.pravatar.cc/150?u=abel', weekly_points: 55, total_points: 280 },
-  { user_id: '005', name: 'Hana', photo_url: 'https://i.pravatar.cc/150?u=hana', weekly_points: 40, total_points: 190 },
-  { user_id: '006', name: 'Yonas', photo_url: 'https://i.pravatar.cc/150?u=yonas', weekly_points: 30, total_points: 150 }
+  { user_id: '001', name: 'Dawit', telegram_handle: 'dawit', photo_url: 'https://i.pravatar.cc/150?u=dawit', weekly_points: 120, total_points: 720 },
+  { user_id: '002', name: 'Meron Tadesse', telegram_handle: 'meron_hr', photo_url: 'https://i.pravatar.cc/150?u=meron', weekly_points: 85, total_points: 420 },
+  { user_id: '003', name: 'Sara', telegram_handle: 'sara', photo_url: 'https://i.pravatar.cc/150?u=sara', weekly_points: 70, total_points: 310 },
+  { user_id: '004', name: 'Abel', telegram_handle: 'abel', photo_url: 'https://i.pravatar.cc/150?u=abel', weekly_points: 55, total_points: 280 },
+  { user_id: '005', name: 'Hana', telegram_handle: 'hana', photo_url: 'https://i.pravatar.cc/150?u=hana', weekly_points: 40, total_points: 190 },
+  { user_id: '006', name: 'Yonas', telegram_handle: 'tesfa', photo_url: 'https://i.pravatar.cc/150?u=yonas', weekly_points: 30, total_points: 150 }
 ];
 
 // ─── Posts & Reactions ──────────────────────────────

@@ -312,6 +312,7 @@ export default function CommunityList() {
               <div className="flex gap-8 mb-8">
                 <input
                   type="text"
+                  id="new-circle-name-input"
                   placeholder="New Circle Name…"
                   className="input"
                   value={newCircleName}
@@ -361,7 +362,19 @@ export default function CommunityList() {
               </div>
             </div>
           ))}
-          {circles.length === 0 && <div className="empty-state">No circles yet. Create one above!</div>}
+          {circles.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-state-icon"><Icon name="users" size={32} /></div>
+              <div className="empty-state-text">No circles yet.</div>
+              <button
+                className="btn btn-primary btn-sm"
+                style={{ marginTop: 12 }}
+                onClick={() => document.getElementById('new-circle-name-input')?.focus()}
+              >
+                Create your first circle
+              </button>
+            </div>
+          )}
         </div>
       ) : tab === 'explore' ? (
         <div className="flex-col gap-12">
@@ -410,6 +423,11 @@ export default function CommunityList() {
           <div className="empty-state-text">
             {tab === 'joined' ? "You haven't joined any circles yet." : 'No circles found for this category.'}
           </div>
+          {tab === 'joined' && (
+            <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={() => setTab('explore')}>
+              Browse circles
+            </button>
+          )}
         </div>
       )}
     </div>

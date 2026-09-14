@@ -423,6 +423,9 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
           <div className="empty-state">
             <div className="empty-state-icon"><Icon name="message-circle" size={32} /></div>
             <div className="empty-state-text">No posts yet. Start the conversation!</div>
+            <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={() => setComposerExpanded(true)}>
+              Create first post
+            </button>
           </div>
         )}
       </div>

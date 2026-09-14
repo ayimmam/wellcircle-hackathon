@@ -31,6 +31,7 @@ export default function CommunityList() {
   const [tab, setTab] = useState('explore'); // 'explore' | 'joined' | 'circles' | 'ranks'
   const [category, setCategory] = useState('all');
   const [newCircleName, setNewCircleName] = useState('');
+  const [circleSearch, setCircleSearch] = useState('');
   const [ranksView, setRanksView] = useState('communities'); // 'communities' | 'individuals'
 
   // Each tab reads its own cache key, so switching between them is a render
@@ -62,6 +63,10 @@ export default function CommunityList() {
       select: res => res.circles || EMPTY_LIST,
     },
   );
+
+  const searchedCircles = circleSearch.trim()
+    ? circles.filter(c => c.name.toLowerCase().includes(circleSearch.trim().toLowerCase()))
+    : circles;
 
   const { data: ranks, loading: ranksLoading } = useResource(
     cacheKeys.ranks(),
@@ -344,7 +349,33 @@ export default function CommunityList() {
               </div>
             </div>
           </div>
-          {circles.map(c => (
+          {circles.length > 0 && (
+            <div className="input flex items-center gap-8" style={{ marginBottom: 4 }}>
+              <Icon name="search" size={16} style={{ color: 'var(--text-tertiary)' }} />
+              <input
+                type="text"
+                id="circle-search-input"
+                placeholder={t('Search circles…')}
+                value={circleSearch}
+                onChange={e => setCircleSearch(e.target.value)}
+                aria-label={t('Search circles')}
+                autoComplete="off"
+                style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', font: 'inherit', color: 'inherit' }}
+              />
+              {circleSearch && (
+                <button
+                  type="button"
+                  className="btn-icon-plain"
+                  onClick={() => setCircleSearch('')}
+                  aria-label={t('Clear search')}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', display: 'flex' }}
+                >
+                  <Icon name="x" size={16} />
+                </button>
+              )}
+            </div>
+          )}
+          {searchedCircles.map(c => (
             <div key={c.id} className="card" aria-label={c.name} {...clickableDivProps(() => navigate(`/circle/${c.id}`))}>
               {c.banner_url && (
                 <div className="circle-card-banner">
@@ -362,6 +393,12 @@ export default function CommunityList() {
               </div>
             </div>
           ))}
+          {circles.length > 0 && searchedCircles.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-state-icon"><Icon name="search" size={32} /></div>
+              <div className="empty-state-text">{t('No circles match "{{query}}".', { query: circleSearch.trim() })}</div>
+            </div>
+          )}
           {circles.length === 0 && (
             <div className="empty-state">
               <div className="empty-state-icon"><Icon name="users" size={32} /></div>

@@ -17,6 +17,7 @@ from bot.services.streak_nudge import send_streak_nudges
 from bot.services.keep_warm import (
     ping_backend, KEEP_WARM_ENABLED, KEEP_WARM_INTERVAL_SECONDS,
 )
+from bot.services.api_client import init_http_client, close_http_client
 from bot.config import BOT_TOKEN
 
 logging.basicConfig(
@@ -39,7 +40,8 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def post_init(application: Application) -> None:
-    """Set bot commands after initialization."""
+    """Initialise the shared HTTP client and register bot commands after startup."""
+    await init_http_client()
     commands = [BotCommand("start", "Open Well Circle")]
     # /admin is registered globally; visibility is enforced in the handler
     commands.append(BotCommand("admin", "Access admin dashboard"))
@@ -48,9 +50,20 @@ async def post_init(application: Application) -> None:
     logger.info("🟢 Well Circle Bot started")
 
 
+async def post_shutdown(application: Application) -> None:
+    """Close the shared HTTP client cleanly after polling stops."""
+    await close_http_client()
+
+
 def main():
     """Start the bot."""
-    app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .post_init(post_init)
+        .post_shutdown(post_shutdown)
+        .build()
+    )
 
     # Register handlers
     app.add_handler(CommandHandler("start", start_handler))

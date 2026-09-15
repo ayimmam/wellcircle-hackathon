@@ -91,21 +91,16 @@ push to either. One job per service, so a failure points straight at the culprit
 
 | Job | Gate |
 |---|---|
-| `frontend · lint` / `test` / `build` | ESLint (0 errors), 263 Vitest tests, Vite build |
+| `frontend · lint` / `test` / `build` | ESLint (0 errors), 273 Vitest tests, Vite build |
 | `web · build` | Vite build (no test suite yet) |
 | `backend · test` | `compileall` + `pytest app/tests` on Python 3.11, SQLite + dummy secrets |
 | `chatbot · test` | `pytest` (36 tests) |
 | `telegram-bot · test` | `compileall bot` + `pytest bot/tests` (needs no secrets) |
-| `security · npm audit` | **advisory only** — see the TODO in the workflow |
+| `security · npm audit` | `npm audit --audit-level=high` on `frontend/` and `wellcircle-web/` |
 
-Two backlogs are tracked as TODOs rather than hidden, and both should be burned
-down so the gates can be tightened:
-
-- The react-hooks v7 compiler rules are set to `warn` in
-  `frontend/eslint.config.js`. CI blocks *new* errors; the existing findings
-  (state set inside effects, refs read during render) still need fixing.
-- `npm audit` is non-blocking until the vite 5→8 / vitest 2→5 majors land.
-  Both are dev-only dependencies, so neither ships in the deployed bundle.
+One remaining lint backlog: the react-hooks v7 compiler rules are set to
+`warn` in `frontend/eslint.config.js`. CI blocks *new* errors; the existing
+findings (state set inside effects, refs read during render) still need fixing.
 
 `backend/test_api.py` and `test_auth.py` are manual scripts that POST to the
 live server — CI runs `pytest app/tests` only, so they are excluded by design.
@@ -117,9 +112,7 @@ Two things CI cannot grant itself. Both need repo admin:
 - **Branch protection on `main` and `dev`** — require the seven blocking
   checks and at least one review, and disallow force-pushes. Without it the
   flow above is a convention, not a rule, and anyone can still push straight
-  to `main`. The seven names are the job names in the table above; do **not**
-  require `security · npm audit (advisory)`, which is `continue-on-error` by
-  design and would turn an advisory into a gate.
+  to `main`. The seven names are the job names in the table above.
 - **Settings → Actions → General → Workflow permissions → "Allow GitHub
   Actions to create and approve pull requests"** — currently off, so the
   promote job cannot open the release PR. It degrades cleanly: the run summary

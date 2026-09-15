@@ -213,7 +213,7 @@ Super admin is granted if **either** condition is true:
 | Branch protection on `main` / `dev` | ⚠️ **Not set.** Until it is, the flow above is a convention, not a rule — `main` is still directly pushable. Needs repo admin |
 | Actions may open PRs | ⚠️ **Off.** The promote job cannot open the release PR; it writes a compare link into the run summary instead. Settings → Actions → General |
 | react-hooks v7 lint backlog | Compiler rules set to `warn` in `frontend/eslint.config.js`. CI blocks *new* errors; the existing findings (setState in effects, refs read during render) still need real refactors |
-| `npm audit` as a blocking gate | Advisory until the vite 5→8 / vitest 2→5 majors land. Both are dev-only deps, so neither ships in the deployed bundle |
+| `npm audit` as a blocking gate | `security · npm audit` runs `npm audit --audit-level=high` on both frontends |
 | Test coverage: `wellcircle-web` | No suite; CI only builds it |
 | Test coverage: `telegram-bot` | Thin — one test (`bot/tests/test_nudges.py`) for ~976 lines. It does run in CI as of Phase 22; broadening it is task Y1 in the September polish sprint |
 
@@ -1510,14 +1510,12 @@ bindings). Config decisions, all deliberate rather than convenient:
   flag real issues needing real refactors; warning blocks new errors while the
   backlog is burned down.
 
-Also applied every non-breaking `npm audit fix` to both frontends. What
-remains needs the vite/vitest majors, so `npm audit` is advisory and says so
-in the workflow.
+Also applied the vite 8 / vitest 5 / react-router 7 majors so `npm audit
+--audit-level=high` is clean on both frontends and the CI job is a gate.
 
 #### Still manual (needs repo admin)
 1. **Branch protection** on `main` and `dev` — require the 7 blocking checks
-   (not `security · npm audit (advisory)`, which is `continue-on-error` by
-   design) plus a review, and block force-pushes.
+   plus a review, and block force-pushes.
 2. **Settings → Actions → General → "Allow GitHub Actions to create and
    approve pull requests"** — currently off, which is why the release PR is
    not opening on its own.

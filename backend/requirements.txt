@@ -24,7 +24,7 @@ apscheduler==3.10.4
 python-dotenv==1.0.0
 
 # cPanel / Passenger deployment (ASGI → WSGI bridge)
-a2wsgi==1.10.4
+a2wsgi==1.10.10
 
 # Development & Testing
 pytest==7.4.3

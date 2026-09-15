@@ -3,14 +3,10 @@ import { afterEach, beforeEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import { clearAll as clearApiCache } from '../api/cache';
 
-// Node 22+ ships its own `localStorage`/`sessionStorage` globals, but leaves
-// them `undefined` unless the process was started with --localstorage-file.
-// Those undefined globals shadow the ones happy-dom installs, so on a modern
-// Node every component that reads a saved token, theme, or seen-flag throws
-// on mount — which takes down almost the whole suite. Install a working
-// in-memory implementation when the environment didn't provide one.
-function installWebStorage(name) {
-  if (globalThis[name]) return;
+// Node 22+ can ship a process-wide `localStorage` that is shared across
+// Vitest files. That leaks seen-flags/tokens between parallel tests.
+// Always bind the Node globals to this happy-dom window's storage.
+function memoryStorage() {
   const store = new Map();
   const storage = {
     getItem: (key) => (store.has(String(key)) ? store.get(String(key)) : null),
@@ -20,11 +16,23 @@ function installWebStorage(name) {
     key: (index) => [...store.keys()][index] ?? null,
   };
   Object.defineProperty(storage, 'length', { get: () => store.size });
-  Object.defineProperty(globalThis, name, { configurable: true, writable: true, value: storage });
+  return storage;
 }
 
-installWebStorage('localStorage');
-installWebStorage('sessionStorage');
+function bindWebStorage(name) {
+  const storage = memoryStorage();
+  if (typeof window !== 'undefined') {
+    Object.defineProperty(window, name, { configurable: true, writable: true, value: storage });
+  }
+  try {
+    Object.defineProperty(globalThis, name, { configurable: true, writable: true, value: storage });
+  } catch {
+    globalThis[name] = storage;
+  }
+}
+
+bindWebStorage('localStorage');
+bindWebStorage('sessionStorage');
 
 // Unmount React trees between tests to avoid cross-test DOM/state leakage.
 afterEach(() => {

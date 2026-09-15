@@ -43,8 +43,9 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 /* Light theme (default) — WCAG AA contrast on surfaces */
 :root,
 [data-theme="light"] {
-  /* Telegram Mini Apps UI Kit blue — button_color / link_color #007AFF */
-  --accent: #007AFF;
+  /* Telegram Mini Apps UI Kit blue — button_color / link_color #007AFF, darkened
+     from #007AFF to #0070EB so --text-on-accent white clears 4.5:1 (WCAG AA) */
+  --accent: #0070EB;
   --accent-light: #55A6FF;
   --accent-dark: #0A5DC2;
   --accent-glow: rgba(0, 122, 255, 0.22);
@@ -120,8 +121,9 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
 /* Dark theme — previous default UI */
 [data-theme="dark"] {
-  /* Telegram Mini Apps UI Kit blue, brightened a step for dark surfaces */
-  --accent: #3395FF;
+  /* Telegram Mini Apps UI Kit blue, brightened a step for dark surfaces;
+     darkened from #3395FF to #2977CC so --text-on-accent white clears 4.5:1 */
+  --accent: #2977CC;
   --accent-light: #55A6FF;
   --accent-dark: #007AFF;
   --accent-glow: rgba(51, 149, 255, 0.25);
@@ -217,7 +219,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 
 [data-accent="green"] {
-  --accent: #059669;
+  /* darkened from #059669 to #047857 so --text-on-accent white clears 4.5:1 */
+  --accent: #047857;
   --accent-light: #34D399;
   --accent-dark: #047857;
   --accent-glow: rgba(5, 150, 105, 0.22);
@@ -235,7 +238,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 
 [data-accent="purple"] {
-  --accent: #8B5CF6;
+  /* darkened from #8B5CF6 to #8558EC so --text-on-accent white clears 4.5:1 */
+  --accent: #8558EC;
   --accent-light: #A78BFA;
   --accent-dark: #6D28D9;
   --accent-glow: rgba(139, 92, 246, 0.22);
@@ -307,7 +311,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 
 [data-theme="dark"][data-accent="green"] {
-  --accent: #10B981;
+  /* darkened from #10B981 to #0C855D so --text-on-accent white clears 4.5:1 */
+  --accent: #0C855D;
   --accent-light: #34D399;
   --accent-dark: #059669;
   --accent-glow: rgba(16, 185, 129, 0.25);
@@ -343,7 +348,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 
 [data-theme="dark"][data-accent="rose"] {
-  --accent: #F43F5E;
+  /* darkened from #F43F5E to #D73753 so --text-on-accent white clears 4.5:1 */
+  --accent: #D73753;
   --accent-light: #FB7185;
   --accent-dark: #E11D48;
   --accent-glow: rgba(244, 63, 94, 0.25);
@@ -1471,6 +1477,46 @@ select.input option {
 .post-composer-field { margin-bottom: 8px; }
 .post-composer-row { display: flex; gap: 8px; margin-bottom: 8px; }
 .post-composer-row .input { padding: 6px 12px; min-height: unset; font-size: 0.85rem; }
+
+/* @mention autocomplete */
+.mention-suggestions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 5;
+  margin-top: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,0.18));
+  overflow: hidden;
+}
+.mention-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+.mention-suggestion:hover, .mention-suggestion:focus-visible { background: var(--tint-accent-08); }
+.mention-suggestion img, .mention-suggestion svg { border-radius: 50%; flex-shrink: 0; }
+.mention-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+}
+.mention-link:hover { text-decoration: underline; }
 
 /* Post card */
 .post-card.system-event { background: var(--tint-accent-04); border-left: 3px solid var(--accent); }

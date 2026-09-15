@@ -1,15 +1,20 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { Routes, Route } from 'react-router-dom';
 import BookingFlow from '../pages/BookingFlow';
 import { renderWithProviders } from './renderWithProviders';
 import { MOCK_PROVIDERS } from '../data/mock';
 import { track } from '../analytics';
+import { showToast } from '../components/Toast';
 
 vi.mock('../analytics', () => ({
   initAnalytics: vi.fn(),
   identifyUser: vi.fn(),
   track: vi.fn(),
+}));
+
+vi.mock('../components/Toast', () => ({
+  showToast: vi.fn(),
 }));
 
 // Boston Day Spa: every service is phone-booked, priced on enquiry (B1 blocked)
@@ -26,6 +31,15 @@ function renderBooking() {
 }
 
 describe('BookingFlow direct-contact booking (Boston Day Spa pilot)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+  });
+
+
   it('tags phone-booked services and skips date/payment steps', async () => {
     renderBooking();
     const service = await screen.findByText('Massage Cave');
@@ -59,15 +73,22 @@ describe('BookingFlow direct-contact booking (Boston Day Spa pilot)', () => {
     expect(callLink.className).toContain('btn-primary');
     expect(callLink.getAttribute('href')).toBe('tel:+251116623808');
 
-    const emailLink = document.getElementById('contact-email-btn');
-    expect(emailLink).toBeInTheDocument();
-    expect(emailLink.className).toContain('btn-outline');
-    expect(emailLink.getAttribute('href')).toMatch(/^mailto:booking@kurifturesorts\.com/);
+    const emailBtn = document.getElementById('contact-email-btn');
+    expect(emailBtn).toBeInTheDocument();
+    expect(emailBtn.className).toContain('btn-outline');
+    expect(emailBtn.tagName).toBe('BUTTON');
+    expect(emailBtn).not.toHaveAttribute('href');
 
     fireEvent.click(callLink);
     expect(track).toHaveBeenCalledWith('booking_contact_clicked', expect.objectContaining({ method: 'phone' }));
-    fireEvent.click(emailLink);
+
+    // Email button copies the address instead of navigating — a mailto:
+    // anchor throws ERR_UNKNOWN_URL_SCHEME in Telegram's WebView and locks
+    // the Back button, so no navigation is attempted at all.
+    fireEvent.click(emailBtn);
     expect(track).toHaveBeenCalledWith('booking_contact_clicked', expect.objectContaining({ method: 'email' }));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('booking@kurifturesorts.com');
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith('Email address copied!', 'success'));
   });
 
   it('Back returns to service selection without losing the pick', async () => {

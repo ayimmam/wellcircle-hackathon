@@ -175,7 +175,9 @@ export default function EventsScreen() {
         </>
       ) : list.length === 0 ? (
         <div className="empty-state" id="events-empty">
-          <Icon name="calendar" size={32} style={{ color: 'var(--text-tertiary)' }} />
+          <div className="empty-state-icon">
+            <Icon name="calendar" size={32} />
+          </div>
           <p className="text-secondary" style={{ marginTop: 10 }}>
             {tab === 'upcoming'
               ? t('No events scheduled yet. Providers post them here first.')

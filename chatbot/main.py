@@ -1,28 +1,44 @@
 import os
 import re
 import json
-import time
 import uuid
-import logging
-from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from groq import Groq
-from supabase import create_client, Client
-from dotenv import load_dotenv
 
-load_dotenv()
-
-# --- LOGGING ---------------------------------------------------------------
-# Detailed diagnostics go to the server logs; users only ever see the short,
-# friendly replies returned by the endpoint.
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
+from config import (
+    GROQ_MAX_TOKENS,
+    GROQ_MODEL,
+    MEMORY_MAX_MESSAGES,
+    groq_client,
+    logger,
+    supabase_client,
 )
-logger = logging.getLogger("concierge")
+from data import (
+    _event_cache,
+    _provider_cache,
+    _resolve_event,
+    _resolve_provider,
+    fetch_events,
+    fetch_providers,
+    get_events,
+    get_providers,
+)
+from prompt import SYSTEM_PROMPT_PREFIX, build_system_prompt
+from models import (
+    EVENT_PROMPT_FIELDS,
+    FALLBACK_EVENTS,
+    FALLBACK_PROVIDERS,
+    PROMPT_FIELDS,
+    ChatMessage,
+    ConciergeRequest,
+    ConciergeResponse,
+)
+from memory import (
+    _session_memory_cache,
+    get_session_history,
+    save_session_history,
+)
 
 app = FastAPI(title="Well Circle Concierge - Production")
 
@@ -33,302 +49,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# --- ENVIRONMENT VARIABLES -------------------------------------------------
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
-
-GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
-GROQ_MAX_TOKENS = int(os.getenv("GROQ_MAX_TOKENS", "1024"))
-GROQ_TIMEOUT_SECONDS = float(os.getenv("GROQ_TIMEOUT_SECONDS", "20"))
-PROVIDER_CACHE_TTL_SECONDS = float(os.getenv("PROVIDER_CACHE_TTL_SECONDS", "60"))
-EVENT_WINDOW_DAYS = int(os.getenv("EVENT_WINDOW_DAYS", "30"))
-
-logger.info("Groq model configured: %s", GROQ_MODEL)
-
-# NEW: how many past messages (user + assistant, combined) to remember per session.
-MEMORY_MAX_MESSAGES = int(os.getenv("MEMORY_MAX_MESSAGES", "5"))
-
-if not GROQ_API_KEY or not SUPABASE_URL or not SUPABASE_KEY:
-    logger.warning("Missing environment configuration variables — running in degraded mode")
-
-groq_client = Groq(
-    api_key=GROQ_API_KEY or "fallback_placeholder",
-    timeout=GROQ_TIMEOUT_SECONDS,
-    max_retries=1,
-)
-
-try:
-    supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-except Exception as e:
-    logger.warning("Supabase client init failed (%s) — falling back to local dataset", e)
-    supabase_client = None
-
-
-FALLBACK_PROVIDERS = [
-    {
-        "id": "fb-001",
-        "name": "Bole Wellness Hub",
-        "category": "gym",
-        "description": "Modern gym with personal training and group classes.",
-        "location_text": "Bole, Addis Ababa",
-        "price_range": "ETB 800-2500",
-        "rating": 4.6,
-    },
-    {
-        "id": "fb-002",
-        "name": "Serenity Yoga Studio",
-        "category": "yoga",
-        "description": "Calm, beginner-friendly yoga studio with daily sessions.",
-        "location_text": "Kazanchis, Addis Ababa",
-        "price_range": "ETB 500-1200",
-        "rating": 4.8,
-    },
-    {
-        "id": "fb-003",
-        "name": "NutriLife Consulting",
-        "category": "nutrition",
-        "description": "Affordable nutrition planning and weight management coaching.",
-        "location_text": "CMC, Addis Ababa",
-        "price_range": "ETB 400-1000",
-        "rating": 4.5,
-    },
-    {
-        "id": "fb-004",
-        "name": "Spa Oasis Addis",
-        "category": "spa",
-        "description": "Relaxing massage and spa treatments in a tranquil setting.",
-        "location_text": "Bole, Addis Ababa",
-        "price_range": "ETB 600-2000",
-        "rating": 4.7,
-    },
-    {
-        "id": "fb-005",
-        "name": "Mindful Therapy Center",
-        "category": "therapy",
-        "description": "Licensed therapists offering individual counseling sessions.",
-        "location_text": "Sarbet, Addis Ababa",
-        "price_range": "ETB 700-1800",
-        "rating": 4.9,
-    },
-]
-
-PROMPT_FIELDS = (
-    "id",
-    "name",
-    "category",
-    "description",
-    "location_text",
-    "price_range",
-    "rating",
-)
-
-EVENT_PROMPT_FIELDS = (
-    "id",
-    "provider_id",
-    "service_name",
-    "description",
-    "starts_at",
-    "ends_at",
-    "price_etb",
-    "spots_remaining",
-)
-
-FALLBACK_EVENTS = [
-    {
-        "id": "fe-001",
-        "provider_id": "fb-001",
-        "service_name": "Sunrise HIIT at Bole Wellness Hub",
-        "description": "45-minute outdoor interval class for all levels.",
-        "starts_at": "2026-09-12T06:30:00+00:00",
-        "ends_at": "2026-09-12T07:15:00+00:00",
-        "price_etb": 250,
-        "spots_remaining": 8,
-    },
-    {
-        "id": "fe-002",
-        "provider_id": "fb-002",
-        "service_name": "Weekend Restorative Yoga",
-        "description": "Gentle 60-minute session to unwind after the week.",
-        "starts_at": "2026-09-13T10:00:00+00:00",
-        "ends_at": "2026-09-13T11:00:00+00:00",
-        "price_etb": 400,
-        "spots_remaining": 12,
-    },
-]
-
-
-class ChatMessage(BaseModel):
-    role: str
-    content: str
-
-
-class ConciergeRequest(BaseModel):
-    message: str
-    # NEW: client-provided session id. Optional — server will generate one
-    # if missing and hand it back in the response.
-    session_id: str | None = None
-    # Kept for backward compatibility with older clients. Only used to seed
-    # a brand-new session that has no server-side memory yet.
-    history: list[ChatMessage] = []
-
-
-class ConciergeResponse(BaseModel):
-    reply: str
-    provider_id: str | None = None
-    provider_name: str | None = None
-    event_id: str | None = None
-    event_name: str | None = None
-    event_provider_id: str | None = None
-    data_source: str = "unknown"
-    # NEW: echoed/generated session id so the client can persist it.
-    session_id: str = ""
-
-
-_provider_cache = {"data": None, "source": None, "ts": 0.0}
-_event_cache = {"data": None, "source": None, "ts": 0.0}
-
-# --- NEW: SESSION MEMORY (last N messages) ---------------------------------
-# Fast in-process cache: session_id -> list[{"role": ..., "content": ...}]
-# Backed by a Supabase table (chat_memory) so memory survives restarts and
-# works across multiple server instances.
-_session_memory_cache: dict[str, list[dict]] = {}
-
-
-def _memory_table_get(session_id: str) -> list[dict] | None:
-    if supabase_client is None:
-        return None
-    try:
-        res = (
-            supabase_client.table("chat_memory")
-            .select("messages")
-            .eq("session_id", session_id)
-            .limit(1)
-            .execute()
-        )
-        if res.data:
-            return res.data[0].get("messages") or []
-        return None
-    except Exception:
-        logger.exception("Supabase read failed for session %s", session_id)
-        return None
-
-
-def _memory_table_upsert(session_id: str, messages: list[dict]) -> None:
-    if supabase_client is None:
-        return
-    try:
-        supabase_client.table("chat_memory").upsert(
-            {"session_id": session_id, "messages": messages}
-        ).execute()
-    except Exception:
-        logger.exception("Supabase write failed for session %s", session_id)
-
-
-def get_session_history(session_id: str) -> list[dict]:
-    if session_id in _session_memory_cache:
-        return _session_memory_cache[session_id]
-
-    stored = _memory_table_get(session_id)
-    if stored is None:
-        stored = []
-
-    _session_memory_cache[session_id] = stored
-    return stored
-
-
-def save_session_history(session_id: str, messages: list[dict]) -> None:
-    trimmed = messages[-MEMORY_MAX_MESSAGES:]
-    _session_memory_cache[session_id] = trimmed
-    _memory_table_upsert(session_id, trimmed)
-# --- END NEW SECTION --------------------------------------------------------
-
-
-def fetch_providers():
-    if supabase_client is not None:
-        try:
-            db_response = supabase_client.table("providers").select("*").execute()
-            if db_response.data:
-                return db_response.data, "live"
-            logger.info("Supabase returned 0 providers — using fallback dataset")
-            return FALLBACK_PROVIDERS, "fallback"
-        except Exception:
-            logger.exception("Supabase fetch failed — using fallback dataset")
-            return FALLBACK_PROVIDERS, "fallback"
-    logger.info("Supabase client not initialized — using fallback dataset")
-    return FALLBACK_PROVIDERS, "fallback"
-
-
-def get_providers():
-    now = time.monotonic()
-    if (
-        _provider_cache["data"] is not None
-        and (now - _provider_cache["ts"]) < PROVIDER_CACHE_TTL_SECONDS
-    ):
-        return _provider_cache["data"], _provider_cache["source"]
-
-    data, source = fetch_providers()
-    _provider_cache.update(data=data, source=source, ts=now)
-    return data, source
-
-
-def compact_providers(providers):
-    return [
-        {k: p[k] for k in PROMPT_FIELDS if k in p}
-        for p in providers
-    ]
-
-
-def fetch_events():
-    """Load upcoming, non-cancelled events. Never raises — empty list on failure."""
-    if supabase_client is None:
-        logger.info("Supabase client not initialized — using fallback events")
-        return FALLBACK_EVENTS, "fallback"
-
-    now = datetime.now(timezone.utc)
-    until = now + timedelta(days=EVENT_WINDOW_DAYS)
-    try:
-        db_response = (
-            supabase_client.table("provider_events")
-            .select(",".join(EVENT_PROMPT_FIELDS))
-            .eq("is_cancelled", False)
-            .gte("starts_at", now.isoformat())
-            .lt("starts_at", until.isoformat())
-            .execute()
-        )
-        if db_response.data:
-            return db_response.data, "live"
-        logger.info("Supabase returned 0 upcoming events")
-        return [], "empty"
-    except Exception:
-        logger.exception("Supabase events fetch failed — continuing without events")
-        return [], "unavailable"
-
-
-def get_events():
-    now = time.monotonic()
-    if (
-        _event_cache["data"] is not None
-        and (now - _event_cache["ts"]) < PROVIDER_CACHE_TTL_SECONDS
-    ):
-        return _event_cache["data"], _event_cache["source"]
-
-    data, source = fetch_events()
-    _event_cache.update(data=data, source=source, ts=now)
-    return data, source
-
-
-def compact_events(events):
-    compacted = []
-    for event in events:
-        row = {k: event[k] for k in EVENT_PROMPT_FIELDS if k in event}
-        if "id" in row:
-            row["id"] = str(row["id"])
-        if "provider_id" in row:
-            row["provider_id"] = str(row["provider_id"])
-        compacted.append(row)
-    return compacted
 
 
 @app.get("/")
@@ -346,104 +66,6 @@ def health():
         "database": db_status,
     }
 
-
-def _resolve_provider(parsed: dict, providers: list) -> tuple[str | None, str | None]:
-    provider_id = parsed.get("provider_id")
-
-    if isinstance(provider_id, str):
-        provider_id = provider_id.strip()
-        if provider_id.lower() in ("", "null", "none"):
-            provider_id = None
-    elif provider_id is not None:
-        provider_id = str(provider_id)
-
-    if provider_id is None:
-        return None, None
-
-    name_by_id = {p["id"]: p.get("name") for p in providers}
-    if provider_id not in name_by_id:
-        logger.info("Model returned unknown provider_id %r — dropping it", provider_id)
-        return None, None
-
-    return provider_id, name_by_id[provider_id]
-
-
-def _normalize_optional_id(value):
-    if isinstance(value, str):
-        value = value.strip()
-        if value.lower() in ("", "null", "none"):
-            return None
-        return value
-    if value is not None:
-        return str(value)
-    return None
-
-
-def _resolve_event(parsed: dict, events: list) -> tuple[str | None, str | None, str | None]:
-    event_id = _normalize_optional_id(parsed.get("event_id"))
-    if event_id is None:
-        return None, None, None
-
-    by_id = {str(e["id"]): e for e in events}
-    event = by_id.get(event_id)
-    if event is None:
-        logger.info("Model returned unknown event_id %r — dropping it", event_id)
-        return None, None, None
-
-    provider_id = event.get("provider_id")
-    return event_id, event.get("service_name"), str(provider_id) if provider_id else None
-
-
-# Merges three behaviors requested:
-#   - Wellness-only scope with a polite redirect for off-topic questions
-#   - Exact, never-rounded price quoting straight from the database
-#   - Every reply ends with a short open-ended question to keep the user engaged
-SYSTEM_PROMPT_PREFIX = (
-    "You are the Well Circle Concierge, a friendly and knowledgeable wellness expert for Addis Ababa.\n\n"
-    "CORE GUIDELINES:\n"
-    "1. WELLNESS SCOPE: Anchor every response to wellness services. If the user asks something unrelated "
-    "to wellness (sports, weather, jokes, general trivia), politely redirect them back to your purpose in "
-    "a warm, natural way, then invite them to describe what wellness service they're looking for.\n"
-    "2. DATABASE PRIORITY: Always check the Available Providers list first. If a provider matches the "
-    "user's stated category, location, or budget, recommend that exact provider using its EXACT id.\n"
-    "3. EVENTS: If the user asks about events, classes, something happening this week/weekend, or "
-    "upcoming sessions, check the Available Upcoming Events list. Recommend a matching event using its "
-    "EXACT id and its service_name. You may recommend a provider and an event in the same reply when both fit.\n"
-    "4. EXACT DATA RETRIEVAL: When quoting a provider price, quote price_range EXACTLY as it appears "
-    "in the data. When quoting an event price, quote price_etb EXACTLY. Never round, estimate, or invent "
-    "a number. If the user gives a budget, only treat a provider/event as a match if the listed price "
-    "plausibly fits that budget.\n"
-    "5. CONSULTATIVE FALLBACK: If no provider or event in the lists is a genuine match, do not invent one. "
-    "Instead, give brief, general, accurate wellness guidance relevant to their request, then invite them "
-    "to refine their ask (neighbourhood, budget, or service type). Set provider_id, provider_name, "
-    "event_id, and event_name to null in this case.\n"
-    "6. ADVISORY INTENT (pain, stress, weight, general health questions): give a short, practical, "
-    "evidence-based tip first, THEN suggest a relevant provider or event only if one genuinely fits.\n"
-    "7. SEARCH INTENT (explicitly looking for a gym, spa, yoga studio, event, etc.): lead directly with the "
-    "best-match provider or event from the data.\n"
-    "8. ENGAGING ENDING: End your 'reply' with a short, relevant, open-ended question that keeps the "
-    "conversation moving (e.g. asking about budget, neighbourhood, or whether they'd like to see the match).\n\n"
-    "ABSOLUTE RULES:\n"
-    "1. REPLY MUST BE 2-4 SENTENCES MAX, including the closing question. No filler greetings like "
-    "'Hello' or 'I am an AI'.\n"
-    "2. ONLY recommend a provider that appears in the Available Providers list below, using its EXACT id. "
-    "ONLY recommend an event that appears in the Available Upcoming Events list below, using its EXACT id. "
-    "If nothing genuinely fits, set the matching id/name fields to null. Never invent providers, events, or prices.\n"
-    "3. OUTPUT FORMAT: Return ONLY a single JSON object — no conversational text before or after it, "
-    "no markdown, and no code fences. The entire response must be valid JSON that can be parsed directly.\n"
-    'REQUIRED KEYS: {"reply": "<advice/recommendation + closing question>", "provider_id": "<id or null>", '
-    '"provider_name": "<name or null>", "event_id": "<id or null>", "event_name": "<service_name or null>"}\n\n'
-    "Available Providers: "
-)
-
-
-def build_system_prompt(providers, events) -> str:
-    return (
-        SYSTEM_PROMPT_PREFIX
-        + json.dumps(compact_providers(providers))
-        + "\n\nAvailable Upcoming Events: "
-        + json.dumps(compact_events(events))
-    )
 
 FALLBACK_REPLY = (
     "I'm having trouble matching that request right now - try stating your "

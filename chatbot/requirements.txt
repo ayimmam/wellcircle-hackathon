@@ -1,7 +1,7 @@
 # Runtime dependencies. For tests, also install requirements-dev.txt.
-fastapi
-uvicorn
-pydantic
-groq
-supabase
-python-dotenv
+fastapi==0.141.1
+uvicorn==0.52.4
+pydantic==2.13.5
+groq==1.7.0
+supabase==2.31.0
+python-dotenv==1.2.3

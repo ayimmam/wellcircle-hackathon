@@ -71,11 +71,12 @@
 | Circles | GET | `/circles/:id/leaderboard` | JWT | Frontend |
 | Circles | POST | `/circles/join-by-code` | JWT | Frontend |
 | Circles | GET | `/circles/social-proof/today` | JWT | Frontend |
-| Circles | GET | `/circles/stories/feed` | JWT | Frontend |
-| Circles | GET | `/circles/:id/stories` | JWT (member) | Frontend |
-| Circles | POST | `/circles/:id/stories` | JWT (member) | Frontend |
-| Circles | POST | `/circles/stories/:id/view` | JWT (member) | Frontend |
-| Circles | DELETE | `/circles/stories/:id` | JWT (author or owner) | Frontend |
+| Stories | GET | `/stories/feed` | JWT | Frontend |
+| Stories | POST | `/stories` (multipart) | JWT | Frontend |
+| Stories | POST | `/stories/:id/view` | JWT | Frontend |
+| Stories | DELETE | `/stories/:id` | JWT (author) | Frontend |
+| Circles *(deprecated, WS1)* | GET | `/circles/stories/feed` | JWT | alias of `/stories/feed`, one release |
+| Circles *(deprecated, WS1)* | POST | `/circles/:id/stories` | — | `410` — moved to `/stories` |
 | Circles | PUT | `/circles/:id/banner` | JWT (owner) | Frontend |
 | Ranks | GET | `/ranks` | JWT | Frontend |
 | Feedback | POST | `/feedback` | JWT | Frontend |
@@ -343,7 +344,7 @@ request of their own:
 | `social_proof` | `GET /circles/social-proof/today` |
 | `unread_count` | `unread_count` from `GET /users/me/notifications` |
 | `feed` | first page of `GET /feed/for-you` (Phase 4 — For You screen) |
-| `stories` | `GET /circles/stories/feed` — the story rail, grouped by author |
+| `stories` | `GET /stories/feed` — the story rail, grouped by author |
 
 ```json
 // RESPONSE 200
@@ -355,7 +356,7 @@ request of their own:
   "social_proof": { "checked_in_today": 4 },
   "unread_count": 3,
   "feed": { "items": [ /* ...see GET /feed/for-you... */ ], "next_before": "2026-06-06T10:00:00Z" },
-  "stories": [ /* ...see GET /circles/stories/feed... */ ]
+  "stories": [ /* ...see GET /stories/feed... */ ]
 }
 ```
 
@@ -389,7 +390,7 @@ queries the first screenful actually depends on, plus two counters:
 | `social_proof` | Same as the bootstrap's. |
 | `unread_count` | Same as the bootstrap's. |
 | `feed` | First page of `GET /feed/for-you`, **posts only** — no `event`, `service`, `provider` or `past_event` items, and no lead-in or interleave. |
-| `stories` | The **whole** story rail, not a subset — it is two indexed queries over the caller's own circles, and it sits at the very top of the screen, so it ships in the cheap payload rather than waiting behind the provider fan-out. |
+| `stories` | The **whole** story rail, not a subset — it is a handful of indexed, batched queries over every active story (public now, not scoped to the caller's circles — WS1), and it sits at the very top of the screen, so it ships in the cheap payload rather than waiting behind the provider fan-out. |
 
 ```json
 // RESPONSE 200
@@ -399,7 +400,7 @@ queries the first screenful actually depends on, plus two counters:
   "social_proof": { "checked_in_today": 4 },
   "unread_count": 3,
   "feed": { "items": [ /* ...only type: "post"... */ ], "next_before": "2026-06-06T10:00:00Z", "partial": true },
-  "stories": [ /* ...the full rail; see GET /circles/stories/feed... */ ]
+  "stories": [ /* ...the full rail; see GET /stories/feed... */ ]
 }
 ```
 
@@ -1607,13 +1608,17 @@ communities (reusing `POST /api/communities/:id/join`).
 
 ---
 
-## 9a-bis. Circle stories & banners
+## 9a-bis. Stories & circle banners
 
-### Stories — 72-hour ephemeral photos
+### Stories — 72-hour ephemeral photos (public, WS1)
 
-A story is one image posted into one circle. Membership in that circle is the
-only thing that grants access: there is no public story anywhere, and a paid
-circle applies the same `has_circle_access` gate the leaderboard does.
+A story is one image posted by one user. **Any signed-in user can see any
+other user's active story** — there is no membership check, no circle
+scoping, and no `has_circle_access` gate. (Before WS1 of
+`docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md`, a story belonged to one circle
+and only that circle's members could see it; the endpoints below replace
+that model. The circle-scoped ones are kept for one release — see the
+Quick Reference table and "Deprecated" note below.)
 
 Two clocks govern a story, and the difference between them is the contract:
 
@@ -1627,72 +1632,81 @@ A late, failed or skipped purge therefore cannot leak an expired story back onto
 a screen. The worst case is an orphaned Cloudinary asset, which the next run
 picks up.
 
-Uploads go through the existing two-step flow: `POST /api/uploads` with
-`folder=stories` (JPEG/PNG/WebP, 10 MB cap) returns `{url, public_id}`, and both
-are posted back here.
-
-**`POST /api/circles/:id/stories`** — JWT (member). `201`.
+**`POST /api/stories`** — JWT. `multipart/form-data`, field `file` (JPEG/PNG/
+WebP, **2 MB cap** — the client compresses before sending; this is the
+backstop). One request does the upload *and* creates the row — unlike the
+old circle-scoped flow's two-step `POST /api/uploads` then `POST .../stories`,
+so a failed insert can clean up the Cloudinary asset it just orphaned instead
+of leaving an unreachable photo behind (see HANDOFF Phase 23 WS0's diagnosis
+of the original "story never visible" bug). `201`.
 ```json
-// REQUEST
-{ "image_url": "https://res.cloudinary.com/.../stories/abc.jpg", "image_public_id": "wellcircle/stories/abc" }
 // RESPONSE 201
-{ "id": "uuid-story", "image_url": "https://...", "created_at": "2026-08-26T09:00:00Z", "expires_at": "2026-08-29T09:00:00Z" }
+{
+  "id": "uuid-story", "image_url": "https://...",
+  "created_at": "2026-08-26T09:00:00Z", "expires_at": "2026-08-29T09:00:00Z",
+  "points_awarded": 20,   // 0 if the caller already earned from a story today (UTC)
+  "points_balance": 340
+}
 ```
-- `403` — not a member, or a paid circle the caller has not unlocked.
-- `429` — the caller already has 10 active stories in this circle. The cap
-  bounds one member flooding the rail; it self-heals as the oldest expire.
+- `422` — bad file type, empty file, or over 2 MB.
+- `429` — the caller already has 10 active stories. The cap bounds one
+  person flooding the rail; it self-heals as the oldest expire.
+- `503` — Cloudinary isn't configured.
 
-**`GET /api/circles/:id/stories`** — JWT. Active stories in one circle, **oldest
-first** (playback order). Returns `[]` rather than `403` for a non-member, so
-the circle screen renders without a special case.
-```json
-// RESPONSE 200
-{ "stories": [
-  {
-    "id": "uuid-story",
-    "circle_id": "uuid-circle", "circle_name": "Zen Seekers",
-    "user_id": "uuid", "user_name": "Hana Girma", "user_photo_url": "https://...",
-    "image_url": "https://...",
-    "created_at": "2026-08-26T09:00:00Z",
-    "expires_at": "2026-08-29T09:00:00Z",
-    "seen": false,
-    "view_count": null,          // number for your own stories, null for everyone else's
-    "is_mine": false
-  }
-] }
-```
-`view_count` is deliberately **author-only**: it is the poster's feedback, not
-another member's business.
-
-**`GET /api/circles/stories/feed`** — JWT. The For You rail: every active story
-from every circle the caller is in, **grouped by author**.
+**`GET /api/stories/feed`** — JWT. The For You rail: every active story from
+every user, **grouped by author**.
 ```json
 // RESPONSE 200
 { "groups": [
   {
     "user_id": "uuid", "user_name": "Hana Girma", "user_photo_url": "https://...",
     "is_mine": false,
+    "is_following": true,
     "has_unseen": true,
     "story_count": 2,
     "latest_at": "2026-08-26T09:00:00Z",
-    "stories": [ /* ...same objects as above, oldest first... */ ]
+    "stories": [
+      {
+        "id": "uuid-story",
+        "user_id": "uuid", "user_name": "Hana Girma", "user_photo_url": "https://...",
+        "image_url": "https://...",
+        "created_at": "2026-08-26T09:00:00Z",
+        "expires_at": "2026-08-29T09:00:00Z",
+        "seen": false,
+        "view_count": null,        // number for your own stories, null for everyone else's
+        "is_mine": false,
+        "is_following": true
+      }
+    ]
   }
 ] }
 ```
 Ordering is fixed and the client must not re-sort: **your own group first**,
-then anyone with something unseen, then most recent. `has_unseen` is what dims
-the ring on the rail.
+then anyone you follow with something unseen, then everyone else with
+something unseen, then fully-seen groups — each tier newest-first.
+`has_unseen` is what dims the ring on the rail; `is_following` drives the
+viewer's Follow/Following button. `view_count` is deliberately
+**author-only**: it is the poster's feedback, not another viewer's business.
 
-**`POST /api/circles/stories/:id/view`** — JWT (member). Idempotent view
-receipt. `{ "view_count": 4 }`. The client fires this once per story as it is
-played and does **not** invalidate the rail cache on the response — a receipt
-fires on every frame, and refetching mid-playback would fight the viewer. The
-dimmed ring comes from the client's own optimistic update.
+**`POST /api/stories/:id/view`** — JWT. Idempotent view receipt, no
+membership check. `{ "view_count": 4 }`. The client fires this once per story
+as it is played and does **not** invalidate the rail cache on the response —
+a receipt fires on every frame, and refetching mid-playback would fight the
+viewer. The dimmed ring comes from the client's own optimistic update.
 
-**`DELETE /api/circles/stories/:id`** — JWT (author or circle owner).
-`{ "deleted": true }`. Destroys the Cloudinary asset immediately and stamps both
-`deleted_at` and `expires_at`, so a failed CDN call still takes the story off
-the rail on the next read.
+**`DELETE /api/stories/:id`** — JWT (author only). `{ "deleted": true }`.
+Destroys the Cloudinary asset immediately and stamps both `deleted_at` and
+`expires_at`, so a failed CDN call still takes the story off the rail on the
+next read.
+
+**Deprecated (one release):** `GET /api/circles/stories/feed` still works as
+an alias for `GET /api/stories/feed`, so a frontend build that lands ahead
+of this backend's deploy doesn't 404. `POST /api/circles/:id/stories` now
+returns `410` — post to `POST /api/stories` instead. `GET /api/circles/:id/
+stories`, `POST /api/circles/stories/:id/view` and `DELETE /api/circles/
+stories/:id` still read/act on the old `circle_stories` table (nothing
+writes new rows there); they're unused by the current frontend but left
+functional rather than removed outright.
 
 ### Banner
 

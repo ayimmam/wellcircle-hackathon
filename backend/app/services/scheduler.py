@@ -135,7 +135,8 @@ def challenge_expiry_job():
 def phase15_maintenance_job():
     """Expire trainer/subscription access, escalate stale receipts, and purge
     the Cloudinary assets behind stories past their 72 hours."""
-    from app.crud.circle_story import purge_expired_stories
+    from app.crud.circle_story import purge_expired_stories as purge_legacy_circle_stories
+    from app.crud.story import purge_expired_stories
     from app.crud.circle_subscription import check_expired_subscriptions, escalate_stale_receipts
     from app.crud.trainer_verification import check_expired_verifications
 
@@ -147,8 +148,11 @@ def phase15_maintenance_job():
             "escalated_receipts": escalate_stale_receipts(db, hours=72),
             # Stories stop being served the instant expires_at passes; this is
             # only about not keeping the bytes. Anything Cloudinary refuses
-            # keeps deleted_at NULL and is retried tomorrow.
-            "purged_stories": purge_expired_stories(db),
+            # keeps deleted_at NULL and is retried tomorrow. Purges both the
+            # new public `stories` table and any leftover legacy
+            # `circle_stories` rows (WS1 — nothing writes new ones, but old
+            # ones may still be sitting around until they age out).
+            "purged_stories": purge_expired_stories(db) + purge_legacy_circle_stories(db),
         }
         logger.info("Phase 15 maintenance completed: %s", result)
         return result

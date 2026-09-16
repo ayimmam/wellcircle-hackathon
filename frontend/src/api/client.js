@@ -1691,23 +1691,27 @@ let _mockStravaConnected = false;
 let _mockVisibleStats = [...MOCK_STRAVA_STATS.visible_stats];
 const _mockCircleStatuses = new Map();
 
-// ─── Circle stories ───────────────────────────────────────────────────────
+// ─── Stories ────────────────────────────────────────────────────────────
 //
-// The rail is grouped by author and ordered "mine first, then anyone with
-// something unseen, then most recent" — the same ordering the backend applies
-// in crud/circle_story.get_story_rail. Mock mode reimplements it rather than
-// faking a payload so the two never drift on the ordering the UI depends on.
+// Public and user-level (WS1 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md) —
+// not scoped to a circle. The rail is grouped by author and ordered "mine
+// first, then followed+unseen, then unseen, then seen, most recent within
+// each tier" — the same ordering crud/story.get_story_rail applies on the
+// backend. Mock mode reimplements it rather than faking a payload so the two
+// never drift on the ordering the UI depends on.
 
 function groupStoryRail(stories, currentUserId) {
   const groups = new Map();
   for (const story of stories) {
     const key = story.user_id;
     if (!groups.has(key)) {
+      const publicUser = MOCK_PUBLIC_USERS.find(u => u.id === story.user_id);
       groups.set(key, {
         user_id: story.user_id,
         user_name: story.user_name,
         user_photo_url: story.user_photo_url,
         is_mine: story.user_id === currentUserId,
+        is_following: publicUser?.is_following ?? false,
         stories: [],
       });
     }
@@ -1720,11 +1724,8 @@ function groupStoryRail(stories, currentUserId) {
     group.story_count = group.stories.length;
     group.latest_at = group.stories[group.stories.length - 1].created_at;
   }
-  result.sort((a, b) => (
-    (a.is_mine === b.is_mine ? 0 : a.is_mine ? -1 : 1)
-    || (a.has_unseen === b.has_unseen ? 0 : a.has_unseen ? -1 : 1)
-    || new Date(b.latest_at) - new Date(a.latest_at)
-  ));
+  const tier = (g) => g.is_mine ? 0 : (g.is_following && g.has_unseen ? 1 : (g.has_unseen ? 2 : 3));
+  result.sort((a, b) => tier(a) - tier(b) || new Date(b.latest_at) - new Date(a.latest_at));
   return result;
 }
 
@@ -1739,48 +1740,73 @@ export async function getStoryRail() {
       await delay(120);
       return { groups: groupStoryRail(activeMockStories(), MOCK_USER.id) };
     }
-    return request('GET', '/circles/stories/feed');
+    return request('GET', '/stories/feed');
   });
 }
 
-export async function getCircleStories(circleId) {
-  return cached(cacheKeys.circleStories(circleId), async () => {
-    if (USE_MOCK) {
-      await delay();
-      return { stories: activeMockStories().filter(st => st.circle_id === circleId) };
-    }
-    return request('GET', `/circles/${circleId}/stories`);
-  });
-}
-
-export async function createCircleStory(circleId, { image_url, image_public_id }) {
-  // The rail lives on the home payloads too, so a new story has to expire the
-  // whole circles family *and* home — otherwise the poster doesn't see their
-  // own ring until the next cold open.
-  invalidate('circles');
+/**
+ * Uploads (via multipart, matching the server's single-request
+ * upload+create) and creates a story. Uses raw XHR rather than `fetch`
+ * because only XHR exposes upload progress, which the rail's ring uses to
+ * show a live arc while it sends.
+ *
+ * @param {Blob} file
+ * @param {{onProgress?: (pct: number) => void}} [options]
+ */
+export function createStory(file, { onProgress } = {}) {
+  // The rail lives on the home payloads too, so a new story has to expire
+  // home's cache — otherwise the poster doesn't see their own ring until the
+  // next cold open.
   invalidate('home');
+  invalidate('stories');
   if (USE_MOCK) {
-    await delay();
-    const created_at = new Date().toISOString();
-    const circle = MOCK_CIRCLES.find(c => c.id === circleId);
-    const story = {
-      id: `st-${Date.now()}`,
-      circle_id: circleId,
-      circle_name: circle?.name || null,
-      user_id: MOCK_USER.id,
-      user_name: MOCK_USER.name,
-      user_photo_url: MOCK_USER.photo_url,
-      image_url,
-      created_at,
-      expires_at: new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
-      seen: true,
-      view_count: 0,
-      is_mine: true,
-    };
-    MOCK_STORIES.push(story);
-    return story;
+    return (async () => {
+      await delay();
+      onProgress?.(100);
+      const created_at = new Date().toISOString();
+      const story = {
+        id: `st-${Date.now()}`,
+        user_id: MOCK_USER.id,
+        user_name: MOCK_USER.name,
+        user_photo_url: MOCK_USER.photo_url,
+        image_url: URL.createObjectURL ? URL.createObjectURL(file) : MOCK_USER.photo_url,
+        created_at,
+        expires_at: new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
+        seen: true,
+        view_count: 0,
+        is_mine: true,
+      };
+      MOCK_STORIES.push(story);
+      return { ...story, points_awarded: 20, points_balance: (MOCK_USER.points_balance || 0) + 20 };
+    })();
   }
-  return request('POST', `/circles/${circleId}/stories`, { image_url, image_public_id });
+
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE}/stories`);
+    if (authToken) xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
+    };
+    xhr.onload = () => {
+      let payload = {};
+      try { payload = JSON.parse(xhr.responseText || '{}'); } catch { /* non-JSON error body */ }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(payload);
+      } else {
+        const detail = payload.detail;
+        reject(new Error((detail && typeof detail === 'object' ? detail.message : detail) || 'Could not post that story'));
+      }
+    };
+    xhr.onerror = () => reject(wrapNetworkError(new TypeError('Failed to fetch')));
+    xhr.ontimeout = () => reject(wrapNetworkError(Object.assign(new Error('timeout'), { name: 'AbortError' })));
+    xhr.timeout = REQUEST_TIMEOUT_MS;
+    xhr.send(formData);
+  });
 }
 
 export async function markStoryViewed(storyId) {
@@ -1796,19 +1822,19 @@ export async function markStoryViewed(storyId) {
   // Deliberately not cache-invalidating: a view receipt fires on every frame
   // of the viewer, and dropping the rail cache each time would refetch it
   // mid-playback. The rail's own optimistic update covers the dimmed ring.
-  return request('POST', `/circles/stories/${storyId}/view`);
+  return request('POST', `/stories/${storyId}/view`);
 }
 
 export async function deleteStory(storyId) {
-  invalidate('circles');
   invalidate('home');
+  invalidate('stories');
   if (USE_MOCK) {
     await delay();
     const at = MOCK_STORIES.findIndex(st => st.id === storyId);
     if (at !== -1) MOCK_STORIES.splice(at, 1);
     return true;
   }
-  await request('DELETE', `/circles/stories/${storyId}`);
+  await request('DELETE', `/stories/${storyId}`);
   return true;
 }
 

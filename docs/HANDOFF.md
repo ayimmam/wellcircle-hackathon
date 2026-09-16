@@ -1969,6 +1969,115 @@ docs/HANDOFF.md
 
 ---
 
+#### WS1 — Public, user-level stories
+
+Rebuilt stories from circle-scoped to public: any signed-in user now sees
+any other user's active story, with a Follow button in the viewer instead
+of a membership gate.
+
+**A second, independent cause of "stories don't work", found while
+building this:** beyond WS0's missing-table diagnosis, **the story
+components had no CSS at all** — `.story-rail`, `.story-ring`,
+`.story-viewer` and everything else in `components/stories/` were never
+styled anywhere in the codebase. Even with a working table, the feature
+would have rendered as unstyled, unusable markup. Added a full stylesheet
+section to `index.css`.
+
+- **Schema** — migration `019_public_stories.py` (+ `ensure_db_schema`
+  statements, so a live database self-heals the same way WS0's hotfix
+  does): new `stories`/`story_views` tables, with any still-active
+  `circle_stories` rows copied forward. The old tables and their model/CRUD
+  (`circle_story.py`) are left in place for one release — see API_CONTRACT's
+  "Deprecated" note.
+- **Backend** — new `app/models/story.py`, `app/crud/story.py` (no
+  membership check anywhere), `app/api/stories.py`. `POST /api/stories` is
+  one request (upload + create), unlike the old two-step flow — a failed
+  insert now destroys the Cloudinary asset it just orphaned instead of
+  leaving an unreachable photo, which is exactly WS0's diagnosed bug class.
+  Upload cap dropped to 2 MB (client compresses first). The rail batches
+  author, seen-set, view-count *and* follow-status lookups in one query
+  each — confirmed constant regardless of author count in the test below.
+- **Points** — new `award_capped()` in `services/points.py`: awards
+  `amount` unless the user already has `daily_cap` ledger rows of that
+  type since UTC midnight (counts ledger rows, not live content, so
+  posting-then-deleting can't reset the cap). Stories: +20, 1/day. Also
+  landed `POINTS_POST`/`POST_POINTS_DAILY_CAP` (+10, 3/day) here for WS2 to
+  use next.
+- **Frontend** — new `utils/imageCompress.js` (canvas-based, steps quality
+  then edge size until under 2 MB) and `hooks/useStoryUpload.js` (owns no
+  DOM; the caller wires its own file input). `ForYouScreen.jsx`'s "Your
+  story" ring shows a live conic-gradient progress arc while uploading and
+  a dashed red "tap to retry" ring on failure — both via local patches to
+  the same cached home/lite payloads the rest of the screen already
+  optimistically edits. `StoryViewer.jsx` gained a Follow/Following button
+  (optimistic, via WS7's `useOptimisticAction`) and the author name/avatar
+  now link to their public profile.
+- **Removed:** the circle-scoped story rail and composer from
+  `CircleDetailScreen.jsx`; `StoryComposer.jsx` deleted (no importers left).
+
+#### Verification
+- Backend: `python -m app.tests.test_public_stories` (new) — **8 sections
+  passing** (public visibility with no membership check; expired/deleted
+  exclusion; rail ordering including `is_following`; constant query count;
+  the daily points cap and its UTC-day reset; the active-story cap; view
+  receipts; delete permissions). Full suite: `pytest app/tests -q` →
+  **24/24 passing**. `app.main` imports cleanly — **155 routes** (4 new:
+  the `/api/stories/*` router).
+- Frontend: `npm test` → **333/333 passing** across 73 files (6 new:
+  `imageCompress` 3/3, `useStoryUpload` 4/4, plus `StoryRail`/`CircleStories`
+  rewritten for the public model and a new Router requirement — `StoryViewer`
+  now calls `useNavigate()`). `npm run build` clean. `npm run lint` → 0
+  errors, 66 warnings (baseline, unchanged).
+- `docs/API_CONTRACT.md` updated: new `/api/stories/*` endpoints
+  documented in full, the deprecated circle-scoped ones noted, and every
+  `home`/`home/lite` reference to the old rail endpoint updated.
+
+#### Known Gaps / Next Steps
+- Not verified live against real Cloudinary/production — same caveat as
+  WS0: this needs a real Telegram pass once deployed.
+- The CSS added here is a first pass matching the app's existing tokens
+  (`--accent`, `--bg-card`, etc.) — worth a design review before shipping,
+  especially the fullscreen viewer on a real device.
+- `docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md` §15 flagged "should circle
+  pages show a members-filtered story rail instead of nothing" as an open
+  product question — currently nothing replaced the removed rail on
+  `CircleDetailScreen.jsx`.
+
+#### Files Changed / Added (Phase 23, WS1)
+```
+backend/alembic/versions/019_public_stories.py   (new)
+backend/app/database_schema.py
+backend/app/models/story.py   (new)
+backend/app/models/__init__.py
+backend/app/crud/story.py   (new)
+backend/app/api/stories.py   (new)
+backend/app/api/circles.py
+backend/app/api/home.py
+backend/app/main.py
+backend/app/services/points.py
+backend/app/services/cloudinary_service.py
+backend/app/services/scheduler.py
+backend/app/tests/test_public_stories.py   (new)
+frontend/src/utils/imageCompress.js   (new)
+frontend/src/hooks/useStoryUpload.js   (new)
+frontend/src/components/stories/StoryRail.jsx
+frontend/src/components/stories/StoryViewer.jsx
+frontend/src/components/stories/StoryComposer.jsx   (deleted)
+frontend/src/pages/ForYouScreen.jsx
+frontend/src/pages/CircleDetailScreen.jsx
+frontend/src/api/client.js
+frontend/src/data/mock.js
+frontend/src/index.css
+frontend/src/test/imageCompress.test.js   (new)
+frontend/src/test/useStoryUpload.test.jsx   (new)
+frontend/src/test/StoryRail.test.jsx
+frontend/src/test/CircleStories.test.jsx
+docs/API_CONTRACT.md
+docs/HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
 
 

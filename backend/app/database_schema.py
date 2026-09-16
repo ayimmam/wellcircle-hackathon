@@ -75,6 +75,33 @@ def ensure_db_schema(engine):
             viewed_at TIMESTAMPTZ DEFAULT NOW(),
             PRIMARY KEY (story_id, user_id)
         );""",
+        # Public, user-level stories (WS1 — alembic 019). Same self-heal
+        # rationale as circle_stories above.
+        """CREATE TABLE IF NOT EXISTS stories (
+            id UUID PRIMARY KEY,
+            user_id UUID NOT NULL REFERENCES users(id),
+            image_url VARCHAR(500) NOT NULL,
+            image_public_id VARCHAR(255) NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            expires_at TIMESTAMPTZ NOT NULL,
+            deleted_at TIMESTAMPTZ NULL
+        );""",
+        "CREATE INDEX IF NOT EXISTS ix_stories_active ON stories(expires_at, deleted_at);",
+        "CREATE INDEX IF NOT EXISTS ix_stories_user ON stories(user_id, created_at);",
+        """CREATE TABLE IF NOT EXISTS story_views (
+            story_id UUID NOT NULL REFERENCES stories(id),
+            user_id UUID NOT NULL REFERENCES users(id),
+            viewed_at TIMESTAMPTZ DEFAULT NOW(),
+            PRIMARY KEY (story_id, user_id)
+        );""",
+        """INSERT INTO stories (id, user_id, image_url, image_public_id, created_at, expires_at, deleted_at)
+        SELECT id, user_id, image_url, image_public_id, created_at, expires_at, deleted_at
+        FROM circle_stories
+        ON CONFLICT (id) DO NOTHING;""",
+        """INSERT INTO story_views (story_id, user_id, viewed_at)
+        SELECT story_id, user_id, viewed_at
+        FROM circle_story_views
+        ON CONFLICT (story_id, user_id) DO NOTHING;""",
     ]
 
     try:

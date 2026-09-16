@@ -5,6 +5,7 @@ import { getHomeBootstrap, getHomeLite, getForYouFeed, deleteStory, markStoryVie
 import useResource from '../hooks/useResource';
 import { logIssue } from '../utils/log';
 import useDailyReveal from '../hooks/useDailyReveal';
+import useStoryUpload from '../hooks/useStoryUpload';
 import PointsBadge from '../components/PointsBadge';
 import StreakBadge from '../components/StreakBadge';
 import FirstRewardCard from '../components/FirstRewardCard';
@@ -40,7 +41,7 @@ function FeedItem({ item, priority }) {
 }
 
 export default function ForYouScreen() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const location = useLocation();
   const { t } = useTranslation();
   const [showPointsInfo, setShowPointsInfo] = useState(false);
@@ -144,6 +145,70 @@ export default function ForYouScreen() {
     } catch (err) {
       showToast(err.message || 'Could not delete that story', 'error');
     }
+  };
+
+  // Optimistic story posting (WS1): a picked photo shows in "Your story"
+  // immediately via a local blob URL, with a progress arc while it uploads,
+  // and either swaps for the real story or turns into a "tap to retry" ring.
+  const addPendingStoryLocally = (tempId, localUrl) => (prev) => {
+    if (!prev || !user) return prev;
+    const groups = prev.stories || [];
+    const pendingStory = {
+      id: tempId, user_id: user.id, user_name: user.name, user_photo_url: user.photo_url,
+      image_url: localUrl, created_at: new Date().toISOString(), seen: true, view_count: null,
+      is_mine: true, is_following: false, pending: true, progress: 0,
+    };
+    const mineIdx = groups.findIndex(g => g.is_mine);
+    const nextGroups = mineIdx === -1
+      ? [{
+        user_id: user.id, user_name: user.name, user_photo_url: user.photo_url,
+        is_mine: true, is_following: false, has_unseen: false,
+        story_count: 1, latest_at: pendingStory.created_at, stories: [pendingStory],
+      }, ...groups]
+      : groups.map((g, i) => i === mineIdx ? { ...g, stories: [...g.stories, pendingStory] } : g);
+    return { ...prev, stories: nextGroups };
+  };
+
+  const patchOwnStory = (tempId, patch) => (prev) => {
+    if (!prev?.stories) return prev;
+    return {
+      ...prev,
+      stories: prev.stories.map(g => !g.is_mine ? g : {
+        ...g,
+        stories: g.stories.map(s => s.id === tempId ? { ...s, ...patch } : s),
+      }),
+    };
+  };
+
+  const { upload: uploadStory, retry: retryStory } = useStoryUpload({
+    onPending: ({ tempId, localUrl }) => {
+      setHome(addPendingStoryLocally(tempId, localUrl));
+      setLite(addPendingStoryLocally(tempId, localUrl));
+    },
+    onProgress: (tempId, pct) => {
+      setHome(patchOwnStory(tempId, { progress: pct }));
+      setLite(patchOwnStory(tempId, { progress: pct }));
+    },
+    onSuccess: (tempId, story) => {
+      const patch = { id: story.id, image_url: story.image_url, pending: false, failed: false, progress: 100 };
+      setHome(patchOwnStory(tempId, patch));
+      setLite(patchOwnStory(tempId, patch));
+      if (typeof story.points_balance === 'number') {
+        setUser(prev => prev ? { ...prev, points_balance: story.points_balance } : prev);
+      }
+    },
+    onFailure: (tempId) => {
+      setHome(patchOwnStory(tempId, { pending: false, failed: true }));
+      setLite(patchOwnStory(tempId, { pending: false, failed: true }));
+      showToast("Story didn't post — tap to retry", 'error');
+    },
+  });
+
+  const storyFileInputRef = useRef(null);
+  const handleStoryFilePicked = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file) uploadStory(file);
   };
 
   const markCheckedIn = (id) => (prev) => (
@@ -260,9 +325,20 @@ export default function ForYouScreen() {
         )}
       </div>
 
+      <input
+        ref={storyFileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={handleStoryFilePicked}
+        style={{ display: 'none' }}
+        id="story-file-input"
+      />
       <StoryRail
         groups={storyGroups}
         currentUser={user}
+        canAddStory={Boolean(user)}
+        onAddStory={() => storyFileInputRef.current?.click()}
+        onRetryFailed={retryStory}
         onViewed={handleStoryViewed}
         onDelete={handleStoryDeleted}
       />

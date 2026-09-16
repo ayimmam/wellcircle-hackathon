@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getHomeBootstrap, getHomeLite, getForYouFeed, deleteStory, markStoryViewed, cacheKeys } from '../api/client';
 import useResource from '../hooks/useResource';
+import { logIssue } from '../utils/log';
 import PointsBadge from '../components/PointsBadge';
 import StreakBadge from '../components/StreakBadge';
 import FirstRewardCard from '../components/FirstRewardCard';
@@ -79,7 +80,10 @@ export default function ForYouScreen() {
   const { data: home, setData: setHome } = useResource(
     cacheKeys.home(),
     getHomeBootstrap,
-    { onError: err => showToast(err.message, 'error') },
+    // Silent here too, same reasoning as `lite` above: a background load
+    // failing is not the reader's problem to be told about mid-scroll — the
+    // screen just keeps showing whatever it last had. Logged, not toasted.
+    { onError: err => logIssue('home_bootstrap_failed', { message: err?.message }) },
   );
 
   // Prefer the full payload wherever it has arrived; fall back to the lite one

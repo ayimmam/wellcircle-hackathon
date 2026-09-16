@@ -32,6 +32,7 @@ const API_BASE = resolveApiBase();
 export function getApiBase() { return API_BASE; }
 
 import { cached, invalidate, keyOf, write as cacheWrite, setCacheScope, clearAll as clearCache } from './cache';
+import { logIssue } from '../utils/log';
 
 import {
   MOCK_USER, MOCK_PROVIDERS, MOCK_COMMUNITIES, MOCK_FEED_EVENTS,
@@ -71,15 +72,23 @@ function isNetworkError(err) {
     || err?.name === 'AbortError';
 }
 
+// Timeouts and offline errors are noise, not something a user can act on —
+// they get logged (console + PostHog via logIssue) and never a toast. The
+// empty `.message` (plus `isNetworkNoise` for any caller that wants to check
+// explicitly) is what makes the ~70 existing
+// `showToast(err.message || 'fallback', ...)` call sites across the app fall
+// through to their own short, actionable fallback text on a user-initiated
+// action, and simply render nothing when there's no fallback (background
+// loads) — showToast() itself (Toast.jsx) no-ops on a falsy message, so none
+// of those call sites needed to change.
 function wrapNetworkError(err) {
-  // Keep technical detail in the console for debugging; show users plain language.
   if (err.name === 'AbortError') {
-    console.error(`[WellCircle] Request timed out (API_BASE=${API_BASE})`, err);
-    return new Error('This is taking longer than usual. Please check your connection and try again.');
+    logIssue('timeout', { apiBase: API_BASE, error: String(err) });
+    return Object.assign(new Error(''), { isNetworkNoise: true, cause: err });
   }
   if (err instanceof TypeError || err?.message === 'Failed to fetch') {
-    console.error(`[WellCircle] Network error reaching ${API_BASE}`, err);
-    return new Error("We couldn't connect right now. Please check your connection and try again.");
+    logIssue('offline', { apiBase: API_BASE, error: String(err) });
+    return Object.assign(new Error(''), { isNetworkNoise: true, cause: err });
   }
   return err;
 }

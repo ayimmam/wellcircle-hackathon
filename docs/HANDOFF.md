@@ -1597,7 +1597,7 @@ CLAUDE.md, README.md, docs/HANDOFF.md
 ### Phase 23 — Audit Fixes (In Progress)
 
 Executing `docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md` (the plan for
-`docs/Wellcircle audit.docx`'s 14 findings), PR by PR against `dev`. This
+`docs/Wellcircle audit.docx`'s findings), PR by PR against `dev`. This
 entry is updated as each workstream lands; see the plan doc for the full
 design and the confirmed product decisions behind each item.
 
@@ -1655,6 +1655,58 @@ error into an empty rail rather than surfacing it.
 backend/app/database_schema.py
 backend/app/tests/test_schema_drift.py   (new)
 docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md   (new)
+docs/HANDOFF.md
+```
+
+---
+
+#### WS10 — Remove "taking longer than usual" and similar noise
+
+Timeouts and offline errors are now logged (console + a PostHog
+`client_issue` event via new `src/utils/log.js`) instead of shown to users —
+the audit's "remove the toast message that says 'it's taking longer than
+usual,' remove any such issues... just log it internally."
+
+- `client.js`'s `wrapNetworkError` gives a timed-out (`AbortError`) or
+  offline (`TypeError`/"Failed to fetch") request an **empty** `.message`
+  plus `isNetworkNoise: true`, and calls `logIssue('timeout' | 'offline', …)`.
+  A genuine server error (4xx/5xx with a real `detail`) is untouched.
+- `Toast.jsx::showToast` now no-ops on a falsy message. Since the ~70
+  existing call sites across the app are all either
+  `showToast(err.message || 'Some short fallback', 'error')` or a bare
+  `showToast(err.message, 'error')`, this one change is what silences every
+  one of them for network noise specifically — the `||` sites fall through to
+  their own short, already-written fallback text (a user-initiated action
+  still gets *a* message, just never the diagnostic one), and the bare ones
+  render nothing (these are all background-load `.catch` handlers). No
+  individual call site needed editing.
+- `ForYouScreen.jsx`'s Home-bootstrap `useResource` `onError` was the one
+  spot still toasting on a background revalidation (its sibling `lite`
+  resource was already silent, with a comment noting "two toasts for one
+  outage is one too many" — this makes the full payload consistent with
+  that). Now logs via `logIssue` instead.
+- New `src/test/noNetworkNoiseCopy.test.js` walks `src/**/*.{js,jsx}` and
+  fails CI if either banned phrase reappears anywhere in the app.
+
+#### Verification
+- Frontend: `npm test` → **282/282 passing** across 59 files (9 new: 2
+  `client.networkErrors.test.js` real-network-mode cases for timeout and
+  offline, 1 confirming no old diagnostic string survives, 1 confirming a
+  genuine server error is untouched; 3 `Toast.test.jsx`; 2 `log.test.js`;
+  plus the 1-test grep guard). `npm run build` clean. `npm run lint` → 0
+  errors (66 pre-existing `warn`-level react-hooks findings, unchanged from
+  before this phase — see CLAUDE.md's "react-hooks v7 lint backlog" note).
+
+#### Files Changed / Added (Phase 23, WS10)
+```
+frontend/src/utils/log.js   (new)
+frontend/src/api/client.js
+frontend/src/components/Toast.jsx
+frontend/src/pages/ForYouScreen.jsx
+frontend/src/test/log.test.js   (new)
+frontend/src/test/Toast.test.jsx   (new)
+frontend/src/test/client.networkErrors.test.js   (new)
+frontend/src/test/noNetworkNoiseCopy.test.js   (new)
 docs/HANDOFF.md
 ```
 

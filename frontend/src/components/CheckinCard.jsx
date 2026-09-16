@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import useCheckin from '../hooks/useCheckin';
-import { showToast } from './Toast';
+import useOptimisticAction from '../hooks/useOptimisticAction';
 import { track } from '../analytics';
 import Icon from './Icon';
 import ShareCard from './ShareCard';
@@ -17,10 +17,10 @@ export default function CheckinCard({ circles, onChecked }) {
   const { user } = useAuth();
   const [shareMilestone, setShareMilestone] = useState(null);
   const checkin = useCheckin('home', setShareMilestone);
+  const runOptimistic = useOptimisticAction();
   const [checkedIds, setCheckedIds] = useState(() =>
     new Set((circles || []).filter(c => c.checked_in_today).map(c => c.id))
   );
-  const [busyId, setBusyId] = useState(null);
 
   const list = (circles || []).slice(0, 3);
   const streak = user?.current_streak || 0;
@@ -46,20 +46,26 @@ export default function CheckinCard({ circles, onChecked }) {
   const allDone = list.every(c => checkedIds.has(c.id));
   if (allDone) return shareCard || null;
 
-  const handleCheckin = async (id) => {
-    setBusyId(id);
+  // Optimistic: the button flips to "Checked in" the instant it's tapped —
+  // no spinner, no loading delay (WS7 of
+  // docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md). useCheckin's own toasts
+  // (streak, milestone, freeze) still land once the real response arrives;
+  // they're server-computed and can't be known ahead of time, which is fine
+  // — only the visible "did my tap register" state needed to be instant.
+  // A failure never reverts the checked state (matches the prior behavior:
+  // "already checked in today" reads as a non-error either way), it just
+  // says so once.
+  const handleCheckin = (id) => {
     track('checkin_prompt_click', { surface: 'home', community_id: id });
-    try {
-      await checkin(id);
-      setCheckedIds(prev => new Set([...prev, id]));
-      onChecked?.(id);
-    } catch {
-      showToast('Already checked in today');
-      setCheckedIds(prev => new Set([...prev, id]));
-      onChecked?.(id);
-    } finally {
-      setBusyId(null);
-    }
+    runOptimistic({
+      apply: () => {
+        setCheckedIds(prev => new Set([...prev, id]));
+        onChecked?.(id);
+      },
+      request: () => checkin(id),
+      failureMessage: 'Already checked in today',
+      dedupeKey: `checkin-${id}`,
+    });
   };
 
   return (
@@ -80,14 +86,12 @@ export default function CheckinCard({ circles, onChecked }) {
               </span>
               <button
                 className={`btn btn-sm ${done ? 'btn-secondary' : 'btn-primary'}`}
-                disabled={done || busyId === c.id}
+                disabled={done}
                 onClick={() => handleCheckin(c.id)}
                 id={`home-checkin-${c.id}`}
               >
                 {done ? (
                   <span className="flex items-center gap-4"><Icon name="check" size={13} /> Checked in</span>
-                ) : busyId === c.id ? (
-                  <span className="btn-spinner" aria-hidden="true" />
                 ) : 'Check in'}
               </button>
             </div>

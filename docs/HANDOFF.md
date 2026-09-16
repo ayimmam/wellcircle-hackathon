@@ -1875,6 +1875,100 @@ docs/HANDOFF.md
 
 ---
 
+#### WS7 — Optimistic UI foundation
+
+New `hooks/useOptimisticAction.js`: `apply()` runs synchronously (before
+`request()` even starts), `request()` fires in the background, and on
+rejection `undo()` runs and one `failureMessage` toast shows (or none, if
+omitted — always logged via WS10's `logIssue` either way). An optional
+`dedupeKey` makes a second tap on the same target while the first is still
+in flight a no-op instead of a duplicate request.
+
+**Audited every action WS7's table called out.** Several turned out to
+already be optimistic (join/leave community, join circle, react/gift
+points, story view/delete, and `PublicProfile`'s follow toggle already had
+apply-then-rollback in place) — those were left alone. Converted the ones
+that weren't:
+
+- **Check-in card (`CheckinCard.jsx`, Home's habit loop)** — used to await
+  the response before flipping to "Checked in" (with a spinner in between).
+  Now flips instantly; `useCheckin`'s streak/milestone toasts still land
+  once the real response arrives, since those are server-computed and can't
+  be known ahead of time — only the visible "did my tap register" state
+  needed to be instant.
+- **`FollowersList.jsx`'s follow toggle** — was fully await-then-flip, no
+  rollback on failure. Now optimistic with rollback, matching
+  `PublicProfile.jsx`'s existing pattern.
+- **Notification mark-read / mark-all-read (`NotificationsScreen.jsx`)** —
+  neither awaited the network before updating; tapping a notification also
+  used to wait for the read receipt before navigating. Both are now
+  synchronous: the row flips and navigation fires immediately, the receipt
+  goes in the background.
+- **Comment / reply (`PostFeed.jsx`)** — used to await, then discard the
+  typed text and refetch the whole post list (`loadPosts()`) to show the new
+  comment. Everything needed to render a comment (author, text, timestamp)
+  is already known client-side the moment it's typed, so it's now inserted
+  immediately with a temp id, swapped for the real id on success, and
+  dropped (with one failure toast) if the request fails — no refetch.
+- **Nudge / high-five (`Leaderboard.jsx`)** — no per-user visible state to
+  flip here, so the instant feedback is the confirmation toast itself,
+  which now shows on tap rather than after the round trip.
+- **Every profile field edit, in one place** — `AuthContext.updateProfile()`
+  now applies its patch to `user` state immediately, before the request,
+  and reconciles with the server's response on success or restores the
+  exact pre-call snapshot (and rethrows) on failure. This alone made bio,
+  phone number, time format, profile privacy, neighbourhood, and personal
+  records all instant — none of their call sites (`PreferencesSection`,
+  `PrivacySection`, `AccountSection`, `ProfileScreen`,
+  `PersonalRecordsSection`) needed to change, since they all already go
+  through `updateProfile`.
+
+**Left non-optimistic on purpose** (per the plan): booking creation,
+product redemption, paid-circle subscription, trainer application — the
+server is the real source of truth for these and a fake success would
+mislead.
+
+**Testing note:** happy-dom's CSS-shorthand style serialization is
+unreliable for property pairs like `background`/`border` that flip on
+every render (confirmed via a direct render-state console check — the
+component's real state was correct while the serialized `style` attribute
+lagged). Tests here assert on DOM presence/behavior (a request not re-firing
+on an already-flipped item, a route rendering) rather than inline style
+strings, for anything that hit this.
+
+#### Verification
+- Frontend: `npm test` → **298/298 passing** across 63 files (5 new:
+  `useOptimisticAction` 7/7, `Leaderboard` 1/1, `NotificationsScreen` 3/3,
+  plus new cases in `CheckinCard`, `FollowersList`, `PostFeed`; one existing
+  test in `PersonalRecordsSection.test.jsx` updated — it was coupling an
+  assertion to the mock server's round-trip timing, which the UI no longer
+  waits on). `npm run build` clean. `npm run lint` → 0 errors, exactly 66
+  warnings (the pre-existing backlog, unchanged) — one new
+  `react-hooks/purity` warning from `Date.now()`-based temp ids in
+  `PostFeed.jsx` was caught and fixed by switching to a plain incrementing
+  ref-based counter instead.
+
+#### Files Changed / Added (Phase 23, WS7)
+```
+frontend/src/hooks/useOptimisticAction.js   (new)
+frontend/src/context/AuthContext.jsx
+frontend/src/components/CheckinCard.jsx
+frontend/src/components/Leaderboard.jsx
+frontend/src/components/PostFeed.jsx
+frontend/src/pages/FollowersList.jsx
+frontend/src/pages/NotificationsScreen.jsx
+frontend/src/test/useOptimisticAction.test.jsx   (new)
+frontend/src/test/Leaderboard.test.jsx   (new)
+frontend/src/test/NotificationsScreen.test.jsx   (new)
+frontend/src/test/CheckinCard.test.jsx
+frontend/src/test/FollowersList.test.jsx
+frontend/src/test/PostFeed.test.jsx
+frontend/src/test/PersonalRecordsSection.test.jsx
+docs/HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
 
 

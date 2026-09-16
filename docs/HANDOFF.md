@@ -1594,6 +1594,72 @@ CLAUDE.md, README.md, docs/HANDOFF.md
 
 ---
 
+### Phase 23 — Audit Fixes (In Progress)
+
+Executing `docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md` (the plan for
+`docs/Wellcircle audit.docx`'s 14 findings), PR by PR against `dev`. This
+entry is updated as each workstream lands; see the plan doc for the full
+design and the confirmed product decisions behind each item.
+
+#### WS0 — Story schema hotfix + drift detector
+
+**Diagnosis (static, not confirmed against live logs this session — no
+Vercel log access was available here; confirm via `vercel logs` or the
+Supabase SQL editor before treating this as closed).** Posting a circle
+story is two requests: `POST /api/uploads` (Cloudinary, succeeds) then
+`POST /api/circles/{id}/stories` (DB insert). The `circle_stories` /
+`circle_story_views` tables and `circles.banner_url`/`banner_public_id`
+columns are created **only** by Alembic migration
+`018_circle_stories_and_banner.py`. Nothing applies Alembic in production —
+this is the same class of gap that caused the Phase 14 and Phase 15
+post-deploy 500s, both fixed by hand-running SQL against Supabase. If this
+migration was never run either, the insert 500s (orphaning the Cloudinary
+asset — matches "shows in the folder but can't be viewed"), and
+`GET /home/bootstrap`'s `section("stories", …, [])` wrapper swallows the
+error into an empty rail rather than surfacing it.
+
+**Fix:**
+- `app/database_schema.py::ensure_db_schema` now also creates
+  `circle_stories`, `circle_story_views` and the two `circles.banner_*`
+  columns (`CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`), so a
+  fresh boot self-heals this specific gap immediately, without waiting on a
+  manual SQL Editor run.
+- New `schema_drift(engine)`: compares `Base.metadata` (every ORM table/column)
+  against what `sqlalchemy.inspect(engine)` actually sees, and
+  `ensure_db_schema` logs a single `SCHEMA DRIFT` **ERROR** line listing
+  anything still missing after the patch statements run. Read-only, never
+  raises — a failed introspection is logged and treated as "no drift," so it
+  can't block boot. This turns the *next* "someone added a column and forgot
+  the ensure-statement" incident into one grep-able boot-time log line
+  instead of a scattered 500 on whichever endpoint hits it first.
+- Noted in passing: `CircleStory`/`CircleStoryView` aren't in
+  `app/models/__init__.py` — they only register on `Base.metadata` today
+  because `app.api.circles` (imported at module level in `main.py`) pulls in
+  `app.crud.circle_story`, which imports the models. Works by construction,
+  but fragile; WS1 replaces these tables with user-level `stories` /
+  `story_views` and this whole path goes away.
+
+#### Verification
+- Backend: `python -m app.tests.test_schema_drift` (new) — **5/5 passing**
+  (matching schema → no drift; a dropped table reported; a dropped column
+  reported without falsely flagging its table; both at once; `ensure_db_schema`
+  stays a no-op on SQLite and never raises). Full suite:
+  `pytest app/tests -q` → **22/22 passing**, `app.main` imports cleanly —
+  **151 routes**.
+- **Not yet done:** confirming the hypothesis against real Vercel/Supabase
+  state before this is called fixed (see Diagnosis above), and a live
+  Telegram pass posting a story end-to-end once deployed.
+
+#### Files Changed / Added (Phase 23, WS0)
+```
+backend/app/database_schema.py
+backend/app/tests/test_schema_drift.py   (new)
+docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md   (new)
+docs/HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
 
 

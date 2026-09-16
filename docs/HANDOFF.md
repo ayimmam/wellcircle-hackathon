@@ -1594,6 +1594,13 @@ CLAUDE.md, README.md, docs/HANDOFF.md
 
 ---
 
+### Phase 23 — Audit Fixes (In Progress)
+
+Executing `docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md` (the plan for
+`docs/Wellcircle audit.docx`'s findings), PR by PR against `dev`. This entry
+covers WS10; see the plan doc for design and confirmed product decisions,
+and each workstream's own HANDOFF entry once merged for the rest.
+
 #### WS10 — Remove "taking longer than usual" and similar noise
 
 Timeouts and offline errors are now logged (console + a PostHog

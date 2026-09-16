@@ -1470,6 +1470,12 @@ Bole | Kazanchis | Piassa | CMC | Sarbet | Megenagna | Other
   `is_past: true` and `attendee_count` (`capacity - spots_remaining`), because
   "3 spots left" on a finished session reads as a live booking prompt. Backs
   the Events screen's **Past** tab and the feed's `past_event` recap cards.
+- Every event row (upcoming and past) carries `provider_is_coming_soon`
+  (mirrored as `provider.is_coming_soon` on feed `event`/`past_event` items) —
+  the client hides the Book button and shows "Coming soon" instead when it's
+  `true`. `POST /api/bookings` enforces this server-side too, for both
+  service and event bookings (same `provider.is_coming_soon` check regardless
+  of whether `event_id` is set).
 - `GET /api/events/{id}` — Event details
 - `GET /api/providers/me/events` — Provider dashboard events
 - `POST /api/providers/me/events` — Provider create event

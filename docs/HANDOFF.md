@@ -1594,6 +1594,101 @@ CLAUDE.md, README.md, docs/HANDOFF.md
 
 ---
 
+### Phase 23 — Audit Fixes (In Progress)
+
+Executing `docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md` (the plan for
+`docs/Wellcircle audit.docx`'s findings), PR by PR against `dev`. This entry
+covers WS5; see the plan doc for design and confirmed product decisions, and
+each workstream's own HANDOFF entry once merged for the rest.
+
+#### WS5 — Only Boston Day Spa is bookable
+
+- **Event bookings already went through the same `is_coming_soon` gate as
+  service bookings** — `create_new_booking` (`api/bookings.py`) checks
+  `provider.is_coming_soon` from `request.provider_id` before branching on
+  `event_id` at all, so this was correct without a code change. Added a
+  regression test (`test_coming_soon.py` §7) so that stays true.
+- **Event payloads now carry `provider_is_coming_soon`** — added to
+  `serialize_event()` (`api/events.py`, the one function every event query
+  goes through) and its `EventResponse` schema, and threaded into the feed's
+  `_event_item()` as `provider.is_coming_soon` (same key
+  `_provider_brief()` already uses for service/provider feed items).
+- **`EventCard.jsx` and `FeedEventBanner.jsx`** hide the Book button and show
+  a disabled "Coming soon" badge instead when the host is coming-soon.
+  `FeedEventBanner`'s whole card is tappable; for a coming-soon host it now
+  opens the provider page (info only) instead of the booking flow.
+- **New `backend/set_boston_only_live.py`** — idempotent, `--dry-run` by
+  default, `--apply` to write. Sets `is_coming_soon = (not Boston Day Spa)`
+  for every provider, matched by name the same way
+  `mark_kuriftu_featured.py`/`seed_boston_day_spa.py` already do ("boston day
+  spa" or "kuriftu" in the name — the pilot row was renamed from Kuriftu).
+  Refuses to run unless exactly one provider matches. Not yet run against
+  production — see Known Gaps.
+
+#### Known deviation from the plan: mock fixtures left alone
+
+The plan's WS5 section said "every mock provider except Boston Day Spa gets
+`is_coming_soon: true`." `frontend/src/data/mock.js` turned out to already
+have deliberate, commented exceptions: **Lifestyle Fitness Center** and
+**Iron & Soul Gym** are explicitly kept bookable ("so the online/promo/
+multi-day booking-flow tests still have a live, priced fixture to exercise")
+and four poster-club providers (AfroHeat Fitness, Bole Burners, Satenaw
+Runclub, Bertusew Runningclub) are also live with a comment explaining why.
+Flipping all of these to coming-soon would have broken real, valuable
+existing coverage (`BookingFlow.multiDay.test.jsx`, `BookingFlow.promo.
+test.jsx`, `ExploreScreen.promo.test.jsx`, `ExploreScreen.nearMe.test.jsx`,
+and others) for reasons unrelated to this feature — those tests exercise
+booking mechanics that are orthogonal to which specific provider is "the
+pilot." **Left `mock.js` as-is.** The gating logic itself (`EventCard.jsx`,
+`FeedEventBanner.jsx`) is fully covered by dedicated tests using synthetic
+fixtures instead (`EventCard.comingSoon.test.jsx`,
+`FeedEventBanner.test.jsx`), so mock-mode coverage of the actual WS5 behavior
+isn't missing — only the "does browsing mock data in dev show only Boston as
+bookable" scenario is left unchanged. Flag this for a product decision: if
+mock/dev mode should also reflect "only Boston is bookable," that's a
+follow-up that will need to also decide what replaces those tests' now-gone
+bookable fixture.
+
+#### Verification
+- Backend: `python -m app.tests.test_coming_soon` — **8 sections passing**
+  (2 new: event booking gate, `provider_is_coming_soon` on event payloads).
+  `python -m app.tests.test_set_boston_only_live` (new) — **6/6 passing**
+  (pure-function `plan_updates()` tests: flips everyone but Boston,
+  idempotent re-run, matches on "kuriftu" too, aborts on 0 or 2+ matches,
+  corrects Boston itself if it's ever flagged coming-soon). Full suite:
+  `pytest app/tests -q` → **22/22 passing**. `app.main` imports cleanly —
+  **151 routes**.
+- Frontend: `npm test` → **287/287 passing** across 60 files (7 new:
+  `EventCard.comingSoon` 4/4, `FeedEventBanner` 3/3). `npm run build` clean.
+  `npm run lint` → 0 errors (66 pre-existing warnings, unchanged).
+- `docs/API_CONTRACT.md` updated with the new `provider_is_coming_soon`
+  field and its enforcement note.
+
+#### Known Gaps / Next Steps
+- `set_boston_only_live.py` has **not been run against production** — do a
+  `--dry-run` review, then `--apply`, as part of this phase's deploy
+  run-book (see the plan doc §13).
+- The mock-fixture deviation above needs a product decision before treating
+  it as resolved.
+
+#### Files Changed / Added (Phase 23, WS5)
+```
+backend/set_boston_only_live.py   (new)
+backend/app/api/events.py
+backend/app/schemas/event.py
+backend/app/services/feed_service.py
+backend/app/tests/test_coming_soon.py
+backend/app/tests/test_set_boston_only_live.py   (new)
+frontend/src/components/EventCard.jsx
+frontend/src/components/feed/FeedEventBanner.jsx
+frontend/src/test/EventCard.comingSoon.test.jsx   (new)
+frontend/src/test/FeedEventBanner.test.jsx   (new)
+docs/API_CONTRACT.md
+docs/HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
 
 

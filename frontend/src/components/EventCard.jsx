@@ -44,7 +44,11 @@ export default function EventCard({ event, variant = 'list' }) {
           <span className="inline-icon-text"><Icon name="calendar" size={14} /> {new Date(event.starts_at).toLocaleString()}</span>
           <span className="inline-icon-text"><Icon name="coins" size={14} /> {priceLabel}</span>
         </p>
-        <button className="btn btn-primary btn-block" onClick={book}>Book This Session</button>
+        {event.provider_is_coming_soon ? (
+          <button className="btn btn-secondary btn-block" disabled id={`event-coming-soon-${event.id}`}>Coming soon</button>
+        ) : (
+          <button className="btn btn-primary btn-block" onClick={book}>Book This Session</button>
+        )}
       </div>
     );
   }
@@ -67,7 +71,11 @@ export default function EventCard({ event, variant = 'list' }) {
         <div className="admin-bar-track mb-12" style={{ height: 6, background: 'var(--bg-tertiary)', borderRadius: 4 }}>
           <div className="admin-bar-fill" style={{ width: `${fillPct}%`, height: '100%', borderRadius: 4 }} />
         </div>
-        <button className="btn btn-primary btn-sm btn-block" onClick={book}>Book This Session</button>
+        {event.provider_is_coming_soon ? (
+          <button className="btn btn-secondary btn-sm btn-block" disabled id={`event-coming-soon-${event.id}`}>Coming soon</button>
+        ) : (
+          <button className="btn btn-primary btn-sm btn-block" onClick={book}>Book This Session</button>
+        )}
       </div>
     </div>
   );

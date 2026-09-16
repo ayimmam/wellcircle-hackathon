@@ -25,8 +25,14 @@ describe('Personal Records — set on own profile, shown on public profile', () 
     fireEvent.change(screen.getByLabelText('Record value'), { target: { value: '52:00' } });
     fireEvent.click(document.getElementById('save-pr-btn'));
 
+    // The UI updates instantly now (WS7 optimistic profile edits) — it no
+    // longer waits for the mock's own round trip, so assert the eventual
+    // server-side mutation separately rather than coupling it to the text
+    // appearing.
     expect(await screen.findByText('52:00')).toBeInTheDocument();
-    expect(MOCK_USER.personal_records.some(r => r.label === '10K' && r.value === '52:00')).toBe(true);
+    await vi.waitFor(() => {
+      expect(MOCK_USER.personal_records.some(r => r.label === '10K' && r.value === '52:00')).toBe(true);
+    });
 
     const removeBtn = screen.getByLabelText('Remove 10K');
     fireEvent.click(removeBtn);

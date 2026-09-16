@@ -102,6 +102,11 @@ def _event_item(e: dict, item_type: str) -> dict:
             "name": e["provider_name"],
             "category": e["provider_category"],
             "cover_photo_url": e["provider_cover_photo_url"],
+            # Same key as _provider_brief()'s service/provider items (WS5 of
+            # docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md) — gates the Book
+            # button on FeedEventBanner the same way it already does on
+            # FeedServiceCard/FeedProviderCard.
+            "is_coming_soon": bool(e.get("provider_is_coming_soon", False)),
         },
     }
 

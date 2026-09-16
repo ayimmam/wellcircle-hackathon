@@ -18,9 +18,13 @@ export default function FeedEventBanner({ item, priority = false }) {
     `/booking/${provider.id}?event_id=${event.id}`,
     { state: { eventId: event.id, eventServiceName: event.service_name, eventPrice: event.price_etb } },
   );
+  // A coming-soon host's event is still worth showing (it's what fills the
+  // feed pre-launch), but there's nothing to book yet — the card opens the
+  // provider page instead (WS5 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md).
+  const cardTap = provider.is_coming_soon ? () => navigate(`/provider/${provider.id}`) : book;
 
   return (
-    <div className="card mb-12" style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden' }} {...clickableDivProps(book)} aria-label={event.service_name} id={`feed-event-${item.id}`}>
+    <div className="card mb-12" style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden' }} {...clickableDivProps(cardTap)} aria-label={event.service_name} id={`feed-event-${item.id}`}>
       <div style={{ position: 'relative', height: 180 }}>
         <SmartImage
           src={provider.cover_photo_url}
@@ -44,9 +48,15 @@ export default function FeedEventBanner({ item, priority = false }) {
         </div>
       </div>
       <div className="card-body">
-        <button className="btn btn-primary btn-block" onClick={(e) => { e.stopPropagation(); book(); }} id={`feed-event-book-${item.id}`}>
-          {t('Book This Session')}
-        </button>
+        {provider.is_coming_soon ? (
+          <button className="btn btn-secondary btn-block" disabled id={`feed-event-coming-soon-${item.id}`}>
+            {t('Coming soon')}
+          </button>
+        ) : (
+          <button className="btn btn-primary btn-block" onClick={(e) => { e.stopPropagation(); book(); }} id={`feed-event-book-${item.id}`}>
+            {t('Book This Session')}
+          </button>
+        )}
       </div>
     </div>
   );

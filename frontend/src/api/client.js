@@ -1319,7 +1319,8 @@ export async function getPastEvents(params = {}) {
     if (USE_MOCK) {
       await delay();
       const events = MOCK_PAST_EVENTS.filter(
-        e => !params.provider_id || e.provider_id === params.provider_id,
+        e => (!params.provider_id || e.provider_id === params.provider_id)
+          && (!params.category || params.category === 'all' || e.provider_category === params.category),
       );
       return { events, count: events.length };
     }

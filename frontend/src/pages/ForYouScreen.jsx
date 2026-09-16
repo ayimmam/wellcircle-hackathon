@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getHomeBootstrap, getHomeLite, getForYouFeed, deleteStory, markStoryViewed, cacheKeys } from '../api/client';
 import useResource from '../hooks/useResource';
+import useDailyReveal from '../hooks/useDailyReveal';
 import PointsBadge from '../components/PointsBadge';
 import StreakBadge from '../components/StreakBadge';
 import FirstRewardCard from '../components/FirstRewardCard';
@@ -43,6 +44,10 @@ export default function ForYouScreen() {
   const { t } = useTranslation();
   const [showPointsInfo, setShowPointsInfo] = useState(false);
   const justOnboarded = Boolean(location.state?.justOnboarded);
+  // The check-in card waits 2 minutes of foreground time before it appears,
+  // once per day (WS4) — it's a daily habit prompt, not the first thing a
+  // reopened app should nag about.
+  const showCheckin = useDailyReveal('checkin');
 
   // "Never show a new user a zero" extended to sharing: everyone — brand new
   // or long-time — gets exactly one shareable "Day N on WellCircle" moment,
@@ -262,7 +267,7 @@ export default function ForYouScreen() {
 
       {user && <SocialProofBanner />}
 
-      {user && joinedCircles.length > 0 && (
+      {user && showCheckin && joinedCircles.length > 0 && (
         <CheckinCard
           key={joinedCircles.map(c => c.id).join(',')}
           circles={joinedCircles}

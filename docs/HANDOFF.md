@@ -1594,6 +1594,88 @@ CLAUDE.md, README.md, docs/HANDOFF.md
 
 ---
 
+### Phase 23 — Audit Fixes (In Progress)
+
+Executing `docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md` (the plan for
+`docs/Wellcircle audit.docx`'s findings), PR by PR against `dev`. This entry
+covers WS4; see the plan doc for design and confirmed product decisions, and
+each workstream's own HANDOFF entry once merged for the rest.
+
+#### WS4 — Minimal UI defaults
+
+- **Community opens on My Circles.** `CommunityList.jsx`'s default tab is now
+  `'circles'` (was `'explore'`), and the chip order puts My Circles first.
+  Honors an explicit `location.state.tab` for a future caller that wants to
+  land on a specific tab (e.g. WS8's leave-circle flow).
+- **Explore opens on Events, with Past events below Upcoming.** Default
+  `view` is `'events'` (was `'studios'`). A new "Past events" section renders
+  under Upcoming via `getPastEvents`, sharing the category filter — extracted
+  the recap row markup out of `EventsScreen.jsx` into a standalone
+  `components/PastEventRow.jsx` so both screens use the same component
+  instead of two copies. `getPastEvents`'s mock branch also gained category
+  filtering (it only filtered by `provider_id` before) so Explore's filter
+  chips actually narrow the Past section in mock mode too.
+- **"Studios" pill renamed to "Providers."** State key, label, i18n keys
+  (en/am/fr/it — am/fr/it translations added without a native-speaker review
+  yet, flagged in the plan doc), and `LocationNudge.jsx`'s "events & studios
+  near you" copy.
+- **Profile lists collapsed to 2 + expand arrow.** New
+  `components/CollapsibleList.jsx` (generic: `items`, `renderItem`, `max`)
+  used by `AccountSection.jsx` for Recent Activity and Joined Circles. Added
+  `chevron-down`/`chevron-up` to `Icon.jsx` (didn't exist before — only
+  `chevron-left`/`chevron-right` did).
+  - **Real bug fixed in passing:** `ProfileScreen.jsx`'s "Joined Circles" was
+    built from `MOCK_COMMUNITIES` filtered by `user.joined_communities`
+    **even in live mode** — a real user's joined circles never actually
+    matched the mock fixture's ids, so this list was effectively always
+    empty or wrong outside mock mode. Now reads the real (unfiltered, cache-
+    shared with Home's bootstrap) community list and filters by
+    `c.user_joined || user.joined_communities.includes(c.id)`, the same check
+    `ForYouScreen.jsx` already uses for its own joined-circles list.
+- **Check-in card appears after 2 minutes, once per day.** New
+  `hooks/useDailyReveal.js` — pauses on `document.hidden` like `usePolling`
+  does, so backgrounded time doesn't count, and remembers today's reveal in
+  `localStorage` so a later reopen the same day shows it immediately.
+  `ForYouScreen.jsx` gates `CheckinCard` on it.
+
+#### Verification
+- Frontend: `npm test` → **291/291 passing** across 62 files (11 new:
+  `CommunityList.defaultTab`, `ExploreScreen.events`, `CollapsibleList`,
+  `ProfileScreen.collapse`, `useDailyReveal`, `ForYouScreen.checkinDelay`, plus
+  updates to `CommunityList`, `ExploreScreen.nearMe`, `ExploreScreen.promo`,
+  `EventsScreen` for the new defaults). `npm run build` clean. `npm run lint`
+  → 0 errors (66 pre-existing warnings, unchanged).
+- Backend: unaffected by this workstream — `pytest app/tests -q` → 21/21
+  passing (re-run as a sanity check only).
+
+#### Files Changed / Added (Phase 23, WS4)
+```
+frontend/src/pages/CommunityList.jsx
+frontend/src/pages/ExploreScreen.jsx
+frontend/src/pages/EventsScreen.jsx
+frontend/src/pages/ProfileScreen.jsx
+frontend/src/pages/profile/AccountSection.jsx
+frontend/src/pages/ForYouScreen.jsx
+frontend/src/components/PastEventRow.jsx   (new)
+frontend/src/components/CollapsibleList.jsx   (new)
+frontend/src/components/Icon.jsx
+frontend/src/components/LocationNudge.jsx
+frontend/src/hooks/useDailyReveal.js   (new)
+frontend/src/api/client.js
+frontend/src/i18n.js
+frontend/src/test/CommunityList.defaultTab.test.jsx   (new)
+frontend/src/test/ExploreScreen.events.test.jsx   (new)
+frontend/src/test/CollapsibleList.test.jsx   (new)
+frontend/src/test/ProfileScreen.collapse.test.jsx   (new)
+frontend/src/test/useDailyReveal.test.jsx   (new)
+frontend/src/test/ForYouScreen.checkinDelay.test.jsx   (new)
+frontend/src/test/ExploreScreen.nearMe.test.jsx
+frontend/src/test/ExploreScreen.promo.test.jsx
+docs/HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
 
 

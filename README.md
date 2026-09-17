@@ -24,7 +24,7 @@ A Telegram Mini App connecting individuals and corporate teams to verified welln
 
 Three independently deployed services share a single Supabase PostgreSQL database and communicate over HTTP.
 
-![Architecture Diagram](./frontend/src/assets/diagram.png)
+![Architecture Diagram](./frontend/src/diagram.png)
 
 | Service | Stack | Directory | Deploys to |
 |---------|-------|-----------|------------|

@@ -79,7 +79,10 @@ export default function AccountSection({
                 >
                   <div>
                     <span className="inline-icon-text" style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>
-                      {item.action === 'checkin' ? <><Icon name="check" size={13} /> Check-in</> : item.action === 'decay' ? <><Icon name="chart" size={13} /> Decay</> : item.action}
+                      {item.action === 'checkin' ? <><Icon name="check" size={13} /> Check-in</>
+                        : item.action === 'decay' ? <><Icon name="chart" size={13} /> Decay</>
+                        : item.action === 'profile_photo' ? <><Icon name="camera" size={13} /> Profile photo</>
+                        : item.action}
                     </span>
                     {item.community_name && (
                       <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginLeft: 8 }}>

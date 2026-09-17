@@ -105,6 +105,9 @@ def ensure_db_schema(engine):
         # Circle soft delete (WS8 — alembic 020).
         "ALTER TABLE circles ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;",
         "CREATE INDEX IF NOT EXISTS ix_circles_deleted_at ON circles(deleted_at);",
+        # Custom avatar (WS9 — alembic 021).
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_is_custom BOOLEAN NOT NULL DEFAULT FALSE;",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_public_id VARCHAR(255);",
     ]
 
     try:

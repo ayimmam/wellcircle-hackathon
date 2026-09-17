@@ -50,6 +50,10 @@ STORY_POINTS_DAILY_CAP = 1  # stories that earn per UTC day
 POINTS_POST = 10
 POST_POINTS_DAILY_CAP = 3  # posts that earn per UTC day
 
+# WS9: changing the profile photo always costs 10, uncapped and unblocked —
+# apply_transaction() floors the balance at 0 rather than refusing the change.
+POINTS_PROFILE_PHOTO_COST = 10
+
 # Transaction type literals
 TXN_CHECKIN = "checkin"
 TXN_BOOKING_BONUS = "booking_bonus"
@@ -66,13 +70,14 @@ TXN_WELCOME = "welcome"
 TXN_COMEBACK = "comeback"
 TXN_STORY = "story"
 TXN_POST = "post"
+TXN_PROFILE_PHOTO = "profile_photo"
 
 VALID_TXN_TYPES = {
     TXN_CHECKIN, TXN_BOOKING_BONUS, TXN_CHALLENGE,
     TXN_GIFT_SENT, TXN_GIFT_RECEIVED, TXN_REDEMPTION,
     TXN_DECAY, TXN_EVENT_PARTICIPATION, TXN_PROVIDER_AWARD,
     TXN_ADMIN_ADJUST, TXN_REFERRAL, TXN_WELCOME, TXN_COMEBACK,
-    TXN_STORY, TXN_POST,
+    TXN_STORY, TXN_POST, TXN_PROFILE_PHOTO,
 }
 
 

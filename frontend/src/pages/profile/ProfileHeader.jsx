@@ -1,6 +1,14 @@
+import { useRef, useState } from 'react';
 import Icon from '../../components/Icon';
 import SmartImage from '../../components/SmartImage';
 import VerifiedBadge from '../../components/VerifiedBadge';
+import { useAuth } from '../../context/AuthContext';
+import { changeProfilePhoto } from '../../api/client';
+import { compressImage, ImageTooLargeError } from '../../utils/imageCompress';
+import { showToast } from '../../components/Toast';
+import useDismissOnEscape from '../../hooks/useDismissOnEscape';
+
+const PHOTO_CHANGE_COST = 10;
 
 // Identity, tier, and the two social counts, on one card. The bio sits
 // behind an explicit Edit action: a permanently open textarea made the top
@@ -9,9 +17,50 @@ export default function ProfileHeader({
   user, tier, navigate, t,
   bio, setBio, editingBio, setEditingBio, savingBio, saveBio,
 }) {
+  const { setUser } = useAuth();
+  const [costNoticeOpen, setCostNoticeOpen] = useState(false);
+  const fileInputRef = useRef(null);
+  useDismissOnEscape(() => setCostNoticeOpen(false), costNoticeOpen);
+
+  const handlePickPhoto = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    let compressed;
+    try {
+      compressed = await compressImage(file, { maxBytes: 2_000_000 });
+    } catch (err) {
+      showToast(err instanceof ImageTooLargeError ? err.message : 'Could not read that photo', 'error');
+      return;
+    }
+
+    // WS9 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md — swap the avatar and
+    // drop the points badge immediately, before the upload+charge request
+    // resolves; a failure restores both.
+    const previousPhotoUrl = user.photo_url;
+    const previousBalance = user.points_balance || 0;
+    const localUrl = URL.createObjectURL(compressed);
+    setUser(prev => (prev ? {
+      ...prev,
+      photo_url: localUrl,
+      points_balance: Math.max(0, (prev.points_balance || 0) - PHOTO_CHANGE_COST),
+    } : prev));
+
+    try {
+      const res = await changeProfilePhoto(compressed);
+      setUser(prev => (prev ? { ...prev, photo_url: res.photo_url, points_balance: res.points_balance } : prev));
+    } catch (err) {
+      setUser(prev => (prev ? { ...prev, photo_url: previousPhotoUrl, points_balance: previousBalance } : prev));
+      showToast(err.message || 'Could not change your photo', 'error');
+    } finally {
+      URL.revokeObjectURL(localUrl);
+    }
+  };
+
   return (
     <div className="profile-header">
-      <div className="profile-avatar">
+      <div className="profile-avatar" style={{ position: 'relative' }}>
         <SmartImage
           src={user.photo_url}
           alt={user.name}
@@ -19,6 +68,28 @@ export default function ProfileHeader({
           priority
           fallback={<Icon name="user" size={36} strokeWidth={1.5} />}
         />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={handlePickPhoto}
+          style={{ display: 'none' }}
+          id="profile-photo-input"
+        />
+        <button
+          type="button"
+          className="btn btn-icon btn-secondary"
+          onClick={() => setCostNoticeOpen(true)}
+          aria-label="Change profile photo"
+          id="profile-photo-camera-btn"
+          style={{
+            position: 'absolute', bottom: -2, right: -2,
+            width: 28, height: 28, borderRadius: '50%',
+            background: 'var(--bg-card)', boxShadow: 'var(--shadow-sm)',
+          }}
+        >
+          <Icon name="camera" size={14} />
+        </button>
       </div>
       <h1 className="profile-name">{user.name} {user.is_verified_trainer && <VerifiedBadge compact />}</h1>
       <p className="profile-handle">@{user.telegram_handle}</p>
@@ -80,6 +151,25 @@ export default function ProfileHeader({
         <span>·</span>
         <button onClick={() => navigate(`/users/${user.id}/following`)}><strong>{user.following_count || 0}</strong> Following</button>
       </div>
+
+      {costNoticeOpen && (
+        <div className="modal-overlay" onClick={() => setCostNoticeOpen(false)}>
+          <div className="modal-card" onClick={event => event.stopPropagation()} id="profile-photo-cost-notice">
+            <h2 className="card-title mb-8">Change your photo?</h2>
+            <p className="text-sm text-secondary mb-16">Changing your photo costs {PHOTO_CHANGE_COST} points.</p>
+            <div className="flex gap-8">
+              <button className="btn btn-secondary" onClick={() => setCostNoticeOpen(false)}>{t('Cancel')}</button>
+              <button
+                className="btn btn-primary"
+                onClick={() => { setCostNoticeOpen(false); fileInputRef.current?.click(); }}
+                id="profile-photo-cost-notice-continue"
+              >
+                Choose photo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

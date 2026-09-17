@@ -2313,6 +2313,87 @@ docs/HANDOFF.md
 
 ---
 
+#### WS9 — Change profile picture (−10 points)
+
+There was no way to change your profile photo at all — it just mirrored
+whatever Telegram/Google/the login widget had on file, forever.
+
+- **The bug fixed first:** `api/auth.py`'s `telegram_auth` handler
+  overwrote `user.photo_url` with the Telegram photo on **every** login —
+  so even a photo set some other way would have reverted on the user's next
+  app open. New `users.photo_is_custom` (migration `021_custom_avatar.py` +
+  `ensure_db_schema` statements) opts a row out of that sync once set; the
+  guard is a one-line `if not user.photo_is_custom and ...` added to the
+  existing overwrite check. (Google and the login widget only ever set
+  `photo_url` at first-time user creation, never on an existing user's
+  re-login, so they didn't have this bug — confirmed by reading both paths
+  before touching only the Telegram one.)
+- **`POST /api/users/me/photo`** — multipart upload to the existing
+  `avatars` Cloudinary folder (2 MB cap, WS1 added the folder). Sets
+  `photo_url`/`photo_public_id`/`photo_is_custom = true` and charges 10
+  points via `apply_transaction(..., TXN_PROFILE_PHOTO)` in one try block;
+  a failure there rolls back and destroys the *newly* uploaded asset so it
+  never leaks, while success only then destroys whatever custom photo it
+  replaced — the same "don't touch the old asset until the new state is
+  durable" ordering WS1's story upload and WS8's banner replacement use.
+  `DELETE /api/users/me/photo` reverts to provider-sync, charging nothing.
+- **Frontend** — `ProfileHeader.jsx` gained a camera badge on the avatar.
+  Tapping it shows a cost-notice sheet ("Changing your photo costs 10
+  points") before the file picker opens. Picking a photo is optimistic: the
+  avatar swaps to the local compressed blob and the points badge drops by
+  10 immediately (via `AuthContext`'s `setUser`, the same mechanism
+  `updateProfile` already uses), the upload happens in the background, and
+  success reconciles both to the server's values while a failure restores
+  the pre-change photo and balance and toasts once. `AccountSection.jsx`'s
+  points-history row now labels `profile_photo` as "Profile photo" instead
+  of falling through to the raw transaction-type string.
+
+#### Verification
+- Backend: `test_profile_photo.py` (new) — **7 sections passing**: upload
+  sets `photo_url`/`photo_is_custom` and writes one −10 ledger row; the
+  balance floors at 0 while the ledger still records the full −10; a
+  second change charges again and destroys the previous asset; a simulated
+  DB failure destroys the newly uploaded asset and writes no ledger row; a
+  Telegram re-login doesn't overwrite a custom photo but still syncs a
+  non-custom one; an oversized or unsupported upload 422s without
+  charging; revert clears `photo_is_custom`/`photo_public_id` and charges
+  nothing. Full suite: `pytest app/tests -q` → **27/27 passing**.
+- Frontend: `npm test` → **350/350 passing** across 79 files (1 new:
+  `ProfileHeader.photo.test.jsx`, 3/3 — the cost notice gates the picker;
+  the avatar and points badge swap to the optimistic values before the
+  mocked request resolves and reconcile with the server response on
+  success; a failure restores both). `npm run build` clean. `npm run
+  lint` → 0 errors, 66 warnings (baseline, unchanged).
+- `docs/API_CONTRACT.md` updated: new `POST`/`DELETE
+  /api/users/me/photo` endpoints documented, with the `photo_is_custom`
+  login-sync rule spelled out.
+
+#### Known Gaps / Next Steps
+- Not verified live against real Cloudinary/Telegram — same caveat as
+  every prior workstream this session.
+- No UI entry point for `DELETE /api/users/me/photo` yet — the route
+  exists per the plan's §15 "optional" note, but nothing calls it; a user
+  who wants their Telegram photo back has no in-app way to ask for it.
+
+#### Files Changed / Added (Phase 23, WS9)
+```
+backend/alembic/versions/021_custom_avatar.py   (new)
+backend/app/database_schema.py
+backend/app/models/user.py
+backend/app/api/auth.py
+backend/app/api/users.py
+backend/app/services/points.py
+backend/app/tests/test_profile_photo.py   (new)
+frontend/src/pages/profile/ProfileHeader.jsx
+frontend/src/pages/profile/AccountSection.jsx
+frontend/src/api/client.js
+frontend/src/test/ProfileHeader.photo.test.jsx   (new)
+docs/API_CONTRACT.md
+docs/HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
 
 

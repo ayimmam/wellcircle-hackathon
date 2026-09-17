@@ -625,6 +625,34 @@ Update profile fields (personalization, neighborhood opt-in, contact/format pref
 // RESPONSE 200 — same as GET /users/me
 ```
 
+### `POST /api/users/me/photo` (WS9)
+Change the profile photo — always costs 10 points, never blocked
+(`apply_transaction` floors the balance at 0 rather than refusing). Multipart
+upload, folder `avatars` (≤ 2 MB, jpeg/png/webp — client compresses first,
+same as stories/posts).
+
+```json
+// REQUEST — multipart/form-data, field "file"
+
+// RESPONSE 200
+{ "photo_url": "https://res.cloudinary.com/.../avatars/x.jpg", "points_balance": 90, "points_charged": 10 }
+
+// RESPONSE 422 — oversized or unsupported content-type; no points charged
+```
+
+Once set, `photo_is_custom` is `true` on the user row and **no login flow
+overwrites `photo_url` again** — Telegram/Google/widget logins only sync the
+provider's photo while `photo_is_custom` is false. A points-history entry
+with `action: "profile_photo"` records the charge.
+
+### `DELETE /api/users/me/photo`
+Reverts to syncing the login provider's photo on the next login. Charges
+nothing and does not itself change `photo_url` — only `photo_is_custom`.
+```json
+// RESPONSE 200
+{ "photo_is_custom": false }
+```
+
 ### `GET /api/users/me/points-history`
 Last 20 points transactions.
 

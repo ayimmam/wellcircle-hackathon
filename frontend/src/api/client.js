@@ -1919,6 +1919,23 @@ export async function setCircleBanner(circleId, { banner_url, banner_public_id }
   return request('PUT', `/circles/${circleId}/banner`, { banner_url, banner_public_id });
 }
 
+// WS9 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md — always costs 10 points,
+// never blocked (the backend floors the balance at 0). ProfileHeader.jsx
+// applies the optimistic swap around this call; this function just does the
+// upload+charge round trip.
+export async function changeProfilePhoto(file) {
+  if (USE_MOCK) {
+    await delay(300);
+    const url = URL.createObjectURL ? URL.createObjectURL(file) : `https://mock.local/avatars/${encodeURIComponent(file.name)}`;
+    MOCK_USER.photo_url = url;
+    MOCK_USER.points_balance = Math.max(0, (MOCK_USER.points_balance || 0) - 10);
+    return { photo_url: url, points_balance: MOCK_USER.points_balance, points_charged: 10 };
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  return multipartRequest('/users/me/photo', formData);
+}
+
 export async function uploadFile(file, folder) {
   if (USE_MOCK) {
     await delay(250);

@@ -2394,6 +2394,89 @@ docs/HANDOFF.md
 
 ---
 
+#### WS6 — Seed events from `events/` posters (partial — needs your sign-off)
+
+Rewrote `backend/seed_upcoming_events.py` from a hardcoded 4-event list into
+a data table (`PROVIDERS`, `EVENTS`, `SUPERSEDED`) plus pure functions
+(`resolve_provider`, `resolved_events`, `plan_changes`) driven by the 24
+events extracted from the `events/` poster photos, per the plan's WS6
+section §8. This is the one workstream the plan itself flagged (§15 point
+9) as needing your visual judgment before it can fully ship — so the parts
+that are purely mechanical (dates, hosts, locations, aliasing, conflict
+resolution between overlapping posters) are done and tested; the parts
+that need eyes on the actual photos are deliberately left undone rather
+than guessed.
+
+- **Done:** all 24 events (host, title, location, EAT start time) encoded
+  exactly per the plan's table, converted to UTC on write; 13 canonical
+  providers with their poster aliases (`Boleburners` → `Bole Burners`,
+  `Sub Studio`/`Enitewawek` → `SUP Studio`, etc.); the 3 old-seed rows a
+  newer poster supersedes get `is_cancelled = TRUE` instead of being
+  deleted (AfroHeat's Aug 20 Zumba, Bole Burners' Aug 22 run, Satenaw's
+  Aug 23 06:30 run); Bertusew's Aug 23 07:00 row shares its
+  `(provider, starts_at)` key with the new poster's version, so it's an
+  **update**, not a duplicate insert; every event is `price_etb = 0` with
+  a description ending "Confirm price with the host." (no poster listed a
+  firm price); durations follow the plan's defaults (90 min runs, 60 min
+  dance/tennis, 4 h hikes, Ereft's overnight trip ending Sep 6 18:00
+  explicitly rather than by duration); `capacity = 50`,
+  `spots_remaining = capacity` everywhere — no invented attendance. The 9
+  brand-new providers get `is_coming_soon = TRUE` and
+  `price_range = "Price on request"`, matching WS5's pattern.
+- **Deliberately not done:** `cover_photo_url` for the 9 new providers.
+  Per the plan, most posters have event text over the scenery, so the
+  crops "may look weak" and need a human's sign-off before they're cropped
+  and uploaded — only "Zumba with Vahe" has a genuine photo to crop (the
+  group shot in `2026-09-10 20.36.07.jpg`, above the "1 DAY LEFT" text).
+  `seed_upcoming_events.py`'s new-provider path leaves `cover_photo_url`
+  null rather than picking crops on its own; `FeedProviderCard`/
+  `FeedServiceCard` already render a null cover without breaking.
+  `--apply` has not been run against any database — this is dry-run-only
+  until you've reviewed the plan output and the cover question.
+
+#### Verification
+- `test_seed_poster_events.py` (new) — **6 sections passing**: every
+  alias (case-insensitive) resolves to its canonical provider, an unknown
+  name raises; the resolved list is exactly 24 rows with no duplicate
+  `(provider, starts_at)` and every `starts_at` is timezone-aware; the 3
+  superseded rows are exactly the ones named above and Bertusew's shared
+  key is an update, not a cancellation; `plan_changes()` against a
+  simulated empty DB produces 3 cancels + 23 inserts + 1 update, and
+  re-running it against the simulated post-seed state plans nothing
+  (idempotency); the 9 new providers are correctly flagged and every
+  event carries `price_etb = 0` with the confirm-price description; no
+  event has `spots_remaining < capacity`. Full suite:
+  `pytest app/tests -q` → **28/28 passing**.
+- Not run: `apply_plan()`/`upsert_provider()`/`load_existing()`'s actual
+  psycopg2 I/O — untested here by design, same convention as
+  `set_boston_only_live.py` (WS5): the logic worth testing is the pure
+  planning functions, and DB I/O is exercised by a real `--dry-run` against
+  a real database, which nobody has done yet for this file.
+
+#### Known Gaps / Next Steps — **this one needs you**
+- **Cover image crops**: review `events/*.jpg`, decide the text-free crop
+  band for each of the 8 posters-only providers (everyone except Zumba
+  with Vahe), save them to `backend/seed_assets/event_covers/` (per the
+  plan's naming: one cropped JPEG per new provider, ≤ 2 MB, 1200×630), and
+  say so — then the upload-and-`cover_photo_url` step can be scripted and
+  run against the real database.
+- Nobody has run `python seed_upcoming_events.py` (dry run) against the
+  real database yet to sanity-check the plan against what's actually
+  there — worth doing before `--apply`, in case a poster host already
+  exists in the DB spelled differently than any alias listed here.
+- Per the plan's note: today (2026-09-16) all 24 events are already past,
+  so seeding produces zero upcoming events — Explore's Events tab (WS4)
+  will show an empty "Upcoming" line followed by 24 recap cards.
+
+#### Files Changed / Added (Phase 23, WS6)
+```
+backend/seed_upcoming_events.py
+backend/app/tests/test_seed_poster_events.py   (new)
+docs/HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
 
 

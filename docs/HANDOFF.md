@@ -2221,6 +2221,98 @@ docs/HANDOFF.md
 
 ---
 
+#### WS8 — Leave and delete circles
+
+Circles previously had no way to leave or be deleted at all. Added both,
+soft-delete-backed so a super admin can restore a mistaken delete.
+
+- **Schema** — migration `020_circle_soft_delete.py` (+ `ensure_db_schema`
+  statement): `circles.deleted_at TIMESTAMPTZ NULL`, indexed. New
+  `crud/circle.py::active_circles(db)` helper (`Circle.deleted_at IS NULL`)
+  is now the single filter every circle read goes through — list, detail,
+  join, join-by-code, and the weekly digest — instead of one ad-hoc filter
+  per call site risking a miss. `get_public_feed_posts` gained the same
+  filter on its circle outer-join, since a post's `circle_id` FK survives
+  its circle's soft delete.
+- **`leave_circle()`** — not a member → 404. A regular member just leaves.
+  The owner leaving transfers ownership to whoever joined earliest among
+  the remaining members, unless the circle `is_paid` (blocked, 409 —
+  payouts are tied to the owner) or the owner is the only member (the
+  circle is soft-deleted instead of orphaned).
+- **`delete_circle()`** — owner-only (403 otherwise), blocked by any
+  `CircleSubscription.status == "active"` (409) but not by an expired or
+  rejected one. Stamps `deleted_at`, deletes every `CircleMember` row
+  outright (there's nothing left to be a member of), and best-effort
+  expires any legacy `circle_stories` still pointing at the circle — WS1's
+  public stories are user-level and unaffected. Posts are left alone; the
+  `deleted_at` filter above hides them from the feed without a cascade.
+  Fans out a batched `circle_deleted` `UserNotification` to the other
+  members, reusing the same "insert-list, one query regardless of count"
+  pattern `_notify_circle_of_new_post` established.
+- **`restore_circle()`** — clears `deleted_at`; wired to a new super-admin
+  route, `POST /api/admin/circles/{id}/restore`. Members are not restored.
+- **Frontend** — `CircleDetailScreen.jsx` gained an overflow menu (a new
+  `more-vertical` icon, next to `log-out` — both missing from `Icon.jsx`
+  until now): members and owners see **Leave circle**; owners also see
+  **Delete circle**, gated behind typing the circle's name into a confirm
+  sheet. Both actions are optimistic (WS7's pattern, applied by hand since
+  the action navigates away rather than staying on the same screen): new
+  `removeCircleFromCache()`/`restoreCircleToCache()` in `api/client.js`
+  patch the cached `GET /circles` list directly, deliberately **not**
+  routed through the existing `invalidateMembership()` helper — that
+  clears the whole cache family, which would erase the very optimistic
+  patch it's supposed to sit alongside. The screen calls the patch,
+  navigates to `/community` (My Circles tab), and only then awaits the
+  request; a failure restores the cache entry and toasts, since the user
+  is already gone from the screen that would otherwise show the error.
+
+#### Verification
+- Backend: `test_circle_leave_delete.py` (new) — **9 sections passing**:
+  member leave; owner-leave ownership transfer; sole-member owner leave
+  soft-deletes; owner leave on a paid circle is 409; non-member leave is
+  404; delete is owner-only (403) and blocked by an active subscription
+  (409) but not an expired one; a deleted circle is absent from list,
+  detail, join-by-code, public feed posts, and social proof; the
+  `circle_deleted` notification insert is batched (constant query count,
+  2 vs 20 members); admin restore clears `deleted_at`. Full suite:
+  `pytest app/tests -q` → **26/26 passing**.
+- Frontend: `npm test` → **347/347 passing** across 78 files (1 new:
+  `CircleDetailScreen.leaveDelete.test.jsx`, 4/4 — member sees Leave only;
+  owner sees Leave + Delete; the delete confirm stays disabled until the
+  typed name matches; leaving navigates away and drops the circle from
+  the mock circle list before the request resolves). `npm run build`
+  clean. `npm run lint` → 0 errors, 66 warnings (baseline, unchanged).
+- `docs/API_CONTRACT.md` updated: new leave/delete/restore endpoints
+  documented under a new "Leave and delete a circle (WS8)" section.
+
+#### Known Gaps / Next Steps
+- Not verified live against a real Telegram client or production database —
+  same caveat as every prior workstream this session.
+- No UI surfaced yet for "your circle was deleted" beyond the in-app
+  notification — a member who was mid-session in the circle when it's
+  deleted isn't kicked out of the screen in real time (no polling/socket
+  for that), only on their next visit.
+
+#### Files Changed / Added (Phase 23, WS8)
+```
+backend/alembic/versions/020_circle_soft_delete.py   (new)
+backend/app/database_schema.py
+backend/app/models/circle.py
+backend/app/crud/circle.py
+backend/app/crud/post.py
+backend/app/api/circles.py
+backend/app/api/admin.py
+backend/app/tests/test_circle_leave_delete.py   (new)
+frontend/src/pages/CircleDetailScreen.jsx
+frontend/src/components/Icon.jsx
+frontend/src/api/client.js
+frontend/src/test/CircleDetailScreen.leaveDelete.test.jsx   (new)
+docs/API_CONTRACT.md
+docs/HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
 
 

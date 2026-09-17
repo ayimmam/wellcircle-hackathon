@@ -102,6 +102,9 @@ def ensure_db_schema(engine):
         SELECT story_id, user_id, viewed_at
         FROM circle_story_views
         ON CONFLICT (story_id, user_id) DO NOTHING;""",
+        # Circle soft delete (WS8 — alembic 020).
+        "ALTER TABLE circles ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;",
+        "CREATE INDEX IF NOT EXISTS ix_circles_deleted_at ON circles(deleted_at);",
     ]
 
     try:

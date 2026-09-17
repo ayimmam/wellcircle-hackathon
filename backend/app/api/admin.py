@@ -554,3 +554,16 @@ def review_paid_circle_application(
         raise HTTPException(status_code=404, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
+
+
+@router.post("/circles/{circle_id}/restore")
+def restore_deleted_circle(
+    circle_id: UUID,
+    admin: User = Depends(get_super_admin),
+    db: Session = Depends(get_db),
+):
+    """WS8 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md. Clears
+    `deleted_at` — members aren't restored, they rejoin via invite link."""
+    from app.crud.circle import restore_circle
+    circle = restore_circle(db, circle_id)
+    return {"id": str(circle.id), "deleted_at": circle.deleted_at}

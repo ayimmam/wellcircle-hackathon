@@ -26,6 +26,9 @@ class Circle(Base):
     banner_url = Column(String(500), nullable=True)
     banner_public_id = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    # WS8 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md — soft delete. Every
+    # circle read filters on this being NULL; see crud/circle.py::delete_circle.
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
 class CircleMember(Base):
     __tablename__ = "circle_members"

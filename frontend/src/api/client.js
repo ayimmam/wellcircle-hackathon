@@ -31,7 +31,7 @@ const API_BASE = resolveApiBase();
 
 export function getApiBase() { return API_BASE; }
 
-import { cached, invalidate, keyOf, write as cacheWrite, setCacheScope, clearAll as clearCache } from './cache';
+import { cached, invalidate, keyOf, write as cacheWrite, peek as peekCache, setCacheScope, clearAll as clearCache } from './cache';
 import { logIssue } from '../utils/log';
 
 import {
@@ -802,6 +802,67 @@ export async function getCircleSocialProof() {
     }
     return request('GET', '/circles/social-proof/today');
   });
+}
+
+// WS8 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md — leave/delete a circle.
+// Both drop the circle from the My Circles cache before the request settles
+// (CircleDetailScreen.jsx does that via the two helpers below, optimistically
+// and ahead of calling either of these) so the list the user navigates to
+// already reflects the change. Deliberately doesn't call
+// invalidateMembership() — that would wipe the very patch the caller just
+// applied; restoreCircleToCache() below is the failure-path undo instead.
+export async function leaveCircle(id) {
+  if (USE_MOCK) {
+    await delay();
+    const idx = MOCK_CIRCLES.findIndex(c => c.id === id);
+    if (idx === -1) {
+      const err = new Error('Not a member of this circle');
+      err.status = 404;
+      throw err;
+    }
+    MOCK_CIRCLES.splice(idx, 1);
+    return { left: true };
+  }
+  return request('POST', `/circles/${id}/leave`);
+}
+
+export async function deleteCircle(id) {
+  if (USE_MOCK) {
+    await delay();
+    const idx = MOCK_CIRCLES.findIndex(c => c.id === id);
+    if (idx === -1) {
+      const err = new Error('Circle not found');
+      err.status = 404;
+      throw err;
+    }
+    MOCK_CIRCLES.splice(idx, 1);
+    return { deleted: true };
+  }
+  return request('DELETE', `/circles/${id}`);
+}
+
+/** Removes `id` from the cached My Circles list, if present, and returns
+ * the removed entry so a failed leave/delete can restore it. */
+export function removeCircleFromCache(id) {
+  const key = cacheKeys.circles();
+  const entry = peekCache(key);
+  const circles = entry?.data?.circles;
+  if (!circles) return null;
+  const removed = circles.find(c => c.id === id) || null;
+  if (!removed) return removed;
+  cacheWrite(key, { ...entry.data, circles: circles.filter(c => c.id !== id) });
+  return removed;
+}
+
+/** Restores a circle entry `removeCircleFromCache` removed, on a failed
+ * leave/delete request. No-op if it's already back (e.g. a refetch beat it). */
+export function restoreCircleToCache(circle) {
+  if (!circle) return;
+  const key = cacheKeys.circles();
+  const entry = peekCache(key);
+  const circles = entry?.data?.circles || [];
+  if (circles.some(c => c.id === circle.id)) return;
+  cacheWrite(key, { ...(entry?.data || {}), circles: [circle, ...circles] });
 }
 
 // ─── Posts & Reactions ────────────────────────────────

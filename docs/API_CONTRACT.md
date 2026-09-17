@@ -1639,6 +1639,44 @@ screen flips to full mode in place — no navigation. The same read-only
 preview + Join CTA pattern applies to `CommunityDetail.jsx` for provider
 communities (reusing `POST /api/communities/:id/join`).
 
+### Leave and delete a circle (WS8)
+
+Circles are **soft-deleted**: `circles.deleted_at` is stamped, not the row
+removed, so an admin can restore one. Every circle read
+(list/detail/join-by-code/the public feed/social proof/the weekly digest)
+filters `deleted_at IS NULL` — a deleted circle behaves as if it never
+existed for everyone but a super admin.
+
+**`POST /api/circles/:id/leave`** — JWT. Caller must be a member (else
+`404`).
+- **A regular member** just leaves: `{ "left": true }`.
+- **The owner, with other members left:** ownership transfers to whoever
+  joined earliest (excluding the owner): `{ "left": true, "new_owner_id": "uuid" }`.
+  Blocked with `409` ("Paid circles can't change owner yet — contact
+  support") if the circle `is_paid` — payouts are tied to the owner.
+- **The owner, as the only member:** the circle is soft-deleted instead of
+  orphaned: `{ "left": true, "deleted": true }`.
+
+**`DELETE /api/circles/:id`** — JWT, owner only (`403` otherwise). Blocked
+with `409` ("This circle has active paid members — cancel their
+subscriptions first") while any `CircleSubscription.status == "active"`
+exists — an expired or rejected one doesn't block it. On success:
+`{ "deleted": true }`. Members get a batched `circle_deleted`
+`UserNotification`; `CircleMember` rows are removed outright (nothing to be
+a member of any more); posts stay in the database, hidden by the
+`deleted_at` filter `get_public_feed_posts` applies to their circle join.
+
+**`POST /api/admin/circles/:id/restore`** — JWT, super admin only. Clears
+`deleted_at`. Members are **not** restored — they rejoin via the circle's
+invite link.
+
+**Frontend:** `CircleDetailScreen.jsx`'s overflow menu (members and owners
+both see **Leave circle**; owners also see **Delete circle**, gated behind
+typing the circle's name to confirm). Both actions are optimistic (WS7):
+the circle drops out of the cached `GET /circles` list and the screen
+navigates to `/community` (My Circles tab) before either request resolves;
+a failed request restores the cache entry and shows a toast.
+
 ---
 
 ## 9a-bis. Stories & circle banners

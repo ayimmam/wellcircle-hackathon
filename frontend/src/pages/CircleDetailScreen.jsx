@@ -5,6 +5,7 @@ import {
   applyForPaidCircle, getCircleRevenue, getCircleSubscriptionStatus, getCircle,
   getCircleLeaderboard, getPendingSubscriptions, joinCircle,
   reviewSubscription, setCircleBanner, subscribeToCircle, uploadFile,
+  leaveCircle, deleteCircle, removeCircleFromCache, restoreCircleToCache,
 } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import PostFeed from '../components/PostFeed';
@@ -42,9 +43,16 @@ export default function CircleDetailScreen() {
   const [notFound, setNotFound] = useState(false);
   const [bannerBusy, setBannerBusy] = useState(false);
   const bannerInputRef = useRef(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   useDismissOnEscape(() => setShowSubscribe(false), showSubscribe);
   useDismissOnEscape(() => setMonetizeOpen(false), monetizeOpen);
+  useDismissOnEscape(() => setMenuOpen(false), menuOpen);
+  useDismissOnEscape(() => setLeaveConfirmOpen(false), leaveConfirmOpen);
+  useDismissOnEscape(() => setDeleteConfirmOpen(false), deleteConfirmOpen);
 
   useEffect(() => {
     loadCircle();
@@ -98,6 +106,36 @@ export default function CircleDetailScreen() {
   // E1: invite via Telegram-native sharing (shared with the onboarding
   // circles step — see utils/circleInvite.js).
   const handleInvite = () => shareCircleInvite(circle, { source: 'circle_detail' });
+
+  // WS8 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md — optimistic (WS7):
+  // the circle drops out of the My Circles list and the screen navigates
+  // away before either request resolves; a failure restores the cache
+  // entry and toasts (the user is already gone, so a toast is the only way
+  // they'd see it).
+  const handleLeave = async () => {
+    setLeaveConfirmOpen(false);
+    const removed = removeCircleFromCache(id);
+    navigate('/community', { state: { tab: 'circles' } });
+    try {
+      await leaveCircle(id);
+    } catch (err) {
+      restoreCircleToCache(removed);
+      showToast(err.message || 'Could not leave the circle', 'error');
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleteConfirmOpen(false);
+    setDeleteConfirmText('');
+    const removed = removeCircleFromCache(id);
+    navigate('/community', { state: { tab: 'circles' } });
+    try {
+      await deleteCircle(id);
+    } catch (err) {
+      restoreCircleToCache(removed);
+      showToast(err.message || 'Could not delete the circle', 'error');
+    }
+  };
 
   const handleJoin = async () => {
     if (joining) return;
@@ -315,6 +353,47 @@ export default function CircleDetailScreen() {
           <Icon name="users" size={14} />
           <span style={{ color: 'var(--text-primary)' }}>{circle.member_count}</span>
         </div>
+        {joined && (
+          <div style={{ position: 'relative' }}>
+            <button
+              className="btn btn-icon btn-secondary"
+              onClick={() => setMenuOpen(o => !o)}
+              aria-label="Circle options"
+              id="circle-detail-menu-btn"
+            >
+              <Icon name="more-vertical" size={18} />
+            </button>
+            {menuOpen && (
+              <>
+                <div className="burger-overlay" style={{ background: 'transparent' }} onClick={() => setMenuOpen(false)} />
+                <div
+                  className="card"
+                  style={{ position: 'absolute', right: 0, top: '110%', zIndex: 210, minWidth: 180, padding: 6 }}
+                  id="circle-detail-menu"
+                >
+                  <button
+                    className="btn btn-secondary btn-block flex items-center gap-8"
+                    style={{ justifyContent: 'flex-start', border: 'none' }}
+                    onClick={() => { setMenuOpen(false); setLeaveConfirmOpen(true); }}
+                    id="circle-detail-leave-btn"
+                  >
+                    <Icon name="log-out" size={15} /> Leave circle
+                  </button>
+                  {isOwner && (
+                    <button
+                      className="btn btn-danger btn-block flex items-center gap-8"
+                      style={{ justifyContent: 'flex-start', border: 'none', background: 'transparent', color: 'var(--danger)' }}
+                      onClick={() => { setMenuOpen(false); setDeleteConfirmOpen(true); }}
+                      id="circle-detail-delete-btn"
+                    >
+                      <Icon name="trash" size={15} /> Delete circle
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Join / Joined + Invite — the inline row for the paid-subscribe flow;
@@ -518,6 +597,58 @@ export default function CircleDetailScreen() {
             <div className="flex gap-8 mt-16">
               <button className="btn btn-secondary" onClick={() => setShowSubscribe(false)}>Cancel</button>
               <button className="btn btn-primary" disabled={!receipt || subscriptionBusy} onClick={submitSubscription}>Submit receipt</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {leaveConfirmOpen && (
+        <div className="modal-overlay" onClick={() => setLeaveConfirmOpen(false)}>
+          <div className="modal-card" onClick={event => event.stopPropagation()} id="circle-leave-confirm">
+            <h2 className="card-title mb-8">Leave {circle.name}?</h2>
+            {isOwner ? (
+              <p className="text-sm text-secondary mb-16">
+                You're the owner. Leaving hands ownership to the member who's
+                been here the longest — unless you're the only one left, in
+                which case the circle is deleted.
+              </p>
+            ) : (
+              <p className="text-sm text-secondary mb-16">You can rejoin later with the invite code.</p>
+            )}
+            <div className="flex gap-8 mt-16">
+              <button className="btn btn-secondary" onClick={() => setLeaveConfirmOpen(false)}>Cancel</button>
+              <button className="btn btn-danger" onClick={handleLeave} id="circle-leave-confirm-btn">Leave circle</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirmOpen && (
+        <div className="modal-overlay" onClick={() => setDeleteConfirmOpen(false)}>
+          <div className="modal-card" onClick={event => event.stopPropagation()} id="circle-delete-confirm">
+            <h2 className="card-title mb-8">Delete {circle.name}?</h2>
+            <p className="text-sm text-secondary mb-12">
+              This can't be undone from here. Members lose access immediately.
+              Type <strong>{circle.name}</strong> to confirm.
+            </p>
+            <input
+              className="input"
+              value={deleteConfirmText}
+              onChange={event => setDeleteConfirmText(event.target.value)}
+              placeholder={circle.name}
+              aria-label="Type the circle name to confirm"
+              id="circle-delete-confirm-input"
+            />
+            <div className="flex gap-8 mt-16">
+              <button className="btn btn-secondary" onClick={() => { setDeleteConfirmOpen(false); setDeleteConfirmText(''); }}>Cancel</button>
+              <button
+                className="btn btn-danger"
+                disabled={deleteConfirmText !== circle.name}
+                onClick={handleDelete}
+                id="circle-delete-confirm-btn"
+              >
+                Delete circle
+              </button>
             </div>
           </div>
         </div>

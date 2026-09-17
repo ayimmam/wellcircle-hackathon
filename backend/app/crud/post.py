@@ -205,6 +205,7 @@ def get_public_feed_posts(db: Session, limit: int = 10, before: Optional[datetim
                     Post.circle_id.isnot(None),
                     Circle.is_private == False,
                     Circle.is_paid == False,
+                    Circle.deleted_at.is_(None),
                 ),
                 and_(Post.community_id.is_(None), Post.circle_id.is_(None)),
             )

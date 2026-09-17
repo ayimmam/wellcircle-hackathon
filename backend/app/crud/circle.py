@@ -3,13 +3,23 @@ import string
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from uuid import UUID
-from sqlalchemy.orm import Session
+from fastapi import HTTPException
+from sqlalchemy.orm import Session, Query
 from sqlalchemy import desc, func
 
 from app.models.circle import Circle, CircleMember
 from app.models.user import User
 from app.models.point_transaction import PointTransaction
 from app.models.community import CommunityFeedEvent
+
+
+def active_circles(db: Session) -> Query:
+    """Every circle read goes through this — a soft-deleted circle (WS8 of
+    docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md) must disappear from listing,
+    detail, join-by-code, the leaderboard, ranks, social proof, and the
+    public feed alike, with one filter to keep in sync rather than one per
+    call site."""
+    return db.query(Circle).filter(Circle.deleted_at.is_(None))
 
 
 def _generate_join_code(db: Session) -> str:
@@ -40,7 +50,7 @@ def create_circle(db: Session, name: str, description: str, owner_id: UUID, is_p
     return circle
 
 def join_circle(db: Session, circle_id: UUID, user_id: UUID, join_code: str = None) -> Optional[Circle]:
-    circle = db.query(Circle).filter(Circle.id == circle_id).first()
+    circle = active_circles(db).filter(Circle.id == circle_id).first()
     if not circle:
         return None
         
@@ -74,7 +84,7 @@ def join_circle(db: Session, circle_id: UUID, user_id: UUID, join_code: str = No
     return circle
 
 def get_circles(db: Session, user_id: Optional[UUID] = None) -> List[dict]:
-    circles = db.query(Circle).all()
+    circles = active_circles(db).all()
     circle_ids = [c.id for c in circles]
     counts = dict(
         db.query(CircleMember.circle_id, func.count(CircleMember.user_id))
@@ -123,7 +133,7 @@ def get_circle_detail(db: Session, circle_id: UUID, user_id: UUID) -> Optional[d
     - Paid circle, non-subscriber -> metadata only, no preview_posts.
     - Public free circle, non-member -> metadata + up to 5 preview_posts.
     """
-    circle = db.query(Circle).filter(Circle.id == circle_id).first()
+    circle = active_circles(db).filter(Circle.id == circle_id).first()
     if not circle:
         return None
 
@@ -223,7 +233,7 @@ def join_circle_by_code(db: Session, join_code: str, user_id: UUID) -> Optional[
     """E1: resolve a circle from its join_code (used by the ?startapp=circle_{code}
     deep link) and join it. join_code is treated as the shareable token regardless
     of the circle's is_private flag — the link itself is the invite."""
-    circle = db.query(Circle).filter(Circle.join_code == join_code).first()
+    circle = active_circles(db).filter(Circle.join_code == join_code).first()
     if not circle:
         return None
 
@@ -266,7 +276,7 @@ def get_circle_social_proof(db: Session, user_id: UUID) -> dict:
 def get_weekly_digest_circles(db: Session) -> List[dict]:
     """C3: per circle, the weekly top scorer + member Telegram IDs, for the
     bot's Sunday digest job."""
-    circles = db.query(Circle).all()
+    circles = active_circles(db).all()
     result = []
     for c in circles:
         members = db.query(CircleMember, User).join(User, CircleMember.user_id == User.id)\
@@ -315,4 +325,125 @@ def set_circle_banner(db: Session, circle_id: UUID, owner_id: UUID,
         from app.crud.circle_story import _destroy_asset
         _destroy_asset(previous)
 
+    return circle
+
+
+def leave_circle(db: Session, circle_id: UUID, user_id: UUID) -> dict:
+    """WS8 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md.
+
+    A regular member just leaves. An owner leaving transfers ownership to
+    the earliest-joined remaining member — unless the circle is paid
+    (payouts are tied to the owner, so that transfer is blocked for now) or
+    the owner is the only member left, in which case the circle is
+    soft-deleted instead of orphaned.
+    """
+    circle = active_circles(db).filter(Circle.id == circle_id).first()
+    membership = db.query(CircleMember).filter(
+        CircleMember.circle_id == circle_id, CircleMember.user_id == user_id
+    ).first()
+    if not circle or not membership:
+        raise HTTPException(status_code=404, detail="Not a member of this circle")
+
+    if circle.owner_id != user_id:
+        db.delete(membership)
+        db.commit()
+        return {"left": True}
+
+    other_members = (
+        db.query(CircleMember)
+        .filter(CircleMember.circle_id == circle_id, CircleMember.user_id != user_id)
+        .order_by(CircleMember.joined_at.asc())
+        .all()
+    )
+
+    if not other_members:
+        circle.deleted_at = datetime.now(timezone.utc)
+        db.delete(membership)
+        db.commit()
+        return {"left": True, "deleted": True}
+
+    if circle.is_paid:
+        raise HTTPException(
+            status_code=409,
+            detail="Paid circles can't change owner yet — contact support",
+        )
+
+    new_owner = other_members[0]
+    circle.owner_id = new_owner.user_id
+    db.delete(membership)
+    db.commit()
+    return {"left": True, "new_owner_id": new_owner.user_id}
+
+
+def delete_circle(db: Session, circle_id: UUID, user_id: UUID) -> dict:
+    """Owner-only. Blocked while any member has an active paid subscription —
+    otherwise revenue the owner is still collecting on would vanish along
+    with the circle. Posts stay in the database (hidden by the
+    `deleted_at` filter every read applies) so nothing downstream that
+    references a post has to cascade; memberships are removed outright
+    since there's nothing left to be a member of."""
+    from app.models.circle_subscription import CircleSubscription
+    from app.models.user_notification import UserNotification
+
+    circle = active_circles(db).filter(Circle.id == circle_id).first()
+    if not circle:
+        raise HTTPException(status_code=404, detail="Circle not found")
+    if circle.owner_id != user_id:
+        raise HTTPException(status_code=403, detail="Only the circle owner can delete this circle")
+
+    active_subs = (
+        db.query(CircleSubscription)
+        .filter(CircleSubscription.circle_id == circle_id, CircleSubscription.status == "active")
+        .count()
+    )
+    if active_subs > 0:
+        raise HTTPException(status_code=409, detail="This circle has active paid members — cancel their subscriptions first")
+
+    member_ids = [
+        row[0] for row in
+        db.query(CircleMember.user_id)
+        .filter(CircleMember.circle_id == circle_id, CircleMember.user_id != user_id)
+        .all()
+    ]
+
+    circle.deleted_at = datetime.now(timezone.utc)
+    db.query(CircleMember).filter(CircleMember.circle_id == circle_id).delete()
+
+    # Legacy circle-scoped stories (WS1's public stories are user-level and
+    # unaffected) — hide by expiring them rather than deleting the rows.
+    try:
+        from app.models.circle_story import CircleStory
+        db.query(CircleStory).filter(CircleStory.circle_id == circle_id).update(
+            {CircleStory.expires_at: datetime.now(timezone.utc)}, synchronize_session=False
+        )
+    except Exception:
+        pass
+
+    if member_ids:
+        notifications = [
+            UserNotification(
+                user_id=member_id,
+                type="circle_deleted",
+                title=f'"{circle.name}" was deleted',
+                body="The owner deleted this circle. It's no longer available.",
+                action_url="/community",
+                is_read=False,
+            )
+            for member_id in member_ids
+        ]
+        db.add_all(notifications)
+
+    db.commit()
+    return {"deleted": True}
+
+
+def restore_circle(db: Session, circle_id: UUID) -> Circle:
+    """Super-admin only (WS8). Clears `deleted_at`; members are not
+    restored — they rejoin via the circle's invite link."""
+    circle = db.query(Circle).filter(Circle.id == circle_id).first()
+    if not circle:
+        raise HTTPException(status_code=404, detail="Circle not found")
+    circle.deleted_at = None
+    db.commit()
+    db.refresh(circle)
     return circle

@@ -12,7 +12,7 @@ from app.models.user import User
 from app.crud.circle import (
     create_circle, join_circle, get_circles, get_circle_leaderboard,
     join_circle_by_code, get_circle_social_proof, get_circle_detail,
-    set_circle_banner,
+    set_circle_banner, leave_circle, delete_circle,
 )
 from app.crud.circle_story import (
     delete_story, get_circle_stories, mark_story_viewed,
@@ -90,6 +90,16 @@ def api_join_circle(circle_id: str, join_data: CircleJoin = None, user: User = D
         "id": str(circle.id), "name": circle.name, "join_code": circle.join_code,
         "message": "Joined circle successfully",
     }
+
+@router.post("/{circle_id}/leave")
+def api_leave_circle(circle_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return leave_circle(db, UUID(circle_id), user.id)
+
+
+@router.delete("/{circle_id}")
+def api_delete_circle(circle_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return delete_circle(db, UUID(circle_id), user.id)
+
 
 @router.get("/{circle_id}/leaderboard")
 def api_get_leaderboard(circle_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):

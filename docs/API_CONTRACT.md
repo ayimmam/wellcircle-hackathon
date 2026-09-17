@@ -427,6 +427,9 @@ Discovery feed replacing Home (Phase 4/5). Returns:
     { "type": "post", "render_cost": "instant", "id": "uuid", "created_at": "2026-06-06T10:00:00Z",
       "post": { "...": "same shape as GET /posts, but comment_count instead of comments, and content truncated to ~280 chars with truncated: true/false",
                 "source": { "kind": "circle", "id": "uuid", "name": "Addis Morning Runners", "member_count": 24 } } },
+    // WS2 (docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md): a standalone post
+    // (neither circle_id nor community_id) carries "source": null instead of
+    // a fabricated community/circle wrapper — see POST /api/posts below.
     { "type": "event", "render_cost": "media", "id": "uuid",
       "event": { "...": "same shape as GET /events" }, "provider": { "id", "name", "category", "cover_photo_url" } },
     { "type": "service", "render_cost": "media", "id": "<provider_id>:<service_index>",
@@ -1053,16 +1056,27 @@ useEffect(() => {
 ## 5a. Posts & Circle Activity (Strava-style feed)
 
 ### `POST /api/posts`
-Create a post in a community or circle. `activity_type`/`distance_km`/
+Create a post in a community, a circle, or **standalone** (both `circle_id`
+and `community_id` omitted — WS2 of `docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md`,
+the "+" composer on the For You feed). `activity_type`/`distance_km`/
 `duration_min`/`photo_url` are all optional — a plain text post omits them.
-When posted into a circle, every OTHER circle member gets a best-effort
-in-app `circle_activity` notification (see `GET /api/users/me/notifications`);
-a notification failure never blocks the post itself.
+`content` is optional too, but the post needs *something*: omitting both
+`content` and `photo_url` returns `422`. When posted into a circle, every
+OTHER circle member gets a best-effort in-app `circle_activity` notification
+(see `GET /api/users/me/notifications`); a notification failure never blocks
+the post itself.
+
+Every post — standalone included — earns the poster **10 points**, capped at
+**3 per UTC day** across all of a user's posts regardless of target
+(standalone + circle + community share one daily counter). The response
+carries how many points this particular post actually earned (`0` once the
+cap is hit) and the user's resulting balance, so the client can reconcile an
+optimistic points display without a second round trip.
 
 ```json
 // REQUEST
 {
-  "circle_id": "uuid-circle",       // or community_id
+  "circle_id": "uuid-circle",       // optional — or community_id, or neither (standalone)
   "content": "Morning run felt great!",
   "activity_type": "run",            // optional: run|walk|ride|yoga|gym|swim|general
   "distance_km": 5.2,                // optional
@@ -1071,7 +1085,15 @@ a notification failure never blocks the post itself.
 }
 
 // RESPONSE 200
-{ "id": "uuid-post", "message": "Post created successfully" }
+{
+  "id": "uuid-post",
+  "message": "Post created successfully",
+  "points_awarded": 10,
+  "points_balance": 240
+}
+
+// RESPONSE 422 — no content and no photo
+{ "detail": "A post needs text or a photo" }
 ```
 
 ### `GET /api/posts?circle_id=...&community_id=...&limit=20`

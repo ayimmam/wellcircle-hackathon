@@ -125,6 +125,9 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
       });
       resetComposer();
       loadPosts();
+      // A circle post earns points too now (WS2, same daily cap as
+      // standalone posts) — pick up the new balance.
+      refreshUser?.();
       showToast('Posted successfully!', 'success');
     } catch (err) {
       showToast('Error posting', 'error');

@@ -2078,6 +2078,88 @@ docs/HANDOFF.md
 
 ---
 
+#### WS2 — Standalone posts + "+" composer
+
+Posts no longer require a `circle_id`/`community_id`: any signed-in user can
+post directly to the For You feed. The chatbot FAB moved to Explore to make
+room for the new "+" composer in its old spot on Home.
+
+- **Backend** — `crud/post.py::create_post()` accepts neither id set;
+  `get_public_feed_posts()`'s community/private-circle filter gained an
+  explicit standalone branch (`community_id IS NULL AND circle_id IS NULL`).
+  The item-source assignment had a latent bug caught before it shipped: the
+  original code assumed "no `circle_id`" implied "has `community_id`," which
+  for a standalone post would have produced a fake
+  `{"kind": "community", "id": None, ...}` source instead of `null`. Fixed
+  as `elif p.community_id: ... else: source = None`.
+- **Points** — `POST /api/posts` now calls the `award_capped()` helper WS1
+  landed: `POINTS_POST` (+10), `POST_POINTS_DAILY_CAP` (3/day), one shared
+  counter across standalone + circle + community posts (posting into a
+  circle already earned nothing before this — now it does too, same cap).
+  Response carries `points_awarded`/`points_balance` so the client can
+  reconcile its optimistic points display in one round trip. `content` is
+  now optional on the request (a photo alone is a valid post), but the
+  endpoint 422s if both `content` and `photo_url` are empty.
+- **Frontend** — `ForYouScreen.jsx` replaced its `<AskWellCircle />` render
+  with `<PostComposerFab />` (new): a "+" FAB opening a bottom sheet
+  (text + optional photo, reusing WS1's `imageCompress`). Submission is
+  optimistic — the composer closes and a "Posting…" card appears at the top
+  of the feed immediately, before the upload/create request resolves,
+  following the pattern WS7 established (`useOptimisticAction`-style
+  apply/reconcile/rollback, done by hand here since the flow spans a photo
+  upload as well as the post create call). A failed post gets a "Couldn't
+  post" banner with Retry/Discard, matching `FeedPostCard`'s existing
+  pending/failed treatment for other optimistic actions.
+  `AskWellCircle.jsx`'s FAB moved to render from `ExploreScreen.jsx`
+  instead, unchanged otherwise. `PostFeed.jsx`'s circle-post flow now calls
+  `refreshUser?.()` after posting, since circle posts earn points too.
+
+#### Verification
+- Backend: `python -m app.tests.test_public_posts` (new) — **5 sections
+  passing** (standalone post creation with `source: null`; the
+  private/paid-circle exclusion regression still holds; the points cap is
+  shared across standalone and circle posts; system-event posts stay
+  excluded from the public feed; query count stays constant regardless of
+  post count). Full suite: `pytest app/tests -q` → **25/25 passing**.
+- Frontend: `npm test` → **337/337 passing** across 75 files (2 new:
+  `ExploreScreen.chatbot` 1/1 confirming the FAB moved, `ForYouScreen.postComposer`
+  3/3 covering the FAB itself, the optimistic insert, and the disabled-when-empty
+  state). `npm run build` clean. `npm run lint` → 0 errors, 66 warnings
+  (baseline, unchanged).
+- `docs/API_CONTRACT.md` updated: `POST /api/posts` documents the optional
+  `circle_id`/`community_id` (standalone when both omitted), the 422 for an
+  empty post, and the new `points_awarded`/`points_balance` response
+  fields; the For You feed item shape notes `source: null` for standalone
+  posts.
+
+#### Known Gaps / Next Steps
+- Not verified live against real Cloudinary/production upload — same
+  caveat as WS1.
+- No dedicated backend rate-limit beyond the existing points daily cap —
+  a user can still create unlimited *zero-point* standalone posts once
+  capped; the plan treated this as acceptable (spam moderation is a
+  separate, unscoped concern).
+
+#### Files Changed / Added (Phase 23, WS2)
+```
+backend/app/crud/post.py
+backend/app/api/posts.py
+backend/app/tests/test_public_posts.py   (new)
+frontend/src/pages/ForYouScreen.jsx
+frontend/src/pages/ExploreScreen.jsx
+frontend/src/components/PostComposerFab.jsx   (new)
+frontend/src/components/AskWellCircle.jsx
+frontend/src/components/feed/FeedPostCard.jsx
+frontend/src/components/PostFeed.jsx
+frontend/src/api/client.js
+frontend/src/test/ExploreScreen.chatbot.test.jsx   (new)
+frontend/src/test/ForYouScreen.postComposer.test.jsx   (new)
+docs/API_CONTRACT.md
+docs/HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
 
 

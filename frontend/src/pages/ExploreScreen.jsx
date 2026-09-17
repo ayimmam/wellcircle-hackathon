@@ -6,6 +6,7 @@ import useDebouncedValue from '../hooks/useDebouncedValue';
 import { CATEGORIES } from '../data/mock';
 import EventCard from '../components/EventCard';
 import PastEventRow from '../components/PastEventRow';
+import AskWellCircle from '../components/AskWellCircle';
 import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
 import { useTranslation } from 'react-i18next';
@@ -263,6 +264,10 @@ export default function ExploreScreen() {
           <div className="empty-state-text">{t('No providers found. Try a different category.')}</div>
         </div>
       )}
+
+      {/* Moved here from Home (WS2 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md)
+          — the "+" post composer took its old spot on Home. */}
+      <AskWellCircle />
     </div>
   );
 }

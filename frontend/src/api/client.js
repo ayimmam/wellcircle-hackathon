@@ -62,6 +62,8 @@ export { invalidate as invalidateCache, setCacheScope, clearCache };
 // createBooking() are kept here so getMyBookings() can read them back
 // within the same session (mirrors what a real backend would do).
 const mockBookingsCreatedThisSession = [];
+// WS2's post points cap (POST_POINTS_DAILY_CAP=3), mirrored in mock mode.
+let mockPostsAwardedToday = 0;
 
 const REQUEST_TIMEOUT_MS = 15000;
 const NETWORK_RETRY_DELAY_MS = 800;
@@ -858,10 +860,16 @@ export async function createPost(data) {
       total_points_gifted: 0,
       community_id: data.community_id || null,
       circle_id: data.circle_id || null,
+      source: data.circle_id || data.community_id ? { kind: data.circle_id ? 'circle' : 'community', id: data.circle_id || data.community_id } : null,
       comments: [],
     };
     MOCK_POSTS.unshift(post);
-    return post;
+    // Points cap mirrors the real backend (WS2): first 3 posts of the mock
+    // session earn +10, matching POST_POINTS_DAILY_CAP.
+    const awarded = mockPostsAwardedToday < 3 ? 10 : 0;
+    mockPostsAwardedToday += awarded > 0 ? 1 : 0;
+    MOCK_USER.points_balance = (MOCK_USER.points_balance || 0) + awarded;
+    return { ...post, points_awarded: awarded, points_balance: MOCK_USER.points_balance };
   }
   return request('POST', '/posts', data);
 }

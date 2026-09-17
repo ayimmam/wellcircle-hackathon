@@ -25,8 +25,9 @@ def create_post(
     duration_min: Optional[int] = None,
     photo_url: Optional[str] = None,
 ) -> Post:
-    if not community_id and not circle_id:
-        raise ValueError("Either community_id or circle_id must be provided")
+    # WS2 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md: a post with neither
+    # is now valid — a standalone public post, shown in the For You feed
+    # with no circle/community chip (see get_public_feed_posts below).
 
     post = Post(
         user_id=user_id,
@@ -184,10 +185,14 @@ def get_posts(db: Session, community_id: Optional[UUID] = None, circle_id: Optio
 
 
 def get_public_feed_posts(db: Session, limit: int = 10, before: Optional[datetime] = None) -> List[dict]:
-    """For You feed source: posts from public, free circles or from any
-    provider community — never a private or paid circle, never a
+    """For You feed source: standalone posts, posts from public/free circles,
+    or from any provider community — never a private or paid circle, never a
     system-generated join/check-in notice. `comment_count` only (Phase 2
-    payload budget); full threads load on the destination screen."""
+    payload budget); full threads load on the destination screen.
+
+    A standalone post (WS2 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md —
+    both `community_id`/`circle_id` null) always qualifies: there's no
+    circle to be private/paid, so it's public by construction."""
     query = (
         db.query(Post, User)
         .join(User, Post.user_id == User.id)
@@ -200,7 +205,9 @@ def get_public_feed_posts(db: Session, limit: int = 10, before: Optional[datetim
                     Post.circle_id.isnot(None),
                     Circle.is_private == False,
                     Circle.is_paid == False,
+                    Circle.deleted_at.is_(None),
                 ),
+                and_(Post.community_id.is_(None), Post.circle_id.is_(None)),
             )
         )
     )
@@ -250,7 +257,7 @@ def get_public_feed_posts(db: Session, limit: int = 10, before: Optional[datetim
                 "name": circle.name if circle else None,
                 "member_count": circle_member_counts.get(p.circle_id, 0),
             }
-        else:
+        elif p.community_id:
             community = communities_by_id.get(p.community_id)
             item["source"] = {
                 "kind": "community",
@@ -258,6 +265,10 @@ def get_public_feed_posts(db: Session, limit: int = 10, before: Optional[datetim
                 "name": community.name if community else None,
                 "member_count": community.member_count if community else 0,
             }
+        else:
+            # Standalone post (WS2) — no circle/community chip; the card
+            # links to the author's profile instead.
+            item["source"] = None
 
     return items
 

@@ -219,10 +219,28 @@ export function AuthProvider({ children }) {
     return res;
   }, [updateUser]);
 
+  // Optimistic by construction (WS7 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md):
+  // every field this merges into `data` shows up in the UI immediately,
+  // before the request resolves — the change was already applied to
+  // `user`. On success it's reconciled with the server's authoritative
+  // shape (some fields, like `time_format` inference, are server-computed);
+  // on failure the pre-call snapshot is restored and the error is rethrown,
+  // so existing `.catch(err => showToast(err.message))` call sites keep
+  // working unchanged — only the instant-apply/rollback is new.
   const updateProfile = useCallback(async (data) => {
-    const res = await apiUpdate(data);
-    updateUser(prev => ({ ...prev, ...res }));
-    return res;
+    let previous;
+    updateUser(prev => {
+      previous = prev;
+      return prev ? { ...prev, ...data } : prev;
+    });
+    try {
+      const res = await apiUpdate(data);
+      updateUser(prev => ({ ...prev, ...res }));
+      return res;
+    } catch (err) {
+      updateUser(previous);
+      throw err;
+    }
   }, [updateUser]);
 
   const logout = useCallback(() => {

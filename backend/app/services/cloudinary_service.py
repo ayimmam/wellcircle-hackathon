@@ -22,7 +22,17 @@ FOLDER_RULES = {
     # Story photos come straight off a phone camera, so WebP/HEIC-converted
     # uploads are common — and a 72-hour asset isn't worth a large budget.
     "stories": {
-        "max_size": 10 * 1024 * 1024,
+        # 2 MB (WS1/WS2 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md) — the
+        # client compresses before upload; this is the server-side backstop.
+        "max_size": 2 * 1024 * 1024,
+        "content_types": {"image/jpeg", "image/png", "image/webp"},
+    },
+    "posts": {
+        "max_size": 2 * 1024 * 1024,
+        "content_types": {"image/jpeg", "image/png", "image/webp"},
+    },
+    "avatars": {
+        "max_size": 2 * 1024 * 1024,
         "content_types": {"image/jpeg", "image/png", "image/webp"},
     },
     "circle_banners": {

@@ -42,6 +42,18 @@ PROVIDER_AWARD_MAX_POINTS_PER_AWARD = 50
 PROVIDER_AWARD_MAX_POINTS_PER_DAY = 300
 REFERRAL_MAX_PER_MONTH = 10
 
+# WS1/WS2 (docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md): stories and posts earn
+# points, capped per UTC day so spamming either doesn't farm the economy.
+# Defaults per the plan's §15 "confirm or override" list.
+POINTS_STORY = 20
+STORY_POINTS_DAILY_CAP = 1  # stories that earn per UTC day
+POINTS_POST = 10
+POST_POINTS_DAILY_CAP = 3  # posts that earn per UTC day
+
+# WS9: changing the profile photo always costs 10, uncapped and unblocked —
+# apply_transaction() floors the balance at 0 rather than refusing the change.
+POINTS_PROFILE_PHOTO_COST = 10
+
 # Transaction type literals
 TXN_CHECKIN = "checkin"
 TXN_BOOKING_BONUS = "booking_bonus"
@@ -56,12 +68,16 @@ TXN_ADMIN_ADJUST = "admin_adjust"
 TXN_REFERRAL = "referral"
 TXN_WELCOME = "welcome"
 TXN_COMEBACK = "comeback"
+TXN_STORY = "story"
+TXN_POST = "post"
+TXN_PROFILE_PHOTO = "profile_photo"
 
 VALID_TXN_TYPES = {
     TXN_CHECKIN, TXN_BOOKING_BONUS, TXN_CHALLENGE,
     TXN_GIFT_SENT, TXN_GIFT_RECEIVED, TXN_REDEMPTION,
     TXN_DECAY, TXN_EVENT_PARTICIPATION, TXN_PROVIDER_AWARD,
     TXN_ADMIN_ADJUST, TXN_REFERRAL, TXN_WELCOME, TXN_COMEBACK,
+    TXN_STORY, TXN_POST, TXN_PROFILE_PHOTO,
 }
 
 
@@ -189,6 +205,39 @@ def sum_provider_awards_today(
         .scalar()
     )
     return int(result)
+
+
+def award_capped(
+    db: Session,
+    user: User,
+    txn_type: str,
+    amount: int,
+    daily_cap: int,
+    *,
+    reference_id: Optional[UUID] = None,
+) -> int:
+    """Award `amount` points via `apply_transaction`, unless the user already
+    has `daily_cap` ledger rows of `txn_type` since UTC midnight — then it's
+    a no-op. Returns the amount actually awarded (0 or `amount`).
+
+    Counts ledger rows, not live content, so posting-then-deleting can't
+    reset the cap (WS1/WS2's story/post point caps). Caller still commits —
+    same convention as `apply_transaction`.
+    """
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    count_today = (
+        db.query(PointTransaction)
+        .filter(
+            PointTransaction.user_id == user.id,
+            PointTransaction.type == txn_type,
+            PointTransaction.created_at >= today_start,
+        )
+        .count()
+    )
+    if count_today >= daily_cap:
+        return 0
+    apply_transaction(db, user, amount, txn_type, reference_id=reference_id)
+    return amount
 
 
 def count_referrals_this_month(

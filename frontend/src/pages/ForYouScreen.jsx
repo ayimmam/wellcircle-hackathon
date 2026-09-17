@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getHomeBootstrap, getHomeLite, getForYouFeed, deleteStory, markStoryViewed, cacheKeys } from '../api/client';
+import { getHomeBootstrap, getHomeLite, getForYouFeed, deleteStory, markStoryViewed, createPost, uploadFile, cacheKeys } from '../api/client';
 import useResource from '../hooks/useResource';
+import { logIssue } from '../utils/log';
+import useDailyReveal from '../hooks/useDailyReveal';
+import useStoryUpload from '../hooks/useStoryUpload';
+import { compressImage } from '../utils/imageCompress';
 import PointsBadge from '../components/PointsBadge';
 import StreakBadge from '../components/StreakBadge';
 import FirstRewardCard from '../components/FirstRewardCard';
 import SocialProofBanner from '../components/SocialProofBanner';
 import WelcomeBanner from '../components/WelcomeBanner';
 import CheckinCard from '../components/CheckinCard';
-import AskWellCircle from '../components/AskWellCircle';
+import PostComposerFab from '../components/PostComposerFab';
 import PointsInfoSheet from '../components/PointsInfoSheet';
 import FeedPostCard from '../components/feed/FeedPostCard';
 import FeedServiceCard from '../components/feed/FeedServiceCard';
@@ -21,14 +25,15 @@ import StoryRail from '../components/stories/StoryRail';
 import { showToast } from '../components/Toast';
 import { useTranslation } from 'react-i18next';
 import { daysSinceJoin } from '../utils/milestones';
+import { partitionByImage, postHasImage, eventHasImage } from '../utils/feedOrdering';
 
 // Bumping the suffix (v1 -> v2) would re-show the card to everyone once —
 // only do that intentionally.
 const JOIN_CARD_SEEN_KEY = 'wc_join_card_seen_v1';
 
-function FeedItem({ item, priority }) {
+function FeedItem({ item, priority, onRetryPost, onDiscardPost }) {
   switch (item.type) {
-    case 'post': return <FeedPostCard item={item} priority={priority} />;
+    case 'post': return <FeedPostCard item={item} priority={priority} onRetry={onRetryPost} onDiscard={onDiscardPost} />;
     case 'service': return <FeedServiceCard item={item} priority={priority} />;
     case 'event': return <FeedEventBanner item={item} priority={priority} />;
     case 'past_event': return <FeedPastEventCard item={item} priority={priority} />;
@@ -38,11 +43,15 @@ function FeedItem({ item, priority }) {
 }
 
 export default function ForYouScreen() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const location = useLocation();
   const { t } = useTranslation();
   const [showPointsInfo, setShowPointsInfo] = useState(false);
   const justOnboarded = Boolean(location.state?.justOnboarded);
+  // The check-in card waits 2 minutes of foreground time before it appears,
+  // once per day (WS4) — it's a daily habit prompt, not the first thing a
+  // reopened app should nag about.
+  const showCheckin = useDailyReveal('checkin');
 
   // "Never show a new user a zero" extended to sharing: everyone — brand new
   // or long-time — gets exactly one shareable "Day N on WellCircle" moment,
@@ -79,7 +88,10 @@ export default function ForYouScreen() {
   const { data: home, setData: setHome } = useResource(
     cacheKeys.home(),
     getHomeBootstrap,
-    { onError: err => showToast(err.message, 'error') },
+    // Silent here too, same reasoning as `lite` above: a background load
+    // failing is not the reader's problem to be told about mid-scroll — the
+    // screen just keeps showing whatever it last had. Logged, not toasted.
+    { onError: err => logIssue('home_bootstrap_failed', { message: err?.message }) },
   );
 
   // Prefer the full payload wherever it has arrived; fall back to the lite one
@@ -137,6 +149,161 @@ export default function ForYouScreen() {
     }
   };
 
+  // Optimistic story posting (WS1): a picked photo shows in "Your story"
+  // immediately via a local blob URL, with a progress arc while it uploads,
+  // and either swaps for the real story or turns into a "tap to retry" ring.
+  const addPendingStoryLocally = (tempId, localUrl) => (prev) => {
+    if (!prev || !user) return prev;
+    const groups = prev.stories || [];
+    const pendingStory = {
+      id: tempId, user_id: user.id, user_name: user.name, user_photo_url: user.photo_url,
+      image_url: localUrl, created_at: new Date().toISOString(), seen: true, view_count: null,
+      is_mine: true, is_following: false, pending: true, progress: 0,
+    };
+    const mineIdx = groups.findIndex(g => g.is_mine);
+    const nextGroups = mineIdx === -1
+      ? [{
+        user_id: user.id, user_name: user.name, user_photo_url: user.photo_url,
+        is_mine: true, is_following: false, has_unseen: false,
+        story_count: 1, latest_at: pendingStory.created_at, stories: [pendingStory],
+      }, ...groups]
+      : groups.map((g, i) => i === mineIdx ? { ...g, stories: [...g.stories, pendingStory] } : g);
+    return { ...prev, stories: nextGroups };
+  };
+
+  const patchOwnStory = (tempId, patch) => (prev) => {
+    if (!prev?.stories) return prev;
+    return {
+      ...prev,
+      stories: prev.stories.map(g => !g.is_mine ? g : {
+        ...g,
+        stories: g.stories.map(s => s.id === tempId ? { ...s, ...patch } : s),
+      }),
+    };
+  };
+
+  const { upload: uploadStory, retry: retryStory } = useStoryUpload({
+    onPending: ({ tempId, localUrl }) => {
+      setHome(addPendingStoryLocally(tempId, localUrl));
+      setLite(addPendingStoryLocally(tempId, localUrl));
+    },
+    onProgress: (tempId, pct) => {
+      setHome(patchOwnStory(tempId, { progress: pct }));
+      setLite(patchOwnStory(tempId, { progress: pct }));
+    },
+    onSuccess: (tempId, story) => {
+      const patch = { id: story.id, image_url: story.image_url, pending: false, failed: false, progress: 100 };
+      setHome(patchOwnStory(tempId, patch));
+      setLite(patchOwnStory(tempId, patch));
+      if (typeof story.points_balance === 'number') {
+        setUser(prev => prev ? { ...prev, points_balance: story.points_balance } : prev);
+      }
+    },
+    onFailure: (tempId) => {
+      setHome(patchOwnStory(tempId, { pending: false, failed: true }));
+      setLite(patchOwnStory(tempId, { pending: false, failed: true }));
+      showToast("Story didn't post — tap to retry", 'error');
+    },
+  });
+
+  const storyFileInputRef = useRef(null);
+  const handleStoryFilePicked = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file) uploadStory(file);
+  };
+
+  // Optimistic standalone posting (WS2): the "+" composer's submit is
+  // instant — the card appears at the top of the feed before either the
+  // photo upload or the create request has even started. Kept payloads by
+  // tempId so a failed post's Retry doesn't need the composer reopened.
+  const pendingPostsRef = useRef({});
+  const nextTempPostIdRef = useRef(0);
+
+  const patchFeedItems = (fn) => (prev) => {
+    if (!prev?.feed) return prev;
+    return { ...prev, feed: { ...prev.feed, items: fn(prev.feed.items || []) } };
+  };
+
+  const insertPost = async (tempId) => {
+    const payload = pendingPostsRef.current[tempId];
+    if (!payload || !user) return;
+    const { content, file } = payload;
+
+    try {
+      let photo_url;
+      if (file) {
+        const compressed = await compressImage(file, { maxBytes: 2_000_000 });
+        const asset = await uploadFile(compressed, 'posts');
+        photo_url = asset.url;
+      }
+      const res = await createPost({ content, photo_url });
+      delete pendingPostsRef.current[tempId];
+      setHome(patchFeedItems(items => items.map(it => it.id !== tempId ? it : {
+        ...it, id: res.id, pending: false, failed: false,
+        post: { ...it.post, id: res.id, photo_url: photo_url || it.post.photo_url },
+      })));
+      setLite(patchFeedItems(items => items.map(it => it.id !== tempId ? it : {
+        ...it, id: res.id, pending: false, failed: false,
+        post: { ...it.post, id: res.id, photo_url: photo_url || it.post.photo_url },
+      })));
+      if (typeof res.points_balance === 'number') {
+        setUser(prev => prev ? { ...prev, points_balance: res.points_balance } : prev);
+      }
+    } catch (err) {
+      const markFailed = (items) => items.map(it => it.id === tempId ? { ...it, pending: false, failed: true } : it);
+      setHome(patchFeedItems(markFailed));
+      setLite(patchFeedItems(markFailed));
+      showToast(err.message || 'Could not post that update', 'error');
+    }
+  };
+
+  const handleNewPost = ({ content, file, localPreviewUrl }) => {
+    if (!user) return;
+    const tempId = `temp-post-${++nextTempPostIdRef.current}`;
+    pendingPostsRef.current[tempId] = { content, file };
+
+    const optimisticItem = {
+      type: 'post',
+      render_cost: file ? 'media' : 'instant',
+      id: tempId,
+      created_at: new Date().toISOString(),
+      pending: true,
+      post: {
+        id: tempId,
+        content,
+        is_system_event: false,
+        activity_type: null,
+        distance_km: null,
+        duration_min: null,
+        photo_url: localPreviewUrl,
+        user: { id: user.id, name: user.name, photo_url: user.photo_url },
+        created_at: new Date().toISOString(),
+        reactions: {},
+        total_points_gifted: 0,
+        comment_count: 0,
+        source: null,
+      },
+    };
+
+    setHome(patchFeedItems(items => [optimisticItem, ...items]));
+    setLite(patchFeedItems(items => [optimisticItem, ...items]));
+    insertPost(tempId);
+  };
+
+  const handleRetryPost = (tempId) => {
+    if (!pendingPostsRef.current[tempId]) return;
+    setHome(patchFeedItems(items => items.map(it => it.id === tempId ? { ...it, pending: true, failed: false } : it)));
+    setLite(patchFeedItems(items => items.map(it => it.id === tempId ? { ...it, pending: true, failed: false } : it)));
+    insertPost(tempId);
+  };
+
+  const handleDiscardPost = (tempId) => {
+    delete pendingPostsRef.current[tempId];
+    setHome(patchFeedItems(items => items.filter(it => it.id !== tempId)));
+    setLite(patchFeedItems(items => items.filter(it => it.id !== tempId)));
+  };
+
   const markCheckedIn = (id) => (prev) => (
     prev?.communities
       ? {
@@ -152,11 +319,12 @@ export default function ForYouScreen() {
     setLite(markCheckedIn(id));
   };
 
-  // Instant-open readiness ranking (Phase 2): until the revalidated bootstrap
-  // lands — on the cached first paint, and through the lite phase — "instant"
-  // items (no image needed to read) render above "media" items. Then the feed
-  // settles into server order, with no animation on the swap: a visible
-  // reflow is worse than the delay.
+  // Image-led readiness ranking (WS3 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md):
+  // until the revalidated bootstrap lands — on the cached first paint, and
+  // through the lite phase — items with an image render above text-only ones,
+  // matching the order the settled server response will already be in. Then
+  // the feed settles into server order, with no animation on the swap: a
+  // visible reflow is worse than the delay.
   const [settled, setSettled] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -171,17 +339,14 @@ export default function ForYouScreen() {
   const firstPageItems = feed?.items || [];
   const orderedFirstPage = useMemo(() => {
     if (settled) return firstPageItems;
-    // The server leads the feed with upcoming events (see feed_service.py).
-    // Those are `media` items, so an unqualified instant-first sort would
-    // drop them below the posts on the cached paint and then visibly shuffle
-    // them back on settle. Pin the event block, tier only what follows it.
+    // The server leads the feed with upcoming events (see feed_service.py),
+    // itself image-partitioned. Partition the event lead and the post block
+    // that follows it the same way, so nothing visibly reshuffles on settle.
     const leadEnd = firstPageItems.findIndex(i => i.type !== 'event');
-    if (leadEnd === -1) return firstPageItems;
+    if (leadEnd === -1) return partitionByImage(firstPageItems, eventHasImage);
     const lead = firstPageItems.slice(0, leadEnd);
     const rest = firstPageItems.slice(leadEnd);
-    const instant = rest.filter(i => i.render_cost === 'instant');
-    const media = rest.filter(i => i.render_cost !== 'instant');
-    return [...lead, ...instant, ...media];
+    return [...partitionByImage(lead, eventHasImage), ...partitionByImage(rest, postHasImage)];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstPageItems, settled]);
 
@@ -251,9 +416,20 @@ export default function ForYouScreen() {
         )}
       </div>
 
+      <input
+        ref={storyFileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={handleStoryFilePicked}
+        style={{ display: 'none' }}
+        id="story-file-input"
+      />
       <StoryRail
         groups={storyGroups}
         currentUser={user}
+        canAddStory={Boolean(user)}
+        onAddStory={() => storyFileInputRef.current?.click()}
+        onRetryFailed={retryStory}
         onViewed={handleStoryViewed}
         onDelete={handleStoryDeleted}
       />
@@ -262,7 +438,7 @@ export default function ForYouScreen() {
 
       {user && <SocialProofBanner />}
 
-      {user && joinedCircles.length > 0 && (
+      {user && showCheckin && joinedCircles.length > 0 && (
         <CheckinCard
           key={joinedCircles.map(c => c.id).join(',')}
           circles={joinedCircles}
@@ -281,14 +457,20 @@ export default function ForYouScreen() {
       ) : (
         <div id="for-you-feed">
           {feedItems.map((item, i) => (
-            <FeedItem key={`${item.type}-${item.id}`} item={item} priority={i === 0} />
+            <FeedItem
+              key={`${item.type}-${item.id}`}
+              item={item}
+              priority={i === 0}
+              onRetryPost={handleRetryPost}
+              onDiscardPost={handleDiscardPost}
+            />
           ))}
           <div ref={sentinelRef} style={{ height: 1 }} id="for-you-feed-sentinel" />
           {loadingMore && <div className="skeleton" style={{ height: 100, marginBottom: 12 }} />}
         </div>
       )}
 
-      <AskWellCircle />
+      <PostComposerFab onSubmit={handleNewPost} />
 
       {showPointsInfo && <PointsInfoSheet onClose={() => setShowPointsInfo(false)} />}
       {joinMilestone && <ShareCard milestone={joinMilestone} onClose={() => setJoinMilestone(null)} />}

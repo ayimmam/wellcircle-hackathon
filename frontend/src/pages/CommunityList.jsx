@@ -5,7 +5,7 @@ import { CATEGORIES } from '../data/mock';
 import CommunityCard from '../components/CommunityCard';
 import { showToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
@@ -26,9 +26,14 @@ const EMPTY_LIST = [];
 export default function CommunityList() {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   useTelegramBackButton(() => navigate('/home'));
   const { t } = useTranslation();
-  const [tab, setTab] = useState('explore'); // 'explore' | 'joined' | 'circles' | 'ranks'
+  // Defaults to My Circles — a user's own circles are what they came back to
+  // check on, not the discovery list. A caller that wants a specific tab
+  // (e.g. after leaving a circle, landing back here on Joined) passes
+  // navigate('/community', { state: { tab: 'joined' } }).
+  const [tab, setTab] = useState(location.state?.tab || 'circles'); // 'explore' | 'joined' | 'circles' | 'ranks'
   const [category, setCategory] = useState('all');
   const [newCircleName, setNewCircleName] = useState('');
   const [circleSearch, setCircleSearch] = useState('');
@@ -148,8 +153,15 @@ export default function CommunityList() {
         Community Circles
       </h1>
 
-      {/* Tabs */}
+      {/* Tabs — My Circles first: it's what a returning member checks, not
+          the discovery list (Explore is one tap away either way). */}
       <div className="flex gap-8 mb-16">
+        <button
+          className={`chip ${tab === 'circles' ? 'active' : ''}`}
+          onClick={() => setTab('circles')}
+        >
+          My Circles
+        </button>
         <button
           className={`chip ${tab === 'explore' ? 'active' : ''}`}
           onClick={() => setTab('explore')}
@@ -161,12 +173,6 @@ export default function CommunityList() {
           onClick={() => setTab('joined')}
         >
           Joined
-        </button>
-        <button
-          className={`chip ${tab === 'circles' ? 'active' : ''}`}
-          onClick={() => setTab('circles')}
-        >
-          My Circles
         </button>
         <button
           className={`chip inline-icon-text ${tab === 'ranks' ? 'active' : ''}`}

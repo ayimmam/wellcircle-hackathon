@@ -43,6 +43,7 @@ def serialize_event(event: ProviderEvent, provider: Provider, is_past: bool = Fa
         "provider_name": provider.name,
         "provider_category": provider.category,
         "provider_cover_photo_url": provider.cover_photo_url,
+        "provider_is_coming_soon": bool(provider.is_coming_soon),
         "urgency": compute_urgency(event.spots_remaining),
     }
     if is_past:

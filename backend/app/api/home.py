@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.events import query_upcoming_events
 from app.crud.circle import get_circle_social_proof
-from app.crud.circle_story import get_story_rail
+from app.crud.story import get_story_rail
 from app.crud.community import get_all_communities
 from app.crud.provider import get_all_providers
 from app.database import get_db

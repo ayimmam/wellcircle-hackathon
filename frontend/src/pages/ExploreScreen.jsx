@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getProviders, getEvents, cacheKeys } from '../api/client';
+import { getProviders, getEvents, getPastEvents, cacheKeys } from '../api/client';
 import useResource from '../hooks/useResource';
 import useDebouncedValue from '../hooks/useDebouncedValue';
 import { CATEGORIES } from '../data/mock';
 import EventCard from '../components/EventCard';
+import PastEventRow from '../components/PastEventRow';
+import AskWellCircle from '../components/AskWellCircle';
 import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
 import { useTranslation } from 'react-i18next';
@@ -20,7 +22,9 @@ export default function ExploreScreen() {
   const navigate = useNavigate();
   useTelegramBackButton(() => navigate('/home'));
   const { user } = useAuth();
-  const [view, setView] = useState('studios');
+  // Defaults to Events — that's what a returning visitor checks (what's
+  // happening), not the provider directory (Providers is one tap away).
+  const [view, setView] = useState('events');
   const [category, setCategory] = useState('all');
   const [nearMeActive, setNearMeActive] = useState(false);
   const location = useLocation();
@@ -57,7 +61,7 @@ export default function ExploreScreen() {
     cacheKeys.providers(categoryFilter, searchFilter),
     () => getProviders(categoryFilter, searchFilter),
     {
-      enabled: view === 'studios',
+      enabled: view === 'providers',
       initialData: EMPTY_LIST,
       select: res => res.providers || EMPTY_LIST,
     },
@@ -73,7 +77,23 @@ export default function ExploreScreen() {
     },
   );
 
-  const loading = view === 'studios' ? providersLoading : eventsLoading;
+  // Past events sit below Upcoming on the Events view (WS4) — same category
+  // filter, no search (recaps aren't worth searching by name yet).
+  const pastEventParams = useMemo(
+    () => ({ ...(categoryFilter ? { category: categoryFilter } : {}), limit: 20 }),
+    [categoryFilter],
+  );
+  const { data: pastEvents, loading: pastEventsLoading } = useResource(
+    cacheKeys.pastEvents(pastEventParams),
+    () => getPastEvents(pastEventParams),
+    {
+      enabled: view === 'events',
+      initialData: EMPTY_LIST,
+      select: res => res.events || EMPTY_LIST,
+    },
+  );
+
+  const loading = view === 'providers' ? providersLoading : eventsLoading;
 
   useEffect(() => {
     providers.forEach(p => {
@@ -103,24 +123,27 @@ export default function ExploreScreen() {
   const visibleEvents = nearMeActive && neighbourhood
     ? nearbyEvents(events, allProviders, neighbourhood)
     : events;
+  const visiblePastEvents = nearMeActive && neighbourhood
+    ? nearbyEvents(pastEvents, allProviders, neighbourhood)
+    : pastEvents;
 
   return (
     <div className="page" id="explore-screen">
       <h1 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: 16 }}>{t('Explore')}</h1>
 
       <div className="admin-subtabs mb-16" style={{ display: 'flex', gap: 8 }}>
-        <button className={`admin-subtab ${view === 'studios' ? 'active' : ''}`} onClick={() => setView('studios')}>{t('Studios')}</button>
         <button className={`admin-subtab ${view === 'events' ? 'active' : ''}`} onClick={() => setView('events')}>{t('Events')}</button>
+        <button className={`admin-subtab ${view === 'providers' ? 'active' : ''}`} onClick={() => setView('providers')}>{t('Providers')}</button>
       </div>
 
       <div className="search-bar">
         <span className="search-bar-icon"><Icon name="search" size={18} /></span>
         <input
           type="search"
-          placeholder={view === 'studios' ? t('Search providers…') : t('Search events…')}
+          placeholder={view === 'providers' ? t('Search providers…') : t('Search events…')}
           value={search}
           onChange={e => setSearch(e.target.value)}
-          aria-label={view === 'studios' ? t('Search providers') : t('Search events')}
+          aria-label={view === 'providers' ? t('Search providers') : t('Search events')}
           autoComplete="off"
           id="explore-search-input"
         />
@@ -153,16 +176,24 @@ export default function ExploreScreen() {
           ))}
         </div>
       ) : view === 'events' ? (
-        visibleEvents.length > 0 ? (
-          <div className="flex-col gap-8">
-            {visibleEvents.map(e => <EventCard key={e.id} event={e} />)}
-          </div>
-        ) : (
-          <div className="empty-state">
-            <div className="empty-state-icon"><Icon name="calendar" size={40} strokeWidth={1.5} /></div>
-            <div className="empty-state-text">{t('No upcoming events in this category.')}</div>
-          </div>
-        )
+        <>
+          {visibleEvents.length > 0 ? (
+            <div className="flex-col gap-8">
+              {visibleEvents.map(e => <EventCard key={e.id} event={e} />)}
+            </div>
+          ) : (
+            <p className="text-sm text-secondary" id="explore-events-empty">
+              {t('No upcoming events in this category.')}
+            </p>
+          )}
+
+          {!pastEventsLoading && visiblePastEvents.length > 0 && (
+            <div className="mt-20" id="explore-past-events">
+              <div className="profile-section-title">{t('Past events')}</div>
+              {visiblePastEvents.map(e => <PastEventRow key={e.id} event={e} />)}
+            </div>
+          )}
+        </>
       ) : visibleProviders.length > 0 ? (
         <div className="flex-col gap-16">
           {visibleProviders.map(p => (
@@ -233,6 +264,10 @@ export default function ExploreScreen() {
           <div className="empty-state-text">{t('No providers found. Try a different category.')}</div>
         </div>
       )}
+
+      {/* Moved here from Home (WS2 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md)
+          — the "+" post composer took its old spot on Home. */}
+      <AskWellCircle />
     </div>
   );
 }

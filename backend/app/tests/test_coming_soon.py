@@ -67,6 +67,7 @@ from app.models.user import User
 from app.models.provider import Provider
 from app.models.community import Community, CommunityMember, CommunityFeedEvent
 from app.models.booking import Booking
+from app.models.provider_event import ProviderEvent
 
 engine = create_engine("sqlite:///:memory:", echo=False)
 Base.metadata.create_all(bind=engine)
@@ -204,6 +205,71 @@ def test_all():
         updated = set_provider_launch_state(db, coming_soon_provider.id, False)
         assert updated.is_coming_soon is False
         print("   ✅ toggle flips is_coming_soon")
+
+        # === 7. Event bookings go through the exact same is_coming_soon gate
+        # as service bookings (WS5 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md)
+        # — the coming-soon check in create_new_booking runs before the
+        # event_id branch and looks at request.provider_id regardless, so
+        # this is a regression guard on that, not new gating logic.
+        print("\n7. Event booking against a coming-soon provider")
+        still_coming_soon, _ = create_provider(
+            db, name="Not Launched Yet Studio", category="gym",
+            description="test", location_text="Bole",
+            price_range="Price on enquiry", rating=None,
+            services=[{"name": "Class", "price": 300, "duration": "60 min"}],
+            is_coming_soon=True,
+        )
+        event = ProviderEvent(
+            provider_id=still_coming_soon.id,
+            service_name="Group Class",
+            starts_at=days_from_now(2),
+            ends_at=days_from_now(2) + timedelta(hours=1),
+            capacity=10,
+            spots_remaining=10,
+            price_etb=300,
+        )
+        db.add(event)
+        db.commit()
+        db.refresh(event)
+
+        before_bookings = db.query(Booking).count()
+        try:
+            asyncio.run(create_new_booking(
+                request=BookingCreate(
+                    provider_id=str(still_coming_soon.id),
+                    event_id=str(event.id),
+                    service_name="Group Class",
+                    slot_datetime=event.starts_at,
+                    amount_etb=300,
+                    payment_method="pay_on_site",
+                    phone_number="0911000000",
+                ),
+                background_tasks=BackgroundTasks(),
+                user=user, db=db,
+            ))
+            assert False, "booking an event on a coming-soon provider should raise"
+        except HTTPException as e:
+            assert e.status_code == 400
+        db.refresh(event)
+        assert event.spots_remaining == 10, "the spot lock/decrement must not run before the gate"
+        assert db.query(Booking).count() == before_bookings
+        print("   ✅ event booking on a coming-soon provider rejected the same as a service booking")
+
+        # === 8. Event payloads carry provider_is_coming_soon =================
+        print("\n8. provider_is_coming_soon on event payloads")
+        from app.api.events import query_upcoming_events, query_past_events
+
+        upcoming, _ = query_upcoming_events(db)
+        by_event_id = {e["id"]: e for e in upcoming}
+        assert by_event_id[str(event.id)]["provider_is_coming_soon"] is True
+        print("   ✅ query_upcoming_events exposes provider_is_coming_soon")
+
+        # Flip live and re-check the same event now reads False.
+        set_provider_launch_state(db, still_coming_soon.id, False)
+        upcoming2, _ = query_upcoming_events(db)
+        by_event_id2 = {e["id"]: e for e in upcoming2}
+        assert by_event_id2[str(event.id)]["provider_is_coming_soon"] is False
+        print("   ✅ flips to False once the provider goes live")
 
         print("\n" + "=" * 50)
         print("  ALL COMING-SOON GATING TESTS PASSED ✅")

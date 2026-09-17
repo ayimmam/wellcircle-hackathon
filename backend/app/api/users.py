@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -13,7 +13,11 @@ from app.crud.user import (
     onboard_user, update_user_profile,
     get_user_joined_community_ids,
 )
-from app.services.points import get_points_tier, POINTS_WELCOME
+from app.services.cloudinary_service import delete_file, upload_file
+from app.services.points import (
+    apply_transaction, get_points_tier, POINTS_PROFILE_PHOTO_COST,
+    POINTS_WELCOME, TXN_PROFILE_PHOTO,
+)
 from app.crud.community import join_community, get_suggested_communities
 from app.schemas.user import (
     UserResponse, UserOnboardingRequest, UserProfileUpdate,
@@ -131,6 +135,63 @@ async def update_my_profile(
     if update_data:
         update_user_profile(db, user, **update_data)
     return _build_response(user, db)
+
+
+@router.post("/me/photo")
+async def change_my_photo(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """WS9 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md — a custom photo
+    always costs 10 points, never blocked (apply_transaction floors the
+    balance at 0 rather than refusing the change)."""
+    try:
+        asset = upload_file(await file.read(), "avatars", file.content_type or "")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+    previous_public_id = user.photo_public_id
+    try:
+        user.photo_url = asset["url"]
+        user.photo_public_id = asset["public_id"]
+        user.photo_is_custom = True
+        txn = apply_transaction(db, user, -POINTS_PROFILE_PHOTO_COST, TXN_PROFILE_PHOTO, reference_id=user.id)
+        db.commit()
+        db.refresh(user)
+    except Exception:
+        db.rollback()
+        delete_file(asset["public_id"], resource_type="image")
+        raise
+
+    # Only once the new photo is durably committed: drop whatever custom
+    # asset it replaced, so a failed change above never orphans the old one.
+    if previous_public_id and previous_public_id != asset["public_id"]:
+        delete_file(previous_public_id, resource_type="image")
+
+    return {
+        "photo_url": user.photo_url,
+        "points_balance": user.points_balance,
+        "points_charged": POINTS_PROFILE_PHOTO_COST,
+    }
+
+
+@router.delete("/me/photo")
+async def revert_my_photo(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Reverts to syncing the login provider's photo on the next login.
+    Charges nothing; does not itself change photo_url until then."""
+    previous_public_id = user.photo_public_id
+    user.photo_is_custom = False
+    user.photo_public_id = None
+    db.commit()
+    if previous_public_id:
+        delete_file(previous_public_id, resource_type="image")
+    return {"photo_is_custom": False}
 
 
 @router.get("/me/redemptions")

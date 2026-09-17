@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PostFeed from '../components/PostFeed';
 import { renderWithProviders } from './renderWithProviders';
@@ -42,6 +42,35 @@ describe('PostFeed — Strava-style activity', () => {
     await screen.findByText(/just finished a 5k run/i);
     expect(screen.getByDisplayValue("Hi I'm Meron, I'm glad to join you guys!")).toBeInTheDocument();
     expect(onDraftConsumed).toHaveBeenCalledTimes(1);
+  });
+
+  it('adds a typed comment to the thread instantly, before the request resolves (WS7)', async () => {
+    renderWithProviders(<PostFeed circleId={CIRCLE_ID} />);
+    const runPost = (await screen.findByText(/just finished a 5k run/i)).closest('.post-card');
+
+    // 'Comment' toggle button carries the count, e.g. "Comment (1)".
+    fireEvent.click(within(runPost).getByText(/^Comment/));
+    const input = within(runPost).getByPlaceholderText('Write a comment...');
+    fireEvent.change(input, { target: { value: 'Great job out there!' } });
+    fireEvent.click(within(runPost).getByText('Send'));
+
+    // No await on the network call — this is the state right after the tap.
+    expect(within(runPost).getByText('Great job out there!')).toBeInTheDocument();
+    // The composer closed and cleared, same as before.
+    expect(within(runPost).queryByPlaceholderText('Write a comment...')).toBeNull();
+  });
+
+  it('adds a typed reply nested under its parent comment instantly (WS7)', async () => {
+    renderWithProviders(<PostFeed circleId={CIRCLE_ID} />);
+    await screen.findByText(/just finished a 5k run/i);
+    const niceRow = screen.getByText('Nice pace!').closest('.comment-row');
+
+    fireEvent.click(within(niceRow).getByText('Reply'));
+    const input = screen.getByPlaceholderText('Write a reply...');
+    fireEvent.change(input, { target: { value: 'Agreed, well done!' } });
+    fireEvent.click(screen.getByText('Send'));
+
+    expect(screen.getByText('Agreed, well done!')).toBeInTheDocument();
   });
 
   it('offers a "Create first post" CTA that opens the composer when the feed is empty', async () => {

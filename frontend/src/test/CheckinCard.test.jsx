@@ -45,6 +45,17 @@ describe('CheckinCard (Home habit loop)', () => {
     );
   });
 
+  it('flips to Checked in synchronously — before the mock check-in request resolves (WS7)', () => {
+    renderWithProviders(<CheckinCard circles={CIRCLES} />);
+    expect(document.getElementById('home-checkin-c1').textContent).not.toContain('Checked in');
+
+    fireEvent.click(document.getElementById('home-checkin-c1'));
+
+    // No await, no waitFor — this is the instant, pre-response state.
+    expect(document.getElementById('home-checkin-c1').textContent).toContain('Checked in');
+    expect(document.getElementById('home-checkin-c1')).toBeDisabled();
+  });
+
   it('renders nothing without circles', () => {
     renderWithProviders(<CheckinCard circles={[]} />);
     expect(document.getElementById('home-checkin-card')).toBeNull();

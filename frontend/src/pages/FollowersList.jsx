@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import { followUser, getFollowers, getFollowing, unfollowUser } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import useOptimisticAction from '../hooks/useOptimisticAction';
 import { showToast } from '../components/Toast';
 import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
@@ -19,6 +20,7 @@ export default function FollowersList() {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const runOptimistic = useOptimisticAction();
 
   const load = async (nextPage = 1) => {
     setLoading(true);
@@ -44,14 +46,17 @@ export default function FollowersList() {
 
   useEffect(() => { load(1); }, [id, mode, user?.id]);
 
-  const toggleFollow = async (person) => {
-    try {
-      if (person.is_following) await unfollowUser(person.id);
-      else await followUser(person.id);
-      setItems(current => current.map(item => item.id === person.id ? { ...item, is_following: !item.is_following } : item));
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
+  const toggleFollow = (person) => {
+    const next = !person.is_following;
+    runOptimistic({
+      apply: () => {
+        setItems(current => current.map(item => item.id === person.id ? { ...item, is_following: next } : item));
+        return () => setItems(current => current.map(item => item.id === person.id ? { ...item, is_following: !next } : item));
+      },
+      request: () => (next ? followUser(person.id) : unfollowUser(person.id)),
+      failureMessage: 'Could not update that follow',
+      dedupeKey: `follow-${person.id}`,
+    });
   };
 
   return (

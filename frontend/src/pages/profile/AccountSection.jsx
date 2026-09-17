@@ -1,6 +1,7 @@
 import Icon from '../../components/Icon';
 import VerifiedBadge from '../../components/VerifiedBadge';
 import PhoneInput from '../../components/PhoneInput';
+import CollapsibleList from '../../components/CollapsibleList';
 import { parsePhone } from '../../utils/phone';
 import { clickableDivProps } from '../../utils/a11y';
 
@@ -61,62 +62,74 @@ export default function AccountSection({
         </div>
       </div>
 
-      {/* Points History */}
+      {/* Points History — collapsed to 2 with a minimal expand arrow (WS4 of
+          docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md); the 5-item ceiling this
+          already had is what "Show more" reveals. */}
       {pointsHistory?.items?.length > 0 && (
         <div className="profile-section">
           <div className="profile-section-title">{t('Recent Activity')}</div>
-          <div className="profile-card">
-            {pointsHistory.items.slice(0, 5).map((item, i) => (
-              <div
-                key={i}
-                className="confirmation-row"
-                style={i === Math.min(4, pointsHistory.items.length - 1) ? { borderBottom: 'none' } : {}}
-              >
-                <div>
-                  <span className="inline-icon-text" style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>
-                    {item.action === 'checkin' ? <><Icon name="check" size={13} /> Check-in</> : item.action === 'decay' ? <><Icon name="chart" size={13} /> Decay</> : item.action}
-                  </span>
-                  {item.community_name && (
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginLeft: 8 }}>
-                      {item.community_name}
+          <div className="profile-card" id="recent-activity-list">
+            <CollapsibleList
+              items={pointsHistory.items.slice(0, 5)}
+              keyFn={(_, i) => i}
+              renderItem={(item, i) => (
+                <div
+                  className="confirmation-row"
+                  style={i === Math.min(4, pointsHistory.items.length - 1) ? { borderBottom: 'none' } : {}}
+                >
+                  <div>
+                    <span className="inline-icon-text" style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                      {item.action === 'checkin' ? <><Icon name="check" size={13} /> Check-in</>
+                        : item.action === 'decay' ? <><Icon name="chart" size={13} /> Decay</>
+                        : item.action === 'profile_photo' ? <><Icon name="camera" size={13} /> Profile photo</>
+                        : item.action}
                     </span>
-                  )}
+                    {item.community_name && (
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginLeft: 8 }}>
+                        {item.community_name}
+                      </span>
+                    )}
+                  </div>
+                  <span style={{
+                    fontWeight: 700,
+                    color: item.points > 0 ? 'var(--accent)' : 'var(--danger)',
+                    fontSize: '0.88rem'
+                  }}>
+                    {item.points > 0 ? `+${item.points}` : item.points}
+                  </span>
                 </div>
-                <span style={{
-                  fontWeight: 700,
-                  color: item.points > 0 ? 'var(--accent)' : 'var(--danger)',
-                  fontSize: '0.88rem'
-                }}>
-                  {item.points > 0 ? `+${item.points}` : item.points}
-                </span>
-              </div>
-            ))}
+              )}
+            />
           </div>
         </div>
       )}
 
       {/* Joined Circles — the strongest re-entry hook on this screen, so it
-          sits with the other "what you're part of" content. */}
+          sits with the other "what you're part of" content. Also collapsed
+          to 2 with an expand arrow (WS4). */}
       {joinedCommunities.length > 0 && (
         <div className="profile-section">
           <div className="profile-section-title">{t('Joined Circles')}</div>
-          <div className="flex-col gap-8">
-            {joinedCommunities.map(c => (
-              <div
-                key={c.id}
-                className="profile-card"
-                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
-                aria-label={c.name}
-                {...clickableDivProps(() => navigate(`/community/${c.id}`))}
-              >
-                <Icon name="leaf" size={20} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>{c.name}</div>
-                  <div className="inline-icon-text" style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}><Icon name="users" size={12} /> {c.member_count}</div>
+          <div className="flex-col gap-8" id="joined-circles-list">
+            <CollapsibleList
+              items={joinedCommunities}
+              keyFn={c => c.id}
+              renderItem={c => (
+                <div
+                  className="profile-card"
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
+                  aria-label={c.name}
+                  {...clickableDivProps(() => navigate(`/community/${c.id}`))}
+                >
+                  <Icon name="leaf" size={20} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>{c.name}</div>
+                    <div className="inline-icon-text" style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}><Icon name="users" size={12} /> {c.member_count}</div>
+                  </div>
+                  <Icon name="chevron-right" size={16} className="text-tertiary" style={{ color: 'var(--text-tertiary)' }} />
                 </div>
-                <Icon name="chevron-right" size={16} className="text-tertiary" style={{ color: 'var(--text-tertiary)' }} />
-              </div>
-            ))}
+              )}
+            />
           </div>
         </div>
       )}

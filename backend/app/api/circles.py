@@ -12,11 +12,12 @@ from app.models.user import User
 from app.crud.circle import (
     create_circle, join_circle, get_circles, get_circle_leaderboard,
     join_circle_by_code, get_circle_social_proof, get_circle_detail,
-    set_circle_banner,
+    set_circle_banner, leave_circle, delete_circle,
 )
 from app.crud.circle_story import (
-    create_story, delete_story, get_circle_stories, get_story_rail, mark_story_viewed,
+    delete_story, get_circle_stories, mark_story_viewed,
 )
+from app.crud.story import get_story_rail as get_public_story_rail
 from app.crud.circle_subscription import (
     apply_for_paid_circle, creator_review_subscription, get_circle_revenue,
     get_pending_subscriptions, get_user_active_subscription, subscribe_to_circle,
@@ -89,6 +90,16 @@ def api_join_circle(circle_id: str, join_data: CircleJoin = None, user: User = D
         "id": str(circle.id), "name": circle.name, "join_code": circle.join_code,
         "message": "Joined circle successfully",
     }
+
+@router.post("/{circle_id}/leave")
+def api_leave_circle(circle_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return leave_circle(db, UUID(circle_id), user.id)
+
+
+@router.delete("/{circle_id}")
+def api_delete_circle(circle_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return delete_circle(db, UUID(circle_id), user.id)
+
 
 @router.get("/{circle_id}/leaderboard")
 def api_get_leaderboard(circle_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -222,36 +233,34 @@ def api_circle_social_proof(user: User = Depends(get_current_user), db: Session 
 
 @router.get("/stories/feed")
 def api_story_rail(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """The For You rail — active stories across every circle the user is in,
-    grouped by author, unseen first."""
-    return {"groups": get_story_rail(db, user.id)}
+    """Deprecated alias for GET /api/stories/feed — kept for one release so a
+    frontend build that lands ahead of this backend's deploy doesn't 404
+    (WS1 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md replaced circle-scoped
+    stories with public, user-level ones; see app/api/stories.py)."""
+    return {"groups": get_public_story_rail(db, user.id)}
 
 
 @router.get("/{circle_id}/stories")
 def api_circle_stories(
     circle_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db),
 ):
+    """Deprecated — reads whatever legacy circle_stories rows still exist
+    (nothing writes new ones; see api_create_story below)."""
     try:
         return {"stories": get_circle_stories(db, circle_id, user.id)}
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
 
-@router.post("/{circle_id}/stories", status_code=201)
-def api_create_story(
-    circle_id: UUID, body: StoryCreate,
-    user: User = Depends(get_current_user), db: Session = Depends(get_db),
-):
-    try:
-        story = create_story(db, circle_id, user.id, body.image_url, body.image_public_id)
-        return {"id": str(story.id), "image_url": story.image_url,
-                "created_at": story.created_at, "expires_at": story.expires_at}
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc))
-    except ValueError as exc:
-        raise HTTPException(status_code=429, detail=str(exc))
+@router.post("/{circle_id}/stories", status_code=410)
+def api_create_story(circle_id: UUID, body: StoryCreate):
+    """Stories are public and user-level now — post to POST /api/stories
+    instead (WS1). Kept as a 410, not removed outright, so an old cached
+    frontend build gets a clear error instead of a raw 404."""
+    raise HTTPException(
+        status_code=410,
+        detail="Stories moved — post to /api/stories instead of a circle.",
+    )
 
 
 @router.post("/stories/{story_id}/view")

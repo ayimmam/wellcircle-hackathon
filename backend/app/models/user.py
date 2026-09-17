@@ -99,6 +99,12 @@ class User(Base):
     strava_token_expires_at = Column(DateTime(timezone=True), nullable=True)
     strava_visible_stats = Column(JSONB, nullable=True)
 
+    # --- Custom avatar (WS9 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md) —
+    # once true, no login flow (Telegram/Google/widget) may overwrite
+    # photo_url with the provider's photo any more.
+    photo_is_custom = Column(Boolean, nullable=False, default=False)
+    photo_public_id = Column(String(255), nullable=True)
+
     # --- Timestamps ---
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),

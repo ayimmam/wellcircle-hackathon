@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getPosts, createPost, reactToPost, commentOnPost, getCircleLeaderboard, getLeaderboard } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import useOptimisticAction from '../hooks/useOptimisticAction';
 import { showToast } from './Toast';
 import Icon from './Icon';
 import SmartImage from './SmartImage';
@@ -14,7 +15,8 @@ const ACTIVITY_TYPES = ['run', 'walk', 'ride', 'yoga', 'gym', 'swim'];
 
 export default function PostFeed({ communityId, circleId, initialDraft, onDraftConsumed }) {
   const navigate = useNavigate();
-  const { refreshUser } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const runOptimistic = useOptimisticAction();
   const [posts, setPosts] = useState([]);
   const [newPostContent, setNewPostContent] = useState(initialDraft || '');
   const [loading, setLoading] = useState(true);
@@ -38,6 +40,12 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
   const [members, setMembers] = useState([]);
   const [mention, setMention] = useState(null); // { start, query } | null
   const composerRef = useRef(null);
+  // A plain counter, not Date.now()/Math.random() — those read as impure to
+  // the react-hooks/purity lint rule even from inside an event handler, and
+  // a counter is just as good for a value that only needs to be unique
+  // within this mounted instance until the server's real id arrives.
+  const tempIdRef = useRef(0);
+  const nextTempId = () => `temp-${++tempIdRef.current}`;
   const membersByHandle = buildMembersByHandle(members);
   const mentionSuggestions = mention
     ? members.filter(m => {
@@ -117,6 +125,9 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
       });
       resetComposer();
       loadPosts();
+      // A circle post earns points too now (WS2, same daily cap as
+      // standalone posts) — pick up the new balance.
+      refreshUser?.();
       showToast('Posted successfully!', 'success');
     } catch (err) {
       showToast('Error posting', 'error');
@@ -125,30 +136,79 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
     }
   };
 
-  const handleComment = async (postId) => {
-    if (!commentContent.trim()) return;
-    try {
-      await commentOnPost(postId, commentContent);
-      setCommentContent('');
-      setCommentingOnId(null);
-      loadPosts();
-      showToast('Comment added!', 'success');
-    } catch (err) {
-      showToast('Error commenting', 'error');
-    }
+  // Optimistic comment/reply (WS7): everything needed to render a comment
+  // (author, text, timestamp) is already known client-side the moment it's
+  // typed — the server only adds a real id, which a temp id stands in for
+  // until the response lands. No loadPosts() round trip needed on success;
+  // failure drops the optimistic row and says so once.
+  const handleComment = (postId) => {
+    const content = commentContent.trim();
+    if (!content) return;
+    const tempId = nextTempId();
+    const optimisticComment = {
+      id: tempId,
+      content,
+      user: { id: user?.id, name: user?.name, photo_url: user?.photo_url },
+      created_at: new Date().toISOString(),
+      replies: [],
+    };
+    setCommentContent('');
+    setCommentingOnId(null);
+
+    runOptimistic({
+      apply: () => {
+        setPosts(prev => prev.map(p => p.id === postId
+          ? { ...p, comments: [...(p.comments || []), optimisticComment] }
+          : p));
+        return () => setPosts(prev => prev.map(p => p.id === postId
+          ? { ...p, comments: (p.comments || []).filter(c => c.id !== tempId) }
+          : p));
+      },
+      request: () => commentOnPost(postId, content),
+      reconcile: (res) => {
+        setPosts(prev => prev.map(p => p.id === postId
+          ? { ...p, comments: (p.comments || []).map(c => c.id === tempId ? { ...c, id: res?.id || c.id } : c) }
+          : p));
+      },
+      failureMessage: 'Could not post that comment',
+    });
   };
 
-  const handleReply = async (postId, parentCommentId) => {
-    if (!replyContent.trim()) return;
-    try {
-      await commentOnPost(postId, replyContent, parentCommentId);
-      setReplyContent('');
-      setReplyingToId(null);
-      loadPosts();
-      showToast('Reply added!', 'success');
-    } catch (err) {
-      showToast('Error replying', 'error');
-    }
+  const handleReply = (postId, parentCommentId) => {
+    const content = replyContent.trim();
+    if (!content) return;
+    const tempId = nextTempId();
+    const optimisticReply = {
+      id: tempId,
+      content,
+      user: { id: user?.id, name: user?.name, photo_url: user?.photo_url },
+      created_at: new Date().toISOString(),
+      replies: [],
+    };
+    setReplyContent('');
+    setReplyingToId(null);
+
+    const addReply = (comments) => comments.map(c => c.id === parentCommentId
+      ? { ...c, replies: [...(c.replies || []), optimisticReply] }
+      : c);
+    const removeReply = (comments) => comments.map(c => c.id === parentCommentId
+      ? { ...c, replies: (c.replies || []).filter(r => r.id !== tempId) }
+      : c);
+    const swapReplyId = (comments, realId) => comments.map(c => c.id === parentCommentId
+      ? { ...c, replies: (c.replies || []).map(r => r.id === tempId ? { ...r, id: realId || r.id } : r) }
+      : c);
+
+    runOptimistic({
+      apply: () => {
+        setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: addReply(p.comments || []) } : p));
+        return () => setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: removeReply(p.comments || []) } : p));
+      },
+      request: () => commentOnPost(postId, content, parentCommentId),
+      reconcile: (res) => {
+        setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: swapReplyId(p.comments || [], res?.id) } : p));
+      },
+      failureMessage: 'Could not post that reply',
+    });
   };
 
   const handleReact = async (postId, emoji, points) => {

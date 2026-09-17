@@ -275,6 +275,73 @@ def test_all():
         assert lite_queries < full_queries, (lite_queries, full_queries)
         print(f"   ✅ posts only, cursor matches, {lite_queries} queries vs {full_queries}")
 
+        # === 9. WS3 — image-led ordering within the posts and events blocks ===
+        print("\n9. WS3 — photo posts and covered events lead their block")
+        photo_owner = create_user_from_bot(db, telegram_id=900100102, telegram_handle="photo_owner")
+        text_post_a = create_post(db, user_id=photo_owner.id, community_id=community.id, content="Text A")
+        photo_post_a = create_post(db, user_id=photo_owner.id, community_id=community.id, content="Photo A", photo_url="https://x/a.jpg")
+        text_post_b = create_post(db, user_id=photo_owner.id, community_id=community.id, content="Text B")
+        photo_post_b = create_post(db, user_id=photo_owner.id, community_id=community.id, content="Photo B", photo_url="https://x/b.jpg")
+
+        feed4 = build_for_you_feed(db, limit=4)
+        page_post_items = [i for i in feed4["items"] if i["type"] == "post"]
+        page_post_ids = [i["id"] for i in page_post_items]
+        photo_ids = {photo_post_a.id, photo_post_b.id}
+        first_two = set(page_post_ids[:2])
+        assert first_two == photo_ids, (page_post_ids, photo_ids)
+        # Newest-first is preserved within each group.
+        assert page_post_ids.index(photo_post_b.id) < page_post_ids.index(photo_post_a.id)
+        assert page_post_ids.index(text_post_b.id) < page_post_ids.index(text_post_a.id)
+        print("   ✅ photo posts lead the page, newest-first within each group")
+
+        # An event with no provider cover sorts below one that has a cover.
+        covered_provider, _ = create_provider(
+            db, name="Covered Studio", category="yoga",
+            description="Has a cover photo", location_text="Bole",
+            price_range="ETB 100-500", rating=4.5,
+            services=[{"name": "Class", "price": 100, "duration": "1h"}],
+            is_coming_soon=False,
+        )
+        covered_provider.cover_photo_url = "https://x/cover.jpg"
+        db.commit()
+        no_cover_event = ProviderEvent(
+            provider_id=coming_soon_provider.id, service_name="No Cover Event",
+            starts_at=days_from_now(5), ends_at=days_from_now(5) + timedelta(hours=1),
+            capacity=10, spots_remaining=10, price_etb=0, is_boosted=True,
+        )
+        covered_event = ProviderEvent(
+            provider_id=covered_provider.id, service_name="Covered Event",
+            starts_at=days_from_now(6), ends_at=days_from_now(6) + timedelta(hours=1),
+            capacity=10, spots_remaining=10, price_etb=0, is_boosted=True,
+        )
+        db.add_all([no_cover_event, covered_event])
+        db.commit()
+
+        feed5 = build_for_you_feed(db, limit=4)
+        event_item_ids = [i["id"] for i in feed5["items"] if i["type"] == "event"]
+        assert event_item_ids.index(str(no_cover_event.id)) > event_item_ids.index(str(covered_event.id))
+        print("   ✅ an event without a cover sorts below one that has a cover")
+
+        # Page 2 is partitioned independently and the cursor is unchanged.
+        page1 = build_for_you_feed(db, limit=4)
+        cursor = page1["next_before"]
+        page2 = build_for_you_feed(db, limit=4, before=cursor)
+        page2_post_items = [i for i in page2["items"] if i["type"] == "post"]
+        page2_photo_first = [i["id"] for i in page2_post_items if i["post"].get("photo_url")]
+        page2_text_first = [i["id"] for i in page2_post_items if not i["post"].get("photo_url")]
+        page2_ids = [i["id"] for i in page2_post_items]
+        assert page2_ids == page2_photo_first + page2_text_first
+        assert cursor is not None
+        print("   ✅ page 2 partitioned independently, cursor unaffected")
+
+        # The lite (text-only) payload carries the same partition.
+        lite2 = asyncio.run(home_lite(user=newcomer, db=db))
+        lite2_ids = [i["id"] for i in lite2["feed"]["items"]]
+        full2 = build_for_you_feed(db, limit=10)
+        full2_post_ids = [i["id"] for i in full2["items"] if i["type"] == "post"]
+        assert lite2_ids == full2_post_ids
+        print("   ✅ lite payload matches the full payload's post partition")
+
         print("\n" + "=" * 50)
         print("  ALL FOR YOU FEED TESTS PASSED ✅")
         print("=" * 50)

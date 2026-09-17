@@ -2160,6 +2160,67 @@ docs/HANDOFF.md
 
 ---
 
+#### WS3 — For You feed prioritizes items with images
+
+The feed used to open with **text-only** posts (the old "instant-open"
+optimization) — the opposite of what the audit asked for. Both the events
+block and the posts block now lead with items that have an image.
+
+- **Backend** — `feed_service.py` gained `partition_by_image()`: a stable
+  partition (image items first, each group keeping its own order), applied
+  inside `_order_feed()` to `event_items` and `post_items` separately. The
+  provider/service/past-event block is untouched — it's the tail and
+  already image-led. The `text_only` (`home/lite`) branch calls the same
+  partition on its post stream, so a client paginating off the lite payload
+  never sees a reshuffle once the full payload replaces it. `has_image`:
+  a post's `photo_url`; an event/past-event's `provider.cover_photo_url`.
+- **Frontend** — `ForYouScreen.jsx`'s pre-settle ordering (`orderedFirstPage`)
+  replaced its old "instant-first" tiering with the identical media-first
+  partition, extracted into a shared `utils/feedOrdering.js`
+  (`partitionByImage`, `postHasImage`, `eventHasImage`) so the pre-settle
+  paint and the settled server order can never drift apart — the whole
+  point of a partition this session already ran into once with WS2's
+  optimistic UI (a visible reshuffle reads as a bug even when the data is
+  correct). `data/mock.js`'s feed builder calls the same shared function on
+  its event and post pools, per the Phase 20 mock-parity rule.
+- `SmartImage`'s `fetchPriority="high"` on the first item now correctly
+  lands on an image most of the time, instead of a text card.
+
+#### Verification
+- Backend: `test_for_you_feed.py` (extended, section 9) — photo posts lead
+  a page newest-first-within-group; an event without a cover sorts below
+  one with a cover; page 2 is partitioned independently with the cursor
+  unaffected; the lite payload's partition matches the full payload's.
+  Full suite: `pytest app/tests -q` → **25/25 passing**.
+- Frontend: `npm test` → **343/343 passing** across 76 files (2 new:
+  `feedOrdering.test.js` 5/5 for the pure partition function; a new case in
+  `ForYouScreen.test.jsx` asserting the first rendered item has an image
+  both before and after the bootstrap settles). `npm run build` clean.
+  `npm run lint` → 0 errors, 66 warnings (baseline, unchanged).
+- `docs/API_CONTRACT.md` updated: the For You feed section now documents
+  the per-page image partition within the events and posts sections.
+
+#### Known Gaps / Next Steps
+- The partition is per-page, not per-feed (per the plan's explicit
+  trade-off) — a user who scrolls past the first page can still see a
+  text-only post above an image one on a later page if that page's own mix
+  works out that way.
+
+#### Files Changed / Added (Phase 23, WS3)
+```
+backend/app/services/feed_service.py
+backend/app/tests/test_for_you_feed.py
+frontend/src/utils/feedOrdering.js   (new)
+frontend/src/pages/ForYouScreen.jsx
+frontend/src/data/mock.js
+frontend/src/test/feedOrdering.test.js   (new)
+frontend/src/test/ForYouScreen.test.jsx
+docs/API_CONTRACT.md
+docs/HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
 
 

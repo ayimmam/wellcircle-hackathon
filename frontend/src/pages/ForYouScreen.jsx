@@ -25,6 +25,7 @@ import StoryRail from '../components/stories/StoryRail';
 import { showToast } from '../components/Toast';
 import { useTranslation } from 'react-i18next';
 import { daysSinceJoin } from '../utils/milestones';
+import { partitionByImage, postHasImage, eventHasImage } from '../utils/feedOrdering';
 
 // Bumping the suffix (v1 -> v2) would re-show the card to everyone once —
 // only do that intentionally.
@@ -318,11 +319,12 @@ export default function ForYouScreen() {
     setLite(markCheckedIn(id));
   };
 
-  // Instant-open readiness ranking (Phase 2): until the revalidated bootstrap
-  // lands — on the cached first paint, and through the lite phase — "instant"
-  // items (no image needed to read) render above "media" items. Then the feed
-  // settles into server order, with no animation on the swap: a visible
-  // reflow is worse than the delay.
+  // Image-led readiness ranking (WS3 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md):
+  // until the revalidated bootstrap lands — on the cached first paint, and
+  // through the lite phase — items with an image render above text-only ones,
+  // matching the order the settled server response will already be in. Then
+  // the feed settles into server order, with no animation on the swap: a
+  // visible reflow is worse than the delay.
   const [settled, setSettled] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -337,17 +339,14 @@ export default function ForYouScreen() {
   const firstPageItems = feed?.items || [];
   const orderedFirstPage = useMemo(() => {
     if (settled) return firstPageItems;
-    // The server leads the feed with upcoming events (see feed_service.py).
-    // Those are `media` items, so an unqualified instant-first sort would
-    // drop them below the posts on the cached paint and then visibly shuffle
-    // them back on settle. Pin the event block, tier only what follows it.
+    // The server leads the feed with upcoming events (see feed_service.py),
+    // itself image-partitioned. Partition the event lead and the post block
+    // that follows it the same way, so nothing visibly reshuffles on settle.
     const leadEnd = firstPageItems.findIndex(i => i.type !== 'event');
-    if (leadEnd === -1) return firstPageItems;
+    if (leadEnd === -1) return partitionByImage(firstPageItems, eventHasImage);
     const lead = firstPageItems.slice(0, leadEnd);
     const rest = firstPageItems.slice(leadEnd);
-    const instant = rest.filter(i => i.render_cost === 'instant');
-    const media = rest.filter(i => i.render_cost !== 'instant');
-    return [...lead, ...instant, ...media];
+    return [...partitionByImage(lead, eventHasImage), ...partitionByImage(rest, postHasImage)];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstPageItems, settled]);
 

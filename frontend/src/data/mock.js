@@ -3,6 +3,7 @@
  * Matches API_CONTRACT.md response shapes exactly.
  * Replace with real API calls when backend is ready.
  */
+import { partitionByImage, postHasImage, eventHasImage } from '../utils/feedOrdering';
 
 // ─── Demo Users ─────────────────────────────────────
 export const MOCK_USER = {
@@ -1266,12 +1267,13 @@ function buildMockForYouFeed() {
   const pastEventItems = MOCK_PAST_EVENTS.map(toEventItem);
 
   // Section order mirrors backend/app/services/feed_service.py::_order_feed —
-  // upcoming events, then member posts, then provider content. Mock mode is
-  // what the tests and offline dev render against, so a different order here
-  // would quietly hide an ordering regression in the real feed.
+  // upcoming events, then member posts, then provider content, each of the
+  // first two image-partitioned (WS3). Mock mode is what the tests and
+  // offline dev render against, so a different order here would quietly
+  // hide an ordering regression in the real feed.
   const items = [
-    ...eventItems,
-    ...postItems,
+    ...partitionByImage(eventItems, eventHasImage),
+    ...partitionByImage(postItems, postHasImage),
     ...serviceItems,
     ...providerItems,
     ...pastEventItems,

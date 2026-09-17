@@ -454,6 +454,17 @@ The feed is laid out in three sections:
 2. **User content** — member posts, newest-first. This is the paginated part.
 3. **Provider content** — services, then providers, then `past_event` recaps.
 
+Within sections 1 and 2, items carrying an image lead the section (WS3 of
+`docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md`): an event with a
+`provider.cover_photo_url` sorts above one without, and a post with
+`photo_url` sorts above a text-only one — a **stable partition**, so each
+group keeps its own newest-first order. This applies per page, not to the
+whole feed, since the pagination cursor comes from the underlying posts
+query. Section 3 keeps its existing order; it is the tail and already
+image-led. `GET /api/home/lite`'s text-only post stream carries the same
+partition, so a client paginating off it sees no reshuffle once the full
+payload replaces it.
+
 Sections 1 and 3 bind to the ends of the **whole feed, not of each page**:
 
 | Page | Carries |

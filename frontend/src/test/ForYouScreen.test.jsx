@@ -63,6 +63,27 @@ describe('ForYouScreen — feed item types', () => {
     // shown once the feed has content.
     await waitFor(() => expect(document.getElementById('for-you-feed')).toBeInTheDocument());
   });
+
+  // WS3 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md — the feed leads with
+  // an image, both on the pre-settle ordering and the settled server order.
+  it('leads with an item that has an image, before and after settle', async () => {
+    renderForYou();
+    await waitFor(() => expect(document.getElementById('for-you-feed')).toBeInTheDocument());
+
+    const byDomId = new Map(MOCK_FOR_YOU_FEED.map(i => [`feed-${i.type}-${i.id}`, i]));
+    const firstItemHasImage = () => {
+      const el = document.getElementById('for-you-feed').firstElementChild;
+      const found = byDomId.get(el?.id);
+      if (!found) return false;
+      if (found.type === 'post') return Boolean(found.post.photo_url);
+      if (found.type === 'event' || found.type === 'past_event') return Boolean(found.provider?.cover_photo_url);
+      return true; // service/provider items are already image-led
+    };
+
+    expect(firstItemHasImage()).toBe(true);
+    // Let the bootstrap settle into server order, and assert it still holds.
+    await waitFor(() => expect(firstItemHasImage()).toBe(true));
+  });
 });
 
 describe('FeedServiceCard / FeedProviderCard — coming-soon gating', () => {

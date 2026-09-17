@@ -203,6 +203,8 @@ export default function AskWellCircle() {
             zIndex: 100
           }}
           className="fab-ask"
+          id="ask-wellcircle-fab"
+          aria-label="Ask WellCircle"
         >
           <Icon name="message-circle" size={24} />
         </button>

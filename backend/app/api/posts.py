@@ -10,13 +10,17 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.crud.post import create_post, get_posts, react_to_post
+from app.services.points import POINTS_POST, POST_POINTS_DAILY_CAP, TXN_POST, award_capped
 
 router = APIRouter()
 
 class PostCreate(BaseModel):
     community_id: Optional[str] = None
     circle_id: Optional[str] = None
-    content: str
+    # A standalone post (WS2 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md)
+    # can be photo-only — content defaults empty and the handler requires
+    # at least one of content/photo_url.
+    content: str = ""
     # Strava-style activity stats — all optional, a plain text post omits them.
     activity_type: Optional[str] = None
     distance_km: Optional[float] = None
@@ -29,6 +33,8 @@ class ReactionCreate(BaseModel):
 
 @router.post("")
 def api_create_post(post_in: PostCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not post_in.content.strip() and not post_in.photo_url:
+        raise HTTPException(status_code=422, detail="A post needs text or a photo")
     try:
         if post_in.circle_id:
             from app.crud.circle_subscription import has_circle_access
@@ -45,7 +51,18 @@ def api_create_post(post_in: PostCreate, user: User = Depends(get_current_user),
             duration_min=post_in.duration_min,
             photo_url=post_in.photo_url,
         )
-        return {"id": post.id, "message": "Post created successfully"}
+        # Every non-system post earns points, standalone or in a circle,
+        # capped per UTC day (WS2) — posting and deleting can't farm it,
+        # since award_capped() counts ledger rows, not live posts.
+        points_awarded = award_capped(db, user, TXN_POST, POINTS_POST, POST_POINTS_DAILY_CAP, reference_id=post.id)
+        db.commit()
+        db.refresh(user)
+        return {
+            "id": post.id,
+            "message": "Post created successfully",
+            "points_awarded": points_awarded,
+            "points_balance": user.points_balance,
+        }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

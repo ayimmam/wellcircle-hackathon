@@ -102,6 +102,11 @@ def _event_item(e: dict, item_type: str) -> dict:
             "name": e["provider_name"],
             "category": e["provider_category"],
             "cover_photo_url": e["provider_cover_photo_url"],
+            # Same key as _provider_brief()'s service/provider items (WS5 of
+            # docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md) — gates the Book
+            # button on FeedEventBanner the same way it already does on
+            # FeedServiceCard/FeedProviderCard.
+            "is_coming_soon": bool(e.get("provider_is_coming_soon", False)),
         },
     }
 
@@ -122,6 +127,23 @@ def _build_past_event_items(db: Session) -> list:
     return [_event_item(e, "past_event") for e in events]
 
 
+def _post_has_image(item: dict) -> bool:
+    return bool(item.get("post", {}).get("photo_url"))
+
+
+def _event_has_image(item: dict) -> bool:
+    return bool(item.get("provider", {}).get("cover_photo_url"))
+
+
+def partition_by_image(items: list, has_image) -> list:
+    """Stable partition: items with an image first, then the rest, each
+    keeping its existing relative order (WS3 of
+    docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md — image-led feed)."""
+    with_image = [i for i in items if has_image(i)]
+    without_image = [i for i in items if not has_image(i)]
+    return with_image + without_image
+
+
 def _order_feed(
     post_items: list,
     event_items: list,
@@ -140,13 +162,17 @@ def _order_feed(
     them; provider content belongs to the bottom, so only the last page does.
     Without those guards every scroll page would repeat the same event cards
     and drop provider cards into the middle of the post stream.
+
+    Within the events block and the posts block, items with an image are
+    partitioned to the front (stable, per-page) — the provider/service/
+    past-event block keeps its existing order since it is already image-led.
     """
     result = []
 
     if include_events:
-        result.extend(event_items)
+        result.extend(partition_by_image(event_items, _event_has_image))
 
-    result.extend(post_items)
+    result.extend(partition_by_image(post_items, _post_has_image))
 
     if include_provider_content:
         result.extend(service_items)
@@ -191,7 +217,8 @@ def build_for_you_feed(
     next_before = posts[-1]["created_at"] if len(posts) == limit else None
 
     if text_only:
-        return {"items": post_items, "next_before": next_before, "partial": True}
+        ordered = partition_by_image(post_items, _post_has_image)
+        return {"items": ordered, "next_before": next_before, "partial": True}
 
     providers = section(db, "feed_providers", lambda: _feed_providers(db), [])
     event_items = section(db, "feed_events", lambda: _build_event_items(db, now), [])

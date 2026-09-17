@@ -6,8 +6,17 @@ let activeTimeout = null;
 let globalSetToast = null;
 let currentToastRef = { message: '', count: 1, variant: '' };
 
-/** variant: 'success' | 'error' | undefined (neutral — no icon) */
+/** variant: 'success' | 'error' | undefined (neutral — no icon)
+ *
+ * A falsy message is a no-op rather than an empty bubble. This is what
+ * quietly absorbs network-noise errors network-wide: client.js gives a
+ * timeout/offline error an empty `.message`, so every existing
+ * `showToast(err.message || 'fallback', ...)` call site either shows its
+ * own short, actionable fallback (a user-initiated action) or shows nothing
+ * (a bare `showToast(err.message, ...)` with no fallback — always a
+ * background load) — without editing any of those call sites individually. */
 export function showToast(message, variant) {
+  if (!message) return;
   if (variant === 'success') haptic('notification.success');
   else if (variant === 'error') haptic('notification.error');
 

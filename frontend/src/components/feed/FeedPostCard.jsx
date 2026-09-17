@@ -28,8 +28,18 @@ function activityLabel(post) {
  * comment threads (those live on the destination circle/community screen).
  * Tapping the card body navigates to the post's source; tapping the
  * avatar/name goes to the author's profile, matching PostFeed.jsx.
+ *
+ * `post.source` is `null` for a standalone post (WS2 of
+ * docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md) — the author header above
+ * already renders regardless of source, so no special-casing was needed
+ * there; only the "in {circle/community}" footer is source-gated.
+ *
+ * `item.pending`/`item.failed` (also WS2) mark a card the "+" composer
+ * inserted optimistically, before/if the request settles — see
+ * ForYouScreen.jsx's post-patch functions. `onRetry`/`onDiscard` only apply
+ * to a failed card.
  */
-export default function FeedPostCard({ item, priority = false }) {
+export default function FeedPostCard({ item, priority = false, onRetry, onDiscard }) {
   const navigate = useNavigate();
   const post = item.post;
   const [reactions, setReactions] = useState(post.reactions || {});
@@ -45,7 +55,7 @@ export default function FeedPostCard({ item, priority = false }) {
 
   const handleQuickReact = async (e) => {
     e.stopPropagation();
-    if (reacting) return;
+    if (reacting || item.pending || item.failed) return;
     setReacting(true);
     const prev = reactions;
     setReactions(r => ({ ...r, '🔥': (r['🔥'] || 0) + 1 }));
@@ -59,7 +69,46 @@ export default function FeedPostCard({ item, priority = false }) {
   };
 
   return (
-    <div className="card mb-12 feed-post-card" id={`feed-post-${item.id}`}>
+    <div
+      className="card mb-12 feed-post-card"
+      id={`feed-post-${item.id}`}
+      style={item.pending ? { opacity: 0.7 } : undefined}
+    >
+      {(item.pending || item.failed) && (
+        <div
+          className="inline-icon-text text-xs"
+          style={{
+            padding: '8px 14px', gap: 8,
+            color: item.failed ? 'var(--danger)' : 'var(--text-secondary)',
+          }}
+        >
+          {item.pending ? (
+            <><span className="btn-spinner" aria-hidden="true" /> Posting…</>
+          ) : (
+            <>
+              <Icon name="x" size={13} /> Couldn't post
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ marginLeft: 'auto', padding: '2px 10px' }}
+                onClick={() => onRetry?.(item.id)}
+                id={`feed-post-retry-${item.id}`}
+              >
+                Retry
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ padding: '2px 10px' }}
+                onClick={() => onDiscard?.(item.id)}
+                id={`feed-post-discard-${item.id}`}
+              >
+                Discard
+              </button>
+            </>
+          )}
+        </div>
+      )}
       <div
         className="post-user-row"
         style={{ cursor: 'pointer', padding: '14px 14px 0' }}

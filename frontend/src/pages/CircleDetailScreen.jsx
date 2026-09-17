@@ -3,9 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import {
   applyForPaidCircle, getCircleRevenue, getCircleSubscriptionStatus, getCircle,
-  getCircleLeaderboard, getCircleStories, getPendingSubscriptions, joinCircle,
+  getCircleLeaderboard, getPendingSubscriptions, joinCircle,
   reviewSubscription, setCircleBanner, subscribeToCircle, uploadFile,
-  deleteStory, markStoryViewed,
+  leaveCircle, deleteCircle, removeCircleFromCache, restoreCircleToCache,
 } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import PostFeed from '../components/PostFeed';
@@ -16,8 +16,6 @@ import SmartImage from '../components/SmartImage';
 import { shareCircleInvite } from '../utils/circleInvite';
 import { clickableDivProps } from '../utils/a11y';
 import useDismissOnEscape from '../hooks/useDismissOnEscape';
-import StoryRail from '../components/stories/StoryRail';
-import StoryComposer from '../components/stories/StoryComposer';
 
 export default function CircleDetailScreen() {
   const { id } = useParams();
@@ -43,12 +41,18 @@ export default function CircleDetailScreen() {
   // one less blank-page moment for a brand-new member.
   const [justJoined, setJustJoined] = useState(false);
   const [notFound, setNotFound] = useState(false);
-  const [stories, setStories] = useState([]);
   const [bannerBusy, setBannerBusy] = useState(false);
   const bannerInputRef = useRef(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   useDismissOnEscape(() => setShowSubscribe(false), showSubscribe);
   useDismissOnEscape(() => setMonetizeOpen(false), monetizeOpen);
+  useDismissOnEscape(() => setMenuOpen(false), menuOpen);
+  useDismissOnEscape(() => setLeaveConfirmOpen(false), leaveConfirmOpen);
+  useDismissOnEscape(() => setDeleteConfirmOpen(false), deleteConfirmOpen);
 
   useEffect(() => {
     loadCircle();
@@ -73,42 +77,12 @@ export default function CircleDetailScreen() {
           const lb = await getCircleLeaderboard(id);
           setLeaderboard(lb.leaderboard || []);
         } catch { /* leaderboard is a bonus, not required for the page to work */ }
-        loadStories();
       }
     } catch (err) {
       if (err.status === 404) setNotFound(true);
       else console.error(err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Stories are member-only, so this is never called in preview mode. Failures
-  // are swallowed for the same reason the leaderboard's are: an empty rail is a
-  // better outcome than a screen that won't render.
-  const loadStories = async () => {
-    try {
-      const res = await getCircleStories(id);
-      setStories(res.stories || []);
-    } catch { /* non-fatal */ }
-  };
-
-  // The circle rail groups by author too, so one member posting three photos
-  // is one ring — same shape the For You rail renders.
-  const storyGroups = groupByAuthor(stories, user?.id);
-
-  const handleStoryViewed = (storyId) => {
-    setStories(current => current.map(s => s.id === storyId ? { ...s, seen: true } : s));
-    markStoryViewed(storyId).catch(() => {});
-  };
-
-  const handleStoryDeleted = async (storyId) => {
-    setStories(current => current.filter(s => s.id !== storyId));
-    try {
-      await deleteStory(storyId);
-    } catch (err) {
-      showToast(err.message || 'Could not delete that story', 'error');
-      loadStories();
     }
   };
 
@@ -132,6 +106,36 @@ export default function CircleDetailScreen() {
   // E1: invite via Telegram-native sharing (shared with the onboarding
   // circles step — see utils/circleInvite.js).
   const handleInvite = () => shareCircleInvite(circle, { source: 'circle_detail' });
+
+  // WS8 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md — optimistic (WS7):
+  // the circle drops out of the My Circles list and the screen navigates
+  // away before either request resolves; a failure restores the cache
+  // entry and toasts (the user is already gone, so a toast is the only way
+  // they'd see it).
+  const handleLeave = async () => {
+    setLeaveConfirmOpen(false);
+    const removed = removeCircleFromCache(id);
+    navigate('/community', { state: { tab: 'circles' } });
+    try {
+      await leaveCircle(id);
+    } catch (err) {
+      restoreCircleToCache(removed);
+      showToast(err.message || 'Could not leave the circle', 'error');
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleteConfirmOpen(false);
+    setDeleteConfirmText('');
+    const removed = removeCircleFromCache(id);
+    navigate('/community', { state: { tab: 'circles' } });
+    try {
+      await deleteCircle(id);
+    } catch (err) {
+      restoreCircleToCache(removed);
+      showToast(err.message || 'Could not delete the circle', 'error');
+    }
+  };
 
   const handleJoin = async () => {
     if (joining) return;
@@ -349,6 +353,47 @@ export default function CircleDetailScreen() {
           <Icon name="users" size={14} />
           <span style={{ color: 'var(--text-primary)' }}>{circle.member_count}</span>
         </div>
+        {joined && (
+          <div style={{ position: 'relative' }}>
+            <button
+              className="btn btn-icon btn-secondary"
+              onClick={() => setMenuOpen(o => !o)}
+              aria-label="Circle options"
+              id="circle-detail-menu-btn"
+            >
+              <Icon name="more-vertical" size={18} />
+            </button>
+            {menuOpen && (
+              <>
+                <div className="burger-overlay" style={{ background: 'transparent' }} onClick={() => setMenuOpen(false)} />
+                <div
+                  className="card"
+                  style={{ position: 'absolute', right: 0, top: '110%', zIndex: 210, minWidth: 180, padding: 6 }}
+                  id="circle-detail-menu"
+                >
+                  <button
+                    className="btn btn-secondary btn-block flex items-center gap-8"
+                    style={{ justifyContent: 'flex-start', border: 'none' }}
+                    onClick={() => { setMenuOpen(false); setLeaveConfirmOpen(true); }}
+                    id="circle-detail-leave-btn"
+                  >
+                    <Icon name="log-out" size={15} /> Leave circle
+                  </button>
+                  {isOwner && (
+                    <button
+                      className="btn btn-danger btn-block flex items-center gap-8"
+                      style={{ justifyContent: 'flex-start', border: 'none', background: 'transparent', color: 'var(--danger)' }}
+                      onClick={() => { setMenuOpen(false); setDeleteConfirmOpen(true); }}
+                      id="circle-detail-delete-btn"
+                    >
+                      <Icon name="trash" size={15} /> Delete circle
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Join / Joined + Invite — the inline row for the paid-subscribe flow;
@@ -371,29 +416,6 @@ export default function CircleDetailScreen() {
             </button>
           )}
         </div>
-      )}
-
-      {/* Stories — members only, and the composer only when this member can
-          actually post into the circle. */}
-      {joined && (
-        <>
-          <StoryRail
-            groups={storyGroups}
-            currentUser={user}
-            canAddStory
-            onAddStory={() => document.getElementById('story-composer-btn')?.click()}
-            onViewed={handleStoryViewed}
-            onDelete={handleStoryDeleted}
-          />
-          <div className="mb-16">
-            <StoryComposer
-              circleId={id}
-              onPosted={loadStories}
-              label={storyGroups.length ? 'Add to story' : 'Post the first story'}
-              className="btn-sm"
-            />
-          </div>
-        </>
       )}
 
       {subscription?.status && !joined && (
@@ -580,6 +602,58 @@ export default function CircleDetailScreen() {
         </div>
       )}
 
+      {leaveConfirmOpen && (
+        <div className="modal-overlay" onClick={() => setLeaveConfirmOpen(false)}>
+          <div className="modal-card" onClick={event => event.stopPropagation()} id="circle-leave-confirm">
+            <h2 className="card-title mb-8">Leave {circle.name}?</h2>
+            {isOwner ? (
+              <p className="text-sm text-secondary mb-16">
+                You're the owner. Leaving hands ownership to the member who's
+                been here the longest — unless you're the only one left, in
+                which case the circle is deleted.
+              </p>
+            ) : (
+              <p className="text-sm text-secondary mb-16">You can rejoin later with the invite code.</p>
+            )}
+            <div className="flex gap-8 mt-16">
+              <button className="btn btn-secondary" onClick={() => setLeaveConfirmOpen(false)}>Cancel</button>
+              <button className="btn btn-danger" onClick={handleLeave} id="circle-leave-confirm-btn">Leave circle</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirmOpen && (
+        <div className="modal-overlay" onClick={() => setDeleteConfirmOpen(false)}>
+          <div className="modal-card" onClick={event => event.stopPropagation()} id="circle-delete-confirm">
+            <h2 className="card-title mb-8">Delete {circle.name}?</h2>
+            <p className="text-sm text-secondary mb-12">
+              This can't be undone from here. Members lose access immediately.
+              Type <strong>{circle.name}</strong> to confirm.
+            </p>
+            <input
+              className="input"
+              value={deleteConfirmText}
+              onChange={event => setDeleteConfirmText(event.target.value)}
+              placeholder={circle.name}
+              aria-label="Type the circle name to confirm"
+              id="circle-delete-confirm-input"
+            />
+            <div className="flex gap-8 mt-16">
+              <button className="btn btn-secondary" onClick={() => { setDeleteConfirmOpen(false); setDeleteConfirmText(''); }}>Cancel</button>
+              <button
+                className="btn btn-danger"
+                disabled={deleteConfirmText !== circle.name}
+                onClick={handleDelete}
+                id="circle-delete-confirm-btn"
+              >
+                Delete circle
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {monetizeOpen && (
         <div className="modal-overlay" onClick={() => setMonetizeOpen(false)}>
           <div className="modal-card" onClick={event => event.stopPropagation()}>
@@ -595,39 +669,4 @@ export default function CircleDetailScreen() {
       )}
     </div>
   );
-}
-
-/**
- * Group a circle's flat story list by author, matching the For You rail's
- * shape and ordering: your own ring first, then anyone with something unseen,
- * then most recent. Kept local because this screen already has the flat list
- * and re-fetching the grouped rail for one circle would be a second request
- * for data it holds.
- */
-function groupByAuthor(stories, currentUserId) {
-  const groups = new Map();
-  for (const story of stories) {
-    if (!groups.has(story.user_id)) {
-      groups.set(story.user_id, {
-        user_id: story.user_id,
-        user_name: story.user_name,
-        user_photo_url: story.user_photo_url,
-        is_mine: story.user_id === currentUserId || Boolean(story.is_mine),
-        stories: [],
-      });
-    }
-    groups.get(story.user_id).stories.push(story);
-  }
-  const result = [...groups.values()];
-  for (const group of result) {
-    group.has_unseen = group.stories.some(s => !s.seen);
-    group.story_count = group.stories.length;
-    group.latest_at = group.stories[group.stories.length - 1].created_at;
-  }
-  result.sort((a, b) => (
-    (a.is_mine === b.is_mine ? 0 : a.is_mine ? -1 : 1)
-    || (a.has_unseen === b.has_unseen ? 0 : a.has_unseen ? -1 : 1)
-    || new Date(b.latest_at) - new Date(a.latest_at)
-  ));
-  return result;
 }

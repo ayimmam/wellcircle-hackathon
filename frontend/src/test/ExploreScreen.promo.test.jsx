@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
 import ExploreScreen from '../pages/ExploreScreen';
 import { renderWithProviders } from './renderWithProviders';
 import { MOCK_PROVIDERS } from '../data/mock';
@@ -20,6 +20,7 @@ describe('ExploreScreen promo surfacing (presale loop)', () => {
 
   it('renders the promo headline on the provider card', async () => {
     renderWithProviders(<ExploreScreen />, { route: '/explore' });
+    fireEvent.click(screen.getByRole('button', { name: 'Providers' })); // Explore now defaults to Events (WS4)
     expect(
       await screen.findByText(new RegExp(promoProvider.active_promotion.headline))
     ).toBeInTheDocument();
@@ -27,6 +28,7 @@ describe('ExploreScreen promo surfacing (presale loop)', () => {
 
   it('fires promo_view once per promo-bearing provider', async () => {
     renderWithProviders(<ExploreScreen />, { route: '/explore' });
+    fireEvent.click(screen.getByRole('button', { name: 'Providers' })); // Explore now defaults to Events (WS4)
     await waitFor(() =>
       expect(track).toHaveBeenCalledWith('promo_view', expect.objectContaining({
         provider_id: promoProvider.id,

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../api/client';
+import useOptimisticAction from '../hooks/useOptimisticAction';
 import Icon from '../components/Icon';
 import { useTranslation } from 'react-i18next';
 import { clickableDivProps } from '../utils/a11y';
@@ -12,6 +13,7 @@ export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const { t } = useTranslation();
+  const runOptimistic = useOptimisticAction();
 
   useEffect(() => {
     fetchNotifications();
@@ -28,29 +30,40 @@ export default function NotificationsScreen() {
     }
   };
 
-  const handleMarkRead = async (id, actionUrl) => {
-    try {
-      const notif = notifications.find(n => n.id === id);
-      if (!notif) return;
-      if (!notif.is_read) {
-        await markNotificationRead(id);
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-      }
-      if (actionUrl) {
-        navigate(actionUrl);
-      }
-    } catch (err) {
-      console.error(err);
+  // Optimistic (WS7): the row flips to read, and navigation fires,
+  // immediately — a notification tap shouldn't wait on the read receipt
+  // reaching the server before it takes you where it points.
+  const handleMarkRead = (id, actionUrl) => {
+    const notif = notifications.find(n => n.id === id);
+    if (notif && !notif.is_read) {
+      runOptimistic({
+        apply: () => {
+          setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+          return () => setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: false } : n));
+        },
+        request: () => markNotificationRead(id),
+        dedupeKey: `notif-read-${id}`,
+      });
+    }
+    if (actionUrl) {
+      navigate(actionUrl);
     }
   };
 
-  const handleMarkAllRead = async () => {
-    try {
-      await markAllNotificationsRead();
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    } catch (err) {
-      console.error(err);
-    }
+  const handleMarkAllRead = () => {
+    let previous;
+    runOptimistic({
+      apply: () => {
+        setNotifications(prev => {
+          previous = prev;
+          return prev.map(n => ({ ...n, is_read: true }));
+        });
+        return () => setNotifications(previous);
+      },
+      request: () => markAllNotificationsRead(),
+      failureMessage: 'Could not mark all as read',
+      dedupeKey: 'notif-read-all',
+    });
   };
 
   if (loading) return <div className="page" style={{ textAlign: 'center', padding: '20px' }}>{t('Loading…')}</div>;

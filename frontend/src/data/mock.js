@@ -3,6 +3,7 @@
  * Matches API_CONTRACT.md response shapes exactly.
  * Replace with real API calls when backend is ready.
  */
+import { partitionByImage, postHasImage, eventHasImage } from '../utils/feedOrdering';
 
 // ─── Demo Users ─────────────────────────────────────
 export const MOCK_USER = {
@@ -554,12 +555,12 @@ export const MOCK_CIRCLES = [
 const hoursAgo = (h) => new Date(Date.now() - h * 3600 * 1000).toISOString();
 const expiresFrom = (iso) => new Date(new Date(iso).getTime() + 72 * 3600 * 1000).toISOString();
 
+// Public, user-level (WS1 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md) —
+// no circle scoping, matching the real backend's stories table.
 const mockStory = (over) => {
   const created_at = over.created_at || hoursAgo(2);
   return {
     id: over.id,
-    circle_id: over.circle_id,
-    circle_name: over.circle_name,
     user_id: over.user_id,
     user_name: over.user_name,
     user_photo_url: over.user_photo_url,
@@ -574,21 +575,21 @@ const mockStory = (over) => {
 
 export const MOCK_STORIES = [
   mockStory({
-    id: 'st-0001', circle_id: '33333333-0000-0000-0000-000000000002', circle_name: 'Zen Seekers',
+    id: 'st-0001',
     user_id: '00000000-0000-0000-0000-000000000099', user_name: 'Hana Girma',
     user_photo_url: 'https://i.pravatar.cc/150?u=hana',
     image_url: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=960',
     created_at: hoursAgo(3),
   }),
   mockStory({
-    id: 'st-0002', circle_id: '33333333-0000-0000-0000-000000000002', circle_name: 'Zen Seekers',
+    id: 'st-0002',
     user_id: '00000000-0000-0000-0000-000000000099', user_name: 'Hana Girma',
     user_photo_url: 'https://i.pravatar.cc/150?u=hana',
     image_url: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=960',
     created_at: hoursAgo(1),
   }),
   mockStory({
-    id: 'st-0003', circle_id: '33333333-0000-0000-0000-000000000002', circle_name: 'Zen Seekers',
+    id: 'st-0003',
     user_id: '00000000-0000-0000-0000-000000000098', user_name: 'Dawit Bekele',
     user_photo_url: 'https://i.pravatar.cc/150?u=dawit',
     image_url: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=960',
@@ -1266,12 +1267,13 @@ function buildMockForYouFeed() {
   const pastEventItems = MOCK_PAST_EVENTS.map(toEventItem);
 
   // Section order mirrors backend/app/services/feed_service.py::_order_feed —
-  // upcoming events, then member posts, then provider content. Mock mode is
-  // what the tests and offline dev render against, so a different order here
-  // would quietly hide an ordering regression in the real feed.
+  // upcoming events, then member posts, then provider content, each of the
+  // first two image-partitioned (WS3). Mock mode is what the tests and
+  // offline dev render against, so a different order here would quietly
+  // hide an ordering regression in the real feed.
   const items = [
-    ...eventItems,
-    ...postItems,
+    ...partitionByImage(eventItems, eventHasImage),
+    ...partitionByImage(postItems, postHasImage),
     ...serviceItems,
     ...providerItems,
     ...pastEventItems,

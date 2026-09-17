@@ -13,7 +13,7 @@ vi.mock('../analytics', () => ({
 }));
 
 // The circle the mock user owns and has joined — the only one whose
-// member-gated rail and owner-only banner controls are reachable.
+// owner-only banner controls are reachable.
 const JOINED_CIRCLE = MOCK_CIRCLES[1];
 
 describe('For You — story rail', () => {
@@ -46,12 +46,23 @@ describe('For You — story rail', () => {
     await waitFor(() => expect(document.getElementById('story-viewer')).toBeInTheDocument());
     // Hana posted two of the three mock stories.
     expect(document.querySelectorAll('.story-progress-track')).toHaveLength(2);
-    expect(document.querySelector('.story-viewer-meta').textContent).toContain('Zen Seekers');
+    expect(document.querySelector('.story-viewer-meta').textContent).toContain('Hana Girma');
     expect(document.querySelector('.story-viewer-footer').textContent).toMatch(/Disappears in \d+[hd]/);
+  });
+
+  it('shows the "Your story" add tile so a story can be posted straight from Home', async () => {
+    renderWithProviders(
+      <Routes><Route path="/home" element={<ForYouScreen />} /></Routes>,
+      { route: '/home' }
+    );
+    // The mock user hasn't posted a story, so the add tile (not a "your
+    // story" ring) is what shows once auth resolves — stories are
+    // user-level now (WS1), not gated behind circle membership.
+    await waitFor(() => expect(document.getElementById('story-add-tile')).toBeInTheDocument());
   });
 });
 
-describe('Circle detail — banner and stories', () => {
+describe('Circle detail — banner', () => {
   function renderCircle(id) {
     return renderWithProviders(
       <Routes><Route path="/circle/:id" element={<CircleDetailScreen />} /></Routes>,
@@ -70,14 +81,6 @@ describe('Circle detail — banner and stories', () => {
     expect(edit.textContent).toContain('Change');
   });
 
-  it('offers the story composer to members', async () => {
-    renderCircle(JOINED_CIRCLE.id);
-
-    await waitFor(() => {
-      expect(document.getElementById('story-composer-btn')).toBeInTheDocument();
-    });
-  });
-
   it('hides the banner edit control on a circle the user does not own', async () => {
     // MOCK_CIRCLES[0] is owned by someone else and not joined.
     renderCircle(MOCK_CIRCLES[0].id);
@@ -86,7 +89,14 @@ describe('Circle detail — banner and stories', () => {
       expect(document.getElementById('circle-detail-screen')).toBeInTheDocument();
     });
     expect(document.getElementById('circle-banner-edit')).not.toBeInTheDocument();
-    // Non-members get no rail and no composer either.
+  });
+
+  it('no longer has a circle-scoped story rail or composer (stories moved to Home — WS1)', async () => {
+    renderCircle(JOINED_CIRCLE.id);
+    await waitFor(() => {
+      expect(document.getElementById('circle-detail-screen')).toBeInTheDocument();
+    });
+    expect(document.getElementById('story-rail')).not.toBeInTheDocument();
     expect(document.getElementById('story-composer-btn')).not.toBeInTheDocument();
   });
 });

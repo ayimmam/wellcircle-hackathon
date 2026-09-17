@@ -16,7 +16,7 @@ export default function LocationNudge() {
       <div className="card-body flex items-center gap-12">
         <Icon name="map-pin" size={20} />
         <span style={{ flex: 1, fontSize: '0.88rem' }}>
-          {t('Set your neighbourhood to see events & studios near you')}
+          {t('Set your neighbourhood to see events & providers near you')}
         </span>
         <button
           className="btn btn-secondary btn-sm"

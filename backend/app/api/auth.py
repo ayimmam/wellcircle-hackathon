@@ -83,8 +83,10 @@ async def telegram_auth(request: TelegramAuthRequest, db: Session = Depends(get_
         # Also write an auth_identities row so the new identity table stays in sync
         create_identity(db, user.id, "telegram", str(telegram_id))
     else:
-        # Update photo/handle if changed
-        if user_data.get("photo_url") and user_data["photo_url"] != user.photo_url:
+        # Update photo/handle if changed — never once the user has set a
+        # custom photo (WS9 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md),
+        # or it would revert to the Telegram photo on the next login.
+        if not user.photo_is_custom and user_data.get("photo_url") and user_data["photo_url"] != user.photo_url:
             user.photo_url = user_data["photo_url"]
         if user_data.get("username") and user_data["username"] != user.telegram_handle:
             user.telegram_handle = user_data["username"]

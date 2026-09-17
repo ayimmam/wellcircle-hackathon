@@ -17,6 +17,22 @@ describe('FollowersList', () => {
     expect(await screen.findByRole('button', { name: 'Unfollow' })).toBeInTheDocument();
   });
 
+  it('flips Follow to Unfollow synchronously, before the request resolves (WS7)', async () => {
+    renderWithProviders(
+      <Routes><Route path="/users/:id/followers" element={<FollowersList />} /></Routes>,
+      { route: `/users/${MOCK_PUBLIC_USERS[0].id}/followers` },
+    );
+    expect(await screen.findByText('Hana Girma')).toBeInTheDocument();
+    const follow = screen.getByRole('button', { name: 'Follow' });
+
+    fireEvent.click(follow);
+
+    // No await — this is the state right after the tap, not after any
+    // network round trip. Same element reference, so this can't pass by
+    // accident just because someone else in the list already read "Unfollow".
+    expect(follow).toHaveTextContent('Unfollow');
+  });
+
   it('uses a separate following route and active tab', async () => {
     renderWithProviders(
       <Routes><Route path="/users/:id/following" element={<FollowersList />} /></Routes>,

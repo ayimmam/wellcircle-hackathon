@@ -4,11 +4,11 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import {
-  cacheKeys, completeMockStravaConnection, disconnectStrava, getPointsHistory, getStravaConnectUrl,
-  getStravaStats, getTrainerVerificationStatus, updateStravaVisibility,
+  cacheKeys, completeMockStravaConnection, disconnectStrava, getCommunities, getPointsHistory,
+  getStravaConnectUrl, getStravaStats, getTrainerVerificationStatus, updateStravaVisibility,
 } from '../api/client';
 import useResource from '../hooks/useResource';
-import { getTier, MOCK_COMMUNITIES } from '../data/mock';
+import { getTier } from '../data/mock';
 import { showToast } from '../components/Toast';
 import BugReportSheet from '../components/BugReportSheet';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
@@ -41,8 +41,20 @@ export default function ProfileScreen() {
 
   const tier = getTier(user?.points_balance || 0);
   const milestoneBadges = getEarnedMilestoneBadges(user);
-  const joinedCommunities = MOCK_COMMUNITIES.filter(
-    c => user?.joined_communities?.includes(c.id)
+
+  // Real data, not the mock fixture — this used to source from
+  // MOCK_COMMUNITIES even in live mode, so a real (non-seed) user's joined
+  // circles never actually matched here. Reads the unfiltered list (which
+  // Home's bootstrap has usually already warmed, so this rarely costs its
+  // own request) and filters client-side, same check ForYouScreen uses for
+  // its own joined-circles list.
+  const { data: allCommunities } = useResource(
+    cacheKeys.communities(),
+    () => getCommunities(),
+    { initialData: [], select: res => res.communities || [] },
+  );
+  const joinedCommunities = allCommunities.filter(
+    c => c.user_joined || user?.joined_communities?.includes(c.id)
   );
 
   const { data: pointsHistory } = useResource(cacheKeys.points(), getPointsHistory);

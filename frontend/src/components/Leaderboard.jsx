@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getLeaderboard, createInteraction } from '../api/client';
+import useOptimisticAction from '../hooks/useOptimisticAction';
 import { showToast } from './Toast';
 import SmartImage from './SmartImage';
 import { clickableDivProps } from '../utils/a11y';
@@ -9,6 +10,7 @@ const Leaderboard = ({ communityId }) => {
   const navigate = useNavigate();
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
+  const runOptimistic = useOptimisticAction();
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
@@ -24,14 +26,16 @@ const Leaderboard = ({ communityId }) => {
     fetchLeaderboard();
   }, [communityId]);
 
-  const handleInteraction = async (targetUserId, actionType) => {
-    try {
-      await createInteraction(communityId, targetUserId, actionType);
-      showToast(`Sent a ${actionType}!`, 'success');
-    } catch (err) {
-      console.error(err);
-      showToast(`Failed to send ${actionType}`, 'error');
-    }
+  // Optimistic (WS7): there's no per-user "already nudged" state to flip
+  // here, so the instant feedback is the success toast itself — it shows
+  // the moment the button is tapped rather than after the round trip.
+  const handleInteraction = (targetUserId, actionType) => {
+    runOptimistic({
+      apply: () => showToast(`Sent a ${actionType}!`, 'success'),
+      request: () => createInteraction(communityId, targetUserId, actionType),
+      failureMessage: `Failed to send ${actionType}`,
+      dedupeKey: `${targetUserId}-${actionType}`,
+    });
   };
 
   if (loading) return null;

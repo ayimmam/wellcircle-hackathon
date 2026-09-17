@@ -42,6 +42,7 @@ class EventResponse(BaseModel):
     provider_name: Optional[str] = None
     provider_category: Optional[str] = None
     provider_cover_photo_url: Optional[str] = None
+    provider_is_coming_soon: Optional[bool] = None
     urgency: Optional[str] = None
 
     # Past-event recaps: an event that has already started can't be booked, so

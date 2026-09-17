@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import SmartImage from '../SmartImage';
 import Icon from '../Icon';
+import { followUser, unfollowUser } from '../../api/client';
+import useOptimisticAction from '../../hooks/useOptimisticAction';
 
 // How long one story holds the screen before advancing.
 const STORY_MS = 5000;
@@ -27,9 +30,15 @@ export default function StoryViewer({ groups, startIndex = 0, onClose, onViewed,
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(false);
   const sentRef = useRef(new Set());
+  const navigate = useNavigate();
+  const runOptimistic = useOptimisticAction();
+  // Per-author override so a follow toggle sticks as you tap through that
+  // author's own stories, without needing the parent rail to re-render.
+  const [followOverrides, setFollowOverrides] = useState({});
 
   const group = groups[groupAt];
   const story = group?.stories?.[storyAt];
+  const isFollowing = group ? (followOverrides[group.user_id] ?? group.is_following) : false;
 
   const close = useCallback(() => onClose?.(), [onClose]);
 
@@ -108,6 +117,25 @@ export default function StoryViewer({ groups, startIndex = 0, onClose, onViewed,
     await onDelete?.(target);
   };
 
+  const goToAuthor = () => {
+    if (group.is_mine) return;
+    navigate(`/users/${group.user_id}`);
+  };
+
+  const toggleFollow = () => {
+    const authorId = group.user_id;
+    const next = !isFollowing;
+    runOptimistic({
+      apply: () => {
+        setFollowOverrides(prev => ({ ...prev, [authorId]: next }));
+        return () => setFollowOverrides(prev => ({ ...prev, [authorId]: !next }));
+      },
+      request: () => (next ? followUser(authorId) : unfollowUser(authorId)),
+      failureMessage: 'Could not update that follow',
+      dedupeKey: `story-follow-${authorId}`,
+    });
+  };
+
   const viewer = (
     <div className="story-viewer" id="story-viewer" role="dialog" aria-modal="true">
       <div className="story-viewer-progress">
@@ -126,7 +154,11 @@ export default function StoryViewer({ groups, startIndex = 0, onClose, onViewed,
       </div>
 
       <div className="story-viewer-header">
-        <span className="story-viewer-avatar">
+        <span
+          className="story-viewer-avatar"
+          onClick={goToAuthor}
+          style={{ cursor: group.is_mine ? 'default' : 'pointer' }}
+        >
           <SmartImage
             src={group.user_photo_url}
             alt=""
@@ -134,9 +166,13 @@ export default function StoryViewer({ groups, startIndex = 0, onClose, onViewed,
             fallback={<span className="story-avatar-initial">{(group.user_name || '?').charAt(0)}</span>}
           />
         </span>
-        <div className="story-viewer-meta">
+        <div
+          className="story-viewer-meta"
+          onClick={goToAuthor}
+          style={{ cursor: group.is_mine ? 'default' : 'pointer' }}
+        >
           <strong>{group.is_mine ? 'Your story' : group.user_name}</strong>
-          <span>{story.circle_name} · {timeAgo(story.created_at)}</span>
+          <span>{timeAgo(story.created_at)}</span>
         </div>
         {story.is_mine && typeof story.view_count === 'number' && (
           <span className="story-viewer-count" title="People who viewed this story">
@@ -181,6 +217,19 @@ export default function StoryViewer({ groups, startIndex = 0, onClose, onViewed,
         aria-label="Next story"
         type="button"
       />
+
+      {!group.is_mine && (
+        <div className="story-viewer-follow">
+          <button
+            type="button"
+            className={`btn btn-sm ${isFollowing ? 'btn-secondary' : 'btn-primary'}`}
+            onClick={toggleFollow}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            {isFollowing ? 'Following' : 'Follow'}
+          </button>
+        </div>
+      )}
 
       <div className="story-viewer-footer">
         Disappears {expiryLabel(story.expires_at)}

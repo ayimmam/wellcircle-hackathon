@@ -94,6 +94,8 @@ const PATHS = {
   ),
   'chevron-left': <path d="M14 6l-6 6 6 6" />,
   'chevron-right': <path d="M10 6l6 6-6 6" />,
+  'chevron-down': <path d="M6 10l6 6 6-6" />,
+  'chevron-up': <path d="M6 14l6-6 6 6" />,
   x: (
     <>
       <path d="M7 7l10 10" />
@@ -237,6 +239,20 @@ const PATHS = {
     <>
       <path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" />
       <circle cx="12" cy="13" r="3.5" />
+    </>
+  ),
+  'more-vertical': (
+    <>
+      <circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none" />
+    </>
+  ),
+  'log-out': (
+    <>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <path d="M21 12H9" />
     </>
   ),
 };

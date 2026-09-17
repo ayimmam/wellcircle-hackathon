@@ -1594,6 +1594,889 @@ CLAUDE.md, README.md, docs/HANDOFF.md
 
 ---
 
+### Phase 23 — Audit Fixes (In Progress)
+
+Executing `docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md` (the plan for
+`docs/Wellcircle audit.docx`'s findings), PR by PR against `dev`. This
+entry is updated as each workstream lands; see the plan doc for the full
+design and the confirmed product decisions behind each item.
+
+#### WS0 — Story schema hotfix + drift detector
+
+**Diagnosis (static, not confirmed against live logs this session — no
+Vercel log access was available here; confirm via `vercel logs` or the
+Supabase SQL editor before treating this as closed).** Posting a circle
+story is two requests: `POST /api/uploads` (Cloudinary, succeeds) then
+`POST /api/circles/{id}/stories` (DB insert). The `circle_stories` /
+`circle_story_views` tables and `circles.banner_url`/`banner_public_id`
+columns are created **only** by Alembic migration
+`018_circle_stories_and_banner.py`. Nothing applies Alembic in production —
+this is the same class of gap that caused the Phase 14 and Phase 15
+post-deploy 500s, both fixed by hand-running SQL against Supabase. If this
+migration was never run either, the insert 500s (orphaning the Cloudinary
+asset — matches "shows in the folder but can't be viewed"), and
+`GET /home/bootstrap`'s `section("stories", …, [])` wrapper swallows the
+error into an empty rail rather than surfacing it.
+
+**Fix:**
+- `app/database_schema.py::ensure_db_schema` now also creates
+  `circle_stories`, `circle_story_views` and the two `circles.banner_*`
+  columns (`CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`), so a
+  fresh boot self-heals this specific gap immediately, without waiting on a
+  manual SQL Editor run.
+- New `schema_drift(engine)`: compares `Base.metadata` (every ORM table/column)
+  against what `sqlalchemy.inspect(engine)` actually sees, and
+  `ensure_db_schema` logs a single `SCHEMA DRIFT` **ERROR** line listing
+  anything still missing after the patch statements run. Read-only, never
+  raises — a failed introspection is logged and treated as "no drift," so it
+  can't block boot. This turns the *next* "someone added a column and forgot
+  the ensure-statement" incident into one grep-able boot-time log line
+  instead of a scattered 500 on whichever endpoint hits it first.
+- Noted in passing: `CircleStory`/`CircleStoryView` aren't in
+  `app/models/__init__.py` — they only register on `Base.metadata` today
+  because `app.api.circles` (imported at module level in `main.py`) pulls in
+  `app.crud.circle_story`, which imports the models. Works by construction,
+  but fragile; WS1 replaces these tables with user-level `stories` /
+  `story_views` and this whole path goes away.
+
+#### Verification
+- Backend: `python -m app.tests.test_schema_drift` (new) — **5/5 passing**
+  (matching schema → no drift; a dropped table reported; a dropped column
+  reported without falsely flagging its table; both at once; `ensure_db_schema`
+  stays a no-op on SQLite and never raises). Full suite:
+  `pytest app/tests -q` → **22/22 passing**, `app.main` imports cleanly —
+  **151 routes**.
+- **Not yet done:** confirming the hypothesis against real Vercel/Supabase
+  state before this is called fixed (see Diagnosis above), and a live
+  Telegram pass posting a story end-to-end once deployed.
+
+#### Files Changed / Added (Phase 23, WS0)
+```
+backend/app/database_schema.py
+backend/app/tests/test_schema_drift.py   (new)
+docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md   (new)
+docs/HANDOFF.md
+```
+
+---
+
+#### WS10 — Remove "taking longer than usual" and similar noise
+
+Timeouts and offline errors are now logged (console + a PostHog
+`client_issue` event via new `src/utils/log.js`) instead of shown to users —
+the audit's "remove the toast message that says 'it's taking longer than
+usual,' remove any such issues... just log it internally."
+
+- `client.js`'s `wrapNetworkError` gives a timed-out (`AbortError`) or
+  offline (`TypeError`/"Failed to fetch") request an **empty** `.message`
+  plus `isNetworkNoise: true`, and calls `logIssue('timeout' | 'offline', …)`.
+  A genuine server error (4xx/5xx with a real `detail`) is untouched.
+- `Toast.jsx::showToast` now no-ops on a falsy message. Since the ~70
+  existing call sites across the app are all either
+  `showToast(err.message || 'Some short fallback', 'error')` or a bare
+  `showToast(err.message, 'error')`, this one change is what silences every
+  one of them for network noise specifically — the `||` sites fall through to
+  their own short, already-written fallback text (a user-initiated action
+  still gets *a* message, just never the diagnostic one), and the bare ones
+  render nothing (these are all background-load `.catch` handlers). No
+  individual call site needed editing.
+- `ForYouScreen.jsx`'s Home-bootstrap `useResource` `onError` was the one
+  spot still toasting on a background revalidation (its sibling `lite`
+  resource was already silent, with a comment noting "two toasts for one
+  outage is one too many" — this makes the full payload consistent with
+  that). Now logs via `logIssue` instead.
+- New `src/test/noNetworkNoiseCopy.test.js` walks `src/**/*.{js,jsx}` and
+  fails CI if either banned phrase reappears anywhere in the app.
+
+#### Verification
+- Frontend: `npm test` → **282/282 passing** across 59 files (9 new: 2
+  `client.networkErrors.test.js` real-network-mode cases for timeout and
+  offline, 1 confirming no old diagnostic string survives, 1 confirming a
+  genuine server error is untouched; 3 `Toast.test.jsx`; 2 `log.test.js`;
+  plus the 1-test grep guard). `npm run build` clean. `npm run lint` → 0
+  errors (66 pre-existing `warn`-level react-hooks findings, unchanged from
+  before this phase — see CLAUDE.md's "react-hooks v7 lint backlog" note).
+
+#### Files Changed / Added (Phase 23, WS10)
+```
+frontend/src/utils/log.js   (new)
+frontend/src/api/client.js
+frontend/src/components/Toast.jsx
+frontend/src/pages/ForYouScreen.jsx
+frontend/src/test/log.test.js   (new)
+frontend/src/test/Toast.test.jsx   (new)
+frontend/src/test/client.networkErrors.test.js   (new)
+frontend/src/test/noNetworkNoiseCopy.test.js   (new)
+docs/HANDOFF.md
+```
+
+---
+
+#### WS4 — Minimal UI defaults
+
+- **Community opens on My Circles.** `CommunityList.jsx`'s default tab is now
+  `'circles'` (was `'explore'`), and the chip order puts My Circles first.
+  Honors an explicit `location.state.tab` for a future caller that wants to
+  land on a specific tab (e.g. WS8's leave-circle flow).
+- **Explore opens on Events, with Past events below Upcoming.** Default
+  `view` is `'events'` (was `'studios'`). A new "Past events" section renders
+  under Upcoming via `getPastEvents`, sharing the category filter — extracted
+  the recap row markup out of `EventsScreen.jsx` into a standalone
+  `components/PastEventRow.jsx` so both screens use the same component
+  instead of two copies. `getPastEvents`'s mock branch also gained category
+  filtering (it only filtered by `provider_id` before) so Explore's filter
+  chips actually narrow the Past section in mock mode too.
+- **"Studios" pill renamed to "Providers."** State key, label, i18n keys
+  (en/am/fr/it — am/fr/it translations added without a native-speaker review
+  yet, flagged in the plan doc), and `LocationNudge.jsx`'s "events & studios
+  near you" copy.
+- **Profile lists collapsed to 2 + expand arrow.** New
+  `components/CollapsibleList.jsx` (generic: `items`, `renderItem`, `max`)
+  used by `AccountSection.jsx` for Recent Activity and Joined Circles. Added
+  `chevron-down`/`chevron-up` to `Icon.jsx` (didn't exist before — only
+  `chevron-left`/`chevron-right` did).
+  - **Real bug fixed in passing:** `ProfileScreen.jsx`'s "Joined Circles" was
+    built from `MOCK_COMMUNITIES` filtered by `user.joined_communities`
+    **even in live mode** — a real user's joined circles never actually
+    matched the mock fixture's ids, so this list was effectively always
+    empty or wrong outside mock mode. Now reads the real (unfiltered, cache-
+    shared with Home's bootstrap) community list and filters by
+    `c.user_joined || user.joined_communities.includes(c.id)`, the same check
+    `ForYouScreen.jsx` already uses for its own joined-circles list.
+- **Check-in card appears after 2 minutes, once per day.** New
+  `hooks/useDailyReveal.js` — pauses on `document.hidden` like `usePolling`
+  does, so backgrounded time doesn't count, and remembers today's reveal in
+  `localStorage` so a later reopen the same day shows it immediately.
+  `ForYouScreen.jsx` gates `CheckinCard` on it.
+
+#### Verification
+- Frontend: `npm test` → **291/291 passing** across 62 files (11 new:
+  `CommunityList.defaultTab`, `ExploreScreen.events`, `CollapsibleList`,
+  `ProfileScreen.collapse`, `useDailyReveal`, `ForYouScreen.checkinDelay`, plus
+  updates to `CommunityList`, `ExploreScreen.nearMe`, `ExploreScreen.promo`,
+  `EventsScreen` for the new defaults). `npm run build` clean. `npm run lint`
+  → 0 errors (66 pre-existing warnings, unchanged).
+- Backend: unaffected by this workstream — `pytest app/tests -q` → 21/21
+  passing (re-run as a sanity check only).
+
+#### Files Changed / Added (Phase 23, WS4)
+```
+frontend/src/pages/CommunityList.jsx
+frontend/src/pages/ExploreScreen.jsx
+frontend/src/pages/EventsScreen.jsx
+frontend/src/pages/ProfileScreen.jsx
+frontend/src/pages/profile/AccountSection.jsx
+frontend/src/pages/ForYouScreen.jsx
+frontend/src/components/PastEventRow.jsx   (new)
+frontend/src/components/CollapsibleList.jsx   (new)
+frontend/src/components/Icon.jsx
+frontend/src/components/LocationNudge.jsx
+frontend/src/hooks/useDailyReveal.js   (new)
+frontend/src/api/client.js
+frontend/src/i18n.js
+frontend/src/test/CommunityList.defaultTab.test.jsx   (new)
+frontend/src/test/ExploreScreen.events.test.jsx   (new)
+frontend/src/test/CollapsibleList.test.jsx   (new)
+frontend/src/test/ProfileScreen.collapse.test.jsx   (new)
+frontend/src/test/useDailyReveal.test.jsx   (new)
+frontend/src/test/ForYouScreen.checkinDelay.test.jsx   (new)
+frontend/src/test/ExploreScreen.nearMe.test.jsx
+frontend/src/test/ExploreScreen.promo.test.jsx
+docs/HANDOFF.md
+```
+
+---
+
+#### WS5 — Only Boston Day Spa is bookable
+
+- **Event bookings already went through the same `is_coming_soon` gate as
+  service bookings** — `create_new_booking` (`api/bookings.py`) checks
+  `provider.is_coming_soon` from `request.provider_id` before branching on
+  `event_id` at all, so this was correct without a code change. Added a
+  regression test (`test_coming_soon.py` §7) so that stays true.
+- **Event payloads now carry `provider_is_coming_soon`** — added to
+  `serialize_event()` (`api/events.py`, the one function every event query
+  goes through) and its `EventResponse` schema, and threaded into the feed's
+  `_event_item()` as `provider.is_coming_soon` (same key
+  `_provider_brief()` already uses for service/provider feed items).
+- **`EventCard.jsx` and `FeedEventBanner.jsx`** hide the Book button and show
+  a disabled "Coming soon" badge instead when the host is coming-soon.
+  `FeedEventBanner`'s whole card is tappable; for a coming-soon host it now
+  opens the provider page (info only) instead of the booking flow.
+- **New `backend/set_boston_only_live.py`** — idempotent, `--dry-run` by
+  default, `--apply` to write. Sets `is_coming_soon = (not Boston Day Spa)`
+  for every provider, matched by name the same way
+  `mark_kuriftu_featured.py`/`seed_boston_day_spa.py` already do ("boston day
+  spa" or "kuriftu" in the name — the pilot row was renamed from Kuriftu).
+  Refuses to run unless exactly one provider matches. Not yet run against
+  production — see Known Gaps.
+
+#### Known deviation from the plan: mock fixtures left alone
+
+The plan's WS5 section said "every mock provider except Boston Day Spa gets
+`is_coming_soon: true`." `frontend/src/data/mock.js` turned out to already
+have deliberate, commented exceptions: **Lifestyle Fitness Center** and
+**Iron & Soul Gym** are explicitly kept bookable ("so the online/promo/
+multi-day booking-flow tests still have a live, priced fixture to exercise")
+and four poster-club providers (AfroHeat Fitness, Bole Burners, Satenaw
+Runclub, Bertusew Runningclub) are also live with a comment explaining why.
+Flipping all of these to coming-soon would have broken real, valuable
+existing coverage (`BookingFlow.multiDay.test.jsx`, `BookingFlow.promo.
+test.jsx`, `ExploreScreen.promo.test.jsx`, `ExploreScreen.nearMe.test.jsx`,
+and others) for reasons unrelated to this feature — those tests exercise
+booking mechanics that are orthogonal to which specific provider is "the
+pilot." **Left `mock.js` as-is.** The gating logic itself (`EventCard.jsx`,
+`FeedEventBanner.jsx`) is fully covered by dedicated tests using synthetic
+fixtures instead (`EventCard.comingSoon.test.jsx`,
+`FeedEventBanner.test.jsx`), so mock-mode coverage of the actual WS5 behavior
+isn't missing — only the "does browsing mock data in dev show only Boston as
+bookable" scenario is left unchanged. Flag this for a product decision: if
+mock/dev mode should also reflect "only Boston is bookable," that's a
+follow-up that will need to also decide what replaces those tests' now-gone
+bookable fixture.
+
+#### Verification
+- Backend: `python -m app.tests.test_coming_soon` — **8 sections passing**
+  (2 new: event booking gate, `provider_is_coming_soon` on event payloads).
+  `python -m app.tests.test_set_boston_only_live` (new) — **6/6 passing**
+  (pure-function `plan_updates()` tests: flips everyone but Boston,
+  idempotent re-run, matches on "kuriftu" too, aborts on 0 or 2+ matches,
+  corrects Boston itself if it's ever flagged coming-soon). Full suite:
+  `pytest app/tests -q` → **22/22 passing**. `app.main` imports cleanly —
+  **151 routes**.
+- Frontend: `npm test` → **287/287 passing** across 60 files (7 new:
+  `EventCard.comingSoon` 4/4, `FeedEventBanner` 3/3). `npm run build` clean.
+  `npm run lint` → 0 errors (66 pre-existing warnings, unchanged).
+- `docs/API_CONTRACT.md` updated with the new `provider_is_coming_soon`
+  field and its enforcement note.
+
+#### Known Gaps / Next Steps
+- `set_boston_only_live.py` has **not been run against production** — do a
+  `--dry-run` review, then `--apply`, as part of this phase's deploy
+  run-book (see the plan doc §13).
+- The mock-fixture deviation above needs a product decision before treating
+  it as resolved.
+
+#### Files Changed / Added (Phase 23, WS5)
+```
+backend/set_boston_only_live.py   (new)
+backend/app/api/events.py
+backend/app/schemas/event.py
+backend/app/services/feed_service.py
+backend/app/tests/test_coming_soon.py
+backend/app/tests/test_set_boston_only_live.py   (new)
+frontend/src/components/EventCard.jsx
+frontend/src/components/feed/FeedEventBanner.jsx
+frontend/src/test/EventCard.comingSoon.test.jsx   (new)
+frontend/src/test/FeedEventBanner.test.jsx   (new)
+docs/API_CONTRACT.md
+docs/HANDOFF.md
+```
+
+---
+
+#### WS7 — Optimistic UI foundation
+
+New `hooks/useOptimisticAction.js`: `apply()` runs synchronously (before
+`request()` even starts), `request()` fires in the background, and on
+rejection `undo()` runs and one `failureMessage` toast shows (or none, if
+omitted — always logged via WS10's `logIssue` either way). An optional
+`dedupeKey` makes a second tap on the same target while the first is still
+in flight a no-op instead of a duplicate request.
+
+**Audited every action WS7's table called out.** Several turned out to
+already be optimistic (join/leave community, join circle, react/gift
+points, story view/delete, and `PublicProfile`'s follow toggle already had
+apply-then-rollback in place) — those were left alone. Converted the ones
+that weren't:
+
+- **Check-in card (`CheckinCard.jsx`, Home's habit loop)** — used to await
+  the response before flipping to "Checked in" (with a spinner in between).
+  Now flips instantly; `useCheckin`'s streak/milestone toasts still land
+  once the real response arrives, since those are server-computed and can't
+  be known ahead of time — only the visible "did my tap register" state
+  needed to be instant.
+- **`FollowersList.jsx`'s follow toggle** — was fully await-then-flip, no
+  rollback on failure. Now optimistic with rollback, matching
+  `PublicProfile.jsx`'s existing pattern.
+- **Notification mark-read / mark-all-read (`NotificationsScreen.jsx`)** —
+  neither awaited the network before updating; tapping a notification also
+  used to wait for the read receipt before navigating. Both are now
+  synchronous: the row flips and navigation fires immediately, the receipt
+  goes in the background.
+- **Comment / reply (`PostFeed.jsx`)** — used to await, then discard the
+  typed text and refetch the whole post list (`loadPosts()`) to show the new
+  comment. Everything needed to render a comment (author, text, timestamp)
+  is already known client-side the moment it's typed, so it's now inserted
+  immediately with a temp id, swapped for the real id on success, and
+  dropped (with one failure toast) if the request fails — no refetch.
+- **Nudge / high-five (`Leaderboard.jsx`)** — no per-user visible state to
+  flip here, so the instant feedback is the confirmation toast itself,
+  which now shows on tap rather than after the round trip.
+- **Every profile field edit, in one place** — `AuthContext.updateProfile()`
+  now applies its patch to `user` state immediately, before the request,
+  and reconciles with the server's response on success or restores the
+  exact pre-call snapshot (and rethrows) on failure. This alone made bio,
+  phone number, time format, profile privacy, neighbourhood, and personal
+  records all instant — none of their call sites (`PreferencesSection`,
+  `PrivacySection`, `AccountSection`, `ProfileScreen`,
+  `PersonalRecordsSection`) needed to change, since they all already go
+  through `updateProfile`.
+
+**Left non-optimistic on purpose** (per the plan): booking creation,
+product redemption, paid-circle subscription, trainer application — the
+server is the real source of truth for these and a fake success would
+mislead.
+
+**Testing note:** happy-dom's CSS-shorthand style serialization is
+unreliable for property pairs like `background`/`border` that flip on
+every render (confirmed via a direct render-state console check — the
+component's real state was correct while the serialized `style` attribute
+lagged). Tests here assert on DOM presence/behavior (a request not re-firing
+on an already-flipped item, a route rendering) rather than inline style
+strings, for anything that hit this.
+
+#### Verification
+- Frontend: `npm test` → **298/298 passing** across 63 files (5 new:
+  `useOptimisticAction` 7/7, `Leaderboard` 1/1, `NotificationsScreen` 3/3,
+  plus new cases in `CheckinCard`, `FollowersList`, `PostFeed`; one existing
+  test in `PersonalRecordsSection.test.jsx` updated — it was coupling an
+  assertion to the mock server's round-trip timing, which the UI no longer
+  waits on). `npm run build` clean. `npm run lint` → 0 errors, exactly 66
+  warnings (the pre-existing backlog, unchanged) — one new
+  `react-hooks/purity` warning from `Date.now()`-based temp ids in
+  `PostFeed.jsx` was caught and fixed by switching to a plain incrementing
+  ref-based counter instead.
+
+#### Files Changed / Added (Phase 23, WS7)
+```
+frontend/src/hooks/useOptimisticAction.js   (new)
+frontend/src/context/AuthContext.jsx
+frontend/src/components/CheckinCard.jsx
+frontend/src/components/Leaderboard.jsx
+frontend/src/components/PostFeed.jsx
+frontend/src/pages/FollowersList.jsx
+frontend/src/pages/NotificationsScreen.jsx
+frontend/src/test/useOptimisticAction.test.jsx   (new)
+frontend/src/test/Leaderboard.test.jsx   (new)
+frontend/src/test/NotificationsScreen.test.jsx   (new)
+frontend/src/test/CheckinCard.test.jsx
+frontend/src/test/FollowersList.test.jsx
+frontend/src/test/PostFeed.test.jsx
+frontend/src/test/PersonalRecordsSection.test.jsx
+docs/HANDOFF.md
+```
+
+---
+
+#### WS1 — Public, user-level stories
+
+Rebuilt stories from circle-scoped to public: any signed-in user now sees
+any other user's active story, with a Follow button in the viewer instead
+of a membership gate.
+
+**A second, independent cause of "stories don't work", found while
+building this:** beyond WS0's missing-table diagnosis, **the story
+components had no CSS at all** — `.story-rail`, `.story-ring`,
+`.story-viewer` and everything else in `components/stories/` were never
+styled anywhere in the codebase. Even with a working table, the feature
+would have rendered as unstyled, unusable markup. Added a full stylesheet
+section to `index.css`.
+
+- **Schema** — migration `019_public_stories.py` (+ `ensure_db_schema`
+  statements, so a live database self-heals the same way WS0's hotfix
+  does): new `stories`/`story_views` tables, with any still-active
+  `circle_stories` rows copied forward. The old tables and their model/CRUD
+  (`circle_story.py`) are left in place for one release — see API_CONTRACT's
+  "Deprecated" note.
+- **Backend** — new `app/models/story.py`, `app/crud/story.py` (no
+  membership check anywhere), `app/api/stories.py`. `POST /api/stories` is
+  one request (upload + create), unlike the old two-step flow — a failed
+  insert now destroys the Cloudinary asset it just orphaned instead of
+  leaving an unreachable photo, which is exactly WS0's diagnosed bug class.
+  Upload cap dropped to 2 MB (client compresses first). The rail batches
+  author, seen-set, view-count *and* follow-status lookups in one query
+  each — confirmed constant regardless of author count in the test below.
+- **Points** — new `award_capped()` in `services/points.py`: awards
+  `amount` unless the user already has `daily_cap` ledger rows of that
+  type since UTC midnight (counts ledger rows, not live content, so
+  posting-then-deleting can't reset the cap). Stories: +20, 1/day. Also
+  landed `POINTS_POST`/`POST_POINTS_DAILY_CAP` (+10, 3/day) here for WS2 to
+  use next.
+- **Frontend** — new `utils/imageCompress.js` (canvas-based, steps quality
+  then edge size until under 2 MB) and `hooks/useStoryUpload.js` (owns no
+  DOM; the caller wires its own file input). `ForYouScreen.jsx`'s "Your
+  story" ring shows a live conic-gradient progress arc while uploading and
+  a dashed red "tap to retry" ring on failure — both via local patches to
+  the same cached home/lite payloads the rest of the screen already
+  optimistically edits. `StoryViewer.jsx` gained a Follow/Following button
+  (optimistic, via WS7's `useOptimisticAction`) and the author name/avatar
+  now link to their public profile.
+- **Removed:** the circle-scoped story rail and composer from
+  `CircleDetailScreen.jsx`; `StoryComposer.jsx` deleted (no importers left).
+
+#### Verification
+- Backend: `python -m app.tests.test_public_stories` (new) — **8 sections
+  passing** (public visibility with no membership check; expired/deleted
+  exclusion; rail ordering including `is_following`; constant query count;
+  the daily points cap and its UTC-day reset; the active-story cap; view
+  receipts; delete permissions). Full suite: `pytest app/tests -q` →
+  **24/24 passing**. `app.main` imports cleanly — **155 routes** (4 new:
+  the `/api/stories/*` router).
+- Frontend: `npm test` → **333/333 passing** across 73 files (6 new:
+  `imageCompress` 3/3, `useStoryUpload` 4/4, plus `StoryRail`/`CircleStories`
+  rewritten for the public model and a new Router requirement — `StoryViewer`
+  now calls `useNavigate()`). `npm run build` clean. `npm run lint` → 0
+  errors, 66 warnings (baseline, unchanged).
+- `docs/API_CONTRACT.md` updated: new `/api/stories/*` endpoints
+  documented in full, the deprecated circle-scoped ones noted, and every
+  `home`/`home/lite` reference to the old rail endpoint updated.
+
+#### Known Gaps / Next Steps
+- Not verified live against real Cloudinary/production — same caveat as
+  WS0: this needs a real Telegram pass once deployed.
+- The CSS added here is a first pass matching the app's existing tokens
+  (`--accent`, `--bg-card`, etc.) — worth a design review before shipping,
+  especially the fullscreen viewer on a real device.
+- `docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md` §15 flagged "should circle
+  pages show a members-filtered story rail instead of nothing" as an open
+  product question — currently nothing replaced the removed rail on
+  `CircleDetailScreen.jsx`.
+
+#### Files Changed / Added (Phase 23, WS1)
+```
+backend/alembic/versions/019_public_stories.py   (new)
+backend/app/database_schema.py
+backend/app/models/story.py   (new)
+backend/app/models/__init__.py
+backend/app/crud/story.py   (new)
+backend/app/api/stories.py   (new)
+backend/app/api/circles.py
+backend/app/api/home.py
+backend/app/main.py
+backend/app/services/points.py
+backend/app/services/cloudinary_service.py
+backend/app/services/scheduler.py
+backend/app/tests/test_public_stories.py   (new)
+frontend/src/utils/imageCompress.js   (new)
+frontend/src/hooks/useStoryUpload.js   (new)
+frontend/src/components/stories/StoryRail.jsx
+frontend/src/components/stories/StoryViewer.jsx
+frontend/src/components/stories/StoryComposer.jsx   (deleted)
+frontend/src/pages/ForYouScreen.jsx
+frontend/src/pages/CircleDetailScreen.jsx
+frontend/src/api/client.js
+frontend/src/data/mock.js
+frontend/src/index.css
+frontend/src/test/imageCompress.test.js   (new)
+frontend/src/test/useStoryUpload.test.jsx   (new)
+frontend/src/test/StoryRail.test.jsx
+frontend/src/test/CircleStories.test.jsx
+docs/API_CONTRACT.md
+docs/HANDOFF.md
+```
+
+---
+
+#### WS2 — Standalone posts + "+" composer
+
+Posts no longer require a `circle_id`/`community_id`: any signed-in user can
+post directly to the For You feed. The chatbot FAB moved to Explore to make
+room for the new "+" composer in its old spot on Home.
+
+- **Backend** — `crud/post.py::create_post()` accepts neither id set;
+  `get_public_feed_posts()`'s community/private-circle filter gained an
+  explicit standalone branch (`community_id IS NULL AND circle_id IS NULL`).
+  The item-source assignment had a latent bug caught before it shipped: the
+  original code assumed "no `circle_id`" implied "has `community_id`," which
+  for a standalone post would have produced a fake
+  `{"kind": "community", "id": None, ...}` source instead of `null`. Fixed
+  as `elif p.community_id: ... else: source = None`.
+- **Points** — `POST /api/posts` now calls the `award_capped()` helper WS1
+  landed: `POINTS_POST` (+10), `POST_POINTS_DAILY_CAP` (3/day), one shared
+  counter across standalone + circle + community posts (posting into a
+  circle already earned nothing before this — now it does too, same cap).
+  Response carries `points_awarded`/`points_balance` so the client can
+  reconcile its optimistic points display in one round trip. `content` is
+  now optional on the request (a photo alone is a valid post), but the
+  endpoint 422s if both `content` and `photo_url` are empty.
+- **Frontend** — `ForYouScreen.jsx` replaced its `<AskWellCircle />` render
+  with `<PostComposerFab />` (new): a "+" FAB opening a bottom sheet
+  (text + optional photo, reusing WS1's `imageCompress`). Submission is
+  optimistic — the composer closes and a "Posting…" card appears at the top
+  of the feed immediately, before the upload/create request resolves,
+  following the pattern WS7 established (`useOptimisticAction`-style
+  apply/reconcile/rollback, done by hand here since the flow spans a photo
+  upload as well as the post create call). A failed post gets a "Couldn't
+  post" banner with Retry/Discard, matching `FeedPostCard`'s existing
+  pending/failed treatment for other optimistic actions.
+  `AskWellCircle.jsx`'s FAB moved to render from `ExploreScreen.jsx`
+  instead, unchanged otherwise. `PostFeed.jsx`'s circle-post flow now calls
+  `refreshUser?.()` after posting, since circle posts earn points too.
+
+#### Verification
+- Backend: `python -m app.tests.test_public_posts` (new) — **5 sections
+  passing** (standalone post creation with `source: null`; the
+  private/paid-circle exclusion regression still holds; the points cap is
+  shared across standalone and circle posts; system-event posts stay
+  excluded from the public feed; query count stays constant regardless of
+  post count). Full suite: `pytest app/tests -q` → **25/25 passing**.
+- Frontend: `npm test` → **337/337 passing** across 75 files (2 new:
+  `ExploreScreen.chatbot` 1/1 confirming the FAB moved, `ForYouScreen.postComposer`
+  3/3 covering the FAB itself, the optimistic insert, and the disabled-when-empty
+  state). `npm run build` clean. `npm run lint` → 0 errors, 66 warnings
+  (baseline, unchanged).
+- `docs/API_CONTRACT.md` updated: `POST /api/posts` documents the optional
+  `circle_id`/`community_id` (standalone when both omitted), the 422 for an
+  empty post, and the new `points_awarded`/`points_balance` response
+  fields; the For You feed item shape notes `source: null` for standalone
+  posts.
+
+#### Known Gaps / Next Steps
+- Not verified live against real Cloudinary/production upload — same
+  caveat as WS1.
+- No dedicated backend rate-limit beyond the existing points daily cap —
+  a user can still create unlimited *zero-point* standalone posts once
+  capped; the plan treated this as acceptable (spam moderation is a
+  separate, unscoped concern).
+
+#### Files Changed / Added (Phase 23, WS2)
+```
+backend/app/crud/post.py
+backend/app/api/posts.py
+backend/app/tests/test_public_posts.py   (new)
+frontend/src/pages/ForYouScreen.jsx
+frontend/src/pages/ExploreScreen.jsx
+frontend/src/components/PostComposerFab.jsx   (new)
+frontend/src/components/AskWellCircle.jsx
+frontend/src/components/feed/FeedPostCard.jsx
+frontend/src/components/PostFeed.jsx
+frontend/src/api/client.js
+frontend/src/test/ExploreScreen.chatbot.test.jsx   (new)
+frontend/src/test/ForYouScreen.postComposer.test.jsx   (new)
+docs/API_CONTRACT.md
+docs/HANDOFF.md
+```
+
+---
+
+#### WS3 — For You feed prioritizes items with images
+
+The feed used to open with **text-only** posts (the old "instant-open"
+optimization) — the opposite of what the audit asked for. Both the events
+block and the posts block now lead with items that have an image.
+
+- **Backend** — `feed_service.py` gained `partition_by_image()`: a stable
+  partition (image items first, each group keeping its own order), applied
+  inside `_order_feed()` to `event_items` and `post_items` separately. The
+  provider/service/past-event block is untouched — it's the tail and
+  already image-led. The `text_only` (`home/lite`) branch calls the same
+  partition on its post stream, so a client paginating off the lite payload
+  never sees a reshuffle once the full payload replaces it. `has_image`:
+  a post's `photo_url`; an event/past-event's `provider.cover_photo_url`.
+- **Frontend** — `ForYouScreen.jsx`'s pre-settle ordering (`orderedFirstPage`)
+  replaced its old "instant-first" tiering with the identical media-first
+  partition, extracted into a shared `utils/feedOrdering.js`
+  (`partitionByImage`, `postHasImage`, `eventHasImage`) so the pre-settle
+  paint and the settled server order can never drift apart — the whole
+  point of a partition this session already ran into once with WS2's
+  optimistic UI (a visible reshuffle reads as a bug even when the data is
+  correct). `data/mock.js`'s feed builder calls the same shared function on
+  its event and post pools, per the Phase 20 mock-parity rule.
+- `SmartImage`'s `fetchPriority="high"` on the first item now correctly
+  lands on an image most of the time, instead of a text card.
+
+#### Verification
+- Backend: `test_for_you_feed.py` (extended, section 9) — photo posts lead
+  a page newest-first-within-group; an event without a cover sorts below
+  one with a cover; page 2 is partitioned independently with the cursor
+  unaffected; the lite payload's partition matches the full payload's.
+  Full suite: `pytest app/tests -q` → **25/25 passing**.
+- Frontend: `npm test` → **343/343 passing** across 76 files (2 new:
+  `feedOrdering.test.js` 5/5 for the pure partition function; a new case in
+  `ForYouScreen.test.jsx` asserting the first rendered item has an image
+  both before and after the bootstrap settles). `npm run build` clean.
+  `npm run lint` → 0 errors, 66 warnings (baseline, unchanged).
+- `docs/API_CONTRACT.md` updated: the For You feed section now documents
+  the per-page image partition within the events and posts sections.
+
+#### Known Gaps / Next Steps
+- The partition is per-page, not per-feed (per the plan's explicit
+  trade-off) — a user who scrolls past the first page can still see a
+  text-only post above an image one on a later page if that page's own mix
+  works out that way.
+
+#### Files Changed / Added (Phase 23, WS3)
+```
+backend/app/services/feed_service.py
+backend/app/tests/test_for_you_feed.py
+frontend/src/utils/feedOrdering.js   (new)
+frontend/src/pages/ForYouScreen.jsx
+frontend/src/data/mock.js
+frontend/src/test/feedOrdering.test.js   (new)
+frontend/src/test/ForYouScreen.test.jsx
+docs/API_CONTRACT.md
+docs/HANDOFF.md
+```
+
+---
+
+#### WS8 — Leave and delete circles
+
+Circles previously had no way to leave or be deleted at all. Added both,
+soft-delete-backed so a super admin can restore a mistaken delete.
+
+- **Schema** — migration `020_circle_soft_delete.py` (+ `ensure_db_schema`
+  statement): `circles.deleted_at TIMESTAMPTZ NULL`, indexed. New
+  `crud/circle.py::active_circles(db)` helper (`Circle.deleted_at IS NULL`)
+  is now the single filter every circle read goes through — list, detail,
+  join, join-by-code, and the weekly digest — instead of one ad-hoc filter
+  per call site risking a miss. `get_public_feed_posts` gained the same
+  filter on its circle outer-join, since a post's `circle_id` FK survives
+  its circle's soft delete.
+- **`leave_circle()`** — not a member → 404. A regular member just leaves.
+  The owner leaving transfers ownership to whoever joined earliest among
+  the remaining members, unless the circle `is_paid` (blocked, 409 —
+  payouts are tied to the owner) or the owner is the only member (the
+  circle is soft-deleted instead of orphaned).
+- **`delete_circle()`** — owner-only (403 otherwise), blocked by any
+  `CircleSubscription.status == "active"` (409) but not by an expired or
+  rejected one. Stamps `deleted_at`, deletes every `CircleMember` row
+  outright (there's nothing left to be a member of), and best-effort
+  expires any legacy `circle_stories` still pointing at the circle — WS1's
+  public stories are user-level and unaffected. Posts are left alone; the
+  `deleted_at` filter above hides them from the feed without a cascade.
+  Fans out a batched `circle_deleted` `UserNotification` to the other
+  members, reusing the same "insert-list, one query regardless of count"
+  pattern `_notify_circle_of_new_post` established.
+- **`restore_circle()`** — clears `deleted_at`; wired to a new super-admin
+  route, `POST /api/admin/circles/{id}/restore`. Members are not restored.
+- **Frontend** — `CircleDetailScreen.jsx` gained an overflow menu (a new
+  `more-vertical` icon, next to `log-out` — both missing from `Icon.jsx`
+  until now): members and owners see **Leave circle**; owners also see
+  **Delete circle**, gated behind typing the circle's name into a confirm
+  sheet. Both actions are optimistic (WS7's pattern, applied by hand since
+  the action navigates away rather than staying on the same screen): new
+  `removeCircleFromCache()`/`restoreCircleToCache()` in `api/client.js`
+  patch the cached `GET /circles` list directly, deliberately **not**
+  routed through the existing `invalidateMembership()` helper — that
+  clears the whole cache family, which would erase the very optimistic
+  patch it's supposed to sit alongside. The screen calls the patch,
+  navigates to `/community` (My Circles tab), and only then awaits the
+  request; a failure restores the cache entry and toasts, since the user
+  is already gone from the screen that would otherwise show the error.
+
+#### Verification
+- Backend: `test_circle_leave_delete.py` (new) — **9 sections passing**:
+  member leave; owner-leave ownership transfer; sole-member owner leave
+  soft-deletes; owner leave on a paid circle is 409; non-member leave is
+  404; delete is owner-only (403) and blocked by an active subscription
+  (409) but not an expired one; a deleted circle is absent from list,
+  detail, join-by-code, public feed posts, and social proof; the
+  `circle_deleted` notification insert is batched (constant query count,
+  2 vs 20 members); admin restore clears `deleted_at`. Full suite:
+  `pytest app/tests -q` → **26/26 passing**.
+- Frontend: `npm test` → **347/347 passing** across 78 files (1 new:
+  `CircleDetailScreen.leaveDelete.test.jsx`, 4/4 — member sees Leave only;
+  owner sees Leave + Delete; the delete confirm stays disabled until the
+  typed name matches; leaving navigates away and drops the circle from
+  the mock circle list before the request resolves). `npm run build`
+  clean. `npm run lint` → 0 errors, 66 warnings (baseline, unchanged).
+- `docs/API_CONTRACT.md` updated: new leave/delete/restore endpoints
+  documented under a new "Leave and delete a circle (WS8)" section.
+
+#### Known Gaps / Next Steps
+- Not verified live against a real Telegram client or production database —
+  same caveat as every prior workstream this session.
+- No UI surfaced yet for "your circle was deleted" beyond the in-app
+  notification — a member who was mid-session in the circle when it's
+  deleted isn't kicked out of the screen in real time (no polling/socket
+  for that), only on their next visit.
+
+#### Files Changed / Added (Phase 23, WS8)
+```
+backend/alembic/versions/020_circle_soft_delete.py   (new)
+backend/app/database_schema.py
+backend/app/models/circle.py
+backend/app/crud/circle.py
+backend/app/crud/post.py
+backend/app/api/circles.py
+backend/app/api/admin.py
+backend/app/tests/test_circle_leave_delete.py   (new)
+frontend/src/pages/CircleDetailScreen.jsx
+frontend/src/components/Icon.jsx
+frontend/src/api/client.js
+frontend/src/test/CircleDetailScreen.leaveDelete.test.jsx   (new)
+docs/API_CONTRACT.md
+docs/HANDOFF.md
+```
+
+---
+
+#### WS9 — Change profile picture (−10 points)
+
+There was no way to change your profile photo at all — it just mirrored
+whatever Telegram/Google/the login widget had on file, forever.
+
+- **The bug fixed first:** `api/auth.py`'s `telegram_auth` handler
+  overwrote `user.photo_url` with the Telegram photo on **every** login —
+  so even a photo set some other way would have reverted on the user's next
+  app open. New `users.photo_is_custom` (migration `021_custom_avatar.py` +
+  `ensure_db_schema` statements) opts a row out of that sync once set; the
+  guard is a one-line `if not user.photo_is_custom and ...` added to the
+  existing overwrite check. (Google and the login widget only ever set
+  `photo_url` at first-time user creation, never on an existing user's
+  re-login, so they didn't have this bug — confirmed by reading both paths
+  before touching only the Telegram one.)
+- **`POST /api/users/me/photo`** — multipart upload to the existing
+  `avatars` Cloudinary folder (2 MB cap, WS1 added the folder). Sets
+  `photo_url`/`photo_public_id`/`photo_is_custom = true` and charges 10
+  points via `apply_transaction(..., TXN_PROFILE_PHOTO)` in one try block;
+  a failure there rolls back and destroys the *newly* uploaded asset so it
+  never leaks, while success only then destroys whatever custom photo it
+  replaced — the same "don't touch the old asset until the new state is
+  durable" ordering WS1's story upload and WS8's banner replacement use.
+  `DELETE /api/users/me/photo` reverts to provider-sync, charging nothing.
+- **Frontend** — `ProfileHeader.jsx` gained a camera badge on the avatar.
+  Tapping it shows a cost-notice sheet ("Changing your photo costs 10
+  points") before the file picker opens. Picking a photo is optimistic: the
+  avatar swaps to the local compressed blob and the points badge drops by
+  10 immediately (via `AuthContext`'s `setUser`, the same mechanism
+  `updateProfile` already uses), the upload happens in the background, and
+  success reconciles both to the server's values while a failure restores
+  the pre-change photo and balance and toasts once. `AccountSection.jsx`'s
+  points-history row now labels `profile_photo` as "Profile photo" instead
+  of falling through to the raw transaction-type string.
+
+#### Verification
+- Backend: `test_profile_photo.py` (new) — **7 sections passing**: upload
+  sets `photo_url`/`photo_is_custom` and writes one −10 ledger row; the
+  balance floors at 0 while the ledger still records the full −10; a
+  second change charges again and destroys the previous asset; a simulated
+  DB failure destroys the newly uploaded asset and writes no ledger row; a
+  Telegram re-login doesn't overwrite a custom photo but still syncs a
+  non-custom one; an oversized or unsupported upload 422s without
+  charging; revert clears `photo_is_custom`/`photo_public_id` and charges
+  nothing. Full suite: `pytest app/tests -q` → **27/27 passing**.
+- Frontend: `npm test` → **350/350 passing** across 79 files (1 new:
+  `ProfileHeader.photo.test.jsx`, 3/3 — the cost notice gates the picker;
+  the avatar and points badge swap to the optimistic values before the
+  mocked request resolves and reconcile with the server response on
+  success; a failure restores both). `npm run build` clean. `npm run
+  lint` → 0 errors, 66 warnings (baseline, unchanged).
+- `docs/API_CONTRACT.md` updated: new `POST`/`DELETE
+  /api/users/me/photo` endpoints documented, with the `photo_is_custom`
+  login-sync rule spelled out.
+
+#### Known Gaps / Next Steps
+- Not verified live against real Cloudinary/Telegram — same caveat as
+  every prior workstream this session.
+- No UI entry point for `DELETE /api/users/me/photo` yet — the route
+  exists per the plan's §15 "optional" note, but nothing calls it; a user
+  who wants their Telegram photo back has no in-app way to ask for it.
+
+#### Files Changed / Added (Phase 23, WS9)
+```
+backend/alembic/versions/021_custom_avatar.py   (new)
+backend/app/database_schema.py
+backend/app/models/user.py
+backend/app/api/auth.py
+backend/app/api/users.py
+backend/app/services/points.py
+backend/app/tests/test_profile_photo.py   (new)
+frontend/src/pages/profile/ProfileHeader.jsx
+frontend/src/pages/profile/AccountSection.jsx
+frontend/src/api/client.js
+frontend/src/test/ProfileHeader.photo.test.jsx   (new)
+docs/API_CONTRACT.md
+docs/HANDOFF.md
+```
+
+---
+
+#### WS6 — Seed events from `events/` posters (partial — needs your sign-off)
+
+Rewrote `backend/seed_upcoming_events.py` from a hardcoded 4-event list into
+a data table (`PROVIDERS`, `EVENTS`, `SUPERSEDED`) plus pure functions
+(`resolve_provider`, `resolved_events`, `plan_changes`) driven by the 24
+events extracted from the `events/` poster photos, per the plan's WS6
+section §8. This is the one workstream the plan itself flagged (§15 point
+9) as needing your visual judgment before it can fully ship — so the parts
+that are purely mechanical (dates, hosts, locations, aliasing, conflict
+resolution between overlapping posters) are done and tested; the parts
+that need eyes on the actual photos are deliberately left undone rather
+than guessed.
+
+- **Done:** all 24 events (host, title, location, EAT start time) encoded
+  exactly per the plan's table, converted to UTC on write; 13 canonical
+  providers with their poster aliases (`Boleburners` → `Bole Burners`,
+  `Sub Studio`/`Enitewawek` → `SUP Studio`, etc.); the 3 old-seed rows a
+  newer poster supersedes get `is_cancelled = TRUE` instead of being
+  deleted (AfroHeat's Aug 20 Zumba, Bole Burners' Aug 22 run, Satenaw's
+  Aug 23 06:30 run); Bertusew's Aug 23 07:00 row shares its
+  `(provider, starts_at)` key with the new poster's version, so it's an
+  **update**, not a duplicate insert; every event is `price_etb = 0` with
+  a description ending "Confirm price with the host." (no poster listed a
+  firm price); durations follow the plan's defaults (90 min runs, 60 min
+  dance/tennis, 4 h hikes, Ereft's overnight trip ending Sep 6 18:00
+  explicitly rather than by duration); `capacity = 50`,
+  `spots_remaining = capacity` everywhere — no invented attendance. The 9
+  brand-new providers get `is_coming_soon = TRUE` and
+  `price_range = "Price on request"`, matching WS5's pattern.
+- **Deliberately not done:** `cover_photo_url` for the 9 new providers.
+  Per the plan, most posters have event text over the scenery, so the
+  crops "may look weak" and need a human's sign-off before they're cropped
+  and uploaded — only "Zumba with Vahe" has a genuine photo to crop (the
+  group shot in `2026-09-10 20.36.07.jpg`, above the "1 DAY LEFT" text).
+  `seed_upcoming_events.py`'s new-provider path leaves `cover_photo_url`
+  null rather than picking crops on its own; `FeedProviderCard`/
+  `FeedServiceCard` already render a null cover without breaking.
+  `--apply` has not been run against any database — this is dry-run-only
+  until you've reviewed the plan output and the cover question.
+
+#### Verification
+- `test_seed_poster_events.py` (new) — **6 sections passing**: every
+  alias (case-insensitive) resolves to its canonical provider, an unknown
+  name raises; the resolved list is exactly 24 rows with no duplicate
+  `(provider, starts_at)` and every `starts_at` is timezone-aware; the 3
+  superseded rows are exactly the ones named above and Bertusew's shared
+  key is an update, not a cancellation; `plan_changes()` against a
+  simulated empty DB produces 3 cancels + 23 inserts + 1 update, and
+  re-running it against the simulated post-seed state plans nothing
+  (idempotency); the 9 new providers are correctly flagged and every
+  event carries `price_etb = 0` with the confirm-price description; no
+  event has `spots_remaining < capacity`. Full suite:
+  `pytest app/tests -q` → **28/28 passing**.
+- Not run: `apply_plan()`/`upsert_provider()`/`load_existing()`'s actual
+  psycopg2 I/O — untested here by design, same convention as
+  `set_boston_only_live.py` (WS5): the logic worth testing is the pure
+  planning functions, and DB I/O is exercised by a real `--dry-run` against
+  a real database, which nobody has done yet for this file.
+
+#### Known Gaps / Next Steps — **this one needs you**
+- **Cover image crops**: review `events/*.jpg`, decide the text-free crop
+  band for each of the 8 posters-only providers (everyone except Zumba
+  with Vahe), save them to `backend/seed_assets/event_covers/` (per the
+  plan's naming: one cropped JPEG per new provider, ≤ 2 MB, 1200×630), and
+  say so — then the upload-and-`cover_photo_url` step can be scripted and
+  run against the real database.
+- Nobody has run `python seed_upcoming_events.py` (dry run) against the
+  real database yet to sanity-check the plan against what's actually
+  there — worth doing before `--apply`, in case a poster host already
+  exists in the DB spelled differently than any alias listed here.
+- Per the plan's note: today (2026-09-16) all 24 events are already past,
+  so seeding produces zero upcoming events — Explore's Events tab (WS4)
+  will show an empty "Upcoming" line followed by 24 recap cards.
+
+#### Files Changed / Added (Phase 23, WS6)
+```
+backend/seed_upcoming_events.py
+backend/app/tests/test_seed_poster_events.py   (new)
+docs/HANDOFF.md
+```
+
+---
+
 *Prepared for hackathon review, deployment handoff, and post-event roadmap planning.*
 
 

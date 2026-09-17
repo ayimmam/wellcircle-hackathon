@@ -3150,3 +3150,218 @@ body.in-telegram #detail-back-btn {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+
+/* ================================================================
+   STORIES — the rail of rings on Home and the fullscreen viewer
+   (WS1 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md). Public,
+   user-level stories replaced the earlier circle-scoped version;
+   these classnames were previously unstyled entirely — a second,
+   independent cause behind "story functionality isn't working"
+   alongside WS0's missing-table diagnosis.
+   ================================================================ */
+
+.story-rail {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 4px 2px 14px;
+  margin-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.story-rail::-webkit-scrollbar { display: none; }
+
+.story-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  width: 68px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+}
+
+.story-ring {
+  position: relative;
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5px;
+  background: var(--border-card);
+}
+.story-ring--unseen {
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+}
+.story-ring--seen {
+  background: var(--border-card);
+}
+.story-ring--add {
+  background: var(--border-card);
+}
+.story-ring--pending {
+  /* Conic-gradient progress is set inline per upload %. */
+  transition: background 0.2s linear;
+}
+.story-ring--failed {
+  background: none;
+  border: 2px dashed var(--danger);
+  padding: 0.5px;
+}
+
+.story-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border: 2px solid var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+.story-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.story-avatar-initial { font-size: 1.1rem; }
+
+.story-add-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-card);
+}
+
+.story-label {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  max-width: 68px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Fullscreen player ─────────────────────────────────────────── */
+
+.story-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  color: #fff;
+}
+
+.story-viewer-progress {
+  display: flex;
+  gap: 4px;
+  padding: 10px 10px 0;
+}
+.story-progress-track {
+  flex: 1;
+  height: 2.5px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.3);
+  overflow: hidden;
+}
+.story-progress-fill {
+  display: block;
+  height: 100%;
+  background: #fff;
+  transition: width 0.05s linear;
+}
+
+.story-viewer-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px 8px;
+}
+.story-viewer-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.story-viewer-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.story-viewer-meta {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.story-viewer-meta strong { font-size: 0.88rem; }
+.story-viewer-meta span {
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+.story-viewer-count {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+.story-viewer-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+}
+
+.story-viewer-image {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  object-fit: contain;
+  background: #000;
+}
+
+.story-tap {
+  position: absolute;
+  top: 60px;
+  bottom: 60px;
+  width: 35%;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.story-tap--prev { left: 0; }
+.story-tap--next { right: 0; }
+
+.story-viewer-footer {
+  padding: 10px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  font-size: 0.76rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+}
+
+.story-viewer-follow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px 14px;
+}

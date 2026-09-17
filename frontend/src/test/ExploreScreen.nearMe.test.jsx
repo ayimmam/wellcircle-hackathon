@@ -44,8 +44,9 @@ describe('ExploreScreen — Near me filter', () => {
 
   it('navigates to Profile and opens the neighbourhood sheet when no neighbourhood is set yet', async () => {
     renderExplore(); // MOCK_USER.location_neighborhood is null by default
-    await screen.findByText('Lifestyle Fitness Center');
     await screen.findByTestId('auth-ready');
+    fireEvent.click(screen.getByRole('button', { name: 'Providers' })); // Explore now defaults to Events (WS4)
+    await screen.findByText('Lifestyle Fitness Center');
 
     fireEvent.click(document.getElementById('filter-near-me'));
 
@@ -56,8 +57,9 @@ describe('ExploreScreen — Near me filter', () => {
   it('filters the provider list to matches only once a neighbourhood is set', async () => {
     MOCK_USER.location_neighborhood = 'Bole';
     renderExplore();
-    await screen.findByText('Lifestyle Fitness Center'); // Bole — stays
     await screen.findByTestId('auth-ready');
+    fireEvent.click(screen.getByRole('button', { name: 'Providers' })); // Explore now defaults to Events (WS4)
+    await screen.findByText('Lifestyle Fitness Center'); // Bole — stays
     expect(screen.getByText('Iron & Soul Gym')).toBeInTheDocument(); // Kazanchis — present before filtering
 
     fireEvent.click(document.getElementById('filter-near-me'));

@@ -31,7 +31,8 @@ const API_BASE = resolveApiBase();
 
 export function getApiBase() { return API_BASE; }
 
-import { cached, invalidate, keyOf, write as cacheWrite, setCacheScope, clearAll as clearCache } from './cache';
+import { cached, invalidate, keyOf, write as cacheWrite, peek as peekCache, setCacheScope, clearAll as clearCache } from './cache';
+import { logIssue } from '../utils/log';
 
 import {
   MOCK_USER, MOCK_PROVIDERS, MOCK_COMMUNITIES, MOCK_FEED_EVENTS,
@@ -61,6 +62,8 @@ export { invalidate as invalidateCache, setCacheScope, clearCache };
 // createBooking() are kept here so getMyBookings() can read them back
 // within the same session (mirrors what a real backend would do).
 const mockBookingsCreatedThisSession = [];
+// WS2's post points cap (POST_POINTS_DAILY_CAP=3), mirrored in mock mode.
+let mockPostsAwardedToday = 0;
 
 const REQUEST_TIMEOUT_MS = 15000;
 const NETWORK_RETRY_DELAY_MS = 800;
@@ -71,15 +74,23 @@ function isNetworkError(err) {
     || err?.name === 'AbortError';
 }
 
+// Timeouts and offline errors are noise, not something a user can act on —
+// they get logged (console + PostHog via logIssue) and never a toast. The
+// empty `.message` (plus `isNetworkNoise` for any caller that wants to check
+// explicitly) is what makes the ~70 existing
+// `showToast(err.message || 'fallback', ...)` call sites across the app fall
+// through to their own short, actionable fallback text on a user-initiated
+// action, and simply render nothing when there's no fallback (background
+// loads) — showToast() itself (Toast.jsx) no-ops on a falsy message, so none
+// of those call sites needed to change.
 function wrapNetworkError(err) {
-  // Keep technical detail in the console for debugging; show users plain language.
   if (err.name === 'AbortError') {
-    console.error(`[WellCircle] Request timed out (API_BASE=${API_BASE})`, err);
-    return new Error('This is taking longer than usual. Please check your connection and try again.');
+    logIssue('timeout', { apiBase: API_BASE, error: String(err) });
+    return Object.assign(new Error(''), { isNetworkNoise: true, cause: err });
   }
   if (err instanceof TypeError || err?.message === 'Failed to fetch') {
-    console.error(`[WellCircle] Network error reaching ${API_BASE}`, err);
-    return new Error("We couldn't connect right now. Please check your connection and try again.");
+    logIssue('offline', { apiBase: API_BASE, error: String(err) });
+    return Object.assign(new Error(''), { isNetworkNoise: true, cause: err });
   }
   return err;
 }
@@ -793,6 +804,67 @@ export async function getCircleSocialProof() {
   });
 }
 
+// WS8 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md — leave/delete a circle.
+// Both drop the circle from the My Circles cache before the request settles
+// (CircleDetailScreen.jsx does that via the two helpers below, optimistically
+// and ahead of calling either of these) so the list the user navigates to
+// already reflects the change. Deliberately doesn't call
+// invalidateMembership() — that would wipe the very patch the caller just
+// applied; restoreCircleToCache() below is the failure-path undo instead.
+export async function leaveCircle(id) {
+  if (USE_MOCK) {
+    await delay();
+    const idx = MOCK_CIRCLES.findIndex(c => c.id === id);
+    if (idx === -1) {
+      const err = new Error('Not a member of this circle');
+      err.status = 404;
+      throw err;
+    }
+    MOCK_CIRCLES.splice(idx, 1);
+    return { left: true };
+  }
+  return request('POST', `/circles/${id}/leave`);
+}
+
+export async function deleteCircle(id) {
+  if (USE_MOCK) {
+    await delay();
+    const idx = MOCK_CIRCLES.findIndex(c => c.id === id);
+    if (idx === -1) {
+      const err = new Error('Circle not found');
+      err.status = 404;
+      throw err;
+    }
+    MOCK_CIRCLES.splice(idx, 1);
+    return { deleted: true };
+  }
+  return request('DELETE', `/circles/${id}`);
+}
+
+/** Removes `id` from the cached My Circles list, if present, and returns
+ * the removed entry so a failed leave/delete can restore it. */
+export function removeCircleFromCache(id) {
+  const key = cacheKeys.circles();
+  const entry = peekCache(key);
+  const circles = entry?.data?.circles;
+  if (!circles) return null;
+  const removed = circles.find(c => c.id === id) || null;
+  if (!removed) return removed;
+  cacheWrite(key, { ...entry.data, circles: circles.filter(c => c.id !== id) });
+  return removed;
+}
+
+/** Restores a circle entry `removeCircleFromCache` removed, on a failed
+ * leave/delete request. No-op if it's already back (e.g. a refetch beat it). */
+export function restoreCircleToCache(circle) {
+  if (!circle) return;
+  const key = cacheKeys.circles();
+  const entry = peekCache(key);
+  const circles = entry?.data?.circles || [];
+  if (circles.some(c => c.id === circle.id)) return;
+  cacheWrite(key, { ...(entry?.data || {}), circles: [circle, ...circles] });
+}
+
 // ─── Posts & Reactions ────────────────────────────────
 export async function getPosts(communityId = null, circleId = null) {
   return cached(cacheKeys.posts(communityId, circleId), async () => {
@@ -849,10 +921,16 @@ export async function createPost(data) {
       total_points_gifted: 0,
       community_id: data.community_id || null,
       circle_id: data.circle_id || null,
+      source: data.circle_id || data.community_id ? { kind: data.circle_id ? 'circle' : 'community', id: data.circle_id || data.community_id } : null,
       comments: [],
     };
     MOCK_POSTS.unshift(post);
-    return post;
+    // Points cap mirrors the real backend (WS2): first 3 posts of the mock
+    // session earn +10, matching POST_POINTS_DAILY_CAP.
+    const awarded = mockPostsAwardedToday < 3 ? 10 : 0;
+    mockPostsAwardedToday += awarded > 0 ? 1 : 0;
+    MOCK_USER.points_balance = (MOCK_USER.points_balance || 0) + awarded;
+    return { ...post, points_awarded: awarded, points_balance: MOCK_USER.points_balance };
   }
   return request('POST', '/posts', data);
 }
@@ -1310,7 +1388,8 @@ export async function getPastEvents(params = {}) {
     if (USE_MOCK) {
       await delay();
       const events = MOCK_PAST_EVENTS.filter(
-        e => !params.provider_id || e.provider_id === params.provider_id,
+        e => (!params.provider_id || e.provider_id === params.provider_id)
+          && (!params.category || params.category === 'all' || e.provider_category === params.category),
       );
       return { events, count: events.length };
     }
@@ -1681,23 +1760,27 @@ let _mockStravaConnected = false;
 let _mockVisibleStats = [...MOCK_STRAVA_STATS.visible_stats];
 const _mockCircleStatuses = new Map();
 
-// ─── Circle stories ───────────────────────────────────────────────────────
+// ─── Stories ────────────────────────────────────────────────────────────
 //
-// The rail is grouped by author and ordered "mine first, then anyone with
-// something unseen, then most recent" — the same ordering the backend applies
-// in crud/circle_story.get_story_rail. Mock mode reimplements it rather than
-// faking a payload so the two never drift on the ordering the UI depends on.
+// Public and user-level (WS1 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md) —
+// not scoped to a circle. The rail is grouped by author and ordered "mine
+// first, then followed+unseen, then unseen, then seen, most recent within
+// each tier" — the same ordering crud/story.get_story_rail applies on the
+// backend. Mock mode reimplements it rather than faking a payload so the two
+// never drift on the ordering the UI depends on.
 
 function groupStoryRail(stories, currentUserId) {
   const groups = new Map();
   for (const story of stories) {
     const key = story.user_id;
     if (!groups.has(key)) {
+      const publicUser = MOCK_PUBLIC_USERS.find(u => u.id === story.user_id);
       groups.set(key, {
         user_id: story.user_id,
         user_name: story.user_name,
         user_photo_url: story.user_photo_url,
         is_mine: story.user_id === currentUserId,
+        is_following: publicUser?.is_following ?? false,
         stories: [],
       });
     }
@@ -1710,11 +1793,8 @@ function groupStoryRail(stories, currentUserId) {
     group.story_count = group.stories.length;
     group.latest_at = group.stories[group.stories.length - 1].created_at;
   }
-  result.sort((a, b) => (
-    (a.is_mine === b.is_mine ? 0 : a.is_mine ? -1 : 1)
-    || (a.has_unseen === b.has_unseen ? 0 : a.has_unseen ? -1 : 1)
-    || new Date(b.latest_at) - new Date(a.latest_at)
-  ));
+  const tier = (g) => g.is_mine ? 0 : (g.is_following && g.has_unseen ? 1 : (g.has_unseen ? 2 : 3));
+  result.sort((a, b) => tier(a) - tier(b) || new Date(b.latest_at) - new Date(a.latest_at));
   return result;
 }
 
@@ -1729,48 +1809,73 @@ export async function getStoryRail() {
       await delay(120);
       return { groups: groupStoryRail(activeMockStories(), MOCK_USER.id) };
     }
-    return request('GET', '/circles/stories/feed');
+    return request('GET', '/stories/feed');
   });
 }
 
-export async function getCircleStories(circleId) {
-  return cached(cacheKeys.circleStories(circleId), async () => {
-    if (USE_MOCK) {
-      await delay();
-      return { stories: activeMockStories().filter(st => st.circle_id === circleId) };
-    }
-    return request('GET', `/circles/${circleId}/stories`);
-  });
-}
-
-export async function createCircleStory(circleId, { image_url, image_public_id }) {
-  // The rail lives on the home payloads too, so a new story has to expire the
-  // whole circles family *and* home — otherwise the poster doesn't see their
-  // own ring until the next cold open.
-  invalidate('circles');
+/**
+ * Uploads (via multipart, matching the server's single-request
+ * upload+create) and creates a story. Uses raw XHR rather than `fetch`
+ * because only XHR exposes upload progress, which the rail's ring uses to
+ * show a live arc while it sends.
+ *
+ * @param {Blob} file
+ * @param {{onProgress?: (pct: number) => void}} [options]
+ */
+export function createStory(file, { onProgress } = {}) {
+  // The rail lives on the home payloads too, so a new story has to expire
+  // home's cache — otherwise the poster doesn't see their own ring until the
+  // next cold open.
   invalidate('home');
+  invalidate('stories');
   if (USE_MOCK) {
-    await delay();
-    const created_at = new Date().toISOString();
-    const circle = MOCK_CIRCLES.find(c => c.id === circleId);
-    const story = {
-      id: `st-${Date.now()}`,
-      circle_id: circleId,
-      circle_name: circle?.name || null,
-      user_id: MOCK_USER.id,
-      user_name: MOCK_USER.name,
-      user_photo_url: MOCK_USER.photo_url,
-      image_url,
-      created_at,
-      expires_at: new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
-      seen: true,
-      view_count: 0,
-      is_mine: true,
-    };
-    MOCK_STORIES.push(story);
-    return story;
+    return (async () => {
+      await delay();
+      onProgress?.(100);
+      const created_at = new Date().toISOString();
+      const story = {
+        id: `st-${Date.now()}`,
+        user_id: MOCK_USER.id,
+        user_name: MOCK_USER.name,
+        user_photo_url: MOCK_USER.photo_url,
+        image_url: URL.createObjectURL ? URL.createObjectURL(file) : MOCK_USER.photo_url,
+        created_at,
+        expires_at: new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
+        seen: true,
+        view_count: 0,
+        is_mine: true,
+      };
+      MOCK_STORIES.push(story);
+      return { ...story, points_awarded: 20, points_balance: (MOCK_USER.points_balance || 0) + 20 };
+    })();
   }
-  return request('POST', `/circles/${circleId}/stories`, { image_url, image_public_id });
+
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE}/stories`);
+    if (authToken) xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
+    };
+    xhr.onload = () => {
+      let payload = {};
+      try { payload = JSON.parse(xhr.responseText || '{}'); } catch { /* non-JSON error body */ }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(payload);
+      } else {
+        const detail = payload.detail;
+        reject(new Error((detail && typeof detail === 'object' ? detail.message : detail) || 'Could not post that story'));
+      }
+    };
+    xhr.onerror = () => reject(wrapNetworkError(new TypeError('Failed to fetch')));
+    xhr.ontimeout = () => reject(wrapNetworkError(Object.assign(new Error('timeout'), { name: 'AbortError' })));
+    xhr.timeout = REQUEST_TIMEOUT_MS;
+    xhr.send(formData);
+  });
 }
 
 export async function markStoryViewed(storyId) {
@@ -1786,19 +1891,19 @@ export async function markStoryViewed(storyId) {
   // Deliberately not cache-invalidating: a view receipt fires on every frame
   // of the viewer, and dropping the rail cache each time would refetch it
   // mid-playback. The rail's own optimistic update covers the dimmed ring.
-  return request('POST', `/circles/stories/${storyId}/view`);
+  return request('POST', `/stories/${storyId}/view`);
 }
 
 export async function deleteStory(storyId) {
-  invalidate('circles');
   invalidate('home');
+  invalidate('stories');
   if (USE_MOCK) {
     await delay();
     const at = MOCK_STORIES.findIndex(st => st.id === storyId);
     if (at !== -1) MOCK_STORIES.splice(at, 1);
     return true;
   }
-  await request('DELETE', `/circles/stories/${storyId}`);
+  await request('DELETE', `/stories/${storyId}`);
   return true;
 }
 
@@ -1812,6 +1917,23 @@ export async function setCircleBanner(circleId, { banner_url, banner_public_id }
     return { id: circleId, banner_url };
   }
   return request('PUT', `/circles/${circleId}/banner`, { banner_url, banner_public_id });
+}
+
+// WS9 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md — always costs 10 points,
+// never blocked (the backend floors the balance at 0). ProfileHeader.jsx
+// applies the optimistic swap around this call; this function just does the
+// upload+charge round trip.
+export async function changeProfilePhoto(file) {
+  if (USE_MOCK) {
+    await delay(300);
+    const url = URL.createObjectURL ? URL.createObjectURL(file) : `https://mock.local/avatars/${encodeURIComponent(file.name)}`;
+    MOCK_USER.photo_url = url;
+    MOCK_USER.points_balance = Math.max(0, (MOCK_USER.points_balance || 0) - 10);
+    return { photo_url: url, points_balance: MOCK_USER.points_balance, points_charged: 10 };
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  return multipartRequest('/users/me/photo', formData);
 }
 
 export async function uploadFile(file, folder) {

@@ -12,6 +12,7 @@ import MentionText from './MentionText';
 import { haptic } from '../utils/haptic';
 import { clickableDivProps } from '../utils/a11y';
 import { buildMembersByHandle, findActiveMention, insertMention } from '../utils/mentions';
+import { sharePostCard } from '../utils/brandedCanvas';
 
 const ACTIVITY_TYPES = ['run', 'walk', 'ride', 'yoga', 'gym', 'swim'];
 
@@ -437,6 +438,14 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                   title="Gift Legacy Points"
                 >
                   <Icon name="coins" size={13} /> Gift
+                </button>
+                <button
+                  className="btn btn-secondary post-reaction-btn"
+                  onClick={() => sharePostCard(post)}
+                  title="Share post card"
+                  aria-label="Share post"
+                >
+                  <Icon name="share" size={13} /> Share
                 </button>
               </div>
 

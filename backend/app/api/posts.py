@@ -150,3 +150,17 @@ def api_create_comment(post_id: str, comment_in: CommentCreate, user: User = Dep
         parent_comment_id=UUID(comment_in.parent_comment_id) if comment_in.parent_comment_id else None,
     )
     return {"id": comment.id, "message": "Comment added successfully"}
+
+
+@router.post("/{post_id}/share")
+def api_share_post(post_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.crud.post import share_post
+    from app.models.post import Post
+    from app.crud.circle_subscription import has_circle_access
+    post = db.query(Post).filter(Post.id == UUID(post_id)).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if post.circle_id and not has_circle_access(db, post.circle_id, user.id):
+        raise HTTPException(status_code=403, detail="Paid circle access required")
+    return share_post(db, UUID(post_id), user.id)
+

@@ -51,6 +51,7 @@ def create_post(
 
     if circle_id:
         _notify_circle_of_new_post(db, post)
+    _notify_followers_of_new_post(db, post)
 
     return post
 
@@ -93,6 +94,51 @@ def _notify_circle_of_new_post(db: Session, post: Post) -> None:
                 is_read=False,
             )
             for member_id in member_ids
+        ]
+        db.bulk_save_objects(notifications)
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
+def _notify_followers_of_new_post(db: Session, post: Post) -> None:
+    """Fan out an in-app notification to all followers of the post's author.
+    Best-effort — a notification failure must never block the post itself."""
+    try:
+        from app.models.follower import Follower
+        from app.models.user_notification import UserNotification
+
+        author = db.query(User).filter(User.id == post.user_id).first()
+        if not author:
+            return
+
+        follower_ids = [
+            row[0] for row in
+            db.query(Follower.follower_id)
+            .filter(Follower.following_id == post.user_id, Follower.follower_id != post.user_id)
+            .all()
+        ]
+        if not follower_ids:
+            return
+
+        author_name = author.name or "Someone"
+        if post.activity_type and post.distance_km:
+            preview = f"{author_name} logged a {post.activity_type} — {post.distance_km} km"
+        else:
+            preview = (post.content or "")[:140]
+
+        action_url = f"/circle/{post.circle_id}" if post.circle_id else "/"
+        notifications = [
+            UserNotification(
+                user_id=fid,
+                type="follower_post",
+                title=f"{author_name} shared a new post",
+                body=preview,
+                action_url=action_url,
+                is_read=False,
+                actor_user_id=post.user_id,
+            )
+            for fid in follower_ids
         ]
         db.bulk_save_objects(notifications)
         db.commit()
@@ -342,6 +388,24 @@ def react_to_post(db: Session, post_id: UUID, user_id: UUID, emoji: str, points_
     db.add(reaction)
     db.commit()
     db.refresh(reaction)
+
+    # Create notification for post author when reacted (not self-react)
+    if post.user_id != user_id:
+        try:
+            from app.models.user_notification import UserNotification
+            actor_name = giver.name if giver else "Someone"
+            db.add(UserNotification(
+                user_id=post.user_id,
+                type="post_liked",
+                title=f"{actor_name} reacted to your post",
+                body=(post.content or "")[:100],
+                action_url=f"/circle/{post.circle_id}" if post.circle_id else "/",
+                actor_user_id=user_id,
+            ))
+            db.commit()
+        except Exception:
+            db.rollback()
+
     return reaction
 
 
@@ -413,6 +477,7 @@ def create_comment(
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
+    parent = None
     if parent_comment_id:
         parent = db.query(PostComment).filter(PostComment.id == parent_comment_id).first()
         if not parent or parent.post_id != post_id:
@@ -438,7 +503,7 @@ def create_comment(
             actor_name = actor.name if actor else "Someone"
             db.add(UserNotification(
                 user_id=post.user_id,
-                type="post_commented",
+                type="post_comment",
                 title=f"{actor_name} commented on your post",
                 body=content[:100],
                 action_url=f"/circle/{post.circle_id}" if post.circle_id else "/",
@@ -448,4 +513,48 @@ def create_comment(
         except Exception:
             db.rollback()
 
+    # Notify parent comment author if this is a reply to another user's comment
+    if parent and parent.user_id != user_id and parent.user_id != post.user_id:
+        try:
+            from app.models.user_notification import UserNotification
+            actor = db.query(User).filter(User.id == user_id).first()
+            actor_name = actor.name if actor else "Someone"
+            db.add(UserNotification(
+                user_id=parent.user_id,
+                type="post_comment",
+                title=f"{actor_name} replied to your comment",
+                body=content[:100],
+                action_url=f"/circle/{post.circle_id}" if post.circle_id else "/",
+                actor_user_id=user_id,
+            ))
+            db.commit()
+        except Exception:
+            db.rollback()
+
     return comment
+
+
+def share_post(db: Session, post_id: UUID, user_id: UUID) -> dict:
+    """Record a post share and notify the author if shared by another user."""
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    if post.user_id != user_id:
+        try:
+            from app.models.user_notification import UserNotification
+            actor = db.query(User).filter(User.id == user_id).first()
+            actor_name = actor.name if actor else "Someone"
+            db.add(UserNotification(
+                user_id=post.user_id,
+                type="post_shared",
+                title=f"{actor_name} shared your post",
+                body=(post.content or "")[:100],
+                action_url=f"/circle/{post.circle_id}" if post.circle_id else "/",
+                actor_user_id=user_id,
+            ))
+            db.commit()
+        except Exception:
+            db.rollback()
+
+    return {"message": "Post shared successfully"}

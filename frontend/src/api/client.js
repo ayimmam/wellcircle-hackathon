@@ -1001,6 +1001,15 @@ export async function commentOnPost(postId, content, parentCommentId = null) {
   });
 }
 
+export async function sharePost(postId) {
+  if (USE_MOCK) {
+    await delay();
+    return { message: "Post shared successfully" };
+  }
+  return request('POST', `/posts/${postId}/share`);
+}
+
+
 
 // ─── Provider Self-Onboarding ───────────────────────
 export async function selfOnboardProvider(data) {

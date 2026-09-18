@@ -242,7 +242,15 @@ async def bot_circle_digests(
 
 # ── WS14: Engagement digest push ─────────────────────────────────────────
 
-PUSH_WORTHY_TYPES = {"post_liked", "post_commented", "story_liked"}
+PUSH_WORTHY_TYPES = {
+    "post_liked",
+    "post_comment",
+    "post_commented",
+    "post_shared",
+    "follower_post",
+    "new_post",
+    "story_liked",
+}
 
 @router.get("/engagement-digest")
 async def bot_engagement_digest(

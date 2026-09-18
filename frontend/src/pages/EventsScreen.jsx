@@ -7,6 +7,7 @@ import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import EventCard from '../components/EventCard';
 import PastEventRow from '../components/PastEventRow';
 import Icon from '../components/Icon';
+import EmptyStateHero from '../components/EmptyStateHero';
 
 const WEEK_MS = 7 * 86400000;
 
@@ -135,19 +136,16 @@ export default function EventsScreen() {
           <div className="skeleton" style={{ height: 130 }} />
         </>
       ) : list.length === 0 ? (
-        <div className="empty-state" id="events-empty">
-          <div className="empty-state-icon">
-            <Icon name="calendar" size={32} />
-          </div>
-          <p className="text-secondary" style={{ marginTop: 10 }}>
-            {tab === 'upcoming'
-              ? t('No events scheduled yet. Providers post them here first.')
-              : t('No past events to show yet.')}
-          </p>
-          <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={() => navigate('/explore')}>
-            {t('Browse providers')}
-          </button>
-        </div>
+        <EmptyStateHero
+          emoji={tab === 'upcoming' ? '📅' : '🏃'}
+          title={tab === 'upcoming' ? 'No upcoming events' : 'No past events yet'}
+          body={tab === 'upcoming'
+            ? t('No events scheduled yet. Providers post them here first.')
+            : t('No past events to show yet.')}
+          cta={tab === 'upcoming' ? t('Browse providers') : undefined}
+          onCta={tab === 'upcoming' ? () => navigate('/explore') : undefined}
+          id="events-empty"
+        />
       ) : tab === 'upcoming' ? (
         <>
           <Group title={t('This week')} events={thisWeek} />

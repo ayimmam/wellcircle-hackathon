@@ -2,15 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { INTEREST_CATEGORIES, EXERCISE_FREQUENCIES, MOCK_COMMUNITIES } from '../data/mock';
-import { WELLNESS_VIBES, dicebearUrl } from '../components/AvatarPicker';
-import { motion } from 'motion/react';
 import { track } from '../analytics';
 import { getCircles, createCircle, joinCircle } from '../api/client';
 import { shareCircleInvite } from '../utils/circleInvite';
 import { showToast } from '../components/Toast';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
-const STEPS = ['name', 'goal', 'avatar', 'interest', 'frequency', 'circles'];
+const STEPS = ['name', 'goal', 'interest', 'frequency', 'circles'];
 // Smart default: most users land mid-scale, and a pre-selected card means the
 // Next button is never dead on this step. Interest is deliberately NOT
 // defaulted — it drives circle suggestions, so a wrong default poisons them.
@@ -28,7 +26,6 @@ export default function OnboardingFlow() {
   const [formData, setFormData] = useState({
     name: user?.name || '',
     goal: '',
-    avatar_vibe: '',
     interest_categories: [],
     exercise_frequency: DEFAULT_FREQUENCY,
     suggested_circle_ids: []
@@ -60,7 +57,6 @@ export default function OnboardingFlow() {
   const canNext = () => {
     if (currentStep === 'name') return formData.name.trim().length > 0;
     if (currentStep === 'goal') return true; // optional
-    if (currentStep === 'avatar') return true; // optional
     if (currentStep === 'interest') return formData.interest_categories.length > 0;
     if (currentStep === 'frequency') return formData.exercise_frequency !== '';
     if (currentStep === 'circles') return true; // optional
@@ -220,56 +216,6 @@ export default function OnboardingFlow() {
               aria-label="Your wellness goal"
               id="onboarding-goal-input"
             />
-          </>
-        )}
-
-        {currentStep === 'avatar' && (
-          <>
-            <div className="onboarding-emoji">🎨</div>
-            <h2 className="onboarding-title">Pick your vibe</h2>
-            <p className="onboarding-subtitle">
-              Choose an avatar that represents you — you can change it anytime.
-            </p>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: 12,
-              marginTop: 8,
-            }}>
-              {WELLNESS_VIBES.map(vibe => {
-                const isSelected = formData.avatar_vibe === vibe.id;
-                return (
-                  <motion.button
-                    key={vibe.id}
-                    className={`avatar-picker-item ${isSelected ? 'selected' : ''}`}
-                    onClick={() => setFormData(prev => ({ ...prev, avatar_vibe: vibe.id }))}
-                    whileTap={{ scale: 0.88 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    id={`vibe-${vibe.id}`}
-                    title={vibe.label}
-                  >
-                    <img
-                      src={dicebearUrl(vibe.id, 60)}
-                      alt={vibe.label}
-                      width={52}
-                      height={52}
-                      loading="lazy"
-                    />
-                    {isSelected && (
-                      <motion.span
-                        className="avatar-picker-check"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-                      >
-                        ✓
-                      </motion.span>
-                    )}
-                    <span className="avatar-picker-item-label">{vibe.emoji}</span>
-                  </motion.button>
-                );
-              })}
-            </div>
           </>
         )}
 

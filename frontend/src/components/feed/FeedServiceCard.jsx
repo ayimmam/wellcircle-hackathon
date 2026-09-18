@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'motion/react';
 import SmartImage from '../SmartImage';
 import Icon from '../Icon';
 import { clickableDivProps } from '../../utils/a11y';
@@ -18,14 +17,12 @@ export default function FeedServiceCard({ item, priority = false }) {
   const comingSoon = !!provider.is_coming_soon;
 
   return (
-    <motion.div
+    <div
       className="card mb-12"
       style={{ cursor: 'pointer' }}
       {...clickableDivProps(() => navigate(`/provider/${provider.id}`))}
       aria-label={provider.name}
       id={`feed-service-${item.id}`}
-      whileTap={{ scale: 0.97 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
     >
       <div style={{ height: 160, overflow: 'hidden' }}>
         <SmartImage
@@ -65,6 +62,6 @@ export default function FeedServiceCard({ item, priority = false }) {
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

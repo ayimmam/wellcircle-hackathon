@@ -1,4 +1,4 @@
-"""Public story routes (WS1 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md).
+"""Public story routes (WS1 + WS11b/WS11d of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026_ROUND2.md).
 
 Posting a story is one request, not the old upload-then-create two-step:
 the bytes go to Cloudinary and the row is written in the same call, so a
@@ -15,7 +15,10 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.crud.story import create_story, delete_story, get_story_rail, mark_story_viewed
+from app.crud.story import (
+    create_story, delete_story, get_story_rail, mark_story_viewed,
+    toggle_story_like, get_story_viewers,
+)
 from app.services.cloudinary_service import delete_file, upload_file
 from app.services.points import POINTS_STORY, STORY_POINTS_DAILY_CAP, TXN_STORY, award_capped
 
@@ -86,6 +89,34 @@ def api_delete_story(
     try:
         delete_story(db, story_id, user.id)
         return {"deleted": True}
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+
+
+# ── WS11b: story like ────────────────────────────────────────────────────
+
+@router.post("/stories/{story_id}/like")
+def api_toggle_story_like(
+    story_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    """Toggle a like on a story. Returns {liked, like_count}."""
+    try:
+        return toggle_story_like(db, story_id, user.id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+# ── WS11d: story viewers list ────────────────────────────────────────────
+
+@router.get("/stories/{story_id}/viewers")
+def api_story_viewers(
+    story_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    """Author-only: list of users who viewed this story."""
+    try:
+        return {"viewers": get_story_viewers(db, story_id, user.id)}
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except PermissionError as exc:

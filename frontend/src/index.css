@@ -3270,7 +3270,7 @@ body.in-telegram #detail-back-btn {
 .story-viewer-progress {
   display: flex;
   gap: 4px;
-  padding: 10px 10px 0;
+  padding: calc(10px + var(--safe-top) + var(--tg-top)) 10px 0;
 }
 .story-progress-track {
   flex: 1;
@@ -3290,7 +3290,7 @@ body.in-telegram #detail-back-btn {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 12px 8px;
+  padding: 8px 12px 8px;
 }
 .story-viewer-avatar {
   width: 32px;
@@ -3365,3 +3365,201 @@ body.in-telegram #detail-back-btn {
   gap: 8px;
   padding: 0 14px 14px;
 }
+
+/* WS11b: story like button */
+.story-viewer-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: center;
+  padding: 0 14px 6px;
+}
+.story-like-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: var(--radius-full);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+.story-like-btn:active { transform: scale(1.25); }
+.story-like-btn.liked { color: #ff4d6a; }
+.story-like-btn.liked svg { fill: #ff4d6a; stroke: #ff4d6a; }
+
+/* WS11d: story viewers bottom sheet */
+.story-viewers-sheet {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 1100;
+  background: var(--bg-primary);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 16px 16px calc(16px + var(--safe-bottom));
+  animation: sheet-up 0.25s ease;
+}
+.story-viewers-sheet .sheet-handle {
+  width: 36px; height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  margin: 0 auto 14px;
+}
+.story-viewers-list { list-style: none; padding: 0; margin: 0; }
+.story-viewer-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0;
+  cursor: pointer;
+}
+.story-viewer-row .avatar { flex-shrink: 0; }
+.story-viewer-row-name { font-weight: 500; font-size: 0.9rem; }
+.story-viewer-row-time { font-size: 0.75rem; color: var(--text-secondary); }
+
+/* WS12: share button on stories/posters */
+.story-share-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: var(--radius-full);
+}
+
+/* WS13: inline comment composer on feed cards */
+.feed-comment-composer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 12px;
+  border-top: 1px solid var(--border);
+}
+.feed-comment-composer input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  padding: 6px 12px;
+  font-size: 0.84rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  outline: none;
+}
+.feed-comment-composer input:focus { border-color: var(--accent); }
+.feed-comment-composer button {
+  background: none; border: none;
+  color: var(--accent); cursor: pointer;
+  padding: 4px;
+}
+.feed-comment-list {
+  padding: 4px 14px 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.feed-comment-item {
+  display: flex; gap: 8px; padding: 4px 0;
+  font-size: 0.84rem;
+}
+.feed-comment-item strong { font-weight: 600; }
+.feed-comment-replies {
+  padding-left: 28px;
+}
+
+/* WS13: minimal icon action row */
+.post-action-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 14px 2px;
+}
+.post-action-btn {
+  background: none; border: none;
+  color: var(--text-secondary);
+  display: flex; align-items: center; gap: 4px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.15s ease;
+}
+.post-action-btn.active { color: #ff4d6a; }
+.post-action-btn.active svg { fill: #ff4d6a; stroke: #ff4d6a; }
+
+/* WS15: reaction picker (long-press) */
+.reaction-picker-overlay {
+  position: fixed; inset: 0;
+  z-index: 900;
+  background: rgba(0,0,0,0.3);
+}
+.reaction-picker {
+  position: absolute;
+  bottom: 100%; left: 50%; transform: translateX(-50%);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-xl);
+  padding: 8px 10px;
+  display: flex; gap: 6px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  animation: sheet-up 0.2s ease;
+  white-space: nowrap;
+}
+.reaction-picker button {
+  background: none; border: none;
+  font-size: 1.35rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-md);
+  transition: background 0.15s ease, transform 0.15s ease;
+  position: relative;
+}
+.reaction-picker button:hover { background: var(--bg-secondary); transform: scale(1.2); }
+.reaction-picker button.locked { opacity: 0.4; }
+.reaction-picker button .lock-badge {
+  position: absolute; top: -4px; right: -4px;
+  font-size: 0.6rem;
+}
+
+/* WS15: stacked reaction display */
+.reaction-stack {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+.reaction-stack-group {
+  display: flex; align-items: center; gap: 2px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+.reaction-stack-avatars {
+  display: flex;
+}
+.reaction-stack-avatars .avatar {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-primary);
+  margin-left: -6px;
+  overflow: hidden;
+}
+.reaction-stack-avatars .avatar:first-child { margin-left: 0; }
+.reaction-stack-avatars .avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* WS12: provider/event share button */
+.detail-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.detail-share-btn:active { opacity: 0.8; }

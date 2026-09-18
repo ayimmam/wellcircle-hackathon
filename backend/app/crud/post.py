@@ -14,6 +14,12 @@ from app.models.community import Community
 # full content loads on the destination screen (circle/community), not here.
 FEED_CONTENT_TRUNCATE_AT = 280
 
+# WS15: fixed reaction vocabulary — server-side validation.
+VALID_REACTION_EMOJIS = {"🔥", "👏", "❤️", "💪", "wc"}
+
+# WS15: max reactors previewed per emoji in the stacked display.
+REACTORS_PREVIEW_CAP = 5
+
 def create_post(
     db: Session,
     user_id: UUID,
@@ -94,19 +100,44 @@ def _notify_circle_of_new_post(db: Session, post: Post) -> None:
         db.rollback()
 
 
-def _assemble_posts(db: Session, posts_data, *, include_comments: bool) -> List[dict]:
+def _assemble_posts(db: Session, posts_data, *, include_comments: bool,
+                    viewer_id: Optional[UUID] = None) -> List[dict]:
     """Shared batching + assembly for any (Post, User) row list — one query
     for every post's reactions, and either one query for full comment threads
-    or one COUNT query for just the count, instead of per-post round trips."""
+    or one COUNT query for just the count, instead of per-post round trips.
+
+    WS15: also returns viewer_reactions and reactors_preview when viewer_id
+    is provided."""
     post_ids = [p.id for p, _ in posts_data]
 
     reactions_by_post = {}
     total_points_by_post = {}
+    # WS15: per-post per-emoji reactor details for stacked display
+    reactors_by_post = {}
+    viewer_reactions_by_post = {}
+
     if post_ids:
-        for r in db.query(Reaction).filter(Reaction.post_id.in_(post_ids)).all():
+        all_reactions = db.query(Reaction, User).join(
+            User, Reaction.user_id == User.id
+        ).filter(Reaction.post_id.in_(post_ids)).all()
+
+        for r, u in all_reactions:
+            # Counts
             summary = reactions_by_post.setdefault(r.post_id, {})
             summary[r.emoji] = summary.get(r.emoji, 0) + 1
             total_points_by_post[r.post_id] = total_points_by_post.get(r.post_id, 0) + r.points_gifted
+
+            # WS15: reactor preview (capped per emoji)
+            post_reactors = reactors_by_post.setdefault(r.post_id, {})
+            emoji_reactors = post_reactors.setdefault(r.emoji, [])
+            if len(emoji_reactors) < REACTORS_PREVIEW_CAP:
+                emoji_reactors.append({
+                    "id": str(u.id), "name": u.name, "photo_url": u.photo_url,
+                })
+
+            # WS15: viewer's own reactions
+            if viewer_id and r.user_id == viewer_id:
+                viewer_reactions_by_post.setdefault(r.post_id, []).append(r.emoji)
 
     comments_by_post = {}
     comment_count_by_post = {}
@@ -164,6 +195,9 @@ def _assemble_posts(db: Session, posts_data, *, include_comments: bool) -> List[
             "created_at": p.created_at,
             "reactions": reactions_by_post.get(p.id, {}),
             "total_points_gifted": total_points_by_post.get(p.id, 0),
+            # WS15: viewer's own reactions and reactor preview for stacked display
+            "viewer_reactions": viewer_reactions_by_post.get(p.id, []),
+            "reactors_preview": reactors_by_post.get(p.id, {}),
         }
         if include_comments:
             item["comments"] = comments_by_post.get(p.id, [])
@@ -173,7 +207,9 @@ def _assemble_posts(db: Session, posts_data, *, include_comments: bool) -> List[
     return result
 
 
-def get_posts(db: Session, community_id: Optional[UUID] = None, circle_id: Optional[UUID] = None, limit: int = 20) -> List[dict]:
+def get_posts(db: Session, community_id: Optional[UUID] = None,
+              circle_id: Optional[UUID] = None, limit: int = 20,
+              viewer_id: Optional[UUID] = None) -> List[dict]:
     query = db.query(Post, User).join(User, Post.user_id == User.id)
     if community_id:
         query = query.filter(Post.community_id == community_id)
@@ -181,10 +217,11 @@ def get_posts(db: Session, community_id: Optional[UUID] = None, circle_id: Optio
         query = query.filter(Post.circle_id == circle_id)
 
     posts_data = query.order_by(desc(Post.created_at)).limit(limit).all()
-    return _assemble_posts(db, posts_data, include_comments=True)
+    return _assemble_posts(db, posts_data, include_comments=True, viewer_id=viewer_id)
 
 
-def get_public_feed_posts(db: Session, limit: int = 10, before: Optional[datetime] = None) -> List[dict]:
+def get_public_feed_posts(db: Session, limit: int = 10, before: Optional[datetime] = None,
+                          viewer_id: Optional[UUID] = None) -> List[dict]:
     """For You feed source: standalone posts, posts from public/free circles,
     or from any provider community — never a private or paid circle, never a
     system-generated join/check-in notice. `comment_count` only (Phase 2
@@ -215,7 +252,7 @@ def get_public_feed_posts(db: Session, limit: int = 10, before: Optional[datetim
         query = query.filter(Post.created_at < before)
 
     posts_data = query.order_by(desc(Post.created_at)).limit(limit).all()
-    items = _assemble_posts(db, posts_data, include_comments=False)
+    items = _assemble_posts(db, posts_data, include_comments=False, viewer_id=viewer_id)
 
     # Truncate content for the bootstrap payload budget (Phase 2).
     for item in items:
@@ -307,6 +344,64 @@ def react_to_post(db: Session, post_id: UUID, user_id: UUID, emoji: str, points_
     db.refresh(reaction)
     return reaction
 
+
+# ── WS15: toggle_reaction (add or remove, validated emoji set) ───────────
+
+def toggle_reaction(db: Session, post_id: UUID, user_id: UUID, emoji: str) -> dict:
+    """Toggle a reaction on a post. If a (post_id, user_id, emoji) row exists,
+    delete it; otherwise insert. Returns {reacted: bool, reactions: {...}}."""
+    if emoji not in VALID_REACTION_EMOJIS:
+        raise HTTPException(status_code=422, detail=f"Invalid reaction emoji: {emoji}")
+
+    # WS15: 'wc' emoji requires has_wellcircle_reaction unlock
+    if emoji == "wc":
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user or not user.has_wellcircle_reaction:
+            raise HTTPException(status_code=403, detail="Well Circle reaction not unlocked")
+
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    existing = db.query(Reaction).filter_by(
+        post_id=post_id, user_id=user_id, emoji=emoji
+    ).first()
+
+    if existing:
+        db.delete(existing)
+        reacted = False
+    else:
+        db.add(Reaction(post_id=post_id, user_id=user_id, emoji=emoji))
+        reacted = True
+
+    db.commit()
+
+    # WS14: create notification for post author when reacted (not self-react)
+    if reacted and post.user_id != user_id:
+        try:
+            from app.models.user_notification import UserNotification
+            actor = db.query(User).filter(User.id == user_id).first()
+            actor_name = actor.name if actor else "Someone"
+            db.add(UserNotification(
+                user_id=post.user_id,
+                type="post_liked",
+                title=f"{actor_name} reacted to your post",
+                body=(post.content or "")[:100],
+                action_url=f"/circle/{post.circle_id}" if post.circle_id else "/",
+                actor_user_id=user_id,
+            ))
+            db.commit()
+        except Exception:
+            db.rollback()
+
+    # Return updated reaction counts
+    reactions = {}
+    for r in db.query(Reaction).filter(Reaction.post_id == post_id).all():
+        reactions[r.emoji] = reactions.get(r.emoji, 0) + 1
+
+    return {"reacted": reacted, "reactions": reactions}
+
+
 def create_comment(
     db: Session,
     post_id: UUID,
@@ -334,4 +429,23 @@ def create_comment(
     db.add(comment)
     db.commit()
     db.refresh(comment)
+
+    # WS14: create notification for post author when commented (not self-comment)
+    if post.user_id != user_id:
+        try:
+            from app.models.user_notification import UserNotification
+            actor = db.query(User).filter(User.id == user_id).first()
+            actor_name = actor.name if actor else "Someone"
+            db.add(UserNotification(
+                user_id=post.user_id,
+                type="post_commented",
+                title=f"{actor_name} commented on your post",
+                body=content[:100],
+                action_url=f"/circle/{post.circle_id}" if post.circle_id else "/",
+                actor_user_id=user_id,
+            ))
+            db.commit()
+        except Exception:
+            db.rollback()
+
     return comment

@@ -1907,6 +1907,78 @@ export async function deleteStory(storyId) {
   return true;
 }
 
+// ── WS11b: story like toggle ─────────────────────────────────────────────
+
+export async function toggleStoryLike(storyId) {
+  if (USE_MOCK) {
+    await delay(100);
+    const story = MOCK_STORIES.find(st => st.id === storyId);
+    if (story) {
+      story.liked_by_viewer = !story.liked_by_viewer;
+      story.like_count = (story.like_count || 0) + (story.liked_by_viewer ? 1 : -1);
+    }
+    return { liked: story?.liked_by_viewer ?? false, like_count: story?.like_count ?? 0 };
+  }
+  return request('POST', `/stories/${storyId}/like`);
+}
+
+// ── WS11d: story viewers list ────────────────────────────────────────────
+
+export async function getStoryViewers(storyId) {
+  if (USE_MOCK) {
+    await delay(150);
+    return {
+      viewers: [
+        { user_id: 'mock-1', name: 'Test User', photo_url: null, viewed_at: new Date().toISOString() },
+      ],
+    };
+  }
+  return request('GET', `/stories/${storyId}/viewers`);
+}
+
+// ── WS15: toggle reaction (add/remove, validated emoji set) ──────────────
+
+export async function toggleReaction(postId, emoji) {
+  if (USE_MOCK) {
+    await delay(100);
+    return { reacted: true, reactions: { [emoji]: 1 } };
+  }
+  return request('POST', `/posts/${postId}/toggle-react`, { emoji });
+}
+
+// ── WS15: unlock Well Circle reaction ────────────────────────────────────
+
+export async function unlockReaction() {
+  if (USE_MOCK) {
+    await delay(200);
+    MOCK_USER.has_wellcircle_reaction = true;
+    MOCK_USER.points_balance = Math.max(0, (MOCK_USER.points_balance || 0) - 50);
+    return { unlocked: true, points_balance: MOCK_USER.points_balance, has_wellcircle_reaction: true };
+  }
+  return request('POST', '/posts/users/me/unlock-reaction');
+}
+
+// ── WS13: create comment (shared by FeedPostCard + PostFeed) ─────────────
+
+export async function createComment(postId, { content, parent_comment_id = null }) {
+  if (USE_MOCK) {
+    await delay(150);
+    return { id: `mock-comment-${Date.now()}`, message: 'Comment added successfully' };
+  }
+  return request('POST', `/posts/${postId}/comments`, { content, parent_comment_id });
+}
+
+// ── WS13: get post comments (for inline loading on FYP feed) ─────────────
+
+export async function getPostComments(postId) {
+  if (USE_MOCK) {
+    await delay(100);
+    return { posts: [{ comments: [] }] };
+  }
+  return request('GET', `/posts?circle_id=&community_id=&limit=1`);
+}
+
+
 export async function setCircleBanner(circleId, { banner_url, banner_public_id }) {
   invalidate('circles');
   invalidate('home');

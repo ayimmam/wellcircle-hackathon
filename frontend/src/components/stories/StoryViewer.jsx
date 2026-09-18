@@ -3,8 +3,9 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import SmartImage from '../SmartImage';
 import Icon from '../Icon';
-import { followUser, unfollowUser } from '../../api/client';
+import { followUser, unfollowUser, toggleStoryLike, getStoryViewers } from '../../api/client';
 import useOptimisticAction from '../../hooks/useOptimisticAction';
+import { shareBrandedImage } from '../../utils/brandedCanvas';
 
 // How long one story holds the screen before advancing.
 const STORY_MS = 5000;
@@ -36,9 +37,21 @@ export default function StoryViewer({ groups, startIndex = 0, onClose, onViewed,
   // author's own stories, without needing the parent rail to re-render.
   const [followOverrides, setFollowOverrides] = useState({});
 
+  // WS11b: like state per story
+  const [likeOverrides, setLikeOverrides] = useState({});
+  const [likeCountOverrides, setLikeCountOverrides] = useState({});
+
+  // WS11d: viewers sheet
+  const [viewersOpen, setViewersOpen] = useState(false);
+  const [viewers, setViewers] = useState([]);
+
   const group = groups[groupAt];
   const story = group?.stories?.[storyAt];
   const isFollowing = group ? (followOverrides[group.user_id] ?? group.is_following) : false;
+
+  // WS11b: resolved like state
+  const liked = story ? (likeOverrides[story.id] ?? story.liked_by_viewer) : false;
+  const likeCount = story ? (likeCountOverrides[story.id] ?? story.like_count ?? 0) : 0;
 
   const close = useCallback(() => onClose?.(), [onClose]);
 
@@ -68,7 +81,7 @@ export default function StoryViewer({ groups, startIndex = 0, onClose, onViewed,
 
   // Advance timer. Restarting on every story change is what resets the bar.
   useEffect(() => {
-    if (paused || !story) return undefined;
+    if (paused || viewersOpen || !story) return undefined;
     const id = setInterval(() => {
       setElapsed(value => {
         if (value + TICK_MS >= STORY_MS) {
@@ -81,7 +94,7 @@ export default function StoryViewer({ groups, startIndex = 0, onClose, onViewed,
       });
     }, TICK_MS);
     return () => clearInterval(id);
-  }, [paused, story, next]);
+  }, [paused, viewersOpen, story, next]);
 
   // One view receipt per story, sent as it appears.
   useEffect(() => {
@@ -136,6 +149,48 @@ export default function StoryViewer({ groups, startIndex = 0, onClose, onViewed,
     });
   };
 
+  // WS11b: like toggle
+  const handleLike = () => {
+    const storyId = story.id;
+    const nextLiked = !liked;
+    const nextCount = likeCount + (nextLiked ? 1 : -1);
+    runOptimistic({
+      apply: () => {
+        setLikeOverrides(prev => ({ ...prev, [storyId]: nextLiked }));
+        setLikeCountOverrides(prev => ({ ...prev, [storyId]: nextCount }));
+        return () => {
+          setLikeOverrides(prev => ({ ...prev, [storyId]: !nextLiked }));
+          setLikeCountOverrides(prev => ({ ...prev, [storyId]: likeCount }));
+        };
+      },
+      request: () => toggleStoryLike(storyId),
+      failureMessage: 'Could not like that story',
+      dedupeKey: `story-like-${storyId}`,
+    });
+  };
+
+  // WS11d: open viewers sheet
+  const handleViewersOpen = async () => {
+    setPaused(true);
+    setViewersOpen(true);
+    try {
+      const data = await getStoryViewers(story.id);
+      setViewers(data.viewers || []);
+    } catch {
+      setViewers([]);
+    }
+  };
+
+  // WS12: share story
+  const handleShare = () => {
+    shareBrandedImage({
+      imageUrl: story.image_url,
+      title: `${group.user_name || 'Someone'}'s story`,
+      subtitle: 'on Well Circle',
+      tag: 'story_share',
+    });
+  };
+
   const viewer = (
     <div className="story-viewer" id="story-viewer" role="dialog" aria-modal="true">
       <div className="story-viewer-progress">
@@ -175,9 +230,16 @@ export default function StoryViewer({ groups, startIndex = 0, onClose, onViewed,
           <span>{timeAgo(story.created_at)}</span>
         </div>
         {story.is_mine && typeof story.view_count === 'number' && (
-          <span className="story-viewer-count" title="People who viewed this story">
+          <button
+            className="story-viewer-count"
+            title="People who viewed this story"
+            onClick={handleViewersOpen}
+            type="button"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.85)' }}
+            id="story-viewers-btn"
+          >
             <Icon name="eye" size={14} /> {story.view_count}
-          </span>
+          </button>
         )}
         {story.is_mine && onDelete && (
           <button className="story-viewer-btn" onClick={handleDelete} aria-label="Delete story" type="button">
@@ -218,6 +280,22 @@ export default function StoryViewer({ groups, startIndex = 0, onClose, onViewed,
         type="button"
       />
 
+      {/* WS11b/WS12: action row with like + share */}
+      <div className="story-viewer-actions">
+        <button
+          type="button"
+          className={`story-like-btn ${liked ? 'liked' : ''}`}
+          onClick={handleLike}
+          id="story-like-btn"
+          aria-label={liked ? 'Unlike' : 'Like'}
+        >
+          <Icon name="heart" size={20} strokeWidth={liked ? 0 : 1.5} /> {likeCount > 0 ? likeCount : ''}
+        </button>
+        <button type="button" className="story-share-btn" onClick={handleShare} id="story-share-btn" aria-label="Share story">
+          <Icon name="share" size={18} /> Share
+        </button>
+      </div>
+
       {!group.is_mine && (
         <div className="story-viewer-follow">
           <button
@@ -234,6 +312,37 @@ export default function StoryViewer({ groups, startIndex = 0, onClose, onViewed,
       <div className="story-viewer-footer">
         Disappears {expiryLabel(story.expires_at)}
       </div>
+
+      {/* WS11d: viewers bottom sheet */}
+      {viewersOpen && (
+        <>
+          <div className="sheet-overlay" onClick={() => { setViewersOpen(false); setPaused(false); }} />
+          <div className="story-viewers-sheet" id="story-viewers-sheet">
+            <div className="sheet-handle" />
+            <h4 style={{ margin: '0 0 12px', fontSize: '0.95rem' }}>
+              <Icon name="eye" size={16} /> {viewers.length} viewer{viewers.length !== 1 ? 's' : ''}
+            </h4>
+            <ul className="story-viewers-list">
+              {viewers.map(v => (
+                <li key={v.user_id} className="story-viewer-row" onClick={() => { setViewersOpen(false); navigate(`/users/${v.user_id}`); }}>
+                  <div className="avatar avatar-sm">
+                    <SmartImage src={v.photo_url} width={32} fallback={<Icon name="user" size={14} />} />
+                  </div>
+                  <div>
+                    <div className="story-viewer-row-name">{v.name || 'User'}</div>
+                    <div className="story-viewer-row-time">{timeAgo(v.viewed_at)}</div>
+                  </div>
+                </li>
+              ))}
+              {viewers.length === 0 && (
+                <li style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', padding: '16px 0' }}>
+                  No viewers yet
+                </li>
+              )}
+            </ul>
+          </div>
+        </>
+      )}
     </div>
   );
 

@@ -108,6 +108,18 @@ def ensure_db_schema(engine):
         # Custom avatar (WS9 — alembic 021).
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_is_custom BOOLEAN NOT NULL DEFAULT FALSE;",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_public_id VARCHAR(255);",
+        # Story likes (WS11b — Phase 24).
+        """CREATE TABLE IF NOT EXISTS story_likes (
+            story_id UUID NOT NULL REFERENCES stories(id),
+            user_id UUID NOT NULL REFERENCES users(id),
+            liked_at TIMESTAMPTZ DEFAULT NOW(),
+            PRIMARY KEY (story_id, user_id)
+        );""",
+        # Purchasable Well Circle reaction (WS15 — Phase 24).
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS has_wellcircle_reaction BOOLEAN NOT NULL DEFAULT FALSE;",
+        # Engagement push tracking (WS14 — Phase 24).
+        "ALTER TABLE user_notifications ADD COLUMN IF NOT EXISTS is_push_sent BOOLEAN NOT NULL DEFAULT FALSE;",
+        "ALTER TABLE user_notifications ADD COLUMN IF NOT EXISTS actor_user_id UUID;",
     ]
 
     try:

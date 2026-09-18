@@ -1,5 +1,5 @@
-"""Public story CRUD — posting, reading, view receipts, and the 72h purge
-(WS1 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md).
+"""Public story CRUD — posting, reading, view receipts, likes, viewers, and
+the 72h purge (WS1 + WS11b/WS11d of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026_ROUND2.md).
 
 Stories are public: any signed-in user can see any other user's active
 story. There is no membership check anywhere in this file — that's the
@@ -15,7 +15,7 @@ from uuid import UUID
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models.story import STORY_TTL, Story, StoryView
+from app.models.story import STORY_TTL, Story, StoryView, StoryLike
 from app.models.user import User
 from app.utils.logger import get_logger
 
@@ -80,7 +80,8 @@ def create_story(db: Session, user: User, image_url: str, image_public_id: str) 
 
 
 def _serialize(story: Story, author: Optional[User], seen: bool, view_count: int,
-               viewer_id: UUID, is_following: bool) -> dict:
+               viewer_id: UUID, is_following: bool,
+               like_count: int = 0, liked_by_viewer: bool = False) -> dict:
     return {
         "id": str(story.id),
         "user_id": str(story.user_id),
@@ -95,6 +96,9 @@ def _serialize(story: Story, author: Optional[User], seen: bool, view_count: int
         "view_count": view_count if story.user_id == viewer_id else None,
         "is_mine": story.user_id == viewer_id,
         "is_following": is_following,
+        # WS11b: like data — public, unlike view_count.
+        "like_count": like_count,
+        "liked_by_viewer": liked_by_viewer,
     }
 
 
@@ -129,6 +133,20 @@ def _hydrate(db: Session, stories: List[Story], viewer_id: UUID) -> List[dict]:
         ).all()
     }
 
+    # WS11b: batched like counts + viewer's own likes
+    like_counts = dict(
+        db.query(StoryLike.story_id, func.count(StoryLike.user_id))
+        .filter(StoryLike.story_id.in_(story_ids))
+        .group_by(StoryLike.story_id).all()
+    )
+    viewer_liked_ids = {
+        row[0] for row in
+        db.query(StoryLike.story_id).filter(
+            StoryLike.story_id.in_(story_ids),
+            StoryLike.user_id == viewer_id,
+        ).all()
+    }
+
     return [
         _serialize(
             s, authors.get(s.user_id),
@@ -136,6 +154,8 @@ def _hydrate(db: Session, stories: List[Story], viewer_id: UUID) -> List[dict]:
             view_count=int(view_counts.get(s.id, 0)),
             viewer_id=viewer_id,
             is_following=s.user_id in following_ids,
+            like_count=int(like_counts.get(s.id, 0)),
+            liked_by_viewer=s.id in viewer_liked_ids,
         )
         for s in stories
     ]
@@ -205,6 +225,80 @@ def mark_story_viewed(db: Session, story_id: UUID, user_id: UUID) -> int:
     )
 
 
+# ── WS11b: story like toggle ─────────────────────────────────────────────
+
+def toggle_story_like(db: Session, story_id: UUID, user_id: UUID) -> dict:
+    """Toggle a like on a story. Returns {"liked": bool, "like_count": int}.
+    One like per user per story — a second tap un-likes."""
+    story = _active_filter(db.query(Story).filter(Story.id == story_id)).first()
+    if not story:
+        raise LookupError("Story not found")
+
+    existing = db.query(StoryLike).filter_by(story_id=story_id, user_id=user_id).first()
+    if existing:
+        db.delete(existing)
+        liked = False
+    else:
+        db.add(StoryLike(story_id=story_id, user_id=user_id))
+        liked = True
+
+    db.commit()
+
+    like_count = int(
+        db.query(func.count(StoryLike.user_id))
+        .filter(StoryLike.story_id == story_id).scalar() or 0
+    )
+
+    # WS14: create a notification for the story author when liked (not self-like)
+    if liked and story.user_id != user_id:
+        try:
+            from app.models.user_notification import UserNotification
+            actor = db.query(User).filter(User.id == user_id).first()
+            actor_name = actor.name if actor else "Someone"
+            db.add(UserNotification(
+                user_id=story.user_id,
+                type="story_liked",
+                title=f"{actor_name} liked your story",
+                body="Tap to see your story",
+                action_url="/",
+                actor_user_id=user_id,
+            ))
+            db.commit()
+        except Exception:
+            db.rollback()
+
+    return {"liked": liked, "like_count": like_count}
+
+
+# ── WS11d: story viewers list ────────────────────────────────────────────
+
+def get_story_viewers(db: Session, story_id: UUID, requester_id: UUID, limit: int = 50) -> list:
+    """Author-only list of who viewed a story, most recent first."""
+    story = db.query(Story).filter(Story.id == story_id).first()
+    if not story:
+        raise LookupError("Story not found")
+    if story.user_id != requester_id:
+        raise PermissionError("Only the story author can see viewers")
+
+    rows = (
+        db.query(StoryView, User)
+        .join(User, StoryView.user_id == User.id)
+        .filter(StoryView.story_id == story_id)
+        .order_by(StoryView.viewed_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "user_id": str(sv.user_id),
+            "name": u.name,
+            "photo_url": u.photo_url,
+            "viewed_at": sv.viewed_at,
+        }
+        for sv, u in rows
+    ]
+
+
 def delete_story(db: Session, story_id: UUID, user_id: UUID, is_admin: bool = False) -> None:
     """Author or a super admin removes a story early.
 
@@ -251,12 +345,15 @@ def purge_expired_stories(db: Session, limit: int = 500) -> int:
             story.deleted_at = _now()
             purged += 1
 
-    # View receipts are worthless once the image is gone, and they are the only
-    # thing referencing the row, so drop them with it.
+    # View receipts and likes are worthless once the image is gone, and they
+    # are the only thing referencing the row, so drop them with it.
     if purged:
         purged_ids = [s.id for s in expired if s.deleted_at]
         db.query(StoryView).filter(
             StoryView.story_id.in_(purged_ids)
+        ).delete(synchronize_session=False)
+        db.query(StoryLike).filter(
+            StoryLike.story_id.in_(purged_ids)
         ).delete(synchronize_session=False)
 
     db.commit()

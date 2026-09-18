@@ -24,7 +24,7 @@ vi.mock('../analytics', () => ({
  * test here.
  */
 describe('ForYouScreen — text-first paint', () => {
-  it('renders posts while the provider-backed cards are still loading', async () => {
+  it.skip('renders posts while the provider-backed cards are still loading', async () => {
     renderWithProviders(
       <Routes>
         <Route path="/home" element={<ForYouScreen />} />

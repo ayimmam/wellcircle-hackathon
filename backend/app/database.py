@@ -8,10 +8,15 @@ from sqlalchemy.pool import NullPool
 
 from app.config import settings
 
-# Supabase requires SSL for external connections
+# Supabase and cloud Postgres require SSL and keepalives for reliable serverless connections
 connect_args = {}
-if "supabase" in settings.DATABASE_URL:
-    connect_args["sslmode"] = "require"
+if "sqlite" not in settings.DATABASE_URL:
+    if "supabase" in settings.DATABASE_URL:
+        connect_args["sslmode"] = "require"
+    connect_args["keepalives"] = 1
+    connect_args["keepalives_idle"] = 30
+    connect_args["keepalives_interval"] = 10
+    connect_args["keepalives_count"] = 5
 
 # Supabase's pooler (Supavisor, transaction mode on :6543 — see DATABASE_URL)
 # already multiplexes connections to Postgres. On Vercel, each request can
@@ -28,8 +33,10 @@ if os.getenv("VERCEL") or settings.DATABASE_URL.startswith("sqlite"):
         settings.DATABASE_URL,
         echo=settings.DEBUG,
         poolclass=NullPool,
+        pool_pre_ping=True,
         connect_args=connect_args,
     )
+
 else:
     engine = create_engine(
         settings.DATABASE_URL,

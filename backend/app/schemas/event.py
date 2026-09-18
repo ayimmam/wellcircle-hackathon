@@ -36,7 +36,7 @@ class EventResponse(BaseModel):
     is_cancelled: bool
     is_boosted: bool
     staff_user_id: Optional[str] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
     
     # Computed fields for ListResponse (joined from Provider)
     provider_name: Optional[str] = None

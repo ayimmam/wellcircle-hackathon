@@ -101,3 +101,56 @@ def build_streak_nudge(user: dict, bot_username: Optional[str] = None) -> dict:
         "button_text": STREAK_NUDGE_BUTTON,
         "deep_link": deep_link,
     }
+
+
+# ── WS14: engagement digest push nudge ───────────────────────────────────
+
+ACTION_VERBS = {
+    "post_liked": "reacted to your post",
+    "post_commented": "commented on your post",
+    "story_liked": "liked your story",
+}
+
+
+def build_engagement_nudge(entry: dict, bot_username: Optional[str] = None) -> dict:
+    """Build the engagement push nudge for one user.
+
+    `entry` is one item from GET /api/bot/engagement-digest: keys are
+    user_id, telegram_id, name, unread_count, top_type, top_actor_name.
+
+    Returns {"text": str, "button_text": str, "deep_link": str|None}.
+    """
+    from bot.utils.messages import (
+        ENGAGEMENT_PUSH_MESSAGE_SINGLE,
+        ENGAGEMENT_PUSH_MESSAGE_MULTI,
+        ENGAGEMENT_PUSH_BUTTON,
+    )
+
+    count = entry.get("unread_count", 1)
+    actor_name = entry.get("top_actor_name") or "Someone"
+    action_verb = ACTION_VERBS.get(entry.get("top_type", ""), "interacted with your content")
+
+    if count <= 1:
+        text = ENGAGEMENT_PUSH_MESSAGE_SINGLE.format(
+            actor_name=actor_name,
+            action_verb=action_verb,
+        )
+    else:
+        remainder = count - 1
+        text = ENGAGEMENT_PUSH_MESSAGE_MULTI.format(
+            actor_name=actor_name,
+            remainder=remainder,
+            plural="" if remainder == 1 else "s",
+            action_verb=action_verb,
+        )
+
+    deep_link = None
+    if bot_username:
+        deep_link = f"https://t.me/{bot_username}?startapp=notifications"
+
+    return {
+        "text": text,
+        "button_text": ENGAGEMENT_PUSH_BUTTON,
+        "deep_link": deep_link,
+    }
+

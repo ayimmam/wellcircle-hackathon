@@ -24,30 +24,7 @@ A Telegram Mini App connecting individuals and corporate teams to verified welln
 
 Three independently deployed services share a single Supabase PostgreSQL database and communicate over HTTP.
 
-```
-┌──────────────┐     /start      ┌──────────────┐
-│  Telegram    │ ──────────────► │  Telegram    │
-│  User        │                 │  Bot         │
-│              │ ◄── WebApp ──── │  (Railway)   │
-│              │     button      │              │
-└──────┬───────┘                 └──────┬───────┘
-       │                                │
-       │ Opens Mini App                 │ POST /api/bot/register
-       │                                │ GET  /api/bot/inactive-users
-       ▼                                │ (X-Bot-API-Key header)
-┌──────────────┐                        │
-│  Frontend    │                        │
-│  Mini App    │ ── JWT auth ──►┌───────▼───────┐
-│  (Vercel)    │                │  Backend API  │
-│              │ ◄── JSON ───── │   (Vercel /   │
-│              │                │    Render)    │
-└──────────────┘                │               │
-                                │  Supabase DB  │
-┌──────────────┐                │  (PostgreSQL) │
-│  Super Admin │ ── JWT auth ──►│               │
-│  (Mini App)  │                └───────────────┘
-└──────────────┘
-```
+![Architecture Diagram](./frontend/src/diagram.png)
 
 | Service | Stack | Directory | Deploys to |
 |---------|-------|-----------|------------|

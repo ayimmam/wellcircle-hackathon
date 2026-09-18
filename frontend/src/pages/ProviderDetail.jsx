@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
 import { promoApplies, daysLeft, expiryLabel } from '../utils/promo';
 import { clickableDivProps } from '../utils/a11y';
+import ShareButton from '../components/ShareButton';
 
 export default function ProviderDetail() {
   const { id } = useParams();
@@ -98,6 +99,20 @@ export default function ProviderDetail() {
           <button className="detail-back" onClick={() => navigate(-1)} id="detail-back-btn" aria-label="Go back">
             <Icon name="chevron-left" size={20} />
           </button>
+        )}
+        {/* WS12: share button on provider detail */}
+        {provider.cover_photo_url && (
+          <div style={{ position: 'absolute', top: 'calc(var(--safe-top) + 12px)', right: 12, zIndex: 2 }}>
+            <ShareButton
+              imageUrl={provider.cover_photo_url}
+              title={provider.name}
+              subtitle={provider.category}
+              tag="provider_share"
+              className="story-share-btn"
+              label=""
+              size={18}
+            />
+          </div>
         )}
       </div>
 

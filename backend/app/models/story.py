@@ -61,3 +61,16 @@ class StoryView(Base):
     story_id = Column(UUID(as_uuid=True), ForeignKey("stories.id"), primary_key=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True)
     viewed_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class StoryLike(Base):
+    """One row per (story, liker). A second tap un-likes rather than
+    double-counting — the heart toggle pattern. WS11b of
+    docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026_ROUND2.md."""
+
+    __tablename__ = "story_likes"
+
+    story_id = Column(UUID(as_uuid=True), ForeignKey("stories.id"), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True)
+    liked_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+

@@ -14,6 +14,7 @@ from bot.handlers.evidence import evidence_conversation
 from bot.services.reengagement import schedule_reengagement
 from bot.services.weekly_digest import send_weekly_digest
 from bot.services.streak_nudge import send_streak_nudges
+from bot.services.engagement_push import send_engagement_pushes
 from bot.services.keep_warm import (
     ping_backend, KEEP_WARM_ENABLED, KEEP_WARM_INTERVAL_SECONDS,
 )
@@ -86,6 +87,15 @@ def main():
             name="streak_nudge",
         )
         logger.info("🔥 Streak nudge job scheduled (daily 16:00 UTC)")
+
+        # WS14: engagement digest push, every 6 hours
+        job_queue.run_repeating(
+            send_engagement_pushes,
+            interval=21600,  # 6 hours
+            first=300,       # 5 minutes after startup
+            name="engagement_push",
+        )
+        logger.info("🔔 Engagement push job scheduled (every 6 hours)")
 
         if KEEP_WARM_ENABLED:
             job_queue.run_repeating(

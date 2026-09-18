@@ -283,7 +283,14 @@ export async function authProviderPassword(username, password) {
 // ─── Users ──────────────────────────────────────────
 export async function getMe() {
   return cached(cacheKeys.me(), async () => {
-    if (USE_MOCK) { await delay(); return { ...MOCK_USER }; }
+    if (USE_MOCK) {
+      await delay();
+      try {
+        const stored = localStorage.getItem('wc_mock_user');
+        if (stored) Object.assign(MOCK_USER, JSON.parse(stored));
+      } catch (e) {}
+      return { ...MOCK_USER };
+    }
     return request('GET', '/users/me');
   });
 }
@@ -291,7 +298,7 @@ export async function getMe() {
 export async function onboardUser(data) {
   if (USE_MOCK) {
     await delay(500);
-    return {
+    const updated = {
       ...MOCK_USER,
       ...data,
       is_onboarded: true,
@@ -301,6 +308,10 @@ export async function onboardUser(data) {
       welcome_points: 20,
       points_balance: (MOCK_USER.points_balance || 0) + 20,
     };
+    Object.assign(MOCK_USER, updated);
+    try { localStorage.setItem('wc_mock_user', JSON.stringify(MOCK_USER)); } catch (e) {}
+    ['me', 'communities', 'circles', 'home'].forEach(invalidate);
+    return { ...MOCK_USER };
   }
   const payload = {
     name: data.name,
@@ -323,6 +334,7 @@ export async function updateProfile(data) {
   if (USE_MOCK) {
     await delay();
     Object.assign(MOCK_USER, data);
+    try { localStorage.setItem('wc_mock_user', JSON.stringify(MOCK_USER)); } catch (e) {}
     return { ...MOCK_USER };
   }
   return request('PATCH', '/users/me', data);

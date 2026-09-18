@@ -153,3 +153,15 @@ Two parallel mechanisms exist — match what you're touching:
 ## Cross-service contract
 
 These env vars **must match** across services: `TELEGRAM_BOT_TOKEN` (backend + bot), `BOT_API_KEY` (backend + bot), and the URLs `FRONTEND_URL`/`BACKEND_URL`/`MINI_APP_URL`. The bot calls `POST /api/bot/register` (on `/start`) and `GET /api/bot/inactive-users` (re-engagement), both authenticated with `X-Bot-API-Key`.
+
+## graphify
+
+> Installed 2026-09-17 via `graphify claude install` (github.com/Graphify-Labs/graphify), run from Biniyam's Life OS session. Local-only AST knowledge graph tool — regenerate with `graphify update .` after code changes.
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

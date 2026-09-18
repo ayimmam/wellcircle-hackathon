@@ -33,7 +33,9 @@ def _user_item(db, item, counts=None):
 def follow(user_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         follow_user(db, user.id, user_id)
-        return {"following": True}
+        follower_count = get_follower_count(db, user_id)
+        following_count = get_following_count(db, user.id)
+        return {"following": True, "is_following": True, "follower_count": follower_count, "following_count": following_count}
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except ValueError as exc:
@@ -42,16 +44,35 @@ def follow(user_id: UUID, user: User = Depends(get_current_user), db: Session = 
 
 @router.delete("/{user_id}/follow")
 def unfollow(user_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return {"following": False, "removed": unfollow_user(db, user.id, user_id)}
+    removed = unfollow_user(db, user.id, user_id)
+    follower_count = get_follower_count(db, user_id)
+    following_count = get_following_count(db, user.id)
+    return {"following": False, "is_following": False, "removed": removed, "follower_count": follower_count, "following_count": following_count}
 
 
-def _list(kind, user_id, page, per_page, db):
+def _list(kind, user_id, page, per_page, viewer_id, db):
     if not db.query(User.id).filter(User.id == user_id).first():
         raise HTTPException(status_code=404, detail="User not found")
     getter = get_followers if kind == "followers" else get_following
     rows, total = getter(db, user_id, page, per_page)
     counts = get_counts_for_users(db, [row.id for row in rows])
-    return {"items": [_user_item(db, row, counts) for row in rows], "total": total, "page": page, "per_page": per_page}
+    from app.models.follower import Follower
+    viewer_following_ids = set()
+    if viewer_id and rows:
+        viewer_following = db.query(Follower.following_id).filter(
+            Follower.follower_id == viewer_id,
+            Follower.following_id.in_([r.id for r in rows]),
+        ).all()
+        viewer_following_ids = {r[0] for r in viewer_following}
+    return {
+        "items": [
+            {**_user_item(db, row, counts), "is_following": row.id in viewer_following_ids}
+            for row in rows
+        ],
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+    }
 
 
 @router.get("/{user_id}/followers")
@@ -59,7 +80,7 @@ def followers(
     user_id: UUID, page: int = Query(1, ge=1), per_page: int = Query(20, ge=1, le=100),
     user: User = Depends(get_current_user), db: Session = Depends(get_db),
 ):
-    return _list("followers", user_id, page, per_page, db)
+    return _list("followers", user_id, page, per_page, user.id, db)
 
 
 @router.get("/{user_id}/following")
@@ -67,7 +88,8 @@ def following(
     user_id: UUID, page: int = Query(1, ge=1), per_page: int = Query(20, ge=1, le=100),
     user: User = Depends(get_current_user), db: Session = Depends(get_db),
 ):
-    return _list("following", user_id, page, per_page, db)
+    return _list("following", user_id, page, per_page, user.id, db)
+
 
 
 @router.get("/{user_id}/profile")

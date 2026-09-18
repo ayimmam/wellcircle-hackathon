@@ -8,6 +8,7 @@ import { clickableDivProps } from '../../utils/a11y';
 import usePostComments from '../../hooks/usePostComments';
 import ReactionPicker from '../ReactionPicker';
 import ReactionStack from '../ReactionStack';
+import { sharePostCard } from '../../utils/brandedCanvas';
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -51,6 +52,7 @@ export default function FeedPostCard({ item, priority = false, onRetry, onDiscar
 
   // WS15: unlock purchase sheet placeholder
   const [showUnlockSheet, setShowUnlockSheet] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const destination = post.source?.kind === 'community'
     ? `/community/${post.source.id}`
@@ -59,6 +61,17 @@ export default function FeedPostCard({ item, priority = false, onRetry, onDiscar
       : null;
 
   const goToSource = () => { if (destination) navigate(destination); };
+
+  const handleSharePost = async (e) => {
+    e?.stopPropagation?.();
+    if (sharing || item.pending || item.failed) return;
+    setSharing(true);
+    try {
+      await sharePostCard(post);
+    } finally {
+      setSharing(false);
+    }
+  };
 
   // WS15: toggle reaction handler
   const handleReact = async (emoji) => {
@@ -213,6 +226,17 @@ export default function FeedPostCard({ item, priority = false, onRetry, onDiscar
         >
           <Icon name="message-circle" size={18} strokeWidth={1.5} />
           {commentCount > 0 && <span>{commentCount}</span>}
+        </button>
+        <button
+          type="button"
+          className="post-action-btn"
+          onClick={handleSharePost}
+          disabled={sharing}
+          id={`feed-post-share-${item.id}`}
+          aria-label="Share post"
+          title="Share post card"
+        >
+          {sharing ? <span className="btn-spinner" style={{ width: 14, height: 14 }} aria-hidden="true" /> : <Icon name="share" size={18} strokeWidth={1.5} />}
         </button>
       </div>
 

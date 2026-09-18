@@ -120,7 +120,12 @@ def ensure_db_schema(engine):
         # Engagement push tracking (WS14 — Phase 24).
         "ALTER TABLE user_notifications ADD COLUMN IF NOT EXISTS is_push_sent BOOLEAN NOT NULL DEFAULT FALSE;",
         "ALTER TABLE user_notifications ADD COLUMN IF NOT EXISTS actor_user_id UUID;",
+        # Community challenges (WS17/Strava challenges)
+        "ALTER TABLE community_challenges ADD COLUMN IF NOT EXISTS challenge_type VARCHAR(50) DEFAULT 'checkin';",
+        "ALTER TABLE community_challenges ADD COLUMN IF NOT EXISTS target_value FLOAT;",
+        "ALTER TABLE community_challenges ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;",
     ]
+
 
     try:
         with engine.begin() as conn:

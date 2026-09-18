@@ -388,9 +388,13 @@ export async function followUser(userId) {
       profile.follower_count = (profile.follower_count || 0) + 1;
       MOCK_USER.following_count = (MOCK_USER.following_count || 0) + 1;
     }
-    return { user_id: userId, is_following: true, follower_count: profile?.follower_count };
+    return { user_id: userId, is_following: true, follower_count: profile?.follower_count, following_count: MOCK_USER.following_count };
   }
-  return request('POST', `/users/${userId}/follow`);
+  const res = await request('POST', `/users/${userId}/follow`);
+  invalidate('profile');
+  invalidate('followers');
+  invalidate('me');
+  return res;
 }
 
 export async function unfollowUser(userId) {
@@ -406,10 +410,15 @@ export async function unfollowUser(userId) {
       profile.follower_count = Math.max((profile.follower_count || 1) - 1, 0);
       MOCK_USER.following_count = Math.max((MOCK_USER.following_count || 1) - 1, 0);
     }
-    return { user_id: userId, is_following: false, follower_count: profile?.follower_count };
+    return { user_id: userId, is_following: false, follower_count: profile?.follower_count, following_count: MOCK_USER.following_count };
   }
-  return request('DELETE', `/users/${userId}/follow`);
+  const res = await request('DELETE', `/users/${userId}/follow`);
+  invalidate('profile');
+  invalidate('followers');
+  invalidate('me');
+  return res;
 }
+
 
 export async function getFollowers(userId, page = 1) {
   return cached(cacheKeys.followers(userId, page), async () => {
@@ -991,6 +1000,15 @@ export async function commentOnPost(postId, content, parentCommentId = null) {
     ...(parentCommentId ? { parent_comment_id: parentCommentId } : {}),
   });
 }
+
+export async function sharePost(postId) {
+  if (USE_MOCK) {
+    await delay();
+    return { message: "Post shared successfully" };
+  }
+  return request('POST', `/posts/${postId}/share`);
+}
+
 
 
 // ─── Provider Self-Onboarding ───────────────────────
@@ -1929,9 +1947,14 @@ export async function toggleStoryLike(storyId) {
       story.liked_by_viewer = !story.liked_by_viewer;
       story.like_count = (story.like_count || 0) + (story.liked_by_viewer ? 1 : -1);
     }
+    invalidate('stories');
+    invalidate('home');
     return { liked: story?.liked_by_viewer ?? false, like_count: story?.like_count ?? 0 };
   }
-  return request('POST', `/stories/${storyId}/like`);
+  const res = await request('POST', `/stories/${storyId}/like`);
+  invalidate('stories');
+  invalidate('home');
+  return res;
 }
 
 // ── WS11d: story viewers list ────────────────────────────────────────────
@@ -1953,10 +1976,18 @@ export async function getStoryViewers(storyId) {
 export async function toggleReaction(postId, emoji) {
   if (USE_MOCK) {
     await delay(100);
+    invalidate('posts');
+    invalidate('feed');
+    invalidate('home');
     return { reacted: true, reactions: { [emoji]: 1 } };
   }
-  return request('POST', `/posts/${postId}/toggle-react`, { emoji });
+  const res = await request('POST', `/posts/${postId}/toggle-react`, { emoji });
+  invalidate('posts');
+  invalidate('feed');
+  invalidate('home');
+  return res;
 }
+
 
 // ── WS15: unlock Well Circle reaction ────────────────────────────────────
 

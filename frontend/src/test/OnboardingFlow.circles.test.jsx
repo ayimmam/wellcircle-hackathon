@@ -13,7 +13,8 @@ vi.mock('../analytics', () => ({
 function goToInterestStep() {
   fireEvent.change(document.getElementById('onboarding-name-input'), { target: { value: 'Meron' } });
   fireEvent.click(document.getElementById('onboarding-next-btn')); // name -> goal
-  fireEvent.click(document.getElementById('onboarding-next-btn')); // goal -> interest
+  fireEvent.click(document.getElementById('onboarding-next-btn')); // goal -> avatar
+  fireEvent.click(document.getElementById('onboarding-next-btn')); // avatar -> interest
 }
 
 async function goToCirclesStep() {

@@ -46,10 +46,11 @@ describe('ProfileHeader — change photo (-10 points)', () => {
 
   it('shows the cost notice before the file picker opens', async () => {
     renderHeader();
-    await screen.findByText('Change your photo?', { exact: false }).catch(() => {});
+    await screen.findByLabelText('Edit avatar').catch(() => {});
     expect(document.getElementById('profile-photo-cost-notice')).not.toBeInTheDocument();
 
     fireEvent.click(document.getElementById('profile-photo-camera-btn'));
+    fireEvent.click(await screen.findByText('📷 Attach Photo'));
     expect(await screen.findByText(/costs 10 points/i)).toBeInTheDocument();
 
     const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click');
@@ -62,7 +63,12 @@ describe('ProfileHeader — change photo (-10 points)', () => {
     const d = deferred();
     changeProfilePhotoMock.mockReturnValue(d.promise);
     renderHeader();
-    await screen.findByLabelText('Change profile photo');
+    await screen.findByLabelText('Edit avatar');
+
+    fireEvent.click(document.getElementById('profile-photo-camera-btn'));
+    fireEvent.click(await screen.findByText('📷 Attach Photo'));
+    fireEvent.click(await screen.findByText(/costs 10 points/i));
+    fireEvent.click(document.getElementById('profile-photo-cost-notice-continue'));
 
     const avatarImgBefore = document.querySelector('.profile-avatar img');
     const initialSrc = avatarImgBefore?.getAttribute('src');
@@ -88,7 +94,12 @@ describe('ProfileHeader — change photo (-10 points)', () => {
     const d = deferred();
     changeProfilePhotoMock.mockReturnValue(d.promise);
     renderHeader();
-    await screen.findByLabelText('Change profile photo');
+    await screen.findByLabelText('Edit avatar');
+
+    fireEvent.click(document.getElementById('profile-photo-camera-btn'));
+    fireEvent.click(await screen.findByText('📷 Attach Photo'));
+    fireEvent.click(await screen.findByText(/costs 10 points/i));
+    fireEvent.click(document.getElementById('profile-photo-cost-notice-continue'));
 
     const initialSrc = document.querySelector('.profile-avatar img')?.getAttribute('src');
 

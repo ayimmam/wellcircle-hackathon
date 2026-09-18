@@ -411,14 +411,9 @@ export default function CommunityList() {
               emoji="🫂"
               title="No circles yet"
               body="Join a community to connect with others, or create your first circle to get started."
-            >
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => document.getElementById('new-circle-name-input')?.focus()}
-              >
-                Create your first circle
-              </button>
-            </EmptyStateHero>
+              cta="Create your first circle"
+              onCta={() => document.getElementById('new-circle-name-input')?.focus()}
+            />
           )}
         </div>
       ) : tab === 'explore' ? (
@@ -468,13 +463,9 @@ export default function CommunityList() {
           emoji={tab === 'joined' ? "🌱" : "📭"}
           title={tab === 'joined' ? "You haven't joined any circles yet." : 'No circles found for this category.'}
           body={tab === 'joined' ? "Browse the explore tab to find a community." : "Check back later or try another category."}
-        >
-          {tab === 'joined' && (
-            <button className="btn btn-primary btn-sm" onClick={() => setTab('explore')}>
-              Browse circles
-            </button>
-          )}
-        </EmptyStateHero>
+          cta={tab === 'joined' ? "Browse circles" : undefined}
+          onCta={tab === 'joined' ? () => setTab('explore') : undefined}
+        />
       )}
     </div>
   );

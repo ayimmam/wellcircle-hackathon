@@ -238,3 +238,109 @@ async def bot_circle_digests(
     Telegram IDs, for the bot to DM each member."""
     circles = get_weekly_digest_circles(db)
     return {"circles": circles}
+
+
+# ── WS14: Engagement digest push ─────────────────────────────────────────
+
+PUSH_WORTHY_TYPES = {"post_liked", "post_commented", "story_liked"}
+
+@router.get("/engagement-digest")
+async def bot_engagement_digest(
+    since_hours: int = 6,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_bot_api_key),
+):
+    """Users with ≥1 unread push-worthy notification in the window, grouped
+    per user with a summary for the bot to build one clickbait DM."""
+    from datetime import timedelta
+    from app.models.user_notification import UserNotification
+    from app.models.user import User as UserModel
+    from sqlalchemy import func as sqfunc
+
+    since = datetime.now(timezone.utc) - timedelta(hours=since_hours)
+
+    # Subquery: users with unread, un-pushed, push-worthy notifications
+    rows = (
+        db.query(
+            UserNotification.user_id,
+            sqfunc.count(UserNotification.id).label("unread_count"),
+            sqfunc.max(UserNotification.type).label("top_type"),
+        )
+        .filter(
+            UserNotification.type.in_(PUSH_WORTHY_TYPES),
+            UserNotification.is_read == False,
+            UserNotification.is_push_sent == False,
+            UserNotification.created_at >= since,
+        )
+        .group_by(UserNotification.user_id)
+        .all()
+    )
+
+    if not rows:
+        return {"digest": []}
+
+    user_ids = [r.user_id for r in rows]
+    users = {
+        u.id: u for u in
+        db.query(UserModel).filter(UserModel.id.in_(user_ids)).all()
+    }
+
+    # Find top actor name for each user
+    digest = []
+    for r in rows:
+        user = users.get(r.user_id)
+        if not user or not user.telegram_id:
+            continue
+
+        # Find the most recent actor for this user's notifications
+        latest = (
+            db.query(UserNotification)
+            .filter(
+                UserNotification.user_id == r.user_id,
+                UserNotification.type.in_(PUSH_WORTHY_TYPES),
+                UserNotification.is_read == False,
+                UserNotification.is_push_sent == False,
+                UserNotification.created_at >= since,
+            )
+            .order_by(UserNotification.created_at.desc())
+            .first()
+        )
+        top_actor_name = None
+        if latest and latest.actor_user_id:
+            actor = db.query(UserModel).filter(UserModel.id == latest.actor_user_id).first()
+            top_actor_name = actor.name if actor else None
+
+        digest.append({
+            "user_id": str(r.user_id),
+            "telegram_id": user.telegram_id,
+            "name": user.name or "there",
+            "unread_count": r.unread_count,
+            "top_type": r.top_type,
+            "top_actor_name": top_actor_name,
+        })
+
+    return {"digest": digest}
+
+
+@router.post("/users/{telegram_id}/engagement-push-sent")
+async def bot_mark_engagement_sent(
+    telegram_id: int,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_bot_api_key),
+):
+    """Mark all push-worthy notifications as push-sent for this user."""
+    from app.models.user_notification import UserNotification
+
+    user = get_user_by_telegram_id(db, telegram_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db.query(UserNotification).filter(
+        UserNotification.user_id == user.id,
+        UserNotification.type.in_(PUSH_WORTHY_TYPES),
+        UserNotification.is_push_sent == False,
+    ).update({"is_push_sent": True}, synchronize_session=False)
+    db.commit()
+
+    return {"marked": True}
+

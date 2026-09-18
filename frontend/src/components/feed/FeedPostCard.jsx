@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SmartImage from '../SmartImage';
 import Icon from '../Icon';
-import { reactToPost } from '../../api/client';
+import { toggleReaction, getPostComments } from '../../api/client';
 import { clickableDivProps } from '../../utils/a11y';
+import usePostComments from '../../hooks/usePostComments';
+import ReactionPicker from '../ReactionPicker';
+import ReactionStack from '../ReactionStack';
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -24,26 +27,29 @@ function activityLabel(post) {
 }
 
 /**
- * Read-mostly feed card for a post item — no composer, gifting sheet, or
- * comment threads (those live on the destination circle/community screen).
- * Tapping the card body navigates to the post's source; tapping the
- * avatar/name goes to the author's profile, matching PostFeed.jsx.
+ * Feed card for a post item — WS13/WS15 upgrade: inline comment composer,
+ * icon-based reaction buttons matching NotificationsScreen's outline style,
+ * long-press reaction picker, and stacked reaction display.
  *
- * `post.source` is `null` for a standalone post (WS2 of
- * docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md) — the author header above
- * already renders regardless of source, so no special-casing was needed
- * there; only the "in {circle/community}" footer is source-gated.
- *
- * `item.pending`/`item.failed` (also WS2) mark a card the "+" composer
- * inserted optimistically, before/if the request settles — see
- * ForYouScreen.jsx's post-patch functions. `onRetry`/`onDiscard` only apply
- * to a failed card.
+ * `post.source` is `null` for a standalone post (WS2).
  */
-export default function FeedPostCard({ item, priority = false, onRetry, onDiscard }) {
+export default function FeedPostCard({ item, priority = false, onRetry, onDiscard, user }) {
   const navigate = useNavigate();
   const post = item.post;
   const [reactions, setReactions] = useState(post.reactions || {});
+  const [viewerReactions, setViewerReactions] = useState(post.viewer_reactions || []);
+  const [reactorsPreview] = useState(post.reactors_preview || {});
   const [reacting, setReacting] = useState(false);
+
+  // WS13: inline comments
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const { comments, addComment, submitting: commentSubmitting } = usePostComments(post.comments || []);
+  const [commentCount, setCommentCount] = useState(post.comment_count || 0);
+  const commentInputRef = useRef(null);
+
+  // WS15: unlock purchase sheet placeholder
+  const [showUnlockSheet, setShowUnlockSheet] = useState(false);
 
   const destination = post.source?.kind === 'community'
     ? `/community/${post.source.id}`
@@ -53,19 +59,48 @@ export default function FeedPostCard({ item, priority = false, onRetry, onDiscar
 
   const goToSource = () => { if (destination) navigate(destination); };
 
-  const handleQuickReact = async (e) => {
-    e.stopPropagation();
+  // WS15: toggle reaction handler
+  const handleReact = async (emoji) => {
     if (reacting || item.pending || item.failed) return;
     setReacting(true);
-    const prev = reactions;
-    setReactions(r => ({ ...r, '🔥': (r['🔥'] || 0) + 1 }));
+    const prevReactions = { ...reactions };
+    const prevViewer = [...viewerReactions];
+
+    // Optimistic
+    const isRemoving = viewerReactions.includes(emoji);
+    setReactions(r => ({
+      ...r,
+      [emoji]: Math.max(0, (r[emoji] || 0) + (isRemoving ? -1 : 1)),
+    }));
+    setViewerReactions(prev =>
+      isRemoving ? prev.filter(e => e !== emoji) : [...prev, emoji],
+    );
+
     try {
-      await reactToPost(post.id, { emoji: '🔥', points_gifted: 0 });
+      const result = await toggleReaction(post.id, emoji);
+      if (result.reactions) setReactions(result.reactions);
     } catch {
-      setReactions(prev);
+      setReactions(prevReactions);
+      setViewerReactions(prevViewer);
     } finally {
       setReacting(false);
     }
+  };
+
+  // WS13: toggle comments
+  const handleToggleComments = () => {
+    setCommentsOpen(!commentsOpen);
+    if (!commentsOpen) {
+      setTimeout(() => commentInputRef.current?.focus(), 100);
+    }
+  };
+
+  const handleSubmitComment = async () => {
+    if (!commentText.trim()) return;
+    const text = commentText;
+    setCommentText('');
+    const result = await addComment(post.id, text);
+    if (result) setCommentCount(c => c + 1);
   };
 
   return (
@@ -153,34 +188,104 @@ export default function FeedPostCard({ item, priority = false, onRetry, onDiscar
           </div>
         )}
 
-        <div className="post-reactions">
-          {Object.entries(reactions).map(([emoji, count]) => (
-            <span key={emoji} className="btn btn-secondary post-reaction-btn" style={{ pointerEvents: 'none' }}>
-              {emoji === 'coins' ? <Icon name="coins" size={13} /> : emoji} {count}
-            </span>
-          ))}
-          <button
-            className="btn btn-secondary post-reaction-btn"
-            onClick={handleQuickReact}
-            disabled={reacting}
-            title="React with fire"
-            id={`feed-post-react-${item.id}`}
-          >
-            🔥
-          </button>
-          {post.comment_count > 0 && (
-            <span className="inline-icon-text post-reaction-btn" style={{ color: 'var(--text-secondary)' }}>
-              <Icon name="message-circle" size={13} /> {post.comment_count}
-            </span>
-          )}
-        </div>
-
-        {destination && post.source?.name && (
-          <div className="text-xs text-secondary" style={{ marginTop: 8 }}>
-            in <strong>{post.source.name}</strong>
-          </div>
-        )}
+        {/* WS15: stacked reaction display */}
+        <ReactionStack reactions={reactions} reactorsPreview={reactorsPreview} />
       </div>
+
+      {/* WS13: minimal icon action row */}
+      <div className="post-action-row">
+        <ReactionPicker
+          onReact={handleReact}
+          onUnlockPurchase={() => setShowUnlockSheet(true)}
+          viewerReactions={viewerReactions}
+          hasWellcircleReaction={user?.has_wellcircle_reaction}
+          disabled={reacting}
+        />
+        <button
+          type="button"
+          className="post-action-btn"
+          onClick={handleToggleComments}
+          id={`feed-post-comment-${item.id}`}
+          aria-label="Comment"
+        >
+          <Icon name="message-circle" size={18} strokeWidth={1.5} />
+          {commentCount > 0 && <span>{commentCount}</span>}
+        </button>
+      </div>
+
+      {destination && post.source?.name && (
+        <div className="text-xs text-secondary" style={{ padding: '4px 14px 8px' }}>
+          in <strong>{post.source.name}</strong>
+        </div>
+      )}
+
+      {/* WS13: inline comment thread */}
+      {commentsOpen && (
+        <>
+          {comments.length > 0 && (
+            <div className="feed-comment-list">
+              {comments.filter(c => !c.parent_comment_id).map(c => (
+                <div key={c.id} className="feed-comment-item" style={{ opacity: c._pending ? 0.6 : 1 }}>
+                  <strong>{c.user?.name || 'User'}</strong>
+                  <span>{c.content}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="feed-comment-composer">
+            <input
+              ref={commentInputRef}
+              type="text"
+              placeholder="Write a comment…"
+              value={commentText}
+              onChange={e => setCommentText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSubmitComment(); }}
+              disabled={commentSubmitting}
+              id={`feed-post-comment-input-${item.id}`}
+            />
+            <button
+              type="button"
+              onClick={handleSubmitComment}
+              disabled={commentSubmitting || !commentText.trim()}
+              id={`feed-post-comment-send-${item.id}`}
+            >
+              <Icon name="send" size={16} />
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* WS15: unlock purchase sheet */}
+      {showUnlockSheet && (
+        <>
+          <div className="sheet-overlay" onClick={() => setShowUnlockSheet(false)} />
+          <div className="sheet" id="unlock-reaction-sheet">
+            <div className="sheet-handle" />
+            <h3 className="sheet-title">Unlock the Well Circle Reaction</h3>
+            <p className="text-secondary" style={{ marginBottom: 16 }}>
+              The exclusive Well Circle reaction costs <strong>50 points</strong>.
+              Once unlocked, you can use it on any post.
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ width: '100%' }}
+              onClick={async () => {
+                try {
+                  const { unlockReaction } = await import('../../api/client');
+                  await unlockReaction();
+                  setShowUnlockSheet(false);
+                } catch {
+                  // toast handled by client
+                }
+              }}
+              id="unlock-reaction-confirm"
+            >
+              <Icon name="coins" size={16} /> Unlock for 50 pts
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

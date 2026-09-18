@@ -105,6 +105,9 @@ class User(Base):
     photo_is_custom = Column(Boolean, nullable=False, default=False)
     photo_public_id = Column(String(255), nullable=True)
 
+    # Purchasable Well Circle reaction (WS15 of AUDIT_IMPLEMENTATION_PLAN_SEP2026_ROUND2.md).
+    has_wellcircle_reaction = Column(Boolean, nullable=False, default=False)
+
     # --- Timestamps ---
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),

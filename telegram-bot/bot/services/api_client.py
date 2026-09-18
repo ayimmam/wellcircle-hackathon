@@ -113,3 +113,29 @@ async def get_circle_digests() -> dict:
         )
         response.raise_for_status()
         return response.json()
+
+
+# ── WS14: engagement digest push ─────────────────────────────────────────
+
+async def get_engagement_digest(since_hours: int = 6) -> dict:
+    """Users with unread push-worthy notifications via GET /api/bot/engagement-digest."""
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+        response = await client.get(
+            f"{BACKEND_URL}/api/bot/engagement-digest",
+            params={"since_hours": since_hours},
+            headers=HEADERS,
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+async def mark_engagement_push_sent(telegram_id: int) -> dict:
+    """Mark engagement notifications as push-sent via POST /api/bot/users/{id}/engagement-push-sent."""
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+        response = await client.post(
+            f"{BACKEND_URL}/api/bot/users/{telegram_id}/engagement-push-sent",
+            headers=HEADERS,
+        )
+        response.raise_for_status()
+        return response.json()
+

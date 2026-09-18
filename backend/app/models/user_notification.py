@@ -18,4 +18,9 @@ class UserNotification(Base):
     body = Column(Text, nullable=True)
     action_url = Column(String(500), nullable=True)
     is_read = Column(Boolean, nullable=False, default=False)
+    # WS14: tracks whether this notification has been included in a bot push digest.
+    is_push_sent = Column(Boolean, nullable=False, default=False)
+    # WS14: who triggered this notification (for "X reacted to your post" copy).
+    actor_user_id = Column(UUID(as_uuid=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+

@@ -1,4 +1,7 @@
-"""Post routes - creating posts and reacting."""
+"""Post routes - creating posts, reacting, toggling reactions, unlocking reactions.
+
+WS13/WS15 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026_ROUND2.md.
+"""
 
 from typing import Optional
 from uuid import UUID
@@ -9,7 +12,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.crud.post import create_post, get_posts, react_to_post
+from app.crud.post import create_post, get_posts, react_to_post, toggle_reaction, VALID_REACTION_EMOJIS
 from app.services.points import POINTS_POST, POST_POINTS_DAILY_CAP, TXN_POST, award_capped
 
 router = APIRouter()
@@ -30,6 +33,13 @@ class PostCreate(BaseModel):
 class ReactionCreate(BaseModel):
     emoji: str
     points_gifted: int = 0
+
+class ReactionToggle(BaseModel):
+    emoji: str
+
+class CommentCreate(BaseModel):
+    content: str
+    parent_comment_id: Optional[str] = None
 
 @router.post("")
 def api_create_post(post_in: PostCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -82,7 +92,8 @@ def api_get_posts(
         db,
         community_id=UUID(community_id) if community_id else None,
         circle_id=UUID(circle_id) if circle_id else None,
-        limit=limit
+        limit=limit,
+        viewer_id=user.id,
     )
     return {"posts": posts}
 
@@ -96,9 +107,35 @@ def api_react_to_post(post_id: str, reaction_in: ReactionCreate, user: User = De
     reaction = react_to_post(db, UUID(post_id), user_id=user.id, emoji=reaction_in.emoji, points_to_gift=reaction_in.points_gifted)
     return {"message": "Reaction added successfully", "points_gifted": reaction.points_gifted}
 
-class CommentCreate(BaseModel):
-    content: str
-    parent_comment_id: Optional[str] = None
+
+# ── WS15: toggle reaction (add/remove, validated emoji set) ──────────────
+
+@router.post("/{post_id}/toggle-react")
+def api_toggle_reaction(post_id: str, body: ReactionToggle, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Toggle a reaction on a post. Replaces the add-only react for multi-react."""
+    return toggle_reaction(db, UUID(post_id), user.id, body.emoji)
+
+
+# ── WS15: unlock Well Circle reaction ───────────────────────────────────
+
+@router.post("/users/me/unlock-reaction")
+def api_unlock_reaction(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """One-time purchase of the Well Circle reaction icon for 50 points."""
+    if user.has_wellcircle_reaction:
+        raise HTTPException(status_code=409, detail="Well Circle reaction already unlocked")
+
+    from app.services.points import apply_transaction, TXN_REACTION_UNLOCK
+    apply_transaction(db, user, -50, TXN_REACTION_UNLOCK, reference_id=user.id)
+    user.has_wellcircle_reaction = True
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "unlocked": True,
+        "points_balance": user.points_balance,
+        "has_wellcircle_reaction": True,
+    }
+
 
 @router.post("/{post_id}/comments")
 def api_create_comment(post_id: str, comment_in: CommentCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -113,4 +150,3 @@ def api_create_comment(post_id: str, comment_in: CommentCreate, user: User = Dep
         parent_comment_id=UUID(comment_in.parent_comment_id) if comment_in.parent_comment_id else None,
     )
     return {"id": comment.id, "message": "Comment added successfully"}
-

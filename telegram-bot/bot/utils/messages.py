@@ -74,3 +74,15 @@ WEEKLY_DIGEST_MESSAGE = """
 
 Keep checking in to climb the leaderboard. 💪
 """
+
+# ── WS14: Engagement digest push messages ────────────────────────────────
+
+ENGAGEMENT_PUSH_MESSAGE_SINGLE = """
+🔔 <b>{actor_name}</b> {action_verb} — tap to see!
+"""
+
+ENGAGEMENT_PUSH_MESSAGE_MULTI = """
+🔔 <b>{actor_name}</b> and {remainder} other{plural} {action_verb} — tap to see!
+"""
+
+ENGAGEMENT_PUSH_BUTTON = "Open Well Circle"

@@ -134,14 +134,26 @@ export default function NotificationsScreen() {
                       let iconColor = 'var(--brand-primary)';
                       let bgSoft = 'rgba(0, 122, 255, 0.1)';
 
-                      if (n.type === 'checkin' || n.type === 'challenge_completed') {
+                      if (n.type === 'checkin' || n.type === 'challenge_completed' || n.type === 'circle_activity') {
                         iconName = 'check-circle';
                         iconColor = '#10b981'; // green
                         bgSoft = 'rgba(16, 185, 129, 0.1)';
-                      } else if (n.type === 'join' || n.type === 'follower') {
+                      } else if (n.type === 'join' || n.type === 'follower' || n.type === 'follower_post') {
                         iconName = 'users';
                         iconColor = '#8b5cf6'; // purple
                         bgSoft = 'rgba(139, 92, 246, 0.1)';
+                      } else if (n.type === 'post_liked' || n.type === 'reaction' || n.type === 'story_liked') {
+                        iconName = 'heart';
+                        iconColor = '#ef4444'; // red
+                        bgSoft = 'rgba(239, 68, 68, 0.1)';
+                      } else if (n.type === 'post_comment' || n.type === 'post_commented') {
+                        iconName = 'message-circle';
+                        iconColor = '#3b82f6'; // blue
+                        bgSoft = 'rgba(59, 130, 246, 0.1)';
+                      } else if (n.type === 'post_shared') {
+                        iconName = 'share';
+                        iconColor = '#059669'; // emerald
+                        bgSoft = 'rgba(5, 150, 105, 0.1)';
                       } else if (n.type === 'points_awarded' || n.type === 'reward') {
                         iconName = 'star';
                         iconColor = '#f59e0b'; // yellow/gold

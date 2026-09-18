@@ -3,7 +3,7 @@
  * Renders as a half-circle arc above the tier name on ProfileHeader.
  * Uses Motion to animate the arc stroke on mount.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { motion, useSpring, useTransform } from 'motion/react';
 import { TIERS } from '../data/mock';
 

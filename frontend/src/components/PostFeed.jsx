@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getPosts, createPost, reactToPost, commentOnPost, getCircleLeaderboard, getLeaderboard } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import useOptimisticAction from '../hooks/useOptimisticAction';
-import { motion, AnimatePresence } from 'motion/react';
+
 import { showToast } from './Toast';
 import Icon from './Icon';
 import SmartImage from './SmartImage';

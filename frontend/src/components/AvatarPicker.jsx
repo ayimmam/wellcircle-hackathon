@@ -9,7 +9,7 @@
  * DiceBear URL is built client-side from the seed — zero storage cost.
  */
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 
 // 12 wellness persona seeds — each maps to a unique DiceBear fun-emoji face.
 // The seed string is stored; the image is always generated on the fly.

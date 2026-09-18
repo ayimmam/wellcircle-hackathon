@@ -288,7 +288,7 @@ export async function getMe() {
       try {
         const stored = localStorage.getItem('wc_mock_user');
         if (stored) Object.assign(MOCK_USER, JSON.parse(stored));
-      } catch (e) {}
+      } catch (e) { /* ignore */ }
       return { ...MOCK_USER };
     }
     return request('GET', '/users/me');
@@ -309,7 +309,7 @@ export async function onboardUser(data) {
       points_balance: (MOCK_USER.points_balance || 0) + 20,
     };
     Object.assign(MOCK_USER, updated);
-    try { localStorage.setItem('wc_mock_user', JSON.stringify(MOCK_USER)); } catch (e) {}
+    try { localStorage.setItem('wc_mock_user', JSON.stringify(MOCK_USER)); } catch (e) { /* ignore */ }
     ['me', 'communities', 'circles', 'home'].forEach(invalidate);
     return { ...MOCK_USER };
   }
@@ -334,7 +334,7 @@ export async function updateProfile(data) {
   if (USE_MOCK) {
     await delay();
     Object.assign(MOCK_USER, data);
-    try { localStorage.setItem('wc_mock_user', JSON.stringify(MOCK_USER)); } catch (e) {}
+    try { localStorage.setItem('wc_mock_user', JSON.stringify(MOCK_USER)); } catch (e) { /* ignore */ }
     return { ...MOCK_USER };
   }
   return request('PATCH', '/users/me', data);
@@ -1982,7 +1982,7 @@ export async function createComment(postId, { content, parent_comment_id = null 
 
 // ── WS13: get post comments (for inline loading on FYP feed) ─────────────
 
-export async function getPostComments(postId) {
+export async function getPostComments(_postId) {
   if (USE_MOCK) {
     await delay(100);
     return { posts: [{ comments: [] }] };

@@ -1,10 +1,7 @@
 import { useRef, useState } from 'react';
-import { AnimatePresence } from 'motion/react';
 import Icon from '../../components/Icon';
 import SmartImage from '../../components/SmartImage';
 import VerifiedBadge from '../../components/VerifiedBadge';
-import AvatarPicker, { dicebearUrl } from '../../components/AvatarPicker';
-import TierProgressArc from '../../components/TierProgressArc';
 import { useAuth } from '../../context/AuthContext';
 import { changeProfilePhoto } from '../../api/client';
 import { compressImage, ImageTooLargeError } from '../../utils/imageCompress';
@@ -20,15 +17,10 @@ export default function ProfileHeader({
   user, tier, navigate, t,
   bio, setBio, editingBio, setEditingBio, savingBio, saveBio,
 }) {
-  const { setUser, updateProfile } = useAuth();
+  const { setUser } = useAuth();
   const [costNoticeOpen, setCostNoticeOpen] = useState(false);
-  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const fileInputRef = useRef(null);
   useDismissOnEscape(() => setCostNoticeOpen(false), costNoticeOpen);
-  useDismissOnEscape(() => setAvatarPickerOpen(false), avatarPickerOpen);
-
-  const avatarSeed = user.avatar_vibe || user.telegram_handle || user.id || 'wellcircle';
-  const hasPhoto = !!user.photo_url;
 
   const handlePickPhoto = async (event) => {
     const file = event.target.files?.[0];
@@ -66,37 +58,16 @@ export default function ProfileHeader({
     }
   };
 
-  const handleVibeSelect = async (vibeId) => {
-    try {
-      await updateProfile({ avatar_vibe: vibeId });
-      setUser(prev => prev ? { ...prev, avatar_vibe: vibeId } : prev);
-      setAvatarPickerOpen(false);
-      showToast('Avatar updated!', 'success');
-    } catch {
-      showToast('Could not update avatar', 'error');
-    }
-  };
-
   return (
     <div className="profile-header">
       <div className="profile-avatar" style={{ position: 'relative' }}>
-        {hasPhoto ? (
-          <SmartImage
-            src={user.photo_url}
-            alt={user.name}
-            width={72}
-            priority
-            fallback={
-              <div className="profile-avatar-dicebear">
-                <img src={dicebearUrl(avatarSeed, 72)} alt={user.name} width={72} height={72} />
-              </div>
-            }
-          />
-        ) : (
-          <div className="profile-avatar-dicebear">
-            <img src={dicebearUrl(avatarSeed, 72)} alt={user.name} width={72} height={72} />
-          </div>
-        )}
+        <SmartImage
+          src={user.photo_url}
+          alt={user.name}
+          width={72}
+          priority
+          fallback={<Icon name="user" size={36} strokeWidth={1.5} />}
+        />
         <input
           ref={fileInputRef}
           type="file"
@@ -108,8 +79,8 @@ export default function ProfileHeader({
         <button
           type="button"
           className="btn btn-icon btn-secondary"
-          onClick={() => setAvatarPickerOpen(true)}
-          aria-label="Edit avatar"
+          onClick={() => setCostNoticeOpen(true)}
+          aria-label="Change profile photo"
           id="profile-photo-camera-btn"
           style={{
             position: 'absolute', bottom: -2, right: -2,
@@ -123,8 +94,10 @@ export default function ProfileHeader({
       <h1 className="profile-name">{user.name} {user.is_verified_trainer && <VerifiedBadge compact />}</h1>
       <p className="profile-handle">@{user.telegram_handle}</p>
 
-      {/* Tier progress arc replaces plain tier chip */}
-      <TierProgressArc points={user.points_balance || 0} tier={tier} />
+      <div className="profile-tier">
+        <Icon name="leaf" size={15} style={{ color: tier.color }} />
+        <span>{tier.name}</span>
+      </div>
 
       {editingBio ? (
         <div className="profile-bio-editor">
@@ -197,19 +170,6 @@ export default function ProfileHeader({
           </div>
         </div>
       )}
-
-      {/* Avatar picker sheet */}
-      <AnimatePresence>
-        {avatarPickerOpen && (
-          <AvatarPicker
-            currentVibe={user.avatar_vibe}
-            currentPhotoUrl={user.photo_url}
-            onVibeSelect={handleVibeSelect}
-            onPhotoClick={() => { setAvatarPickerOpen(false); setCostNoticeOpen(true); }}
-            onClose={() => setAvatarPickerOpen(false)}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }

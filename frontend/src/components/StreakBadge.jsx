@@ -1,22 +1,6 @@
 import { useEffect } from 'react';
 import { track } from '../analytics';
-
-/** Solid filled flame SVG — matches the minimal rounded flame reference */
-function FlameIcon({ size = 14, color = 'currentColor' }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill={color}
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-      style={{ display: 'inline-block', flexShrink: 0 }}
-    >
-      <path d="M12 2C12 2 7 7.5 7 13a5 5 0 0 0 10 0c0-2.5-1.5-4.5-2.5-5.5 0 0 0 2-1.5 3C13 9 12 6 12 2Z" />
-    </svg>
-  );
-}
+import Icon from './Icon';
 
 export default function StreakBadge({ streak, freezeCount = 0, atRisk = false }) {
   useEffect(() => {
@@ -32,10 +16,7 @@ export default function StreakBadge({ streak, freezeCount = 0, atRisk = false })
 
   return (
     <div className="points-chip" id="streak-badge" title={title} style={{ position: 'relative' }}>
-      <FlameIcon
-        size={14}
-        color={atRisk ? 'var(--warning, #f59e0b)' : '#f43f5e'}
-      />
+      <Icon name="flame" size={13} />
       <span>{streak}d streak{freezeCount > 0 ? ' · freeze' : ''}</span>
       {atRisk && (
         <span

@@ -9,7 +9,6 @@ import PastEventRow from '../components/PastEventRow';
 import AskWellCircle from '../components/AskWellCircle';
 import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
-import EmptyStateHero from '../components/EmptyStateHero';
 import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
 import { useAuth } from '../context/AuthContext';
@@ -260,12 +259,10 @@ export default function ExploreScreen() {
           ))}
         </div>
       ) : (
-        <EmptyStateHero
-          emoji="🔍"
-          title="No providers found"
-          body={t('No providers found. Try a different category.')}
-          id="explore-empty"
-        />
+        <div className="empty-state">
+          <div className="empty-state-icon"><Icon name="search" size={40} strokeWidth={1.5} /></div>
+          <div className="empty-state-text">{t('No providers found. Try a different category.')}</div>
+        </div>
       )}
 
       {/* Moved here from Home (WS2 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md)

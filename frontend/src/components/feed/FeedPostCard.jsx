@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SmartImage from '../SmartImage';
 import Icon from '../Icon';
-import { toggleReaction, getPostComments } from '../../api/client';
+import { toggleReaction } from '../../api/client';
 import { clickableDivProps } from '../../utils/a11y';
 import usePostComments from '../../hooks/usePostComments';
 import ReactionPicker from '../ReactionPicker';

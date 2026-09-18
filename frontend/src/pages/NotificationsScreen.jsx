@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../api/client';
@@ -15,12 +15,9 @@ export default function NotificationsScreen() {
   const { t } = useTranslation();
   const runOptimistic = useOptimisticAction();
 
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
+      setLoading(true);
       const res = await getNotifications();
       setNotifications(res.notifications || []);
     } catch (err) {
@@ -28,7 +25,11 @@ export default function NotificationsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   // Optimistic (WS7): the row flips to read, and navigation fires,
   // immediately — a notification tap shouldn't wait on the read receipt

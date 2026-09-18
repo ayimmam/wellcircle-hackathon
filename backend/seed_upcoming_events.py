@@ -178,32 +178,6 @@ EVENTS = [
      "location_text": "Bole Mega, 50 m behind Makush Gallery, TM5 Apt", "kind": "run"},
     {"provider": "Zumba with Vahe", "service_name": "Zumba with Vahe",
      "starts_at": datetime(2026, 9, 14, 18, 15, tzinfo=EAT), "location_text": "Armenian Club", "kind": "dance"},
-
-    # ── WS16 (Phase 24): Sep 17–28 events from the two new poster photos ──
-    {"provider": "Satenaw Runclub", "service_name": "Satenaw Running Club",
-     "starts_at": datetime(2026, 9, 17, 17, 30, tzinfo=EAT), "location_text": "Friendship Park", "kind": "run"},
-    {"provider": "Zumba with Vahe", "service_name": "Zumba with Vahe",
-     "starts_at": datetime(2026, 9, 19, 10, 0, tzinfo=EAT), "location_text": "SUP Studio, Addis Ababa", "kind": "dance"},
-    {"provider": "Debol Running Club", "service_name": "Friendship Park Social 5k",
-     "starts_at": datetime(2026, 9, 20, 6, 30, tzinfo=EAT), "location_text": "Friendship Park", "kind": "run"},
-    {"provider": "Bertusew Runningclub", "service_name": "Bertusew Running Club",
-     "starts_at": datetime(2026, 9, 20, 6, 45, tzinfo=EAT), "location_text": "Yetebaberut Square Sport Center, CMC", "kind": "run"},
-    {"provider": "Let's Hike Ethiopia", "service_name": "Botanical Garden Hike and Suba National Park Hiking",
-     "starts_at": datetime(2026, 9, 19, 7, 0, tzinfo=EAT),
-     "location_text": "Gullele Botanical Garden / Suba National Park",
-     "ends_at": datetime(2026, 9, 20, 17, 0, tzinfo=EAT)},
-    {"provider": "Ereft Ethiopia", "service_name": "Camping Trip to Abijata Shalla and Lake Langano",
-     "starts_at": datetime(2026, 9, 19, 6, 0, tzinfo=EAT),
-     "location_text": "Meet TBD",
-     "ends_at": datetime(2026, 9, 20, 18, 0, tzinfo=EAT)},
-    {"provider": "Guzo Adwa Hiking", "service_name": "Merete-Wegeram Village Meskel Trip (Gurage)",
-     "starts_at": datetime(2026, 9, 25, 6, 0, tzinfo=EAT),
-     "location_text": "Gurage",
-     "ends_at": datetime(2026, 9, 27, 18, 0, tzinfo=EAT)},
-    {"provider": "Ereft Ethiopia", "service_name": "Gurage Special Meskel Trip",
-     "starts_at": datetime(2026, 9, 25, 5, 30, tzinfo=EAT),
-     "location_text": "Gurage",
-     "ends_at": datetime(2026, 9, 28, 18, 0, tzinfo=EAT)},
 ]
 
 

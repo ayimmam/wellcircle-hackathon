@@ -766,7 +766,13 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   align-items: center;
   justify-content: center;
 }
-.nav-label { letter-spacing: 0.02em; }
+.nav-label { 
+  letter-spacing: 0.02em; 
+  display: none;
+}
+.nav-item.active .nav-label {
+  display: block;
+}
 
 /* ================================================================
    SPLASH SCREEN

@@ -46,11 +46,10 @@ describe('ProfileHeader — change photo (-10 points)', () => {
 
   it('shows the cost notice before the file picker opens', async () => {
     renderHeader();
-    await screen.findByLabelText('Edit avatar').catch(() => {});
+    await screen.findByLabelText('Change profile photo').catch(() => {});
     expect(document.getElementById('profile-photo-cost-notice')).not.toBeInTheDocument();
 
     fireEvent.click(document.getElementById('profile-photo-camera-btn'));
-    fireEvent.click(await screen.findByText('📷 Attach Photo'));
     expect(await screen.findByText(/costs 10 points/i)).toBeInTheDocument();
 
     const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click');
@@ -63,10 +62,9 @@ describe('ProfileHeader — change photo (-10 points)', () => {
     const d = deferred();
     changeProfilePhotoMock.mockReturnValue(d.promise);
     renderHeader();
-    await screen.findByLabelText('Edit avatar');
+    await screen.findByLabelText('Change profile photo');
 
     fireEvent.click(document.getElementById('profile-photo-camera-btn'));
-    fireEvent.click(await screen.findByText('📷 Attach Photo'));
     fireEvent.click(await screen.findByText(/costs 10 points/i));
     fireEvent.click(document.getElementById('profile-photo-cost-notice-continue'));
 
@@ -94,10 +92,9 @@ describe('ProfileHeader — change photo (-10 points)', () => {
     const d = deferred();
     changeProfilePhotoMock.mockReturnValue(d.promise);
     renderHeader();
-    await screen.findByLabelText('Edit avatar');
+    await screen.findByLabelText('Change profile photo');
 
     fireEvent.click(document.getElementById('profile-photo-camera-btn'));
-    fireEvent.click(await screen.findByText('📷 Attach Photo'));
     fireEvent.click(await screen.findByText(/costs 10 points/i));
     fireEvent.click(document.getElementById('profile-photo-cost-notice-continue'));
 

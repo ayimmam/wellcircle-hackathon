@@ -2074,6 +2074,40 @@ select.input option {
 
 .empty-state-text { font-size: 0.9rem; }
 
+.empty-state-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.empty-state-hero-emoji {
+  font-size: 3rem;
+  line-height: 1;
+  animation: floatBob 3s ease-in-out infinite;
+}
+
+@keyframes floatBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.empty-state-hero-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.empty-state-hero-body {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  max-width: 260px;
+}
+
 /* ================================================================
    LOADING SKELETON
    ================================================================ */

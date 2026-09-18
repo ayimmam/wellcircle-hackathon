@@ -10,25 +10,27 @@ vi.mock('../analytics', () => ({
 }));
 
 function goToStep(target) {
-  // name → goal → interest → frequency → circles
+  // name → goal → avatar → interest → frequency → circles
   const next = () => fireEvent.click(document.getElementById('onboarding-next-btn'));
   fireEvent.change(document.getElementById('onboarding-name-input'), { target: { value: 'Meron' } });
   if (target === 'name') return;
   next(); // → goal
   if (target === 'goal') return;
-  next(); // → interest (goal skippable)
+  next(); // → avatar (goal skippable)
+  if (target === 'avatar') return;
+  next(); // → interest (avatar skippable)
   if (target === 'interest') return;
   fireEvent.click(document.getElementById('interest-yoga'));
   next(); // → frequency
 }
 
 describe('OnboardingFlow (Stage 1 psychology)', () => {
-  it('endowed progress: first dot done + "1 of 5 already done" on the name step', async () => {
+  it('endowed progress: first dot done + "1 of 6 already done" on the name step', async () => {
     renderWithProviders(<OnboardingFlow />, { route: '/onboarding' });
     await screen.findByText("What's your name?");
     const dots = document.querySelectorAll('.progress-dot');
     expect(dots[0].className).toContain('done');
-    expect(screen.getByText(/1 of 5 already done/)).toBeInTheDocument();
+    expect(screen.getByText(/1 of 6 already done/)).toBeInTheDocument();
   });
 
   it('smart default: frequency arrives pre-selected with a "Most popular" chip', async () => {

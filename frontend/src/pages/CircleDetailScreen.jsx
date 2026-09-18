@@ -16,6 +16,7 @@ import SmartImage from '../components/SmartImage';
 import { shareCircleInvite } from '../utils/circleInvite';
 import { clickableDivProps } from '../utils/a11y';
 import useDismissOnEscape from '../hooks/useDismissOnEscape';
+import EmptyStateHero from '../components/EmptyStateHero';
 
 export default function CircleDetailScreen() {
   const { id } = useParams();
@@ -246,10 +247,11 @@ export default function CircleDetailScreen() {
   if (notFound) {
     return (
       <div className="page" id="circle-detail-screen">
-        <div className="empty-state">
-          <div className="empty-state-icon"><Icon name="lock" size={40} /></div>
-          <div className="empty-state-text">This circle isn't available.</div>
-        </div>
+        <EmptyStateHero
+          emoji="🔒"
+          title="Circle unavailable"
+          body="This circle isn't available or doesn't exist."
+        />
       </div>
     );
   }
@@ -500,10 +502,11 @@ export default function CircleDetailScreen() {
               ))}
             </div>
           ) : (
-            <div className="empty-state">
-              <div className="empty-state-icon"><Icon name="trophy" size={32} /></div>
-              <div className="empty-state-text">No leaderboard yet. Start checking in!</div>
-            </div>
+            <EmptyStateHero
+              emoji="🏆"
+              title="No leaderboard yet"
+              body="Start checking in and earning points to see rankings here."
+            />
           )}
         </div>
       )}
@@ -524,10 +527,11 @@ export default function CircleDetailScreen() {
               <div className="cell-trailing" style={{ fontSize: '0.8rem' }}>{member.weekly_points} pts/wk</div>
             </div>
           )) : (
-            <div className="empty-state">
-              <div className="empty-state-icon"><Icon name="users" size={32} /></div>
-              <div className="empty-state-text">No members to show yet.</div>
-            </div>
+            <EmptyStateHero
+              emoji="👥"
+              title="No members yet"
+              body="There are no members to show in this circle yet."
+            />
           )}
         </div>
       )}

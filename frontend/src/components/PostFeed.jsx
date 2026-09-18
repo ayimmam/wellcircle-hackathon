@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { getPosts, createPost, reactToPost, commentOnPost, getCircleLeaderboard, getLeaderboard } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import useOptimisticAction from '../hooks/useOptimisticAction';
+
 import { showToast } from './Toast';
 import Icon from './Icon';
 import SmartImage from './SmartImage';
+import EmptyStateHero from './EmptyStateHero';
 import MentionText from './MentionText';
 import { haptic } from '../utils/haptic';
 import { clickableDivProps } from '../utils/a11y';
@@ -544,13 +546,14 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
           </div>
         ))}
         {posts.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-state-icon"><Icon name="message-circle" size={32} /></div>
-            <div className="empty-state-text">No posts yet. Start the conversation!</div>
-            <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={() => setComposerExpanded(true)}>
-              Create first post
-            </button>
-          </div>
+          <EmptyStateHero
+            emoji="💬"
+            title="No posts yet"
+            body="Start the conversation — share how your wellness journey is going!"
+            cta="Create first post"
+            onCta={() => setComposerExpanded(true)}
+            id="post-feed-empty"
+          />
         )}
       </div>
     </div>

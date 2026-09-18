@@ -109,7 +109,7 @@ def test_all():
     #        exists=False), all prices 0 with the "Confirm price" description.
     print("\n5. New-provider flagging and price/description convention")
     new_providers = {name for name, meta in PROVIDERS.items() if not meta["exists"]}
-    assert len(new_providers) == 9, sorted(new_providers)
+    assert len(new_providers) == 10, sorted(new_providers)
     for e in events:
         assert e["price_etb"] == 0
         assert e["description"].endswith("Confirm price with the host.")

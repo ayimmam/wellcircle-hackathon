@@ -72,3 +72,17 @@ if (!window.IntersectionObserver) {
     takeRecords() { return []; }
   };
 }
+
+// In happy-dom, Animation.cancel() rejects animation.finished with AbortError.
+// Motion doesn't attach a catch to animation.finished, leading to unhandled rejections in Vitest.
+if (typeof window !== 'undefined' && window.Element?.prototype?.animate) {
+  const origAnimate = window.Element.prototype.animate;
+  window.Element.prototype.animate = function (...args) {
+    const anim = origAnimate.apply(this, args);
+    if (anim?.finished?.catch) {
+      anim.finished.catch(() => {});
+    }
+    return anim;
+  };
+}
+

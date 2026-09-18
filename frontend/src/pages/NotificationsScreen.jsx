@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../api/client';
 import useOptimisticAction from '../hooks/useOptimisticAction';
 import Icon from '../components/Icon';
+import EmptyStateHero from '../components/EmptyStateHero';
 import { useTranslation } from 'react-i18next';
 import { clickableDivProps } from '../utils/a11y';
 
@@ -15,12 +16,9 @@ export default function NotificationsScreen() {
   const { t } = useTranslation();
   const runOptimistic = useOptimisticAction();
 
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
+      setLoading(true);
       const res = await getNotifications();
       setNotifications(res.notifications || []);
     } catch (err) {
@@ -28,7 +26,11 @@ export default function NotificationsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   // Optimistic (WS7): the row flips to read, and navigation fires,
   // immediately — a notification tap shouldn't wait on the read receipt
@@ -93,10 +95,12 @@ export default function NotificationsScreen() {
 
       <div className="flex-col gap-12">
         {notifications.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon"><Icon name="bell" size={40} strokeWidth={1.5} /></div>
-            <div className="empty-state-text">{t('No notifications yet.')}</div>
-          </div>
+          <EmptyStateHero
+            emoji="🔔"
+            title="All quiet here"
+            body="You're up to date! Check back after your next workout or circle check-in."
+            id="notifications-empty"
+          />
         ) : (
           (() => {
             const sections = { 'Today': [], 'Yesterday': [], 'This Week': [], 'Earlier': [] };

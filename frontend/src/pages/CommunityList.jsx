@@ -7,6 +7,7 @@ import { showToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import EmptyStateHero from '../components/EmptyStateHero';
 import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
@@ -406,17 +407,18 @@ export default function CommunityList() {
             </div>
           )}
           {circles.length === 0 && (
-            <div className="empty-state">
-              <div className="empty-state-icon"><Icon name="users" size={32} /></div>
-              <div className="empty-state-text">No circles yet.</div>
+            <EmptyStateHero
+              emoji="🫂"
+              title="No circles yet"
+              body="Join a community to connect with others, or create your first circle to get started."
+            >
               <button
                 className="btn btn-primary btn-sm"
-                style={{ marginTop: 12 }}
                 onClick={() => document.getElementById('new-circle-name-input')?.focus()}
               >
                 Create your first circle
               </button>
-            </div>
+            </EmptyStateHero>
           )}
         </div>
       ) : tab === 'explore' ? (
@@ -448,10 +450,11 @@ export default function CommunityList() {
             </>
           )}
           {communities.filter(c => !c.user_joined).length === 0 && circles.filter(c => !c.user_joined).length === 0 && (
-            <div className="empty-state">
-              <div className="empty-state-icon"><Icon name="search" size={32} /></div>
-              <div className="empty-state-text">No circles found.</div>
-            </div>
+            <EmptyStateHero
+              emoji="🔎"
+              title="No circles found"
+              body="There are no more circles to explore right now."
+            />
           )}
         </div>
       ) : communities.length > 0 ? (
@@ -461,17 +464,17 @@ export default function CommunityList() {
           ))}
         </div>
       ) : (
-        <div className="empty-state">
-          <div className="empty-state-icon"><Icon name={tab === 'joined' ? 'leaf' : 'search'} size={32} /></div>
-          <div className="empty-state-text">
-            {tab === 'joined' ? "You haven't joined any circles yet." : 'No circles found for this category.'}
-          </div>
+        <EmptyStateHero
+          emoji={tab === 'joined' ? "🌱" : "📭"}
+          title={tab === 'joined' ? "You haven't joined any circles yet." : 'No circles found for this category.'}
+          body={tab === 'joined' ? "Browse the explore tab to find a community." : "Check back later or try another category."}
+        >
           {tab === 'joined' && (
-            <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={() => setTab('explore')}>
+            <button className="btn btn-primary btn-sm" onClick={() => setTab('explore')}>
               Browse circles
             </button>
           )}
-        </div>
+        </EmptyStateHero>
       )}
     </div>
   );

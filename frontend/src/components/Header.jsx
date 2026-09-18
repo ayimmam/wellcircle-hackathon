@@ -11,7 +11,16 @@ export default function Header({ onMenuOpen }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [scrolled, setScrolled] = useState(false);
   const { t } = useTranslation();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 15);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const hidden = ['/', '/onboarding', '/provider-onboard', '/visit'].includes(location.pathname)
     || location.pathname.startsWith('/admin')
@@ -40,7 +49,7 @@ export default function Header({ onMenuOpen }) {
   if (hidden) return null;
 
   return (
-    <header className="top-header" id="top-header">
+    <header className={`top-header ${scrolled ? 'compact' : ''}`} id="top-header">
       <button type="button" className="header-brand" onClick={() => navigate('/home')} aria-label={t('Go to home')}>
         <img src={newLogo} className="header-logo" alt="Well Circle Logo" width={38} height={38} />
         <div className="header-text">

@@ -219,6 +219,7 @@ export const cacheKeys = {
   product: (id) => keyOf('products', { id }),
 
   events: (params) => keyOf('events', params),
+  event: (id) => keyOf('events', { id }),
   featuredEvents: () => keyOf('events', { featured: 1 }),
   pastEvents: (params) => keyOf('events', { ...params, past: 1 }),
 
@@ -1404,6 +1405,23 @@ export async function getEvents(params = {}) {
     });
     const q = qs.toString();
     return request('GET', q ? `/events?${q}` : '/events');
+  });
+}
+
+/**
+ * One event by id — what the RSVP screen loads when it is opened cold (a
+ * forwarded link, a refresh) rather than tapped from a feed card that already
+ * carried the event in router state. Resolves past and cancelled events too;
+ * the screen says so rather than showing a dead end.
+ */
+export async function getEvent(id) {
+  return cached(cacheKeys.event(id), async () => {
+    if (USE_MOCK) {
+      const event = MOCK_EVENTS.find(e => e.id === id);
+      if (!event) throw new Error('Event not found');
+      return { ...event };
+    }
+    return request('GET', `/events/${id}`);
   });
 }
 

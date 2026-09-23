@@ -44,6 +44,13 @@ def serialize_event(event: ProviderEvent, provider: Provider, is_past: bool = Fa
         "provider_category": provider.category,
         "provider_cover_photo_url": provider.cover_photo_url,
         "provider_is_coming_soon": bool(provider.is_coming_soon),
+        # The RSVP screen hands the guest to the host to arrange payment, so
+        # it needs the host's channels on the event payload itself — a deep
+        # link into /event/<id>/rsvp must work without a second fetch.
+        "provider_contact_phone": provider.contact_phone,
+        "provider_contact_telegram": provider.contact_telegram,
+        "provider_contact_instagram": provider.contact_instagram,
+        "provider_contact_website": provider.contact_website,
         "urgency": compute_urgency(event.spots_remaining),
     }
     if is_past:
@@ -163,6 +170,40 @@ def list_all_events(
         page=page,
     )
     return {"events": events_list, "count": total, "page": page}
+
+
+@router.get("/events/{event_id}", response_model=EventResponse)
+def get_event(
+    event_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """One event by id, for a deep link into the RSVP screen.
+
+    /event/<id>/rsvp is a shareable link — someone forwards it in a Telegram
+    group and the recipient opens it cold, with none of the feed state the
+    card would have carried. The list endpoints can't answer that: the event
+    may sit outside their window or past their page.
+
+    A past or cancelled event still resolves. The RSVP screen says so rather
+    than 404-ing, which reads as a broken link when the truth is that the
+    session already ran.
+    """
+    row = (
+        db.query(ProviderEvent, Provider)
+        .join(Provider, ProviderEvent.provider_id == Provider.id)
+        .filter(ProviderEvent.id == event_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    event, provider = row
+    now = datetime.now(timezone.utc)
+    # SQLite (the test database) hands back naive datetimes; Postgres doesn't.
+    if event.starts_at.tzinfo is None:
+        now = now.replace(tzinfo=None)
+    return serialize_event(event, provider, is_past=event.starts_at < now)
 
 
 @router.get("/providers/{provider_id}/events", response_model=EventListResponse)

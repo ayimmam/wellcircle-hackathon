@@ -205,6 +205,35 @@ def test_all():
         assert event_items[0]["event"]["id"] == str(boosted_event.id)
         print("   ✅ boosted event surfaces as an event item")
 
+        # === 5b. This week above the posts, coming-soon below them ============
+        # An event 3 days out is actionable now and leads the feed; one 20
+        # days out is a coming-soon item and sits after the post stream.
+        print("\n5b. This week's events lead, coming-soon events trail")
+        far_event = ProviderEvent(
+            provider_id=live_provider.id, service_name="Spa Anniversary",
+            starts_at=days_from_now(20), ends_at=days_from_now(20) + timedelta(hours=2),
+            capacity=20, spots_remaining=20, price_etb=0, is_boosted=True,
+        )
+        db.add(far_event)
+        db.commit()
+
+        feed3b = build_for_you_feed(db)
+        types3b = [i["type"] for i in feed3b["items"]]
+        ids3b = [i["id"] for i in feed3b["items"]]
+        first_post = types3b.index("post")
+        near_at = ids3b.index(str(boosted_event.id))
+        far_at = ids3b.index(str(far_event.id))
+        assert near_at < first_post, f"this week's event not above the posts: {types3b}"
+        assert far_at > first_post, f"coming-soon event not below the posts: {types3b}"
+        print("   ✅ events split around the post stream on the 7-day boundary")
+
+        # The RSVP screen is reached straight from the feed card, so the host's
+        # channels have to ride along on the event item's provider brief.
+        near_item = feed3b["items"][near_at]
+        for key in ("contact_phone", "contact_telegram", "contact_instagram", "contact_website"):
+            assert key in near_item["provider"], f"{key} missing from event provider brief"
+        print("   ✅ event items carry the host's contact channels for RSVP")
+
         # === 6. Query count is constant regardless of post count ==============
         print("\n6. Constant query count (batching regression guard)")
         for i in range(10):

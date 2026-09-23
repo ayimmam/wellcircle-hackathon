@@ -28,6 +28,16 @@ export default function BookingFlow() {
   const eventId = searchParams.get('event_id') || location.state?.eventId || null;
   const [step, setStep] = useState(0);
 
+  // An event's date and time are fixed on the poster — there is no slot to
+  // pick, and WellCircle collects no money for events, so there is nothing to
+  // confirm either. Event links land on the RSVP screen instead, which shows
+  // the price and the host's contact. Old links carrying ?event_id= (shared
+  // in chats, sitting in history) still work: they redirect rather than
+  // opening a date picker for a date that was never in question.
+  useEffect(() => {
+    if (eventId) navigate(`/event/${eventId}/rsvp`, { replace: true });
+  }, [eventId, navigate]);
+
   const handleBack = useCallback(() => {
     if (step > 0) setStep(s => s - 1);
     else navigate(-1);

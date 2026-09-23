@@ -45,3 +45,8 @@ backend/loadtest/results-*.csv
 backend/loadtest/*.html
 .vercel
 .env*
+
+# Untracked working copy of the provider photo set. Identical to the tracked
+# events/assets/, which backend/scripts/prepare_event_covers.py falls back to,
+# so committing a second 16 MB copy buys nothing.
+docs/wellcircle_image_collection/

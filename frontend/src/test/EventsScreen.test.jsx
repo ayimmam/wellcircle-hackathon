@@ -38,9 +38,19 @@ describe('EventsScreen', () => {
     // unrelated past event's title, e.g. "Zumba with Vahe" is both a past
     // AfroHeat Fitness event and the name of a different, separately
     // boosted provider with its own upcoming sessions.
-    MOCK_PAST_EVENTS.forEach(e => {
-      expect(screen.queryByRole('heading', { name: e.service_name })).not.toBeInTheDocument();
-    });
+    //
+    // A recurring session is the same collision one level down: a run club
+    // lists every week's run under one service_name, so once this week's has
+    // run, that name is legitimately on screen for *next* week's. Assert
+    // only on names that belong exclusively to past events.
+    const upcomingNames = new Set(
+      MOCK_EVENTS.filter(e => !e.is_past).map(e => e.service_name),
+    );
+    MOCK_PAST_EVENTS
+      .filter(e => !upcomingNames.has(e.service_name))
+      .forEach(e => {
+        expect(screen.queryByRole('heading', { name: e.service_name })).not.toBeInTheDocument();
+      });
   });
 
   it('the Past tab shows recaps with attendance, and no booking CTA', async () => {

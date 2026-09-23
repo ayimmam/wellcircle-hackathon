@@ -106,6 +106,10 @@ class ProviderDetail(ProviderListItem):
     theme_accent_color: Optional[str] = None
     contact_phone: Optional[str] = None
     contact_email: Optional[str] = None
+    # Community channels the event RSVP screen hands off to (no leading '@').
+    contact_telegram: Optional[str] = None
+    contact_instagram: Optional[str] = None
+    contact_website: Optional[str] = None
 
 
 class ProviderListResponse(BaseModel):

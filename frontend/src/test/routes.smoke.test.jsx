@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AppShell } from '../App';
 import { ThemeProvider } from '../context/ThemeContext';
-import { MOCK_PROVIDERS, MOCK_COMMUNITIES, MOCK_CIRCLES, MOCK_PRODUCTS, MOCK_PUBLIC_USERS } from '../data/mock';
+import { MOCK_PROVIDERS, MOCK_COMMUNITIES, MOCK_CIRCLES, MOCK_PRODUCTS, MOCK_PUBLIC_USERS, MOCK_EVENTS } from '../data/mock';
 import '../i18n';
 
 // Render every reachable screen with a logged-in super admin so guards pass and
@@ -40,6 +40,7 @@ const providerId = MOCK_PROVIDERS[0].id;
 const communityId = MOCK_COMMUNITIES[0].id;
 const circleId = MOCK_CIRCLES[0].id;
 const productId = MOCK_PRODUCTS[0].id;
+const paidEventId = MOCK_EVENTS.find(e => e.price_etb > 0).id;
 
 const ROUTES = [
   ['Splash', '/'],
@@ -63,6 +64,7 @@ const ROUTES = [
   ['Community detail', `/community/${communityId}`],
   ['Circle detail', `/circle/${circleId}`],
   ['Booking flow', `/booking/${providerId}`],
+  ['Event RSVP', `/event/${paidEventId}/rsvp`],
   ['Provider dashboard', '/provider-dashboard'],
   ['Provider onboard', '/provider-onboard'],
   ['Products store', '/products'],

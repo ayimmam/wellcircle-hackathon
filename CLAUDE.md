@@ -8,7 +8,7 @@ Well Circle is a Telegram Mini App for wellness providers and communities in Eth
 
 - `backend/` — FastAPI + SQLAlchemy + Supabase (PostgreSQL). Deployed to **Vercel** (serverless via `api/index.py`) and configured for Render (`render.yaml`, `Procfile`).
 - `frontend/` — React 18 + Vite + react-router. The Mini App + super-admin UI. Deployed to **Vercel** and, for `wellcircle.et`, to **cPanel** (LiteSpeed, SFTP upload of `dist/` to `/home/ethiowzj/wellcircle`; `public/.htaccess` carries the SPA fallback + caching rules).
-- `telegram-bot/` — python-telegram-bot worker (polling). Deployed to **Railway** (1 replica only — duplicates cause `getUpdates` Conflict errors).
+- `telegram-bot/` — python-telegram-bot worker (polling). Migrating from Railway to **Render** (`telegram-bot/render.yaml`, `type: worker` so it never waits on a `$PORT` bind — the bot has no HTTP server). **Exactly one instance may poll `getUpdates` at a time** — running it on both Railway and Render simultaneously (or >1 replica on either) causes `Conflict: terminated by other getUpdates request` errors. `telegram-bot/railway.json` is legacy from the Railway deployment; remove it once the Render migration is confirmed working.
 
 ### Domains — three different frontends
 

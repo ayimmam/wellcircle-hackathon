@@ -1,0 +1,23 @@
+services:
+  - type: worker
+    name: wellcircle-telegram-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m bot.main
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: BACKEND_URL
+        sync: false
+      - key: BOT_API_KEY
+        sync: false
+      - key: MINI_APP_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: SUPER_ADMIN_TELEGRAM_IDS
+        sync: false
+      - key: KEEP_WARM_ENABLED
+        value: "true"
+      - key: KEEP_WARM_INTERVAL_SECONDS
+        value: "270"

@@ -173,6 +173,9 @@ def get_provider_detail(db: Session, provider_id: UUID, user_id: Optional[UUID] 
         "active_promotion": promotion,
         "contact_phone": provider.contact_phone,
         "contact_email": provider.contact_email,
+        "contact_telegram": provider.contact_telegram,
+        "contact_instagram": provider.contact_instagram,
+        "contact_website": provider.contact_website,
     }
 
 
@@ -578,6 +581,9 @@ def get_provider_me(db: Session, user: User) -> Optional[dict]:
         "theme_accent_color": provider.theme_accent_color,
         "contact_phone": provider.contact_phone,
         "contact_email": provider.contact_email,
+        "contact_telegram": provider.contact_telegram,
+        "contact_instagram": provider.contact_instagram,
+        "contact_website": provider.contact_website,
         "facilities": provider.facilities or [],
         "navigation_tips": provider.navigation_tips or [],
         "map_url": provider.map_url,

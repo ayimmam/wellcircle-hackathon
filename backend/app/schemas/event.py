@@ -45,6 +45,15 @@ class EventResponse(BaseModel):
     provider_is_coming_soon: Optional[bool] = None
     urgency: Optional[str] = None
 
+    # An event RSVP is a hand-off, not a checkout — WellCircle collects no
+    # money for events — so the RSVP screen shows the host's own channels for
+    # the guest to arrange payment through. Carried on the event itself so a
+    # cold deep link into /event/<id>/rsvp needs no second request.
+    provider_contact_phone: Optional[str] = None
+    provider_contact_telegram: Optional[str] = None
+    provider_contact_instagram: Optional[str] = None
+    provider_contact_website: Optional[str] = None
+
     # Past-event recaps: an event that has already started can't be booked, so
     # the client shows how many people turned up instead of how many spots are
     # left. See GET /events?past=true.

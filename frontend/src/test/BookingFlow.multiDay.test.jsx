@@ -140,24 +140,39 @@ describe('BookingFlow multi-day selection', () => {
     expect(screen.getByText(new RegExp(`${days[1].dayName} ${days[1].dayNumber}`))).toBeInTheDocument();
   }, 10000);
 
-  it('event bookings stay single-date — a second tap replaces, not adds', async () => {
+  // An event's date and time are fixed on the poster, so there is no slot to
+  // pick, and WellCircle collects no money for events, so there is nothing to
+  // confirm. Links carrying ?event_id= — shared in chats, sitting in history —
+  // redirect to the RSVP screen rather than opening a date picker for a date
+  // that was never in question.
+  it('an ?event_id= link redirects to the RSVP screen instead of the date picker', async () => {
     const providerWithEvent = MOCK_PROVIDERS[0];
+    renderWithProviders(
+      <Routes>
+        <Route path="/booking/:providerId" element={<BookingFlow />} />
+        <Route path="/event/:eventId/rsvp" element={<div>RSVP Screen</div>} />
+        <Route path="*" element={<div />} />
+      </Routes>,
+      { route: `/booking/${providerWithEvent.id}?event_id=evt-1` }
+    );
+    expect(await screen.findByText('RSVP Screen')).toBeInTheDocument();
+    expect(screen.queryByText('Pick a Date')).toBeNull();
+  });
+
+  // The date picker itself is untouched for ordinary service bookings — only
+  // the event path skips it.
+  it('a service booking still reaches the date picker', async () => {
+    const provider = MOCK_PROVIDERS[0];
     renderWithProviders(
       <Routes>
         <Route path="/booking/:providerId" element={<BookingFlow />} />
         <Route path="*" element={<div />} />
       </Routes>,
-      { route: `/booking/${providerWithEvent.id}?event_id=evt-1` }
+      { route: `/booking/${provider.id}` }
     );
-    const service = await screen.findByText(providerWithEvent.services[0].name);
+    const service = await screen.findByText(provider.services[0].name);
     fireEvent.click(service.closest('.service-item'));
     fireEvent.click(screen.getByRole('button', { name: /^next/i }));
-    await screen.findByText('Pick a Date');
-
-    fireEvent.click(document.getElementById(`date-chip-${days[0].date}`));
-    fireEvent.click(document.getElementById(`date-chip-${days[1].date}`));
-
-    expect(document.getElementById(`date-chip-${days[0].date}`).className).not.toContain('active');
-    expect(document.getElementById(`date-chip-${days[1].date}`).className).toContain('active');
+    expect(await screen.findByText('Pick a Date')).toBeInTheDocument();
   });
 });

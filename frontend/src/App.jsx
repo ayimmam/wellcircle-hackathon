@@ -42,6 +42,7 @@ const CommunityList = lazy(importCommunity);
 const CommunityDetail = lazy(() => import('./pages/CommunityDetail'));
 const CircleDetailScreen = lazy(() => import('./pages/CircleDetailScreen'));
 const BookingFlow = lazy(() => import('./pages/BookingFlow'));
+const EventRsvp = lazy(() => import('./pages/EventRsvp'));
 const ProfileScreen = lazy(importProfile);
 const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 const FollowersList = lazy(() => import('./pages/FollowersList'));
@@ -163,6 +164,7 @@ export function AppShell() {
               <Route path="/community/:id" element={<CommunityDetail />} />
               <Route path="/circle/:id" element={<CircleDetailScreen />} />
               <Route path="/booking/:providerId" element={<BookingFlow />} />
+              <Route path="/event/:eventId/rsvp" element={<EventRsvp />} />
               <Route path="/users/:id" element={<PublicProfile />} />
               <Route path="/users/:id/followers" element={<FollowersList />} />
               <Route path="/users/:id/following" element={<FollowersList />} />

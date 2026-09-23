@@ -431,7 +431,9 @@ Discovery feed replacing Home (Phase 4/5). Returns:
     // (neither circle_id nor community_id) carries "source": null instead of
     // a fabricated community/circle wrapper — see POST /api/posts below.
     { "type": "event", "render_cost": "media", "id": "uuid",
-      "event": { "...": "same shape as GET /events" }, "provider": { "id", "name", "category", "cover_photo_url" } },
+      "event": { "...": "same shape as GET /events" },
+      "provider": { "id", "name", "category", "cover_photo_url", "is_coming_soon",
+                    "contact_phone", "contact_telegram", "contact_instagram", "contact_website" } },
     { "type": "service", "render_cost": "media", "id": "<provider_id>:<service_index>",
       "provider": { "id", "name", "category", "location_text", "rating", "cover_photo_url", "is_coming_soon" },
       "service": { "name", "price", "duration", "description", "photo_url", "booking_method" } },
@@ -447,34 +449,37 @@ Discovery feed replacing Home (Phase 4/5). Returns:
 
 **Ranking is a fixed, deterministic section order — not a scoring model.**
 
-The feed is laid out in three sections:
+The feed is laid out in four sections:
 
-1. **Upcoming events** — boosted events starting within the next 14 days, at
-   the very top.
+1. **This week's events** — boosted events starting within the next 7 days,
+   at the very top. These are the ones a reader can still act on today.
 2. **User content** — member posts, newest-first. This is the paginated part.
-3. **Provider content** — services, then providers, then `past_event` recaps.
+3. **Coming-soon events** — boosted events starting 8–30 days out. Far enough
+   away to belong below the post stream, close enough to plan around. Same
+   `type: "event"` shape as section 1; position is what distinguishes them.
+4. **Provider content** — services, then providers, then `past_event` recaps.
 
-Within sections 1 and 2, items carrying an image lead the section (WS3 of
+Within sections 1, 2 and 3, items carrying an image lead the section (WS3 of
 `docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md`): an event with a
 `provider.cover_photo_url` sorts above one without, and a post with
 `photo_url` sorts above a text-only one — a **stable partition**, so each
 group keeps its own newest-first order. This applies per page, not to the
 whole feed, since the pagination cursor comes from the underlying posts
-query. Section 3 keeps its existing order; it is the tail and already
+query. Section 4 keeps its existing order; it is the tail and already
 image-led. `GET /api/home/lite`'s text-only post stream carries the same
 partition, so a client paginating off it sees no reshuffle once the full
 payload replaces it.
 
-Sections 1 and 3 bind to the ends of the **whole feed, not of each page**:
+Sections 1, 3 and 4 bind to the ends of the **whole feed, not of each page**:
 
 | Page | Carries |
 | --- | --- |
-| First (`before` absent) | events → posts |
+| First (`before` absent) | this week's events → posts |
 | Middle | posts only |
-| Last (`next_before: null`) | posts → services → providers → past events |
+| Last (`next_before: null`) | posts → coming-soon events → services → providers → past events |
 
 A feed short enough to fit one page is first and last at once, so it carries
-all three sections. Emitting the sections per-page instead would repeat the
+all four sections. Emitting the sections per-page instead would repeat the
 same event cards on every scroll and strand provider cards mid-stream.
 
 The trade-off is deliberate and worth knowing: **provider content is only
@@ -778,6 +783,11 @@ Full provider detail with services, photos, linked community.
   "theme_accent_color": "#F59E0B",
   "contact_phone": null,             // set when at least one service is booking_method "phone"
   "contact_email": "booking@example.com",
+  // Community channels the event RSVP screen hands off to. Handles carry no
+  // leading "@"; the website carries no scheme. Any may be null.
+  "contact_telegram": "satenaw_runclub",
+  "contact_instagram": null,
+  "contact_website": null,
   "active_promotion": {              // null when no active promotion
     "id": "uuid-promo",
     "headline": "Presale: 20% off your first visit",
@@ -1534,11 +1544,25 @@ Bole | Kazanchis | Piassa | CMC | Sarbet | Megenagna | Other
   the Events screen's **Past** tab and the feed's `past_event` recap cards.
 - Every event row (upcoming and past) carries `provider_is_coming_soon`
   (mirrored as `provider.is_coming_soon` on feed `event`/`past_event` items) —
-  the client hides the Book button and shows "Coming soon" instead when it's
+  the client hides the CTA and shows "Coming soon" instead when it's
   `true`. `POST /api/bookings` enforces this server-side too, for both
   service and event bookings (same `provider.is_coming_soon` check regardless
   of whether `event_id` is set).
-- `GET /api/events/{id}` — Event details
+- Every event row also carries the host's community channels —
+  `provider_contact_phone`, `provider_contact_telegram`,
+  `provider_contact_instagram`, `provider_contact_website` (handles without a
+  leading `@`, website without a scheme; any may be `null`). These back the
+  **RSVP screen**: WellCircle collects no money for events, so a paid event's
+  CTA opens `/event/:id/rsvp`, which shows the price and hands the guest to
+  the host to arrange payment. There is no booking record and no slot picker —
+  an event's date is fixed, so there is nothing to choose. A **free** event
+  (`price_etb` 0 or null) gets no CTA at all and shows a days-left countdown
+  in place of its spots-remaining pill.
+- `GET /api/events/{id}` — One event by id. Backs a cold deep link into the
+  RSVP screen (a forwarded link, a refresh) where the client has no feed state
+  to paint from. Past and cancelled events resolve rather than 404 — the
+  screen says the session already ran, which is more honest than a broken
+  link. 404 only when no such event exists.
 - `GET /api/providers/me/events` — Provider dashboard events
 - `POST /api/providers/me/events` — Provider create event
 - `PATCH /api/providers/me/events/{id}` — Update event (capacity/etc)

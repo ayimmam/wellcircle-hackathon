@@ -392,8 +392,8 @@ export const MOCK_PROVIDERS = [
     lat: null, lng: null,
     price_range: 'ETB 1,000',
     rating: 4.8,
-    cover_photo_url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800',
-    photos: ['https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800'],
+    cover_photo_url: '/providers/afroheat_fitness.webp',
+    photos: ['/providers/afroheat_fitness.webp'],
     services: [{ name: 'Zumba Class', price: 1000, duration: '60 min' }],
     community: { id: '22222222-0000-0000-0000-000000000012', name: 'AfroHeat Crew', member_count: 64, user_joined: false },
     member_count: 64,
@@ -409,8 +409,8 @@ export const MOCK_PROVIDERS = [
     lat: null, lng: null,
     price_range: 'Free',
     rating: 4.7,
-    cover_photo_url: 'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800',
-    photos: ['https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800'],
+    cover_photo_url: '/providers/bole_burners.webp',
+    photos: ['/providers/bole_burners.webp'],
     services: [{ name: 'Group Run', price: 0, duration: '90 min' }],
     community: { id: '22222222-0000-0000-0000-000000000013', name: 'Bole Burners', member_count: 118, user_joined: false },
     member_count: 118,
@@ -426,8 +426,10 @@ export const MOCK_PROVIDERS = [
     lat: null, lng: null,
     price_range: 'Free',
     rating: 4.8,
-    cover_photo_url: 'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800',
-    photos: ['https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800'],
+    contact_phone: '0941545953',
+    contact_telegram: 'satenaw_runclub',
+    cover_photo_url: '/providers/satenaw_runclub.webp',
+    photos: ['/providers/satenaw_runclub.webp'],
     services: [{ name: 'Group Run', price: 0, duration: '90 min' }],
     community: { id: '22222222-0000-0000-0000-000000000014', name: 'Satenaw Runclub', member_count: 205, user_joined: false },
     member_count: 205,
@@ -443,8 +445,10 @@ export const MOCK_PROVIDERS = [
     lat: null, lng: null,
     price_range: 'Free',
     rating: 4.6,
-    cover_photo_url: 'https://images.unsplash.com/photo-1502904550040-7534597429ae?w=800',
-    photos: ['https://images.unsplash.com/photo-1502904550040-7534597429ae?w=800'],
+    contact_phone: '0947537473',
+    contact_telegram: 'bertusewfitness',
+    cover_photo_url: '/providers/bertusew_runningclub.webp',
+    photos: ['/providers/bertusew_runningclub.webp'],
     services: [{ name: 'Group Run', price: 0, duration: '90 min' }],
     community: { id: '22222222-0000-0000-0000-000000000015', name: 'Bertusew Runningclub', member_count: 87, user_joined: false },
     member_count: 87,
@@ -466,6 +470,8 @@ export const MOCK_PROVIDERS = [
     lat: null, lng: null,
     price_range: 'Price on request',
     rating: null,
+    contact_phone: '0911882287',
+    contact_instagram: 'vahetilbian',
     cover_photo_url: null,
     photos: [],
     services: [],
@@ -483,6 +489,7 @@ export const MOCK_PROVIDERS = [
     lat: null, lng: null,
     price_range: 'Price on request',
     rating: null,
+    contact_website: 'debolrunningclub.com',
     cover_photo_url: null,
     photos: [],
     services: [],
@@ -500,6 +507,8 @@ export const MOCK_PROVIDERS = [
     lat: null, lng: null,
     price_range: 'Price on request',
     rating: null,
+    contact_phone: '0932333382',
+    contact_telegram: 'khulservice',
     cover_photo_url: null,
     photos: [],
     services: [],
@@ -517,6 +526,8 @@ export const MOCK_PROVIDERS = [
     lat: null, lng: null,
     price_range: 'Price on request',
     rating: null,
+    contact_phone: '0927928407',
+    contact_instagram: 'ereft_ethiopia',
     cover_photo_url: null,
     photos: [],
     services: [],
@@ -534,6 +545,8 @@ export const MOCK_PROVIDERS = [
     lat: null, lng: null,
     price_range: 'Price on request',
     rating: null,
+    contact_phone: '0942545470',
+    contact_instagram: 'guzo_adwa_hiking',
     cover_photo_url: null,
     photos: [],
     services: [],
@@ -551,6 +564,7 @@ export const MOCK_PROVIDERS = [
     lat: null, lng: null,
     price_range: 'Price on request',
     rating: null,
+    contact_phone: '0939616163',
     cover_photo_url: null,
     photos: [],
     services: [],
@@ -568,6 +582,8 @@ export const MOCK_PROVIDERS = [
     lat: null, lng: null,
     price_range: 'Price on request',
     rating: null,
+    contact_phone: '0920807230',
+    contact_instagram: 'addishiking',
     cover_photo_url: null,
     photos: [],
     services: [],
@@ -1393,10 +1409,28 @@ const POSTER_EVENTS = [
   },
 ];
 
-const posterUpcoming = POSTER_EVENTS.filter(e => new Date(e.starts_at).getTime() > Date.now());
+// Cover photo and contact channels come from the provider record rather than
+// being repeated on every event — the same providers host several sessions
+// each, and the backend's serialize_event() joins them the same way. Matching
+// on provider_id keeps this honest if a name is ever edited.
+const withProviderDetails = (e) => {
+  const provider = MOCK_PROVIDERS.find(p => p.id === e.provider_id);
+  if (!provider) return e;
+  return {
+    ...e,
+    provider_cover_photo_url: provider.cover_photo_url || e.provider_cover_photo_url,
+    provider_contact_phone: provider.contact_phone || null,
+    provider_contact_telegram: provider.contact_telegram || null,
+    provider_contact_instagram: provider.contact_instagram || null,
+    provider_contact_website: provider.contact_website || null,
+  };
+};
+
+const posterUpcoming = POSTER_EVENTS.map(withProviderDetails)
+  .filter(e => new Date(e.starts_at).getTime() > Date.now());
 // Same reshaping the backend's serialize_event(is_past=True) does: spots left
 // is meaningless once a session is over, so it becomes "how many turned up".
-const posterPast = POSTER_EVENTS
+const posterPast = POSTER_EVENTS.map(withProviderDetails)
   .filter(e => new Date(e.starts_at).getTime() <= Date.now())
   .map(({ spots_remaining, urgency: _urgency, ...e }) => ({
     ...e,
@@ -1518,6 +1552,10 @@ function buildMockForYouFeed() {
   const providerBrief = (p) => ({
     id: p.id, name: p.name, category: p.category, location_text: p.location_text,
     rating: p.rating, cover_photo_url: p.cover_photo_url, is_coming_soon: !!p.is_coming_soon,
+    contact_phone: p.contact_phone || null,
+    contact_telegram: p.contact_telegram || null,
+    contact_instagram: p.contact_instagram || null,
+    contact_website: p.contact_website || null,
   });
 
   const boston = MOCK_PROVIDERS.find(p => p.name === 'Boston Day Spa');
@@ -1555,20 +1593,32 @@ function buildMockForYouFeed() {
       name: e.provider_name,
       category: e.provider_category || null,
       cover_photo_url: e.provider_cover_photo_url || null,
+      // Carried so the RSVP screen paints straight from the card's state.
+      contact_phone: e.provider_contact_phone || null,
+      contact_telegram: e.provider_contact_telegram || null,
+      contact_instagram: e.provider_contact_instagram || null,
+      contact_website: e.provider_contact_website || null,
     },
   });
 
-  const eventItems = MOCK_EVENTS.filter(e => e.is_boosted).map(toEventItem);
+  // Events split on the 7-day boundary: this week's lead the feed, the rest
+  // are the coming-soon block below the posts (feed_service.FEED_THIS_WEEK_WINDOW).
+  const weekFromNow = Date.now() + 7 * 86400000;
+  const upcoming = MOCK_EVENTS.filter(e => e.is_boosted).map(toEventItem);
+  const eventItems = upcoming.filter(i => new Date(i.event.starts_at).getTime() <= weekFromNow);
+  const comingSoonEventItems = upcoming.filter(i => new Date(i.event.starts_at).getTime() > weekFromNow);
   const pastEventItems = MOCK_PAST_EVENTS.map(toEventItem);
 
   // Section order mirrors backend/app/services/feed_service.py::_order_feed —
-  // upcoming events, then member posts, then provider content, each of the
-  // first two image-partitioned (WS3). Mock mode is what the tests and
-  // offline dev render against, so a different order here would quietly
-  // hide an ordering regression in the real feed.
+  // this week's events, then member posts, then the coming-soon events, then
+  // provider content; the event and post blocks image-partitioned (WS3).
+  // Mock mode is what the tests and offline dev render against, so a
+  // different order here would quietly hide an ordering regression in the
+  // real feed.
   const items = [
     ...partitionByImage(eventItems, eventHasImage),
     ...partitionByImage(postItems, postHasImage),
+    ...partitionByImage(comingSoonEventItems, eventHasImage),
     ...serviceItems,
     ...providerItems,
     ...pastEventItems,

@@ -33,7 +33,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     if isinstance(err, Conflict):
         logger.warning(
             "Telegram polling conflict — another getUpdates instance is active. "
-            "Stop duplicate bot processes and keep Railway at 1 replica."
+            "Stop duplicate bot processes and keep Render at 1 instance."
         )
         return
     logger.error("Unhandled bot error: %s", err, exc_info=err)

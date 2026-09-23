@@ -30,7 +30,7 @@ Three independently deployed services share a single Supabase PostgreSQL databas
 |---------|-------|-----------|------------|
 | Backend API | FastAPI · SQLAlchemy · Supabase | [`backend/`](./backend) | Vercel (serverless) / Render |
 | Frontend Mini App | React 18 · Vite · React Router | [`frontend/`](./frontend) | Vercel |
-| Telegram Bot | python-telegram-bot | [`telegram-bot/`](./telegram-bot) | Railway |
+| Telegram Bot | python-telegram-bot | [`telegram-bot/`](./telegram-bot) | Render (background worker) |
 
 The AI Concierge is a separate microservice (external repo) reached from the frontend.
 
@@ -117,7 +117,7 @@ at the repo root are manual scripts that POST to a running server, not part of e
 
 ## Contributing — branches and CI
 
-`main` is the deploy branch: Vercel and Railway build from it, so nothing lands on `main`
+`main` is the deploy branch: Vercel and Render build from it, so nothing lands on `main`
 directly. **`dev` is the integration branch** and mirrors `main`.
 
 ```

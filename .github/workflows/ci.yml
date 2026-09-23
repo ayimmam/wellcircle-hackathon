@@ -2,7 +2,7 @@ name: CI
 
 # Contributions land on `dev` first. `dev` is the integration branch: every
 # feature PR targets it, the full gate below runs, and only a green `dev` is
-# promoted to `main` — which is what the Vercel/Railway integrations deploy
+# promoted to `main` — which is what the Vercel/Render integrations deploy
 # from. Running on PRs into `main` too means the promotion PR is re-verified
 # against main's exact tree before anything ships.
 on:

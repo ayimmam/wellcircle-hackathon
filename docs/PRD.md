@@ -295,7 +295,7 @@ Why This Screen Matters: This is the screen you show the wellness partner in the
 | Payment - Telebirr | Telebirr Open API (Ethio Telecom)               | Primary payment rail for Ethiopia; highest adoption |
 | Payment - M-Pesa   | Safaricom Daraja API (STK Push)                 | Secondary; signals cross-border readiness           |
 | Scheduler          | APScheduler (in-process)                        | Points decay job; no Redis needed for MVP           |
-| Hosting            | Railway or Render (FastAPI) + Vercel (frontend) | Free tier; deploy in < 10 min                       |
+| Hosting            | Render (FastAPI) + Vercel (frontend)            | Free tier; deploy in < 10 min                       |
 | No-code screens    | Softr or Glide for B2B / corporate placeholder  | Unblock frontend team                               |
 
 ## **7.2 Data Models**
@@ -521,7 +521,7 @@ Principle: The backend team unblocks the frontend team by Hour 4. After that, in
 | Hour 7-8       | Telebirr Open API integration + M-Pesa Daraja integration + booking endpoints                                         | Booking flow (3 steps) + payment screens + confirmation                        | Review & hand off mockups                      |
 | Hour 9-10      | Provider dashboard stats endpoint + payment callback handling                                                         | Provider dashboard (KPI cards + live feed + bookings table)                    | -                                              |
 | Hour 11-12     | Points decay scheduler + bug fixes + end-to-end test                                                                  | Profile screen (neighbourhood opt-in + Health & Activity) + polish + bug fixes | -                                              |
-| Final 30 min   | Deploy to Railway/Render + smoke test all endpoints                                                                   | Deploy to Vercel + configure bot + final smoke test                            | -                                              |
+| Final 30 min   | Deploy to Render + smoke test all endpoints                                                                           | Deploy to Vercel + configure bot + final smoke test                            | -                                              |
 
 # **12\. Payment Integration Guide**
 
@@ -539,7 +539,7 @@ Telebirr Sandbox Note: Telebirr sandbox credentials from Ethio Telecom may take 
 
 - Register at developer.safaricom.co.ke - sandbox credentials available immediately.
 - Flow: POST /mpesa/stkpush with BusinessShortCode, PassKey, Amount, PhoneNumber (254XXXXXXXXX format), CallBackURL.
-- CallBackURL must be publicly reachable - use ngrok during development, Railway URL in demo.
+- CallBackURL must be publicly reachable - use ngrok during development, the deployed backend URL in demo.
 - On callback: parse Body.stkCallback.ResultCode - 0 = success.
 - Store CheckoutRequestID from initiation response to match to callback.
 
@@ -616,12 +616,12 @@ Fallback Plan: If Telebirr sandbox is not provisioned in time: build the full Te
 | SUPABASE_SERVICE_KEY   | Backend DB                  | Supabase dashboard                             |
 | TELEBIRR_MERCHANT_CODE | Telebirr payment (primary)  | Ethio Telecom developer portal                 |
 | TELEBIRR_APP_KEY       | Telebirr payment (primary)  | Ethio Telecom developer portal                 |
-| TELEBIRR_NOTIFY_URL    | Telebirr async callback     | Your Railway URL + /payments/telebirr/callback |
+| TELEBIRR_NOTIFY_URL    | Telebirr async callback     | Your backend URL + /payments/telebirr/callback |
 | MPESA_CONSUMER_KEY     | Daraja STK Push (secondary) | developer.safaricom.co.ke                      |
 | MPESA_CONSUMER_SECRET  | Daraja STK Push (secondary) | developer.safaricom.co.ke                      |
 | MPESA_SHORTCODE        | Daraja STK Push (secondary) | Safaricom                                      |
 | MPESA_PASSKEY          | Daraja STK Push (secondary) | Safaricom                                      |
-| MPESA_CALLBACK_URL     | Daraja callback             | Your Railway URL + /payments/mpesa/callback    |
+| MPESA_CALLBACK_URL     | Daraja callback             | Your backend URL + /payments/mpesa/callback    |
 | JWT_SECRET             | Session tokens              | Generate locally: openssl rand -hex 32         |
 
 _Well Circle PRD v1.2 | Phase 3 Integrated | Hackathon Build | Confidential | June 2026_

@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Well Circle is a Telegram Mini App for wellness providers and communities in Ethiopia. It is a **monorepo of three independently-deployed services** that communicate over HTTP:
 
-- `backend/` — FastAPI + SQLAlchemy + Supabase (PostgreSQL). Deployed to **Vercel** (serverless via `api/index.py`) and configured for Render (`render.yaml`, `Procfile`).
+- `backend/` — FastAPI + SQLAlchemy + Supabase (PostgreSQL). Deployed to **Vercel** (serverless via `api/index.py`) and configured for Render (`backend/render.yaml`, `Procfile`) — note Render only reads the repo-root `render.yaml`, which declares the bot worker, so `backend/render.yaml` is reference-only until it is folded in.
 - `frontend/` — React 18 + Vite + react-router. The Mini App + super-admin UI. Deployed to **Vercel** and, for `wellcircle.et`, to **cPanel** (LiteSpeed, SFTP upload of `dist/` to `/home/ethiowzj/wellcircle`; `public/.htaccess` carries the SPA fallback + caching rules).
-- `telegram-bot/` — python-telegram-bot worker (polling). Deployed to **Railway** (1 replica only — duplicates cause `getUpdates` Conflict errors).
+- `telegram-bot/` — python-telegram-bot worker (polling). Deployed to **Render** as a background worker via the repo-root `render.yaml` (1 instance only — duplicates cause `getUpdates` Conflict errors).
 
 ### Domains — three different frontends
 
@@ -62,12 +62,12 @@ python -m bot.main
 
 ## Branching and CI
 
-`main` is the deploy branch — Vercel and Railway build from it, so **nothing
+`main` is the deploy branch — Vercel and Render build from it, so **nothing
 lands on `main` directly**. `dev` is the integration branch and mirrors `main`
 at all times.
 
 ```
-feature/my-thing ──PR──► dev ──PR──► main ──► Vercel / Railway deploy
+feature/my-thing ──PR──► dev ──PR──► main ──► Vercel / Render deploy
                     │           │
                  CI runs     CI re-runs against main's tree
 ```

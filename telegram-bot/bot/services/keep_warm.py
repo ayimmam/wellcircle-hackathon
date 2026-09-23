@@ -2,8 +2,8 @@
 
 Vercel evicts an idle function in a few minutes, and the next request pays a
 cold start — several seconds, on top of a fresh connection to Supabase. The bot
-is the one component that runs continuously (Railway, always-on polling), so it
-is the natural place to hold the door open.
+is the one component that runs continuously (a Render worker, always-on
+polling), so it is the natural place to hold the door open.
 
 `/health` touches no database and returns a tiny payload, so this costs almost
 nothing on either side of the free tier.
@@ -30,7 +30,7 @@ async def ping_backend(_context: ContextTypes.DEFAULT_TYPE) -> None:
         async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
             response = await client.get(f"{BACKEND_URL}/health")
         # Debug, not info: this fires every few minutes and would otherwise
-        # bury everything else in the Railway logs.
+        # bury everything else in the Render logs.
         logger.debug("Keep-warm ping → %s", response.status_code)
     except Exception as e:
         # A missed ping just means the next user pays a cold start; never let

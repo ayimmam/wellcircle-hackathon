@@ -43,7 +43,7 @@ booking while it's active.
 ### What nudges bring users back
 
 ```
-                    (weekly job, telegram-bot Railway worker)
+                    (weekly job, telegram-bot Render worker)
 GET /api/bot/inactive-users            ── users inactive 7+ days, each with
    └─ promo: soonest-expiring active      an applicable promo attached (or null)
       discount promo the user is
@@ -138,6 +138,6 @@ guest; verify the four PostHog events above appear; log rough edges.
 1. Run `python apply_presale_migration.py` (or `alembic upgrade head`) against
    Supabase **before** deploying the backend — the code reads the new columns.
 2. Optionally `python seed_presale_promo.py` to put the Kuriftu presale promo up.
-3. Redeploy backend (Vercel), frontend (Vercel), bot (Railway — keep 1 replica).
+3. Redeploy backend (Vercel), frontend (Vercel), bot (Render — keep 1 instance).
    The bot change is backward-compatible: with an old backend it just sends the
    generic nudge (no `promo` field → generic branch).

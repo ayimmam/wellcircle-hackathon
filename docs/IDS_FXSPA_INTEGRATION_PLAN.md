@@ -106,7 +106,7 @@ granted is the mechanism to ask for (§18, A1–A4).
 | "overbook usually happen during morning" | Morning slots are the risk concentration | Per-window allocation caps + **morning bookings confirm the night before, not at T-60** (§7.3) |
 | "user preference saved" | Store therapist/time/allergy preferences and pass them to the spa | `user_service_preferences`, mapped to FX Spa Guest Profile fields (§10) |
 | "option to join waitlist" | Full slot ⇒ offer waitlist, claim on cancellation | `waitlist_entries` + time-boxed `waitlist_offers` (§9) |
-| "message user via telegram on **any** changed booking" | **Delivery-guaranteed**, not fire-and-forget | Transactional outbox drained by the always-on Railway bot, with retries + undeliverable escalation (§8) |
+| "message user via telegram on **any** changed booking" | **Delivery-guaranteed**, not fire-and-forget | Transactional outbox drained by the always-on Render bot, with retries + undeliverable escalation (§8) |
 
 Note the tension the comments create and nobody has resolved yet: **a 07:30 appointment confirmed at
 07:00 is operationally useless** to a guest who has to cross Addis. §7.3 proposes the fix; it needs
@@ -120,7 +120,7 @@ Kuriftu's sign-off (B2).
  Telegram Mini App ─┐
  app.wellcircle.et ─┼─► Well Circle API ─► bookings + slot_holds  (source of truth for OUR inventory)
  Telegram Bot ──────┘        │                     │
-                             │                     ├─► notification_outbox ──► Railway bot ──► Telegram
+                             │                     ├─► notification_outbox ──► Render bot ──► Telegram
                              │                     └─► pms_sync_log
                              │
                              └─► PmsAdapter (interface)
@@ -373,10 +373,10 @@ user fails silently.
 - `dedupe_key` (e.g. `booking:<id>:status:<to_status>:<attempt_epoch_bucket>`) is `UNIQUE`, so a
   retried request cannot double-message the guest.
 
-### 8.2 The drainer runs on Railway, not Vercel
+### 8.2 The drainer runs on Render, not Vercel
 
 **Recommendation: the telegram-bot worker owns the outbox drain.** It is the only always-on process
-we have (`CLAUDE.md`: Vercel skips the scheduler; Railway runs 1 replica). It already has a
+we have (`CLAUDE.md`: Vercel skips the scheduler; the Render worker runs 1 instance). It already has a
 `job_queue`; add `run_repeating(drain_outbox, interval=30)`.
 
 - New backend endpoints, `X-Bot-API-Key` authenticated, alongside the existing `/api/bot/*` family:
@@ -384,10 +384,10 @@ we have (`CLAUDE.md`: Vercel skips the scheduler; Railway runs 1 replica). It al
 - Bot sends via `python-telegram-bot`, reports back `sent` / `failed` / `undeliverable`.
 - Backoff: 30 s → 2 m → 10 m → 1 h → 6 h, max 6 attempts.
 - Telegram `403 Forbidden: bot was blocked by the user` ⇒ `undeliverable` immediately (no retries),
-  and the booking lands on the **staff call list** — a human phones them. Because Railway is capped
-  at 1 replica, there is no concurrent-drain race; the `FOR UPDATE SKIP LOCKED` claim on pending rows
+  and the booking lands on the **staff call list** — a human phones them. Because the Render worker is
+  capped at 1 instance, there is no concurrent-drain race; the `FOR UPDATE SKIP LOCKED` claim on pending rows
   guards it anyway if that ever changes.
-- Keep a Vercel cron fallback (`/api/cron/outbox-drain`) so a Railway outage degrades to
+- Keep a Vercel cron fallback (`/api/cron/outbox-drain`) so a Render outage degrades to
   slower-but-still-delivered.
 
 ### 8.3 Channels — Telegram is not enough
@@ -578,11 +578,11 @@ nice-to-haves:**
 
 | Job | Cadence | Home | Purpose |
 | --- | --- | --- | --- |
-| `outbox-drain` | 30 s | **Railway bot** (Vercel cron fallback) | §8.2 |
+| `outbox-drain` | 30 s | **Render bot** (Vercel cron fallback) | §8.2 |
 | `booking-confirmations` | 5 min | Vercel cron | §7.2 |
 | `hold-reaper` | 5 min | Vercel cron | Release expired holds → triggers waitlist matching |
-| `waitlist-offer-expiry` | 1 min | Railway bot | Cascade offers |
-| `pms-pull` | 15 min (Tier A/B) | Railway bot | Cancellations/moves made *inside* FX Spa |
+| `waitlist-offer-expiry` | 1 min | Render bot | Cascade offers |
+| `pms-pull` | 15 min (Tier A/B) | Render bot | Cancellations/moves made *inside* FX Spa |
 | `pms-push-retry` | 5 min | Vercel cron | Retry failed `push_booking` |
 | `booking-reminders` | existing hourly | existing | Extend to fire on `confirmed`, not `payment_status == 'success'` |
 
@@ -667,7 +667,7 @@ cover the case where the vendor answer is slow or negative; don't build it out o
 | Spa sells our allocated slots anyway | Double booking survives despite our constraint | Allocation must be a written agreement, not an assumption (B3); pull-reconcile detects drift; staff can shrink allocation live |
 | Telegram blocked / no Telegram | Silent failure — the exact thing we're fixing | `undeliverable` → staff call list; SMS as a later channel |
 | Service durations still null | Overlap detection is guesswork | B1 — needed before Phase 0 ships |
-| Vercel cold start delays confirmations | Late confirmations near the deadline | Critical loops live on always-on Railway; existing `keep_warm` helps |
+| Vercel cold start delays confirmations | Late confirmations near the deadline | Critical loops live on the always-on Render worker; existing `keep_warm` helps |
 | Guest data in a shared Google Sheet | Privacy exposure | §10 — trim in Phase 0 |
 | **`wellcircle-web` is not in git** | An unrecoverable mistake in the flow we're actively rewriting | Phase 0a — initialise the repo before touching booking code |
 | Booking UI duplicated byte-for-byte across two apps | Silent drift on the exact flow we're hardening; a fix applied to one app only | Phase 0a — extract `packages/booking-ui` (§12.3) |
@@ -803,7 +803,7 @@ POST   /api/pms/fxspa/webhook                      # HMAC-signed, no JWT
 POST   /api/cron/booking-confirmations             # CRON_SECRET
 POST   /api/cron/hold-reaper                       # CRON_SECRET
 POST   /api/cron/pms-sync                          # CRON_SECRET
-POST   /api/cron/outbox-drain                      # CRON_SECRET (Railway fallback)
+POST   /api/cron/outbox-drain                      # CRON_SECRET (fallback for the Render bot)
 
 GET    /api/admin/pms/sync-log
 POST   /api/admin/pms/replay/{booking_id}

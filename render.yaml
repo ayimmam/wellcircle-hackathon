@@ -1,0 +1,41 @@
+# Render Blueprint — repo root, because Render only reads `render.yaml` from here.
+#
+# Declares the Telegram bot worker only. The backend runs on Vercel
+# (`api/index.py`); `backend/render.yaml` is kept as a reference for running it
+# on Render instead, but Render will not pick that file up — fold it in here if
+# you ever move the backend over.
+services:
+  - type: worker
+    name: wellcircle-bot
+    runtime: python
+    plan: starter
+    rootDir: telegram-bot
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m bot.main
+    # Telegram allows exactly one getUpdates consumer per token. More than one
+    # instance means Conflict errors and dropped updates — never raise this.
+    numInstances: 1
+    envVars:
+      # Pin to the version CI tests against; Render's default has moved on and
+      # the deps here (python-telegram-bot 20.7, httpx 0.25.2) are pinned to match.
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      # Must be byte-identical to the backend's BOT_API_KEY — it is the shared
+      # secret behind the X-Bot-API-Key header.
+      - key: BOT_API_KEY
+        sync: false
+      - key: BACKEND_URL
+        sync: false
+      - key: MINI_APP_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: SUPER_ADMIN_TELEGRAM_IDS
+        sync: false
+      - key: KEEP_WARM_ENABLED
+        value: "true"
+      - key: KEEP_WARM_INTERVAL_SECONDS
+        value: "270"

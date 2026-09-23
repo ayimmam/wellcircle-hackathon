@@ -4,7 +4,7 @@ name: Promote dev → main
 # always one reviewed click rather than a hand-made PR.
 #
 # It never merges anything. Merging that PR is the deliberate human action that
-# ships — it's what moves `main`, and `main` is what Vercel and Railway deploy
+# ships — it's what moves `main`, and `main` is what Vercel and Render deploy
 # from. CI re-runs on the PR itself (ci.yml listens on PRs into `main`), so the
 # gate is verified against main's exact tree before the merge button lights up.
 #
@@ -63,7 +63,7 @@ jobs:
             echo 'Promotes the current `dev` integration branch to `main`.'
             echo
             echo 'Merging this PR moves `main`, which is what triggers the Vercel and'
-            echo 'Railway deployments. Do not merge until every CI check on this PR is green.'
+            echo 'Render deployments. Do not merge until every CI check on this PR is green.'
             echo
             echo '_Opened automatically by `.github/workflows/promote-dev-to-main.yml`._'
           } > pr-body.md

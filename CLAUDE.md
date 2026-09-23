@@ -137,6 +137,15 @@ Layered, with one module per domain entity. A request flows:
 - **Models** use UUID primary keys and JSONB columns — the integration test defines `SQLiteUUID`/`SQLiteJSONB` TypeDecorators so it can run on SQLite; keep that in mind when adding columns.
 
 ### Database migrations
+
+**Run the migration before the deploy, never after.** Adding a column to a
+SQLAlchemy model makes *every* query against that table select it, so a
+deploy that lands ahead of its migration breaks every read of that table —
+and `app/utils/resilient.py`'s `section()` degrades those failures to empty
+results, which surfaces as "no events / no providers" rather than an error.
+If a screen goes mysteriously empty after a deploy, check the logs for
+`section ... failed on a SCHEMA error` first.
+
 Two parallel mechanisms exist — match what you're touching:
 - **Alembic** lives in `backend/alembic/versions/` (`001_phase2`, `002_phase3`, `003_...`).
 - **Ad-hoc psycopg2 scripts** in `backend/` (`apply_migration.py`, `apply_phase3_migration.py`, `apply_circle_migration.py`, `apply_rls.py`) run idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` against `DATABASE_URL`. The numerous `check_*.py`, `fix_*.py`, `patch_*.py`, `make_super_admin.py`, `seed_*.py` files at the backend root are one-off operational scripts, not part of the app.

@@ -34,6 +34,7 @@ import os
 import sys
 
 import psycopg2
+from dotenv import load_dotenv
 
 # Canonical provider name (or any alias below) → channels from the docx.
 # `aliases` mirrors seed_upcoming_events.py's PROVIDERS table so a host that
@@ -130,9 +131,10 @@ def main():
     parser.add_argument("--apply", action="store_true", help="write the changes (default: dry run)")
     args = parser.parse_args()
 
+    load_dotenv()
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
-        print("DATABASE_URL not set.")
+        print("DATABASE_URL not set (checked the environment and backend/.env).")
         return 1
 
     conn = psycopg2.connect(db_url)

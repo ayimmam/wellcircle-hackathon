@@ -1,6 +1,6 @@
 # Runtime dependencies. For tests, also install requirements-dev.txt.
 fastapi==0.141.1
-uvicorn==0.52.4
+uvicorn==0.53.0
 pydantic==2.13.5
 groq==1.7.0
 supabase==2.31.0

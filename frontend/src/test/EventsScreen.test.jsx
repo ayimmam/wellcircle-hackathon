@@ -33,8 +33,13 @@ describe('EventsScreen', () => {
   it('keeps past events out of the Upcoming tab', async () => {
     renderEvents();
     await screen.findByText('Sunset Hammam & Massage Evening');
+    // Scoped to the card's title heading, not a plain text search — a
+    // provider name (rendered as a subtitle) can coincidentally match an
+    // unrelated past event's title, e.g. "Zumba with Vahe" is both a past
+    // AfroHeat Fitness event and the name of a different, separately
+    // boosted provider with its own upcoming sessions.
     MOCK_PAST_EVENTS.forEach(e => {
-      expect(screen.queryByText(e.service_name)).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: e.service_name })).not.toBeInTheDocument();
     });
   });
 
@@ -49,7 +54,7 @@ describe('EventsScreen', () => {
     // this tab exists to avoid.
     expect(screen.queryByText('Book This Session')).not.toBeInTheDocument();
     MOCK_EVENTS.forEach(e => {
-      expect(screen.queryByText(e.service_name)).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: e.service_name })).not.toBeInTheDocument();
     });
   });
 

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import SmartImage from '../SmartImage';
@@ -13,6 +14,7 @@ export default function FeedEventBanner({ item, priority = false }) {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { event, provider } = item;
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const book = () => navigate(
     `/booking/${provider.id}?event_id=${event.id}`,
@@ -48,6 +50,34 @@ export default function FeedEventBanner({ item, priority = false }) {
         </div>
       </div>
       <div className="card-body">
+        {event.description && (
+          <div style={{ marginBottom: 10 }}>
+            <button
+              type="button"
+              className="feed-event-details-toggle"
+              onClick={(e) => { e.stopPropagation(); setDetailsOpen(v => !v); }}
+              aria-expanded={detailsOpen}
+              aria-controls={`feed-event-details-${item.id}`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+                background: 'none', border: 'none', padding: 0,
+                color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              <Icon name={detailsOpen ? 'chevron-up' : 'chevron-down'} size={14} />
+              {detailsOpen ? t('Hide details') : t('Event details')}
+            </button>
+            {detailsOpen && (
+              <p
+                id={`feed-event-details-${item.id}`}
+                className="text-xs text-secondary"
+                style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}
+              >
+                {event.description}
+              </p>
+            )}
+          </div>
+        )}
         {provider.is_coming_soon ? (
           <button className="btn btn-secondary btn-block" disabled id={`feed-event-coming-soon-${item.id}`}>
             {t('Coming soon')}

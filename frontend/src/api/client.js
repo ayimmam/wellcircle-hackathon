@@ -182,6 +182,43 @@ const delay = (ms = 300) => new Promise(r => setTimeout(r, ms));
  * can expire a whole family at once — `invalidate('communities')` covers both
  * the list and every community detail record.
  */
+/**
+ * Seed for the For You feed's per-lane shuffle.
+ *
+ * The server round-robins the feed's lanes and shuffles inside each one from
+ * this value. Generated once per browser session and sent unchanged on every
+ * feed request of that session, so the mix feels fresh each time the app is
+ * opened but never reshuffles mid-scroll — a different seed between pages
+ * would repeat some posts and skip others, since the cursor is keyed on
+ * created_at.
+ *
+ * sessionStorage, not localStorage: a new session is exactly when a remix is
+ * wanted. If it is unavailable (private mode, a locked-down WebView) the
+ * in-memory fallback still holds for the life of the page, which covers one
+ * scroll — the case that actually matters.
+ */
+let memoryFeedSeed = null;
+export function feedSeed() {
+  if (memoryFeedSeed) return memoryFeedSeed;
+  const KEY = 'wc_feed_seed';
+  try {
+    const saved = sessionStorage.getItem(KEY);
+    if (saved) {
+      memoryFeedSeed = saved;
+      return saved;
+    }
+  } catch {
+    // sessionStorage unavailable — fall through to a memory-only seed.
+  }
+  memoryFeedSeed = Math.random().toString(36).slice(2, 12);
+  try {
+    sessionStorage.setItem(KEY, memoryFeedSeed);
+  } catch {
+    // Not persisted; the in-memory value still covers this page's scroll.
+  }
+  return memoryFeedSeed;
+}
+
 export const cacheKeys = {
   me: () => 'me',
   points: () => 'points',
@@ -917,7 +954,7 @@ export async function getForYouFeed({ before } = {}) {
       if (before) return { items: [], next_before: null };
       return { items: [...MOCK_FOR_YOU_FEED], next_before: null };
     }
-    const params = new URLSearchParams({ limit: '10' });
+    const params = new URLSearchParams({ limit: '10', seed: feedSeed() });
     if (before) params.set('before', before);
     return request('GET', `/feed/for-you?${params}`);
   });
@@ -1502,7 +1539,7 @@ export async function getHomeLite() {
 
 async function fetchHomeLite() {
   try {
-    return await request('GET', '/home/lite');
+    return await request('GET', `/home/lite?seed=${encodeURIComponent(feedSeed())}`);
   } catch (err) {
     if (err.status !== 404) throw err;
     // Older backend: there is nothing cheaper to ask for, so share the
@@ -1555,7 +1592,7 @@ export async function getHomeBootstrap() {
 
 async function fetchHomeBootstrap() {
   try {
-    return await request('GET', '/home/bootstrap');
+    return await request('GET', `/home/bootstrap?seed=${encodeURIComponent(feedSeed())}`);
   } catch (err) {
     if (err.status !== 404) throw err;
     return legacyHomeBootstrap();

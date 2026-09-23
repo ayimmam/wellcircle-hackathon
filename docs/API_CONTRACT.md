@@ -416,7 +416,7 @@ the backend loses the head start rather than the screen.
 
 ## 2b. For You Feed
 
-### `GET /api/feed/for-you?limit=10&before=<iso8601>`
+### `GET /api/feed/for-you?limit=10&before=<iso8601>&seed=<string>`
 
 Discovery feed replacing Home (Phase 4/5). Returns:
 
@@ -447,40 +447,71 @@ Discovery feed replacing Home (Phase 4/5). Returns:
 }
 ```
 
-**Ranking is a fixed, deterministic section order — not a scoring model.**
+**Ranking is a fixed, deterministic lane cycle — not a scoring model.**
 
-The feed is laid out in four sections:
+The feed **round-robins five lanes**, taking one item from each in turn and
+repeating, so the reader never gets a wall of the same kind of card:
 
-1. **This week's events** — boosted events starting within the next 7 days,
-   at the very top. These are the ones a reader can still act on today.
-2. **User content** — member posts, newest-first. This is the paginated part.
-3. **Coming-soon events** — boosted events starting 8–30 days out. Far enough
-   away to belong below the post stream, close enough to plan around. Same
-   `type: "event"` shape as section 1; position is what distinguishes them.
-4. **Provider content** — services, then providers, then `past_event` recaps.
+| Lane | Contents |
+| --- | --- |
+| 1 | **This week's events** — boosted, starting within 7 days |
+| 2 | **User posts with an image** |
+| 3 | **User posts** — the rest of the stream; the paginated part |
+| 4 | **Upcoming events** — boosted, 8–30 days out |
+| 5 | **Provider services** |
 
-Within sections 1, 2 and 3, items carrying an image lead the section (WS3 of
-`docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md`): an event with a
-`provider.cover_photo_url` sorts above one without, and a post with
-`photo_url` sorts above a text-only one — a **stable partition**, so each
-group keeps its own newest-first order. This applies per page, not to the
-whole feed, since the pagination cursor comes from the underlying posts
-query. Section 4 keeps its existing order; it is the tail and already
-image-led. `GET /api/home/lite`'s text-only post stream carries the same
-partition, so a client paginating off it sees no reshuffle once the full
-payload replaces it.
+So a full feed reads `event → image post → post → event → service → event →
+image post → …`. Lanes 1 and 4 are both `type: "event"` — position is what
+distinguishes them. A lane that runs dry is skipped and the cycle continues
+with the rest, so a feed with two events and thirty posts degrades to
+alternating posts rather than stalling.
 
-Sections 1, 3 and 4 bind to the ends of the **whole feed, not of each page**:
+**`provider` cards and `past_event` recaps are not lanes.** They are
+appended after the cycle, in that order, closing the feed.
+
+Within each lane the order is shuffled from the `seed` query parameter (see
+below). The **lane order itself never varies** — position 1 of every cycle is
+an event, position 2 an image post, and so on. The two event lanes are
+shuffled and *then* image-partitioned, so an event with a
+`provider.cover_photo_url` still surfaces before one without (WS3 of
+`docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md`) — the banner is 180px tall, and
+leading with a coverless event means leading with a grey box. The post lanes
+need no such partition: lane 2 *is* the image posts.
+
+`GET /api/home/lite`'s post-only payload cycles lanes 2 and 3 alone, which is
+what the full payload does with those same posts, so a client paginating off
+a lite page sees no reshuffle once the full payload replaces it.
+
+#### `seed`
+
+`GET /api/feed/for-you`, `/api/home/bootstrap` and `/api/home/lite` all accept
+`seed` (string, ≤64 chars, optional). It fixes the shuffle inside each lane.
+
+**The client generates one value per session and sends it unchanged on every
+feed request of that session** — the mix then feels fresh each time the app is
+opened but never reshuffles mid-scroll. Sending a *different* seed between
+pages will repeat some posts and skip others, because the cursor is keyed on
+`created_at` and is deliberately derived from the un-shuffled keyset query.
+Omit `seed` entirely and no shuffling happens at all (events soonest-first,
+posts newest-first), which is what a script or test gets without inventing
+one.
+
+Lanes 1, 4 and 5 bind to the **whole feed, not to each page**:
 
 | Page | Carries |
 | --- | --- |
-| First (`before` absent) | this week's events → posts |
-| Middle | posts only |
-| Last (`next_before: null`) | posts → coming-soon events → services → providers → past events |
+| First (`before` absent) | the full five-lane cycle |
+| Middle | lanes 2 and 3 only — image post, post, image post … |
+| Last (`next_before: null`) | the cycle, then `provider` cards, then `past_event` recaps |
 
-A feed short enough to fit one page is first and last at once, so it carries
-all four sections. Emitting the sections per-page instead would repeat the
-same event cards on every scroll and strand provider cards mid-stream.
+Events and services are finite pools that belong to the feed as a whole, so
+only the first page cycles them in; provider cards and recaps close the feed,
+so only the last page appends them. A feed short enough to fit one page is
+first and last at once, so it carries everything. Emitting them per-page
+instead would repeat the same event cards on every scroll and strand provider
+cards mid-stream. A middle page cycling only lanes 2 and 3 is not a special
+case — it is what the same cycle does when three of its five lanes are
+empty.
 
 The trade-off is deliberate and worth knowing: **provider content is only
 reached by scrolling to the end of the post stream.** On a high-volume post

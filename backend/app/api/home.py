@@ -1,8 +1,9 @@
 """Aggregate payload for the Home screen."""
 
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.events import query_upcoming_events
@@ -30,6 +31,12 @@ FEED_LIMIT = 10
 
 @router.get("/home/lite")
 async def home_lite(
+    seed: Optional[str] = Query(
+        None, max_length=64,
+        description="Fixes the shuffle inside each For You feed lane. Send "
+                    "one value per session, and the same one to "
+                    "GET /api/feed/for-you when paging.",
+    ),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -71,7 +78,7 @@ async def home_lite(
     )
     feed = section(
         "lite_feed",
-        lambda: build_for_you_feed(db, limit=FEED_LIMIT, text_only=True),
+        lambda: build_for_you_feed(db, limit=FEED_LIMIT, text_only=True, seed=seed),
         {"items": [], "next_before": None},
     )
     # The story rail sits at the very top of For You, so it ships in the cheap
@@ -91,6 +98,12 @@ async def home_lite(
 
 @router.get("/home/bootstrap")
 async def home_bootstrap(
+    seed: Optional[str] = Query(
+        None, max_length=64,
+        description="Fixes the shuffle inside each For You feed lane. Send "
+                    "one value per session, and the same one to "
+                    "GET /api/feed/for-you when paging.",
+    ),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -147,7 +160,7 @@ async def home_bootstrap(
     # For You feed's first page — the screen paints from this bootstrap on
     # open (one request, per Phase 2) and only hits GET /api/feed/for-you on
     # scroll for subsequent pages.
-    feed = section("feed", lambda: build_for_you_feed(db, limit=FEED_LIMIT), {"items": [], "next_before": None})
+    feed = section("feed", lambda: build_for_you_feed(db, limit=FEED_LIMIT, seed=seed), {"items": [], "next_before": None})
     stories = section("stories", lambda: get_story_rail(db, user.id), [])
 
     return {

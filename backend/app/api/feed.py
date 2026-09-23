@@ -19,7 +19,13 @@ router = APIRouter()
 async def get_for_you_feed(
     limit: int = Query(10, ge=1, le=30),
     before: Optional[datetime] = Query(None),
+    seed: Optional[str] = Query(
+        None, max_length=64,
+        description="Fixes the shuffle inside each feed lane. Send one value "
+                    "per session, unchanged across the pages of one scroll — "
+                    "a different seed between pages repeats and skips posts.",
+    ),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return build_for_you_feed(db, limit=limit, before=before)
+    return build_for_you_feed(db, limit=limit, before=before, seed=seed)

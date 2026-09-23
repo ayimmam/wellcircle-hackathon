@@ -45,7 +45,8 @@ telegram-bot/
 │       ├── keyboards.py     # Telegram button layouts
 │       └── messages.py      # Message templates
 ├── requirements.txt
-├── Procfile                 # Railway (worker)
+├── render.yaml               # Render (Background Worker)
+├── Procfile                  # legacy Railway config, remove once Render migration is confirmed
 └── .env.example
 ```
 
@@ -55,13 +56,22 @@ telegram-bot/
 - `POST /api/bot/register` — register user on /start
 - `GET /api/bot/inactive-users` — get users to re-engage
 
-## Deployment (Railway)
+## Deployment (Render)
 
-1. Create new service on Railway
+Migrating from Railway to Render. `render.yaml` declares the service as a
+**Background Worker** — the bot has no HTTP server, so a Web Service type will
+time out waiting for a `$PORT` bind.
+
+1. In Render, create the service from `telegram-bot/render.yaml` (Blueprint),
+   or manually set the service type to **Background Worker**
 2. Set root directory to `telegram-bot`
-3. Set start command: `python -m bot.main`
+3. Start command: `python -m bot.main`
 4. Add env vars from `.env.example`
-5. Deploy as **worker** (not web service — no port needed)
+5. Stop/suspend the Railway service before starting this one — Telegram allows
+   only one `getUpdates` poller per bot token; running both at once produces
+   `Conflict: terminated by other getUpdates request` errors
+6. Once Render is confirmed stable, delete the Railway service and this
+   repo's `Procfile`/`railway.json`
 
 ## API Contract
 

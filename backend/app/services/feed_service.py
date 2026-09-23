@@ -1,31 +1,45 @@
 """For You feed builder — shared by GET /api/feed/for-you and
 home_bootstrap's `feed` key (Phase 4 of the For You / Boston Day Spa pilot
-plan). Ranking is a fixed, deterministic section order, documented in
-docs/API_CONTRACT.md — not a scoring model:
+plan). Ranking is a fixed, deterministic cycle, documented in
+docs/API_CONTRACT.md — not a scoring model.
 
-    1. **This week's events** — boosted events starting within the next 7
-       days, soonest session first, at the very top of the feed. These are
-       the ones a reader can still act on today.
-    2. **User content** — member posts, newest-first, paginated by `before`.
-    3. **Coming-soon events** — boosted events starting 8-30 days out. Far
-       enough away that they belong below the post stream, close enough to
-       be worth planning around.
-    4. **Provider content** — services, then providers, then past-event
-       recaps, appended once the post stream is exhausted.
+**The feed round-robins five lanes**, taking one item from each in turn and
+repeating, so the reader never gets a wall of the same kind of card:
 
-    Sections 1, 3 and 4 are bound to the ends of the *whole* feed, not of
-    each page: events are emitted only on the first page (`before is None`)
-    and coming-soon/provider content only on the last (`next_before is
-    None`). Emitting them per-page would repeat the same events on every
-    scroll and strand provider cards in the middle of the post stream.
+    1. **This week's events** — boosted events starting within 7 days. The
+       ones a reader can still act on today.
+    2. **User posts with an image** — the posts that carry the feed visually.
+    3. **User posts** — the rest of the post stream. Paginated by `before`.
+    4. **Upcoming events** — boosted events 8-30 days out. Worth planning
+       around, but not actionable today.
+    5. **Provider services** — what a provider sells.
 
-    Both live and coming-soon providers may appear as `service` or
-    `provider` items (coming-soon ones render with a "Coming soon" badge and
-    no booking CTA — see FeedProviderCard/FeedServiceCard — so the pilot
-    stays visible in the feed pre-launch). An `event` item is emitted only
-    for a boosted/featured event. A `past_event` item carries
-    `attendee_count` and renders a recap with no booking CTA.
+A lane that runs dry is skipped and the cycle continues with the rest, so a
+feed with two events and thirty posts degrades to alternating posts rather
+than stalling. **Provider cards and past-event recaps** are not in the cycle
+— they are appended after it, in that order.
+
+Within each lane the order is shuffled from `seed` (see `build_for_you_feed`)
+so the mix feels fresh per session while staying stable across the pages of
+one scroll. The *lane order itself never varies*: position 1 of every cycle
+is an event, position 2 an image post, and so on.
+
+Lanes 1, 4 and 5 are bound to the ends of the *whole* feed, not of each
+page: events and services are emitted only on the first page (`before is
+None`) and provider cards / recaps only on the last (`next_before is None`).
+Emitting them per-page would repeat the same event cards on every scroll and
+strand provider cards mid-stream. Pages after the first therefore cycle over
+lanes 2 and 3 alone — image post, post, image post — which is the same rule
+applied to the lanes that still have anything in them.
+
+Both live and coming-soon providers may appear as `service` or `provider`
+items (coming-soon ones render with a "Coming soon" badge and no booking CTA
+— see FeedProviderCard/FeedServiceCard — so the pilot stays visible in the
+feed pre-launch). An `event` item is emitted only for a boosted/featured
+event. A `past_event` item carries `attendee_count` and renders a recap with
+no booking CTA.
 """
+import random
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -176,6 +190,47 @@ def partition_by_image(items: list, has_image) -> list:
     return with_image + without_image
 
 
+def round_robin(lanes: list) -> list:
+    """Interleave lanes, one item from each per cycle, in the given lane
+    order. An exhausted lane drops out and the cycle continues without it.
+
+    >>> round_robin([[1, 2, 3], ["a"], ["x", "y"]])
+    [1, 'a', 'x', 2, 'y', 3]
+
+    Shared with the frontend's mock builder (data/mock.js) so offline mode
+    and the tests lay out the same feed the server does.
+    """
+    result = []
+    cursors = [0] * len(lanes)
+    remaining = sum(len(lane) for lane in lanes)
+    while remaining:
+        for i, lane in enumerate(lanes):
+            if cursors[i] < len(lane):
+                result.append(lane[cursors[i]])
+                cursors[i] += 1
+                remaining -= 1
+    return result
+
+
+class _NoShuffle:
+    """Stands in for a seeded Random when no seed was given. Leaves every
+    lane in its natural order (events soonest-first, posts newest-first)
+    rather than reshuffling per request, which would break pagination."""
+
+    @staticmethod
+    def shuffle(_items):
+        return None
+
+
+def _shuffled(items: list, rng) -> list:
+    """A copy of `items` in `rng`'s order. `rng` is seeded per session, so
+    the same request twice gives the same feed and one scroll stays stable
+    across its pages."""
+    out = list(items)
+    rng.shuffle(out)
+    return out
+
+
 def _order_feed(
     post_items: list,
     event_items: list,
@@ -186,31 +241,43 @@ def _order_feed(
     *,
     include_events: bool,
     include_provider_content: bool,
+    rng,
 ) -> list:
-    """Lay the feed out in four sections: this week's events, member posts,
-    coming-soon events, then provider content.
+    """Round-robin the five lanes, then append provider cards and recaps.
 
-    `include_events` / `include_provider_content` are the page guards. This
-    week's events belong to the top of the feed as a whole, so only the first
-    page carries them; the coming-soon block and provider content belong to
-    the bottom, so only the last page does. Without those guards every scroll
-    page would repeat the same event cards and drop provider cards into the
-    middle of the post stream.
+    `include_events` / `include_provider_content` are the page guards.
+    Events and services are finite pools that belong to the feed as a whole,
+    so only the first page cycles them in; provider cards and past-event
+    recaps close the feed, so only the last page appends them. Without those
+    guards every scroll page would repeat the same event cards and strand
+    provider cards mid-stream.
 
-    Within the events blocks and the posts block, items with an image are
-    partitioned to the front (stable, per-page) — the provider/service/
-    past-event block keeps its existing order since it is already image-led.
+    Pages after the first therefore cycle lanes 2 and 3 only. That is not a
+    special case — it is what the same cycle does when three of its five
+    lanes are empty.
     """
-    result = []
+    image_posts = [i for i in post_items if _post_has_image(i)]
+    text_posts = [i for i in post_items if not _post_has_image(i)]
 
-    if include_events:
-        result.extend(partition_by_image(event_items, _event_has_image))
+    # Event lanes are shuffled and *then* image-partitioned, so an event
+    # with a cover photo still surfaces before one without (WS3) while the
+    # order inside each of those two groups is the seed's. The banner is
+    # 180px tall — leading with a coverless event means leading with a grey
+    # box. The post lanes need no such partition: lane 2 is the image posts.
+    def event_lane(items):
+        return partition_by_image(_shuffled(items, rng), _event_has_image) if include_events else []
 
-    result.extend(partition_by_image(post_items, _post_has_image))
+    lanes = [
+        event_lane(event_items),
+        _shuffled(image_posts, rng),
+        _shuffled(text_posts, rng),
+        event_lane(coming_soon_event_items),
+        _shuffled(service_items, rng) if include_events else [],
+    ]
+
+    result = round_robin(lanes)
 
     if include_provider_content:
-        result.extend(partition_by_image(coming_soon_event_items, _event_has_image))
-        result.extend(service_items)
         result.extend(provider_items)
         result.extend(past_event_items)
 
@@ -222,12 +289,24 @@ def build_for_you_feed(
     limit: int = 10,
     before: Optional[datetime] = None,
     text_only: bool = False,
+    seed: Optional[str] = None,
 ) -> dict:
     """`limit`/`before` paginate the underlying posts (keyset on created_at);
-    the event and provider sections are additional and outside that cursor.
+    the event and provider lanes are additional and outside that cursor.
+
+    `seed` fixes the shuffle inside each lane. The client generates one per
+    session and sends the same value for every page of that scroll, so the
+    mix is fresh each time the app is opened but never reshuffles mid-scroll
+    — a reshuffle between pages would repeat some posts and skip others.
+    Omitted, the feed falls back to an unshuffled lane order, which keeps
+    this callable from a script or a test without inventing a seed.
+
+    Note the cursor is derived from `posts` (still newest-first off the
+    keyset query), never from the shuffled output, so shuffling cannot
+    corrupt pagination.
 
     `text_only` builds the post stream and nothing else — one keyset query
-    instead of five, and no event/provider sections. It is what GET
+    instead of five, and no event/provider lanes. It is what GET
     /api/home/lite serves so the For You screen can paint readable text while
     the other pools are still being assembled for the full payload (see
     app/api/home.py). The cursor is identical either way, because it is derived
@@ -251,8 +330,22 @@ def build_for_you_feed(
 
     next_before = posts[-1]["created_at"] if len(posts) == limit else None
 
+    # `random.Random(None)` seeds itself from the OS, which would reshuffle
+    # between pages. No seed means no shuffle at all instead. The isinstance
+    # check also covers callers that invoke the endpoint functions directly
+    # (the test suite does), where an unresolved FastAPI Query object arrives
+    # here in place of the string.
+    rng = random.Random(seed) if isinstance(seed, str) and seed else _NoShuffle()
+
     if text_only:
-        ordered = partition_by_image(post_items, _post_has_image)
+        # The lite payload is posts only, so the cycle reduces to the two
+        # post lanes — image post, post, image post — which is what the full
+        # payload does with those same posts once it lands. Nothing
+        # reshuffles on the swap.
+        ordered = round_robin([
+            _shuffled([i for i in post_items if _post_has_image(i)], rng),
+            _shuffled([i for i in post_items if not _post_has_image(i)], rng),
+        ])
         return {"items": ordered, "next_before": next_before, "partial": True}
 
     providers = section(db, "feed_providers", lambda: _feed_providers(db), [])
@@ -266,8 +359,10 @@ def build_for_you_feed(
     items = _order_feed(
         post_items, event_items, service_items, provider_items, past_event_items,
         coming_soon_event_items,
-        # First page opens with this week's events; the last one closes with
-        # the coming-soon and provider blocks. A short feed is both at once.
+        rng=rng,
+        # The first page cycles in the finite event and service pools; the
+        # last one appends the provider cards and recaps. A short feed is
+        # both at once.
         include_events=before is None,
         include_provider_content=next_before is None,
     )

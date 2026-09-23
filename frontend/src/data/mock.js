@@ -3,7 +3,7 @@
  * Matches API_CONTRACT.md response shapes exactly.
  * Replace with real API calls when backend is ready.
  */
-import { partitionByImage, postHasImage, eventHasImage } from '../utils/feedOrdering';
+import { partitionByImage, postHasImage, eventHasImage, roundRobin } from '../utils/feedOrdering';
 
 // ─── Demo Users ─────────────────────────────────────
 export const MOCK_USER = {
@@ -1609,22 +1609,30 @@ function buildMockForYouFeed() {
   const comingSoonEventItems = upcoming.filter(i => new Date(i.event.starts_at).getTime() > weekFromNow);
   const pastEventItems = MOCK_PAST_EVENTS.map(toEventItem);
 
-  // Section order mirrors backend/app/services/feed_service.py::_order_feed —
-  // this week's events, then member posts, then the coming-soon events, then
-  // provider content; the event and post blocks image-partitioned (WS3).
+  // Lane cycle mirrors backend/app/services/feed_service.py::_order_feed —
+  // one item from each lane in turn, repeating, in this fixed lane order.
+  // Provider cards and past-event recaps are not lanes; they close the feed.
   // Mock mode is what the tests and offline dev render against, so a
   // different order here would quietly hide an ordering regression in the
   // real feed.
-  const items = [
-    ...partitionByImage(eventItems, eventHasImage),
-    ...partitionByImage(postItems, postHasImage),
-    ...partitionByImage(comingSoonEventItems, eventHasImage),
-    ...serviceItems,
+  //
+  // Nothing is shuffled here. The server shuffles inside each lane from a
+  // per-session seed, but a fixed mock feed is what the test suite asserts
+  // against — a mock that reshuffled per import could not be pinned at all.
+  const imagePosts = postItems.filter(postHasImage);
+  const textPosts = postItems.filter(i => !postHasImage(i));
+
+  return [
+    ...roundRobin([
+      partitionByImage(eventItems, eventHasImage),
+      imagePosts,
+      textPosts,
+      partitionByImage(comingSoonEventItems, eventHasImage),
+      serviceItems,
+    ]),
     ...providerItems,
     ...pastEventItems,
   ];
-
-  return items;
 }
 
 export const MOCK_FOR_YOU_FEED = buildMockForYouFeed();

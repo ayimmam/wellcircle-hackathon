@@ -20,7 +20,7 @@ For the planned non-Telegram web app, see **`WEB_APP_PLAN.md`**.
 ## Branch status
 
 **As of Phase 21 the repo runs a two-branch flow.** `main` is the deploy
-branch — Vercel and Railway build from it — so nothing lands on it directly.
+branch — Vercel and Render build from it — so nothing lands on it directly.
 `dev` is the integration branch and mirrors `main`.
 
 ```
@@ -146,7 +146,7 @@ Phase 21 work was rebuilt on top of `main` rather than pushed from it.
 | Backend API | Vercel Serverless (Mangum) / Render | Deployed |
 | Database | Supabase PostgreSQL | Phase 2 + Phase 3 migrations |
 | Frontend Mini App | Vercel | Deployed (`VITE_USE_MOCK=false` in prod) |
-| Telegram Bot | Railway | Deployed |
+| Telegram Bot | Render (migrating from Railway) | Migration in progress — see `telegram-bot/render.yaml` |
 | CI | GitHub Actions | Green on `dev` (Phase 21) |
 
 ### CI (Phase 21)

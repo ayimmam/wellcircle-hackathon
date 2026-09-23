@@ -3,17 +3,21 @@ home_bootstrap's `feed` key (Phase 4 of the For You / Boston Day Spa pilot
 plan). Ranking is a fixed, deterministic section order, documented in
 docs/API_CONTRACT.md — not a scoring model:
 
-    1. **Upcoming events** — every boosted event in the next 14 days, newest
-       session first, at the very top of the feed.
+    1. **This week's events** — boosted events starting within the next 7
+       days, soonest session first, at the very top of the feed. These are
+       the ones a reader can still act on today.
     2. **User content** — member posts, newest-first, paginated by `before`.
-    3. **Provider content** — services, then providers, then past-event
+    3. **Coming-soon events** — boosted events starting 8-30 days out. Far
+       enough away that they belong below the post stream, close enough to
+       be worth planning around.
+    4. **Provider content** — services, then providers, then past-event
        recaps, appended once the post stream is exhausted.
 
-    Sections 1 and 3 are bound to the ends of the *whole* feed, not of each
-    page: events are emitted only on the first page (`before is None`) and
-    provider content only on the last (`next_before is None`). Emitting them
-    per-page would repeat the same events on every scroll and strand
-    provider cards in the middle of the post stream.
+    Sections 1, 3 and 4 are bound to the ends of the *whole* feed, not of
+    each page: events are emitted only on the first page (`before is None`)
+    and coming-soon/provider content only on the last (`next_before is
+    None`). Emitting them per-page would repeat the same events on every
+    scroll and strand provider cards in the middle of the post stream.
 
     Both live and coming-soon providers may appear as `service` or
     `provider` items (coming-soon ones render with a "Coming soon" badge and
@@ -34,7 +38,10 @@ from app.models.provider import Provider
 from app.services.promotion_service import get_active_promotion
 from app.utils.resilient import section
 
-FEED_EVENT_WINDOW = timedelta(days=14)
+# "This week" is the actionable block at the top of the feed; everything from
+# there out to FEED_EVENT_WINDOW is the coming-soon block below the posts.
+FEED_THIS_WEEK_WINDOW = timedelta(days=7)
+FEED_EVENT_WINDOW = timedelta(days=30)
 # Small, fixed pools — these are display highlights, not a full directory scan.
 MAX_NON_POST_POOL = 10
 
@@ -48,6 +55,10 @@ def _provider_brief(p: Provider) -> dict:
         "rating": p.rating,
         "cover_photo_url": p.cover_photo_url,
         "is_coming_soon": bool(p.is_coming_soon),
+        "contact_phone": p.contact_phone,
+        "contact_telegram": p.contact_telegram,
+        "contact_instagram": p.contact_instagram,
+        "contact_website": p.contact_website,
     }
 
 
@@ -107,16 +118,37 @@ def _event_item(e: dict, item_type: str) -> dict:
             # button on FeedEventBanner the same way it already does on
             # FeedServiceCard/FeedProviderCard.
             "is_coming_soon": bool(e.get("provider_is_coming_soon", False)),
+            # Carried so FeedEventBanner can route straight to the RSVP screen
+            # with everything it renders (see serialize_event).
+            "contact_phone": e.get("provider_contact_phone"),
+            "contact_telegram": e.get("provider_contact_telegram"),
+            "contact_instagram": e.get("provider_contact_instagram"),
+            "contact_website": e.get("provider_contact_website"),
         },
     }
 
 
-def _build_event_items(db: Session, now: datetime) -> list:
+def _build_event_items(db: Session, now: datetime) -> tuple[list, list]:
+    """Returns (this week's events, coming-soon events).
+
+    One query over the whole 30-day window, split in Python on the 7-day
+    boundary — two queries would double the round trips to say the same
+    thing, and the pool is capped at MAX_NON_POST_POOL either way.
+    """
     events, _ = query_upcoming_events(
         db, from_date=now, to_date=now + FEED_EVENT_WINDOW,
         boosted_only=True, limit=MAX_NON_POST_POOL, with_total=False,
     )
-    return [_event_item(e, "event") for e in events]
+    cutoff = now + FEED_THIS_WEEK_WINDOW
+    this_week, coming_soon = [], []
+    for e in events:
+        starts_at = e["starts_at"]
+        # starts_at is a DB datetime; naive rows are stored as UTC.
+        if starts_at.tzinfo is None:
+            starts_at = starts_at.replace(tzinfo=timezone.utc)
+        bucket = this_week if starts_at <= cutoff else coming_soon
+        bucket.append(_event_item(e, "event"))
+    return this_week, coming_soon
 
 
 def _build_past_event_items(db: Session) -> list:
@@ -150,20 +182,22 @@ def _order_feed(
     service_items: list,
     provider_items: list,
     past_event_items: list,
+    coming_soon_event_items: list,
     *,
     include_events: bool,
     include_provider_content: bool,
 ) -> list:
-    """Lay the feed out in three sections: upcoming events, then member
-    posts, then provider content.
+    """Lay the feed out in four sections: this week's events, member posts,
+    coming-soon events, then provider content.
 
-    `include_events` / `include_provider_content` are the page guards. Events
-    belong to the top of the feed as a whole, so only the first page carries
-    them; provider content belongs to the bottom, so only the last page does.
-    Without those guards every scroll page would repeat the same event cards
-    and drop provider cards into the middle of the post stream.
+    `include_events` / `include_provider_content` are the page guards. This
+    week's events belong to the top of the feed as a whole, so only the first
+    page carries them; the coming-soon block and provider content belong to
+    the bottom, so only the last page does. Without those guards every scroll
+    page would repeat the same event cards and drop provider cards into the
+    middle of the post stream.
 
-    Within the events block and the posts block, items with an image are
+    Within the events blocks and the posts block, items with an image are
     partitioned to the front (stable, per-page) — the provider/service/
     past-event block keeps its existing order since it is already image-led.
     """
@@ -175,6 +209,7 @@ def _order_feed(
     result.extend(partition_by_image(post_items, _post_has_image))
 
     if include_provider_content:
+        result.extend(partition_by_image(coming_soon_event_items, _event_has_image))
         result.extend(service_items)
         result.extend(provider_items)
         result.extend(past_event_items)
@@ -221,15 +256,18 @@ def build_for_you_feed(
         return {"items": ordered, "next_before": next_before, "partial": True}
 
     providers = section(db, "feed_providers", lambda: _feed_providers(db), [])
-    event_items = section(db, "feed_events", lambda: _build_event_items(db, now), [])
+    event_items, coming_soon_event_items = section(
+        db, "feed_events", lambda: _build_event_items(db, now), ([], []),
+    )
     service_items = section(db, "feed_service_items", lambda: _build_service_items(providers), [])
     provider_items = section(db, "feed_provider_items", lambda: _build_provider_items(db, providers), [])
     past_event_items = section(db, "feed_past_events", lambda: _build_past_event_items(db), [])
 
     items = _order_feed(
         post_items, event_items, service_items, provider_items, past_event_items,
-        # First page opens with the events; the last one closes with the
-        # provider block. A short feed is both at once.
+        coming_soon_event_items,
+        # First page opens with this week's events; the last one closes with
+        # the coming-soon and provider blocks. A short feed is both at once.
         include_events=before is None,
         include_provider_content=next_before is None,
     )

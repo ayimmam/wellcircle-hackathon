@@ -1,2 +1,8 @@
 .vercel
 .env*
+
+# Intermediate 1200x630 covers built by scripts/prepare_event_covers.py --copy
+# --resize and consumed by upload_provider_covers.py. Regenerable from
+# docs/wellcircle_image_collection/; the committed artefact is the webp set
+# under frontend/public/providers/.
+seed_assets/event_covers/

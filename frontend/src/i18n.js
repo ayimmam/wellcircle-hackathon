@@ -151,7 +151,25 @@ const resources = {
       "Affordable gyms around me": "Affordable gyms around me",
       "Wellness events this week": "Wellness events this week",
       "Yoga classes this week": "Yoga classes this week",
-      "Nutrition coaching options": "Nutrition coaching options"
+      "Nutrition coaching options": "Nutrition coaching options",
+      "RSVP": "RSVP",
+      "Today": "Today",
+      "Tomorrow": "Tomorrow",
+      "{{count}} days left": "{{count}} days left",
+      "Date": "Date",
+      "Time": "Time",
+      "Price": "Price",
+      "Go back": "Go back",
+      "Arrange your spot with the host": "Arrange your spot with the host",
+      "Payment is arranged directly with {{name}}. WellCircle does not collect or hold payment for community events.": "Payment is arranged directly with {{name}}. WellCircle does not collect or hold payment for community events.",
+      "Call or text": "Call or text",
+      "Telegram": "Telegram",
+      "Instagram": "Instagram",
+      "Website": "Website",
+      "This host hasn't shared a contact yet. Open their page for more.": "This host hasn't shared a contact yet. Open their page for more.",
+      "View {{name}}": "View {{name}}",
+      "This event could not be loaded.": "This event could not be loaded.",
+      "Browse events": "Browse events"
     }
   },
   am: {
@@ -243,7 +261,25 @@ const resources = {
       "Neighborhood": "ሰፈር",
       "City": "ከተማ",
       "Cancel": "ይቅር",
-      "Redeem Points": "ነጥቦችን ያስመልሱ"
+      "Redeem Points": "ነጥቦችን ያስመልሱ",
+      "RSVP": "ቦታ ያስይዙ",
+      "Today": "ዛሬ",
+      "Tomorrow": "ነገ",
+      "{{count}} days left": "{{count}} ቀናት ቀርተዋል",
+      "Date": "ቀን",
+      "Time": "ሰዓት",
+      "Price": "ዋጋ",
+      "Go back": "ተመለስ",
+      "Arrange your spot with the host": "ከአዘጋጁ ጋር ቦታዎን ያስይዙ",
+      "Payment is arranged directly with {{name}}. WellCircle does not collect or hold payment for community events.": "ክፍያው በቀጥታ ከ{{name}} ጋር ይከናወናል። ዌልሰርክል ለማህበረሰብ ዝግጅቶች ክፍያ አይሰበስብም።",
+      "Call or text": "ይደውሉ ወይም መልዕክት ይላኩ",
+      "Telegram": "ቴሌግራም",
+      "Instagram": "ኢንስታግራም",
+      "Website": "ድረ-ገጽ",
+      "This host hasn't shared a contact yet. Open their page for more.": "ይህ አዘጋጅ እስካሁን አድራሻ አላጋራም። ተጨማሪ ለማየት ገጻቸውን ይክፈቱ።",
+      "View {{name}}": "{{name}}ን ይመልከቱ",
+      "This event could not be loaded.": "ይህ ዝግጅት መጫን አልተቻለም።",
+      "Browse events": "ዝግጅቶችን ያስሱ"
     }
   },
   fr: {
@@ -330,7 +366,25 @@ const resources = {
       "Neighborhood": "Quartier",
       "City": "Ville",
       "Cancel": "Annuler",
-      "Redeem Points": "Échanger des points"
+      "Redeem Points": "Échanger des points",
+      "RSVP": "Réserver",
+      "Today": "Aujourd'hui",
+      "Tomorrow": "Demain",
+      "{{count}} days left": "Dans {{count}} jours",
+      "Date": "Date",
+      "Time": "Heure",
+      "Price": "Prix",
+      "Go back": "Retour",
+      "Arrange your spot with the host": "Réservez votre place auprès de l'organisateur",
+      "Payment is arranged directly with {{name}}. WellCircle does not collect or hold payment for community events.": "Le paiement se fait directement avec {{name}}. WellCircle ne collecte ni ne conserve les paiements des événements communautaires.",
+      "Call or text": "Appeler ou écrire",
+      "Telegram": "Telegram",
+      "Instagram": "Instagram",
+      "Website": "Site web",
+      "This host hasn't shared a contact yet. Open their page for more.": "Cet organisateur n'a pas encore partagé de contact. Ouvrez sa page pour en savoir plus.",
+      "View {{name}}": "Voir {{name}}",
+      "This event could not be loaded.": "Cet événement n'a pas pu être chargé.",
+      "Browse events": "Parcourir les événements"
     }
   },
   it: {
@@ -417,7 +471,25 @@ const resources = {
       "Neighborhood": "Quartiere",
       "City": "Città",
       "Cancel": "Annulla",
-      "Redeem Points": "Riscatta Punti"
+      "Redeem Points": "Riscatta Punti",
+      "RSVP": "Prenota",
+      "Today": "Oggi",
+      "Tomorrow": "Domani",
+      "{{count}} days left": "Tra {{count}} giorni",
+      "Date": "Data",
+      "Time": "Ora",
+      "Price": "Prezzo",
+      "Go back": "Indietro",
+      "Arrange your spot with the host": "Organizza il tuo posto con l'organizzatore",
+      "Payment is arranged directly with {{name}}. WellCircle does not collect or hold payment for community events.": "Il pagamento si concorda direttamente con {{name}}. WellCircle non raccoglie né trattiene pagamenti per gli eventi della community.",
+      "Call or text": "Chiama o scrivi",
+      "Telegram": "Telegram",
+      "Instagram": "Instagram",
+      "Website": "Sito web",
+      "This host hasn't shared a contact yet. Open their page for more.": "Questo organizzatore non ha ancora condiviso un contatto. Apri la sua pagina per saperne di più.",
+      "View {{name}}": "Vedi {{name}}",
+      "This event could not be loaded.": "Impossibile caricare questo evento.",
+      "Browse events": "Sfoglia gli eventi"
     }
   }
 };

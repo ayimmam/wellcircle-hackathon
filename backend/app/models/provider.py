@@ -32,6 +32,18 @@ class Provider(Base):
     contact_phone = Column(String(30), nullable=True)
     contact_email = Column(String(255), nullable=True)
 
+    # --- Community channels (event RSVP) ---
+    # An event RSVP hands the guest off to the host to arrange payment —
+    # WellCircle takes no money for events — so the RSVP screen needs whatever
+    # public channel the host actually answers on. The run clubs and hiking
+    # groups publish a mix: a phone number on almost all of them, a Telegram
+    # channel on some, Instagram on others, a bare website on one. Stored flat
+    # alongside phone/email rather than as JSONB to match the columns above.
+    # Handles are stored WITHOUT the leading '@'; the website without a scheme.
+    contact_telegram = Column(String(100), nullable=True)
+    contact_instagram = Column(String(100), nullable=True)
+    contact_website = Column(String(255), nullable=True)
+
     # --- Lifecycle (Phase 2) ---
     status = Column(String(50), default="active")  # draft|pending_approval|active|inactive|rejected
     onboarded_by_admin = Column(Boolean, default=False)

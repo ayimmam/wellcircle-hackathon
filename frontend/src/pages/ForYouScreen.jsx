@@ -339,14 +339,24 @@ export default function ForYouScreen() {
   const firstPageItems = feed?.items || [];
   const orderedFirstPage = useMemo(() => {
     if (settled) return firstPageItems;
-    // The server leads the feed with upcoming events (see feed_service.py),
+    // The server leads the feed with this week's events (see feed_service.py),
     // itself image-partitioned. Partition the event lead and the post block
     // that follows it the same way, so nothing visibly reshuffles on settle.
+    // Only the *lead* block is events — the coming-soon events sit below the
+    // posts and are left in server order, like the provider block after them.
     const leadEnd = firstPageItems.findIndex(i => i.type !== 'event');
     if (leadEnd === -1) return partitionByImage(firstPageItems, eventHasImage);
     const lead = firstPageItems.slice(0, leadEnd);
     const rest = firstPageItems.slice(leadEnd);
-    return [...partitionByImage(lead, eventHasImage), ...partitionByImage(rest, postHasImage)];
+    const postEnd = rest.findIndex(i => i.type !== 'post');
+    if (postEnd === -1) {
+      return [...partitionByImage(lead, eventHasImage), ...partitionByImage(rest, postHasImage)];
+    }
+    return [
+      ...partitionByImage(lead, eventHasImage),
+      ...partitionByImage(rest.slice(0, postEnd), postHasImage),
+      ...rest.slice(postEnd),
+    ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstPageItems, settled]);
 

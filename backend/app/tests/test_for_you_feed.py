@@ -304,8 +304,11 @@ def test_all():
         assert lite_queries < full_queries, (lite_queries, full_queries)
         print(f"   ✅ posts only, cursor matches, {lite_queries} queries vs {full_queries}")
 
-        # === 9. WS3 — image-led ordering within the posts and events blocks ===
-        print("\n9. WS3 — photo posts and covered events lead their block")
+        # === 9. Image posts and text posts alternate ======================
+        # The feed round-robins its lanes, and image posts and text posts are
+        # two of them — so they interleave rather than the photos leading a
+        # block. With no seed the order inside each lane stays newest-first.
+        print("\n9. Image posts and text posts alternate down the page")
         photo_owner = create_user_from_bot(db, telegram_id=900100102, telegram_handle="photo_owner")
         text_post_a = create_post(db, user_id=photo_owner.id, community_id=community.id, content="Text A")
         photo_post_a = create_post(db, user_id=photo_owner.id, community_id=community.id, content="Photo A", photo_url="https://x/a.jpg")
@@ -316,12 +319,36 @@ def test_all():
         page_post_items = [i for i in feed4["items"] if i["type"] == "post"]
         page_post_ids = [i["id"] for i in page_post_items]
         photo_ids = {photo_post_a.id, photo_post_b.id}
-        first_two = set(page_post_ids[:2])
-        assert first_two == photo_ids, (page_post_ids, photo_ids)
-        # Newest-first is preserved within each group.
+        # An image post leads, then they alternate while both lanes hold items.
+        assert page_post_ids[0] in photo_ids, (page_post_ids, photo_ids)
+        assert page_post_ids[1] not in photo_ids, (page_post_ids, photo_ids)
+        # Newest-first is preserved within each lane.
         assert page_post_ids.index(photo_post_b.id) < page_post_ids.index(photo_post_a.id)
         assert page_post_ids.index(text_post_b.id) < page_post_ids.index(text_post_a.id)
-        print("   ✅ photo posts lead the page, newest-first within each group")
+        print("   ✅ image and text posts alternate, newest-first within each lane")
+
+        # === 9b. The lane cycle, and what a seed does =====================
+        print("\n9b. Lane cycle order, and seeded shuffling")
+        cycled = build_for_you_feed(db, limit=10)["items"]
+        types_seen = [i["type"] for i in cycled]
+        # No two adjacent event items: the cycle puts posts between them.
+        for a, b in zip(types_seen, types_seen[1:]):
+            assert not (a == "event" and b == "event"), types_seen
+        # An event leads the feed, and a service appears after some posts
+        # rather than in a block at the end of the post stream.
+        assert types_seen[0] == "event", types_seen
+        if "service" in types_seen:
+            assert types_seen.index("service") < len(types_seen) - 1, types_seen
+
+        # Same seed, same feed — that is what keeps one scroll stable.
+        a1 = [i["id"] for i in build_for_you_feed(db, limit=10, seed="abc")["items"]]
+        a2 = [i["id"] for i in build_for_you_feed(db, limit=10, seed="abc")["items"]]
+        assert a1 == a2, "same seed must give the same order"
+        # The cursor comes off the keyset query, never the shuffle, so it
+        # cannot drift with the seed.
+        assert (build_for_you_feed(db, limit=4, seed="abc")["next_before"]
+                == build_for_you_feed(db, limit=4, seed="zzz")["next_before"])
+        print("   ✅ lanes cycle, seed is stable, cursor is seed-independent")
 
         # An event with no provider cover sorts below one that has a cover.
         covered_provider, _ = create_provider(

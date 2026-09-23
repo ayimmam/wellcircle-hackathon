@@ -25,7 +25,7 @@ import StoryRail from '../components/stories/StoryRail';
 import { showToast } from '../components/Toast';
 import { useTranslation } from 'react-i18next';
 import { daysSinceJoin } from '../utils/milestones';
-import { partitionByImage, postHasImage, eventHasImage } from '../utils/feedOrdering';
+import { orderFeedItems } from '../utils/feedOrdering';
 
 // Bumping the suffix (v1 -> v2) would re-show the card to everyone once —
 // only do that intentionally.
@@ -339,24 +339,12 @@ export default function ForYouScreen() {
   const firstPageItems = feed?.items || [];
   const orderedFirstPage = useMemo(() => {
     if (settled) return firstPageItems;
-    // The server leads the feed with this week's events (see feed_service.py),
-    // itself image-partitioned. Partition the event lead and the post block
-    // that follows it the same way, so nothing visibly reshuffles on settle.
-    // Only the *lead* block is events — the coming-soon events sit below the
-    // posts and are left in server order, like the provider block after them.
-    const leadEnd = firstPageItems.findIndex(i => i.type !== 'event');
-    if (leadEnd === -1) return partitionByImage(firstPageItems, eventHasImage);
-    const lead = firstPageItems.slice(0, leadEnd);
-    const rest = firstPageItems.slice(leadEnd);
-    const postEnd = rest.findIndex(i => i.type !== 'post');
-    if (postEnd === -1) {
-      return [...partitionByImage(lead, eventHasImage), ...partitionByImage(rest, postHasImage)];
-    }
-    return [
-      ...partitionByImage(lead, eventHasImage),
-      ...partitionByImage(rest.slice(0, postEnd), postHasImage),
-      ...rest.slice(postEnd),
-    ];
+    // Re-impose the server's lane cycle (see feed_service.py::_order_feed) on
+    // the cached and lite payloads, so the feed doesn't visibly reshuffle
+    // when the settled response replaces them. The lanes' *contents* still
+    // differ — the lite payload has no events or services — but the shape
+    // the reader sees is already the cycle.
+    return orderFeedItems(firstPageItems);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstPageItems, settled]);
 

@@ -7,6 +7,7 @@ import SmartImage from '../components/SmartImage';
 import { track } from '../analytics';
 import { effectiveTimeFormat } from '../utils/timeFormat';
 import { useAuth } from '../context/AuthContext';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
 /**
  * RSVP for a paid event: the price, and the host's own channel to arrange it
@@ -52,6 +53,7 @@ export default function EventRsvp() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const timeFormat = effectiveTimeFormat(user);
+  useTelegramBackButton(() => navigate(-1));
 
   // Tapping an event card hands the whole event over in router state, so the
   // screen paints with no request at all. A forwarded link or a refresh has

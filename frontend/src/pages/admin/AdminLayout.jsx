@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useTelegramBackButton } from '../../hooks/useTelegramBackButton';
 
 const TABS = [
   { path: '/admin/analytics', label: 'Analytics' },
@@ -15,6 +16,7 @@ const TABS = [
 export default function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  useTelegramBackButton(() => navigate(-1));
 
   return (
     <div className="admin-shell">

@@ -770,9 +770,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   transition: background 0.2s, transform 0.15s;
 }
 
-.nav-item.active .nav-item-bubble {
-  background: var(--tint-accent-12);
-}
+/* Background comes from the animated .nav-active-bg span (BottomNav.jsx),
+   not from here — a static background on top of it double-tints the bubble. */
 
 .nav-item:active .nav-item-bubble { transform: scale(0.88); }
 

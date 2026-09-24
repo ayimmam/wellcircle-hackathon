@@ -17,6 +17,7 @@ import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
 import { clickableDivProps } from '../utils/a11y';
 import useDismissOnEscape from '../hooks/useDismissOnEscape';
+import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
 const PROVIDER_DAILY_AWARD_CAP = 300; // mirrors backend PROVIDER_AWARD_MAX_POINTS_PER_DAY
 const REDEMPTION_STATUSES = ['pending', 'confirmed', 'shipped', 'delivered'];
@@ -32,6 +33,7 @@ function todayIsoDate() {
 
 export default function ProviderDashboard() {
   const navigate = useNavigate();
+  useTelegramBackButton(() => navigate(-1));
   const [tab, setTab] = useState('analytics');
   const [stats, setStats] = useState(null);
   const [products, setProducts] = useState([]);

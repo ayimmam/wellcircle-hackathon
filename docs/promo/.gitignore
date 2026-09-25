@@ -1,0 +1,5 @@
+# Kokoro TTS model (~340 MB): download per narration/README.md
+narration/models/
+
+# Pixabay track: licensed for use in our videos, not for redistribution as a file
+screens-video/audio/music.mp3

@@ -11,6 +11,7 @@ from typing import Optional
 
 from bot.utils.messages import (
     REENGAGEMENT_MESSAGE,
+    REENGAGEMENT_BUTTON,
     REENGAGEMENT_PROMO_MESSAGE,
     REENGAGEMENT_PROMO_BUTTON,
     STREAK_NUDGE_MESSAGE,
@@ -45,10 +46,13 @@ def build_reengagement_nudge(user: dict, bot_username: Optional[str] = None) -> 
     promo = user.get("promo")
 
     if not promo or not promo.get("discount_pct"):
+        deep_link = None
+        if bot_username:
+            deep_link = f"https://t.me/{bot_username}?startapp=reentry_open"
         return {
             "text": REENGAGEMENT_MESSAGE.format(name=name),
-            "button_text": None,
-            "deep_link": None,
+            "button_text": REENGAGEMENT_BUTTON,
+            "deep_link": deep_link,
         }
 
     text = REENGAGEMENT_PROMO_MESSAGE.format(

@@ -76,16 +76,18 @@ def main():
     app.add_handler(evidence_conversation)
     app.add_error_handler(error_handler)
 
-    # Schedule re-engagement check (weekly)
+    # Schedule re-engagement check (daily at 07:00 UTC = 10:00 AM Addis Ababa).
+    # The backend query already filters for 7+ days inactive, so running daily
+    # is safe — it just catches newly-eligible users each morning instead of
+    # drifting with bot restarts.
     job_queue = app.job_queue
     if job_queue:
-        job_queue.run_repeating(
+        job_queue.run_daily(
             schedule_reengagement,
-            interval=604800,  # 7 days
-            first=60,         # 1 minute after startup
+            time=time(hour=7, minute=0),
             name="reengagement",
         )
-        logger.info("📅 Re-engagement job scheduled (every 7 days)")
+        logger.info("📅 Re-engagement job scheduled (daily 07:00 UTC / 10:00 Addis Ababa)")
 
         # C3: weekly circle digest, Sundays at 18:00 UTC
         job_queue.run_daily(

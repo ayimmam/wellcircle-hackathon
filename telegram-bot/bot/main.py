@@ -11,6 +11,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 from bot.handlers.start import start_handler
 from bot.handlers.admin import admin_handler
 from bot.handlers.evidence import evidence_conversation
+from bot.handlers.help import help_handler
 from bot.services.reengagement import schedule_reengagement
 from bot.services.weekly_digest import send_weekly_digest
 from bot.services.streak_nudge import send_streak_nudges
@@ -18,6 +19,7 @@ from bot.services.engagement_push import send_engagement_pushes
 from bot.services.keep_warm import (
     ping_backend, KEEP_WARM_ENABLED, KEEP_WARM_INTERVAL_SECONDS,
 )
+from bot.services.api_client import init_http_client, close_http_client
 from bot.config import BOT_TOKEN
 
 logging.basicConfig(
@@ -40,21 +42,36 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def post_init(application: Application) -> None:
-    """Set bot commands after initialization."""
+    """Set bot commands and initialise shared resources after startup."""
+    await init_http_client()
     commands = [BotCommand("start", "Open Well Circle")]
     # /admin is registered globally; visibility is enforced in the handler
     commands.append(BotCommand("admin", "Access admin dashboard"))
     commands.append(BotCommand("evidence", "Submit event participation proof"))
+    commands.append(BotCommand("help", "Show available commands"))
     await application.bot.set_my_commands(commands)
     logger.info("🟢 Well Circle Bot started")
 
 
+async def post_shutdown(application: Application) -> None:
+    """Clean up shared resources on shutdown."""
+    await close_http_client()
+    logger.info("🔴 Well Circle Bot stopped")
+
+
 def main():
     """Start the bot."""
-    app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .post_init(post_init)
+        .post_shutdown(post_shutdown)
+        .build()
+    )
 
     # Register handlers
     app.add_handler(CommandHandler("start", start_handler))
+    app.add_handler(CommandHandler("help", help_handler))
     app.add_handler(CommandHandler("admin", admin_handler))
     app.add_handler(evidence_conversation)
     app.add_error_handler(error_handler)

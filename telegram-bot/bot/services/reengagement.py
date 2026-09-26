@@ -1,5 +1,6 @@
 """Re-engagement service — sends push notifications to inactive users."""
 
+import asyncio
 import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -41,6 +42,7 @@ async def schedule_reengagement(context: ContextTypes.DEFAULT_TYPE) -> None:
                 )
                 await mark_reengagement_sent(telegram_id)
                 sent += 1
+                await asyncio.sleep(0.05)  # throttle: ~20 msgs/sec, well under Telegram's 30/sec
             except Exception as e:
                 # User may have blocked the bot
                 logger.warning(f"Could not message {telegram_id}: {e}")

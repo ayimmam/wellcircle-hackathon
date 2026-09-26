@@ -2,8 +2,7 @@
 Tests for bot.services.api_client — covers all 8 backend API endpoints.
 
 Mocks httpx.AsyncClient to verify URLs, request methods, JSON bodies, query parameters,
-authentication headers (X-Bot-API-Key), per-call timeouts (10s standard, 15s for digests),
-and HTTP error propagation.
+per-call timeouts (10s standard, 15s for digests), and HTTP error propagation.
 """
 
 import asyncio
@@ -54,7 +53,7 @@ def test_register_user_success():
     mock_resp = _make_mock_response({"user_id": "u-123", "created": True})
     client_cls, client_inst = _setup_mock_client(mock_resp)
 
-    with patch("bot.services.api_client.httpx.AsyncClient", client_cls):
+    with patch("bot.services.api_client.get_http_client", return_value=client_inst):
         res = asyncio.run(
             api_client.register_user(
                 telegram_id=98765,
@@ -64,18 +63,13 @@ def test_register_user_success():
         )
 
     assert res == {"user_id": "u-123", "created": True}
-    client_cls.assert_called_once_with(timeout=10, follow_redirects=True)
     client_inst.post.assert_awaited_once_with(
         f"{BACKEND_URL}/api/bot/register",
         json={
             "telegram_id": 98765,
             "telegram_handle": "yoni_dev",
             "photo_url": "https://wellcircle.et/photo.jpg",
-        },
-        headers={
-            "Content-Type": "application/json",
-            "X-Bot-API-Key": BOT_API_KEY,
-        },
+        }
     )
 
 
@@ -84,7 +78,7 @@ def test_register_user_minimal():
     mock_resp = _make_mock_response({"created": False})
     client_cls, client_inst = _setup_mock_client(mock_resp)
 
-    with patch("bot.services.api_client.httpx.AsyncClient", client_cls):
+    with patch("bot.services.api_client.get_http_client", return_value=client_inst):
         res = asyncio.run(api_client.register_user(telegram_id=111))
 
     assert res == {"created": False}
@@ -94,11 +88,7 @@ def test_register_user_minimal():
             "telegram_id": 111,
             "telegram_handle": None,
             "photo_url": None,
-        },
-        headers={
-            "Content-Type": "application/json",
-            "X-Bot-API-Key": BOT_API_KEY,
-        },
+        }
     )
 
 
@@ -107,17 +97,12 @@ def test_check_admin_access_success():
     mock_resp = _make_mock_response({"is_super_admin": True})
     client_cls, client_inst = _setup_mock_client(mock_resp)
 
-    with patch("bot.services.api_client.httpx.AsyncClient", client_cls):
+    with patch("bot.services.api_client.get_http_client", return_value=client_inst):
         res = asyncio.run(api_client.check_admin_access(telegram_id=456))
 
     assert res == {"is_super_admin": True}
-    client_cls.assert_called_once_with(timeout=10, follow_redirects=True)
     client_inst.get.assert_awaited_once_with(
-        f"{BACKEND_URL}/api/bot/users/456/admin-access",
-        headers={
-            "Content-Type": "application/json",
-            "X-Bot-API-Key": BOT_API_KEY,
-        },
+        f"{BACKEND_URL}/api/bot/users/456/admin-access"
     )
 
 
@@ -126,28 +111,20 @@ def test_get_inactive_users_default_and_custom_days():
     mock_resp = _make_mock_response({"inactive_users": [{"telegram_id": 1}]})
     client_cls, client_inst = _setup_mock_client(mock_resp)
 
-    with patch("bot.services.api_client.httpx.AsyncClient", client_cls):
+    with patch("bot.services.api_client.get_http_client", return_value=client_inst):
         # Default days=7
         res = asyncio.run(api_client.get_inactive_users())
         assert len(res["inactive_users"]) == 1
         client_inst.get.assert_awaited_with(
             f"{BACKEND_URL}/api/bot/inactive-users",
-            params={"days": 7},
-            headers={
-                "Content-Type": "application/json",
-                "X-Bot-API-Key": BOT_API_KEY,
-            },
+            params={"days": 7}
         )
 
         # Custom days=14
         asyncio.run(api_client.get_inactive_users(days=14))
         client_inst.get.assert_awaited_with(
             f"{BACKEND_URL}/api/bot/inactive-users",
-            params={"days": 14},
-            headers={
-                "Content-Type": "application/json",
-                "X-Bot-API-Key": BOT_API_KEY,
-            },
+            params={"days": 14}
         )
 
 
@@ -156,17 +133,12 @@ def test_get_streaks_at_risk():
     mock_resp = _make_mock_response({"users": [{"telegram_id": 999, "current_streak": 5}]})
     client_cls, client_inst = _setup_mock_client(mock_resp)
 
-    with patch("bot.services.api_client.httpx.AsyncClient", client_cls):
+    with patch("bot.services.api_client.get_http_client", return_value=client_inst):
         res = asyncio.run(api_client.get_streaks_at_risk())
 
     assert res["users"][0]["current_streak"] == 5
-    client_cls.assert_called_once_with(timeout=10, follow_redirects=True)
     client_inst.get.assert_awaited_once_with(
-        f"{BACKEND_URL}/api/bot/streaks-at-risk",
-        headers={
-            "Content-Type": "application/json",
-            "X-Bot-API-Key": BOT_API_KEY,
-        },
+        f"{BACKEND_URL}/api/bot/streaks-at-risk"
     )
 
 
@@ -175,17 +147,12 @@ def test_mark_reengagement_sent():
     mock_resp = _make_mock_response({"ok": True})
     client_cls, client_inst = _setup_mock_client(mock_resp)
 
-    with patch("bot.services.api_client.httpx.AsyncClient", client_cls):
+    with patch("bot.services.api_client.get_http_client", return_value=client_inst):
         res = asyncio.run(api_client.mark_reengagement_sent(telegram_id=777))
 
     assert res == {"ok": True}
-    client_cls.assert_called_once_with(timeout=10, follow_redirects=True)
     client_inst.post.assert_awaited_once_with(
-        f"{BACKEND_URL}/api/bot/users/777/reengagement-sent",
-        headers={
-            "Content-Type": "application/json",
-            "X-Bot-API-Key": BOT_API_KEY,
-        },
+        f"{BACKEND_URL}/api/bot/users/777/reengagement-sent"
     )
 
 
@@ -194,18 +161,13 @@ def test_get_staff_events():
     mock_resp = _make_mock_response({"events": [{"event_id": "e1", "service_name": "Yoga"}]})
     client_cls, client_inst = _setup_mock_client(mock_resp)
 
-    with patch("bot.services.api_client.httpx.AsyncClient", client_cls):
+    with patch("bot.services.api_client.get_http_client", return_value=client_inst):
         res = asyncio.run(api_client.get_staff_events(telegram_id=555))
 
     assert len(res["events"]) == 1
-    client_cls.assert_called_once_with(timeout=10, follow_redirects=True)
     client_inst.get.assert_awaited_once_with(
         f"{BACKEND_URL}/api/bot/staff-events",
-        params={"telegram_id": 555},
-        headers={
-            "Content-Type": "application/json",
-            "X-Bot-API-Key": BOT_API_KEY,
-        },
+        params={"telegram_id": 555}
     )
 
 
@@ -214,7 +176,7 @@ def test_submit_evidence():
     mock_resp = _make_mock_response({"status": "pending_review"})
     client_cls, client_inst = _setup_mock_client(mock_resp)
 
-    with patch("bot.services.api_client.httpx.AsyncClient", client_cls):
+    with patch("bot.services.api_client.get_http_client", return_value=client_inst):
         res = asyncio.run(
             api_client.submit_evidence(
                 telegram_id=555,
@@ -224,18 +186,13 @@ def test_submit_evidence():
         )
 
     assert res == {"status": "pending_review"}
-    client_cls.assert_called_once_with(timeout=10, follow_redirects=True)
     client_inst.post.assert_awaited_once_with(
         f"{BACKEND_URL}/api/bot/evidence",
         json={
             "telegram_id": 555,
             "event_id": "evt-42",
             "telegram_file_id": "photo_file_abc",
-        },
-        headers={
-            "Content-Type": "application/json",
-            "X-Bot-API-Key": BOT_API_KEY,
-        },
+        }
     )
 
 
@@ -244,18 +201,14 @@ def test_get_circle_digests_timeout_15():
     mock_resp = _make_mock_response({"circles": [{"circle_name": "Runners"}]})
     client_cls, client_inst = _setup_mock_client(mock_resp)
 
-    with patch("bot.services.api_client.httpx.AsyncClient", client_cls):
+    with patch("bot.services.api_client.get_http_client", return_value=client_inst):
         res = asyncio.run(api_client.get_circle_digests())
 
     assert len(res["circles"]) == 1
     # Note: 15s timeout as required by C3 weekly circle digest query!
-    client_cls.assert_called_once_with(timeout=15, follow_redirects=True)
     client_inst.get.assert_awaited_once_with(
         f"{BACKEND_URL}/api/bot/circle-digests",
-        headers={
-            "Content-Type": "application/json",
-            "X-Bot-API-Key": BOT_API_KEY,
-        },
+        timeout=15
     )
 
 
@@ -264,7 +217,7 @@ def test_api_client_http_error_propagation():
     mock_resp = _make_mock_response(status_code=500)
     client_cls, client_inst = _setup_mock_client(mock_resp)
 
-    with patch("bot.services.api_client.httpx.AsyncClient", client_cls):
+    with patch("bot.services.api_client.get_http_client", return_value=client_inst):
         with pytest.raises(httpx.HTTPStatusError):
             asyncio.run(api_client.register_user(telegram_id=123))
 

@@ -27,7 +27,11 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )],
     ])
 
-    await update.message.reply_text(
+    message = update.effective_message
+    if not message:
+        return
+
+    await message.reply_text(
         text=HELP_MESSAGE,
         reply_markup=keyboard,
         parse_mode="HTML",

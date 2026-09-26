@@ -7,6 +7,7 @@ Telegram. Marks notifications as push-sent after each DM so they aren't
 re-sent on the next run.
 """
 
+import asyncio
 import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -45,6 +46,7 @@ async def send_engagement_pushes(context: ContextTypes.DEFAULT_TYPE) -> None:
                 )
                 await mark_engagement_push_sent(telegram_id)
                 sent += 1
+                await asyncio.sleep(0.05)  # throttle: ~20 msgs/sec
             except Exception as e:
                 logger.warning(f"Could not send engagement push to {telegram_id}: {e}")
 

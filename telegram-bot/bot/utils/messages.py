@@ -14,14 +14,14 @@ Tap the button below to open Well Circle and complete your profile — it takes 
 """
 
 REENGAGEMENT_MESSAGE = """
-👋 Hey {name}! We miss you at Well Circle.
+👋 Hey <b>{name}</b>! It's been a while since we've seen you.
 
-Your wellness circle has been active — new check-ins, new members, and new sessions dropping this week.
+Your wellness circles have been buzzing — new check-ins, fresh events, and members crushing their streaks 🔥
 
-Your points paused while you were away — complete a challenge or attend an event to earn more. 🌱
-
-Tap /start to jump back in. Your tribe is waiting. 💪
+We saved your spot. One tap and you're back with your tribe 💪
 """
+
+REENGAGEMENT_BUTTON = "🟢 Jump back in"
 
 STREAK_NUDGE_MESSAGE = """
 🔥 {name}, your <b>{streak}-day streak</b> is waiting.
@@ -36,13 +36,13 @@ STREAK_NUDGE_FREEZE_LINE = " (and you have {freeze_count} freeze{plural} if life
 STREAK_NUDGE_BUTTON = "✨ Check in now"
 
 REENGAGEMENT_PROMO_MESSAGE = """
-👋 Hey {name}! We miss you at Well Circle.
+👋 Hey <b>{name}</b>! It's been a while — but we've got something special waiting for you 🎁
 
 🏷 <b>{headline}</b>
 
-You still have <b>{discount_pct}% off</b> waiting at <b>{provider_name}</b> — come back and use your discount before it expires on {expires_on}.
+You have <b>{discount_pct}% off</b> at <b>{provider_name}</b> — but it expires on {expires_on}. Come back and claim it before it's gone!
 
-Your tribe is waiting. 💪
+Your tribe is waiting 💪
 """
 
 REENGAGEMENT_PROMO_BUTTON = "🏷 Claim {discount_pct}% off"

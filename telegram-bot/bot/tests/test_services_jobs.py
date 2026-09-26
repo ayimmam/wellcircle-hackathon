@@ -195,8 +195,8 @@ def test_schedule_reengagement_promo_and_generic():
         # Generic message checks
         generic_call = context.bot.send_message.await_args_list[1].kwargs
         assert generic_call["chat_id"] == 302
-        assert "We miss you at Well Circle" in generic_call["text"]
-        assert generic_call["reply_markup"] is None
+        assert "It's been a while" in generic_call["text"]
+        assert generic_call["reply_markup"] is not None  # now has inline button
 
 
 def test_schedule_reengagement_send_failure_skips_mark_sent():

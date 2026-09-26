@@ -1,0 +1,27 @@
+{
+ "01-hook": {
+  "at": 4,
+  "seconds": 5.397,
+  "text": "Booking a massage in Addis? Twelve DMs, one payment screenshot, and zero confirmation."
+ },
+ "02-meet": {
+  "at": 150,
+  "seconds": 3.115,
+  "text": "Meet Well Circle, your wellness tribe inside Telegram."
+ },
+ "03-taps": {
+  "at": 238,
+  "seconds": 3.691,
+  "text": "Pick a top studio, choose a service, pick a time, and send the request."
+ },
+ "04-booked": {
+  "at": 415,
+  "seconds": 2.475,
+  "text": "Booked in three taps, and you pay at the studio."
+ },
+ "05-cta": {
+  "at": 556,
+  "seconds": 1.835,
+  "text": "Open Well Circle in Telegram."
+ }
+}

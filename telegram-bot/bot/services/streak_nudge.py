@@ -3,6 +3,7 @@ losing (or freezing) a live streak. Runs once daily, so the 1-nudge/day
 cap is inherent in the cadence; audience is disjoint from the weekly
 re-engagement job (a live streak means the user checked in yesterday)."""
 
+import asyncio
 import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -37,6 +38,7 @@ async def send_streak_nudges(context: ContextTypes.DEFAULT_TYPE) -> None:
                     parse_mode="HTML",
                 )
                 sent += 1
+                await asyncio.sleep(0.05)  # throttle: ~20 msgs/sec
             except Exception as e:
                 # User may have blocked the bot
                 logger.warning(f"Could not send streak nudge to {telegram_id}: {e}")

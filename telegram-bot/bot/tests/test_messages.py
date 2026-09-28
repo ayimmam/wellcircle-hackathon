@@ -28,9 +28,9 @@ def test_welcome_message_formatting():
 def test_reengagement_message_formatting():
     """Verify dormant user re-engagement message."""
     rendered = messages.REENGAGEMENT_MESSAGE.format(name="Meron")
-    assert "Hey Meron!" in rendered
-    assert "points paused while you were away" in rendered
-    assert "Tap /start to jump back in" in rendered
+    assert "Meron" in rendered
+    assert "It's been a while" in rendered
+    assert "saved your spot" in rendered
 
 
 def test_streak_nudge_with_and_without_freezes():
@@ -71,11 +71,12 @@ def test_reengagement_promo_message_and_button():
         provider_name="Boston Day Spa",
         expires_on="Sun, Sep 20",
     )
-    assert "Hey Sara!" in rendered
+    assert "Sara" in rendered
     assert "Exclusive Welcome Back Offer" in rendered
     assert "25% off" in rendered
     assert "Boston Day Spa" in rendered
     assert "expires on Sun, Sep 20" in rendered
+    assert "before it's gone" in rendered
 
     btn_text = messages.REENGAGEMENT_PROMO_BUTTON.format(discount_pct=25)
     assert btn_text == "🏷 Claim 25% off"

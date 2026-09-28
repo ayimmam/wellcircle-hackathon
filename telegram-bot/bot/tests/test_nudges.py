@@ -29,27 +29,28 @@ def test_all():
     print("  WELL CIRCLE — RE-ENTRY NUDGE TESTS")
     print("=" * 50)
 
-    # 1. Generic nudge when no promo
+    # 1. Generic nudge when no promo — now includes an inline button
     nudge = build_reengagement_nudge({"name": "Meron", "promo": None}, bot_username="WellCircleBot")
-    assert "We miss you" in nudge["text"]
+    assert "It's been a while" in nudge["text"]
     assert "Meron" in nudge["text"]
-    assert nudge["deep_link"] is None
-    assert nudge["button_text"] is None
-    print("   ✅ generic nudge when no promo")
+    assert nudge["deep_link"] == "https://t.me/WellCircleBot?startapp=reentry_open"
+    assert nudge["button_text"] == "🟢 Jump back in"
+    print("   ✅ generic nudge with inline button and deep link")
 
-    # 2. Promo without a discount → still generic (nothing to redeem)
+    # 2. Promo without a discount → still generic (nothing to redeem) but has button
     nudge = build_reengagement_nudge(
         {"name": "Meron", "promo": {"headline": "Hi", "discount_pct": None}},
         bot_username="WellCircleBot",
     )
-    assert nudge["deep_link"] is None
-    print("   ✅ promo without discount falls back to generic")
+    assert nudge["deep_link"] == "https://t.me/WellCircleBot?startapp=reentry_open"
+    assert nudge["button_text"] == "🟢 Jump back in"
+    print("   ✅ promo without discount falls back to generic with button")
 
     # 3. Promo-aware nudge references discount, provider, and expiry
     nudge = build_reengagement_nudge(PROMO_USER, bot_username="WellCircleBot")
     assert "20% off" in nudge["text"]
     assert "Kuriftu Resort & Spa" in nudge["text"]
-    assert "before it expires" in nudge["text"]
+    assert "before it's gone" in nudge["text"]
     assert "Jul 26" in nudge["text"]
     assert nudge["button_text"] == "🏷 Claim 20% off"
     print("   ✅ promo nudge mentions discount, provider, expiry")

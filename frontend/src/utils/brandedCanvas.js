@@ -409,64 +409,45 @@ export async function generatePostCardBlob(post, { width = 1080, height = 1350 }
 }
 
 /**
- * Share a post as a branded image card outside the app.
- * Includes @wellcirclebot as watermark below.
+ * Share a direct post link outside the Mini App.
  */
 export async function sharePostCard(post) {
   try {
-    if (post?.id) {
-      import('../api/client').then(({ sharePost }) => {
-        sharePost(post.id).catch(() => {});
-      });
-    }
-
-    const blob = await generatePostCardBlob(post);
-    if (!blob) {
-      showToast('Could not generate post card', 'error');
-      return;
-    }
-
-    const file = new File([blob], `wellcircle-post-${post?.id || 'share'}.png`, { type: 'image/png' });
-    const botUsername = BOT_USERNAME;
-    const deepLink = `${DEEP_LINK_BASE}?startapp=post_${post?.id || ''}`;
+    if (!post?.id) return;
+    const postUrl = `${import.meta.env.VITE_WEB_APP_URL || 'https://app.wellcircle.et'}/post/${encodeURIComponent(post.id)}`;
     const authorName = post?.user?.name || 'Someone';
-    const shareText = `Check out this post by ${authorName} on Well Circle! @${botUsername} on Telegram ${deepLink}`;
+    const shareText = `Check out this post by ${authorName} on Well Circle`;
 
-    // Tier 1: Web Share API (native share sheet with image file)
-    if (navigator.share && navigator.canShare?.({ files: [file] })) {
-      await navigator.share({
-        files: [file],
-        title: 'Well Circle Post',
-        text: shareText,
-      });
-      track('post_card_shared', { postId: post?.id, method: 'web_share' });
-      showToast('Post shared!', 'success');
-      return;
+    // A URL can be sent to any app, and the recipient lands on the actual post.
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Well Circle Post', text: shareText, url: postUrl });
+        const { sharePost } = await import('../api/client');
+        sharePost(post.id).catch(() => {});
+        track('post_card_shared', { postId: post?.id, method: 'web_share' });
+        showToast('Post shared!', 'success');
+        return;
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
+        // Some WebViews expose share() but reject URLs. Use Telegram below.
+      }
     }
 
-    // Tier 2: Telegram inline query (inside Telegram WebApp)
+    // Telegram's share URL opens a recipient picker outside the Mini App.
     const tg = window.Telegram?.WebApp;
-    if (tg?.switchInlineQuery) {
-      tg.switchInlineQuery(shareText, ['users', 'groups']);
-      track('post_card_shared', { postId: post?.id, method: 'inline_query' });
+    if (tg?.openTelegramLink) {
+      tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(postUrl)}&text=${encodeURIComponent(shareText)}`);
+      track('post_card_shared', { postId: post?.id, method: 'telegram_share' });
       showToast('Opening Telegram share...', 'success');
       return;
     }
 
-    // Tier 3: Download card image and copy link to clipboard
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `wellcircle-post-${post?.id || 'card'}.png`;
-    a.click();
-    URL.revokeObjectURL(url);
-    await navigator.clipboard.writeText(deepLink);
-    showToast('Post card downloaded & link copied!', 'success');
-    track('post_card_shared', { postId: post?.id, method: 'download_and_copy' });
+    await navigator.clipboard.writeText(postUrl);
+    showToast('Post link copied!', 'success');
+    track('post_card_shared', { postId: post?.id, method: 'copy_link' });
   } catch (err) {
     if (err?.name !== 'AbortError') {
       showToast('Could not share post', 'error');
     }
   }
 }
-

@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import SmartImage from '../SmartImage';
 import Icon from '../Icon';
-import { toggleReaction } from '../../api/client';
+import { toggleReaction, repostPost } from '../../api/client';
 import { clickableDivProps } from '../../utils/a11y';
 import usePostComments from '../../hooks/usePostComments';
 import ReactionPicker from '../ReactionPicker';
 import ReactionStack from '../ReactionStack';
 import { sharePostCard } from '../../utils/brandedCanvas';
+import { showToast } from '../Toast';
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -53,12 +54,14 @@ export default function FeedPostCard({ item, priority = false, onRetry, onDiscar
   // WS15: unlock purchase sheet placeholder
   const [showUnlockSheet, setShowUnlockSheet] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [reposting, setReposting] = useState(false);
 
   const destination = post.source?.kind === 'community'
     ? `/community/${post.source.id}`
     : post.source?.kind === 'circle'
       ? `/circle/${post.source.id}`
       : null;
+  const repostMatch = post.content?.match(/\n\nOriginal post: https:\/\/app\.wellcircle\.et\/post\/([0-9a-f-]{36})$/i);
 
   const goToSource = () => { if (destination) navigate(destination); };
 
@@ -70,6 +73,21 @@ export default function FeedPostCard({ item, priority = false, onRetry, onDiscar
       await sharePostCard(post);
     } finally {
       setSharing(false);
+    }
+  };
+
+  const handleRepost = async (e) => {
+    e.stopPropagation();
+    if (reposting || item.pending || item.failed) return;
+    setReposting(true);
+    try {
+      const result = await repostPost(post.id);
+      showToast('Reposted to your feed', 'success');
+      navigate(`/post/${result.id}`);
+    } catch (err) {
+      showToast(err.message || 'Could not repost', 'error');
+    } finally {
+      setReposting(false);
     }
   };
 
@@ -181,8 +199,9 @@ export default function FeedPostCard({ item, priority = false, onRetry, onDiscar
         {...(destination ? clickableDivProps(goToSource) : {})}
       >
         <p className={`post-content ${post.activity_type ? 'has-stats' : ''}`}>
-          {post.content}{post.truncated ? '…' : ''}
+          {repostMatch ? post.content.slice(0, repostMatch.index) : post.content}{post.truncated ? '…' : ''}
         </p>
+        {repostMatch && <button type="button" className="btn btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); navigate(`/post/${repostMatch[1]}`); }}>View original post</button>}
 
         {post.activity_type && (
           <div className="post-stat-strip">
@@ -234,9 +253,13 @@ export default function FeedPostCard({ item, priority = false, onRetry, onDiscar
           disabled={sharing}
           id={`feed-post-share-${item.id}`}
           aria-label="Share post"
-          title="Share post card"
+          title="Share post link"
         >
           {sharing ? <span className="btn-spinner" style={{ width: 14, height: 14 }} aria-hidden="true" /> : <Icon name="share" size={18} strokeWidth={1.5} />}
+        </button>
+        <button type="button" className="post-action-btn" onClick={handleRepost}
+          disabled={reposting || post.user?.id === user?.id} aria-label="Repost" title="Repost to your feed">
+          <Icon name="repeat" size={18} strokeWidth={1.5} /> {reposting ? 'Reposting…' : 'Repost'}
         </button>
       </div>
 

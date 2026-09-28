@@ -36,7 +36,7 @@ export default function LoginScreen() {
       if (!user.is_onboarded) {
         navigate('/onboarding', { replace: true });
       } else {
-        navigate('/home', { replace: true });
+        navigate(sessionStorage.getItem('wc_post_redirect') || '/home', { replace: true });
       }
     }
   }, [user, navigate]);

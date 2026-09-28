@@ -39,6 +39,7 @@ export default function FeedPostCard({ item, priority = false }) {
     : post.source?.kind === 'circle'
       ? `/circle/${post.source.id}`
       : null;
+  const repostMatch = post.content?.match(/\n\nOriginal post: https:\/\/app\.wellcircle\.et\/post\/([0-9a-f-]{36})$/i);
 
   const goToSource = () => { if (destination) navigate(destination); };
 
@@ -75,8 +76,9 @@ export default function FeedPostCard({ item, priority = false }) {
         </div>
 
         <p className={`post-content ${post.activity_type ? 'has-stats' : ''}`}>
-          {post.content}{post.truncated ? '…' : ''}
+          {repostMatch ? post.content.slice(0, repostMatch.index) : post.content}{post.truncated ? '…' : ''}
         </p>
+        {repostMatch && <button type="button" className="btn btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); navigate(`/post/${repostMatch[1]}`); }}>View original post</button>}
 
         {post.activity_type && (
           <div className="post-stat-strip">

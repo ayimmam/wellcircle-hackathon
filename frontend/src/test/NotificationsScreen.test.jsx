@@ -34,6 +34,7 @@ function renderScreen() {
     <Routes>
       <Route path="/notifications" element={<NotificationsScreen />} />
       <Route path="/community/abc" element={<div>Community Detail Page</div>} />
+      <Route path="/post/:id" element={<div>Post Detail Page</div>} />
     </Routes>,
     { route: '/notifications' }
   );
@@ -43,6 +44,7 @@ function renderScreen() {
 // never wait on the network to update the UI.
 describe('NotificationsScreen — optimistic mark read', () => {
   beforeEach(() => {
+    NOTIFS.splice(2);
     markReadSpy.mockClear();
     markAllSpy.mockClear();
   });
@@ -57,6 +59,15 @@ describe('NotificationsScreen — optimistic mark read', () => {
     // happened, which is only possible if the click handler didn't await it.
     expect(markReadSpy).toHaveBeenCalledWith('n1');
     expect(await screen.findByText('Community Detail Page')).toBeInTheDocument();
+  });
+
+  it('opens the exact post from a follower notification', async () => {
+    NOTIFS.push({ id: 'n3', title: 'Your follower posted', body: 'Morning run', type: 'follower_post',
+      is_read: false, created_at: new Date().toISOString(), action_url: '/post/post-123' });
+    renderScreen();
+    fireEvent.click(await screen.findByLabelText('Your follower posted'));
+    expect(markReadSpy).toHaveBeenCalledWith('n3');
+    expect(await screen.findByText('Post Detail Page')).toBeInTheDocument();
   });
 
   it('a second tap on an already-read notification does not re-fire the read request', async () => {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getPosts, createPost, reactToPost, commentOnPost, getCircleLeaderboard, getLeaderboard } from '../api/client';
+import { getPosts, createPost, reactToPost, commentOnPost, repostPost, getCircleLeaderboard, getLeaderboard } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import useOptimisticAction from '../hooks/useOptimisticAction';
 
@@ -442,10 +442,23 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                 <button
                   className="btn btn-secondary post-reaction-btn"
                   onClick={() => sharePostCard(post)}
-                  title="Share post card"
+                  title="Share post link"
                   aria-label="Share post"
                 >
                   <Icon name="share" size={13} /> Share
+                </button>
+                <button className="btn btn-secondary post-reaction-btn" aria-label="Repost"
+                  disabled={post.user?.id === user?.id}
+                  onClick={async () => {
+                    try {
+                      const result = await repostPost(post.id);
+                      showToast('Reposted to your feed', 'success');
+                      navigate(`/post/${result.id}`);
+                    } catch (err) {
+                      showToast(err.message || 'Could not repost', 'error');
+                    }
+                  }}>
+                  <Icon name="repeat" size={13} /> Repost
                 </button>
               </div>
 

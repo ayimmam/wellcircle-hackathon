@@ -45,6 +45,7 @@ const BookingFlow = lazy(() => import('./pages/BookingFlow'));
 const EventRsvp = lazy(() => import('./pages/EventRsvp'));
 const ProfileScreen = lazy(importProfile);
 const PublicProfile = lazy(() => import('./pages/PublicProfile'));
+const PostDetail = lazy(() => import('./pages/PostDetail'));
 const FollowersList = lazy(() => import('./pages/FollowersList'));
 const TrainerVerification = lazy(() => import('./pages/TrainerVerification'));
 const ProviderDashboard = lazy(() => import('./pages/ProviderDashboard'));
@@ -166,6 +167,7 @@ export function AppShell() {
               <Route path="/booking/:providerId" element={<BookingFlow />} />
               <Route path="/event/:eventId/rsvp" element={<EventRsvp />} />
               <Route path="/users/:id" element={<PublicProfile />} />
+              <Route path="/post/:id" element={<PostDetail />} />
               <Route path="/users/:id/followers" element={<FollowersList />} />
               <Route path="/users/:id/following" element={<FollowersList />} />
 

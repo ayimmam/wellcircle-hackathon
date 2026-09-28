@@ -58,7 +58,8 @@ export function AuthProvider({ children }) {
     if (!res.user.is_onboarded) {
       navigate('/onboarding', { replace: true });
     } else {
-      navigate('/home', { replace: true });
+      const postRedirect = sessionStorage.getItem('wc_post_redirect');
+      navigate(postRedirect || '/home', { replace: true });
     }
   }, [navigate]);
 

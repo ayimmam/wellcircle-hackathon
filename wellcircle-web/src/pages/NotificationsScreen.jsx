@@ -27,20 +27,14 @@ export default function NotificationsScreen() {
     }
   };
 
-  const handleMarkRead = async (id, actionUrl) => {
-    try {
-      const notif = notifications.find(n => n.id === id);
-      if (!notif) return;
-      if (!notif.is_read) {
-        await markNotificationRead(id);
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-      }
-      if (actionUrl) {
-        navigate(actionUrl);
-      }
-    } catch (err) {
-      console.error(err);
+  const handleMarkRead = (id, actionUrl) => {
+    const notif = notifications.find(n => n.id === id);
+    if (!notif) return;
+    if (!notif.is_read) {
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      markNotificationRead(id).catch(console.error);
     }
+    if (actionUrl) navigate(actionUrl);
   };
 
   const handleMarkAllRead = async () => {

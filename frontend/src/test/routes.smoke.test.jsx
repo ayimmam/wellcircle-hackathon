@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AppShell } from '../App';
 import { ThemeProvider } from '../context/ThemeContext';
-import { MOCK_PROVIDERS, MOCK_COMMUNITIES, MOCK_CIRCLES, MOCK_PRODUCTS, MOCK_PUBLIC_USERS, MOCK_EVENTS } from '../data/mock';
+import { MOCK_PROVIDERS, MOCK_COMMUNITIES, MOCK_CIRCLES, MOCK_PRODUCTS, MOCK_PUBLIC_USERS, MOCK_EVENTS, MOCK_POSTS } from '../data/mock';
 import '../i18n';
 
 // Render every reachable screen with a logged-in super admin so guards pass and
@@ -58,6 +58,7 @@ const ROUTES = [
   ['QR visit landing (tagged)', '/visit?src=boston-day-spa'],
   ['Trainer verification', '/trainer/verify'],
   ['Public profile', `/users/${MOCK_PUBLIC_USERS[0].id}`],
+  ['Post detail', `/post/${MOCK_POSTS[0].id}`],
   ['Followers', `/users/${MOCK_PUBLIC_USERS[0].id}/followers`],
   ['Following', `/users/${MOCK_PUBLIC_USERS[0].id}/following`],
   ['Provider detail', `/provider/${providerId}`],

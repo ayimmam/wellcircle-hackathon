@@ -66,11 +66,14 @@ from app.database import Base
 from app.models.user import User
 from app.models.follower import Follower
 from app.models.post import Post, Reaction, PostComment
+from app.models.circle import Circle
 from app.models.user_notification import UserNotification
 from app.crud.post import (
-    create_post, toggle_reaction, react_to_post, create_comment, share_post,
+    create_post, get_post, toggle_reaction, react_to_post, create_comment, share_post,
 )
 from app.api.bot import PUSH_WORTHY_TYPES
+from app.api.posts import api_repost_post
+from fastapi import HTTPException
 
 engine = create_engine("sqlite:///:memory:", echo=False)
 Base.metadata.create_all(bind=engine)
@@ -108,6 +111,8 @@ def test_post_notifications():
         assert len(bob_notifs) == 1
         assert "Alice" in bob_notifs[0].title
         assert bob_notifs[0].actor_user_id == alice.id
+        assert bob_notifs[0].action_url == f"/post/{post.id}"
+        assert get_post(db, post.id, bob.id)["content"] == post.content
 
         charlie_notifs = db.query(UserNotification).filter(
             UserNotification.user_id == charlie.id,
@@ -138,6 +143,7 @@ def test_post_notifications():
         assert len(alice_like_notifs) == 1
         assert "Bob" in alice_like_notifs[0].title
         assert alice_like_notifs[0].actor_user_id == bob.id
+        assert alice_like_notifs[0].action_url == f"/post/{post.id}"
 
         # Alice self-reacts -> no self notification
         toggle_reaction(db, post.id, alice.id, "💪")
@@ -156,6 +162,7 @@ def test_post_notifications():
         ).all()
         assert len(alice_comment_notifs) == 1
         assert "Bob" in alice_comment_notifs[0].title
+        assert alice_comment_notifs[0].action_url == f"/post/{post.id}"
 
         # Charlie replies to Bob's comment
         create_comment(db, post.id, charlie.id, "Crushing it!", parent_comment_id=c1.id)
@@ -183,6 +190,7 @@ def test_post_notifications():
         assert len(alice_share_notifs) == 1
         assert "David" in alice_share_notifs[0].title
         assert alice_share_notifs[0].actor_user_id == david.id
+        assert alice_share_notifs[0].action_url == f"/post/{post.id}"
 
         # Alice self-share -> no self notification
         share_post(db, post.id, alice.id)
@@ -191,6 +199,23 @@ def test_post_notifications():
             UserNotification.type == "post_shared",
         ).all()
         assert len(alice_share_notifs_after) == 1
+
+        repost_result = api_repost_post(post.id, user=david, db=db)
+        repost = db.query(Post).filter(Post.id == repost_result["id"]).one()
+        assert repost.user_id == david.id
+        assert "Reposted from Alice" in repost.content
+        assert f"https://app.wellcircle.et/post/{post.id}" in repost.content
+        assert get_post(db, repost.id, david.id)["content"] == repost.content
+
+        private_circle = Circle(owner_id=alice.id, name="Private runners", is_private=True)
+        db.add(private_circle)
+        db.commit()
+        private_post = create_post(db, user_id=alice.id, circle_id=private_circle.id, content="Members only")
+        try:
+            get_post(db, private_post.id, david.id)
+            assert False, "private post should require membership"
+        except HTTPException as exc:
+            assert exc.status_code == 403
 
         # 5. Push-worthy types
         assert "post_liked" in PUSH_WORTHY_TYPES

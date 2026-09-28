@@ -90,7 +90,7 @@ def _notify_circle_of_new_post(db: Session, post: Post) -> None:
                 type="circle_activity",
                 title=f"{author_name} shared an activity in {circle.name}",
                 body=preview,
-                action_url=f"/circle/{post.circle_id}",
+                action_url=f"/post/{post.id}",
                 is_read=False,
             )
             for member_id in member_ids
@@ -127,7 +127,7 @@ def _notify_followers_of_new_post(db: Session, post: Post) -> None:
         else:
             preview = (post.content or "")[:140]
 
-        action_url = f"/circle/{post.circle_id}" if post.circle_id else "/"
+        action_url = f"/post/{post.id}"
         notifications = [
             UserNotification(
                 user_id=fid,
@@ -266,6 +266,29 @@ def get_posts(db: Session, community_id: Optional[UUID] = None,
     return _assemble_posts(db, posts_data, include_comments=True, viewer_id=viewer_id)
 
 
+def get_post(db: Session, post_id: UUID, viewer_id: UUID) -> dict:
+    row = db.query(Post, User).join(User, Post.user_id == User.id).filter(Post.id == post_id).first()
+    if not row or row[0].is_system_event:
+        raise HTTPException(status_code=404, detail="Post not found")
+    post = row[0]
+    if post.circle_id:
+        from app.crud.circle_subscription import has_circle_access
+        circle = db.query(Circle).filter(Circle.id == post.circle_id, Circle.deleted_at.is_(None)).first()
+        if not circle or (circle.is_private and not db.query(CircleMember).filter(
+            CircleMember.circle_id == circle.id, CircleMember.user_id == viewer_id
+        ).first()) or (circle.is_paid and not has_circle_access(db, circle.id, viewer_id)):
+            raise HTTPException(status_code=403, detail="Circle access required")
+    item = _assemble_posts(db, [row], include_comments=True, viewer_id=viewer_id)[0]
+    if post.circle_id:
+        item["source"] = {"kind": "circle", "id": post.circle_id, "name": circle.name}
+    elif post.community_id:
+        community = db.query(Community).filter(Community.id == post.community_id).first()
+        item["source"] = {"kind": "community", "id": post.community_id, "name": community.name if community else None}
+    else:
+        item["source"] = None
+    return item
+
+
 def get_public_feed_posts(db: Session, limit: int = 10, before: Optional[datetime] = None,
                           viewer_id: Optional[UUID] = None) -> List[dict]:
     """For You feed source: standalone posts, posts from public/free circles,
@@ -399,7 +422,7 @@ def react_to_post(db: Session, post_id: UUID, user_id: UUID, emoji: str, points_
                 type="post_liked",
                 title=f"{actor_name} reacted to your post",
                 body=(post.content or "")[:100],
-                action_url=f"/circle/{post.circle_id}" if post.circle_id else "/",
+                action_url=f"/post/{post.id}",
                 actor_user_id=user_id,
             ))
             db.commit()
@@ -451,7 +474,7 @@ def toggle_reaction(db: Session, post_id: UUID, user_id: UUID, emoji: str) -> di
                 type="post_liked",
                 title=f"{actor_name} reacted to your post",
                 body=(post.content or "")[:100],
-                action_url=f"/circle/{post.circle_id}" if post.circle_id else "/",
+                action_url=f"/post/{post.id}",
                 actor_user_id=user_id,
             ))
             db.commit()
@@ -506,7 +529,7 @@ def create_comment(
                 type="post_comment",
                 title=f"{actor_name} commented on your post",
                 body=content[:100],
-                action_url=f"/circle/{post.circle_id}" if post.circle_id else "/",
+                action_url=f"/post/{post.id}",
                 actor_user_id=user_id,
             ))
             db.commit()
@@ -524,7 +547,7 @@ def create_comment(
                 type="post_comment",
                 title=f"{actor_name} replied to your comment",
                 body=content[:100],
-                action_url=f"/circle/{post.circle_id}" if post.circle_id else "/",
+                action_url=f"/post/{post.id}",
                 actor_user_id=user_id,
             ))
             db.commit()
@@ -550,7 +573,7 @@ def share_post(db: Session, post_id: UUID, user_id: UUID) -> dict:
                 type="post_shared",
                 title=f"{actor_name} shared your post",
                 body=(post.content or "")[:100],
-                action_url=f"/circle/{post.circle_id}" if post.circle_id else "/",
+                action_url=f"/post/{post.id}",
                 actor_user_id=user_id,
             ))
             db.commit()

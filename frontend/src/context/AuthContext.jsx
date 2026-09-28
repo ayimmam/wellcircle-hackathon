@@ -139,6 +139,11 @@ export function AuthProvider({ children }) {
     const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
     if (!startParam) return;
 
+    if (/^post_[0-9a-f-]{36}$/i.test(startParam)) {
+      navigate(`/post/${startParam.slice(5)}`);
+      return;
+    }
+
     if (startParam.startsWith('reentry')) {
       const providerId = startParam.startsWith('reentry_promo_')
         ? startParam.slice('reentry_promo_'.length)

@@ -59,6 +59,7 @@ beforeEach(() => {
 afterEach(() => {
   delete navigator.share;
   delete navigator.canShare;
+  delete window.Telegram;
 });
 
 const mockPostItem = {
@@ -99,7 +100,7 @@ describe('FeedPostCard & Branded Post Sharing', () => {
     expect(drawnText.some(t => t.includes('@WellCircleBot') || t.includes('@wellcirclebot'))).toBe(true);
   });
 
-  it('calls sharePost API and Web Share API when user clicks share button', async () => {
+  it('opens the native share sheet with a direct web post link', async () => {
     vi.spyOn(clientApi, 'sharePost').mockResolvedValue({ message: 'Success' });
     navigator.share = vi.fn().mockResolvedValue(undefined);
     navigator.canShare = vi.fn(() => true);
@@ -109,19 +110,49 @@ describe('FeedPostCard & Branded Post Sharing', () => {
     fireEvent.click(shareBtn);
 
     await waitFor(() => {
-      expect(navigator.share).toHaveBeenCalled();
+      expect(navigator.share).toHaveBeenCalledWith(expect.objectContaining({
+        url: 'https://app.wellcircle.et/post/post-101',
+      }));
+      expect(clientApi.sharePost).toHaveBeenCalledWith('post-101');
     });
   });
 
-  it('falls back to download and clipboard copy when Web Share API is unavailable', async () => {
+  it('copies the direct post link when native sharing is unavailable', async () => {
     renderWithProviders(<FeedPostCard item={mockPostItem} />);
     const shareBtn = screen.getByRole('button', { name: /share post/i });
     fireEvent.click(shareBtn);
 
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-        expect.stringContaining('https://t.me/WellCircleBot?startapp=post_post-101')
+        'https://app.wellcircle.et/post/post-101'
       );
     });
+  });
+
+  it('opens Telegram recipient sharing from the Mini App when native sharing is unavailable', async () => {
+    const openTelegramLink = vi.fn();
+    window.Telegram = { WebApp: { openTelegramLink, expand: vi.fn(), ready: vi.fn(), initDataUnsafe: {} } };
+    renderWithProviders(<FeedPostCard item={mockPostItem} />);
+    fireEvent.click(screen.getByRole('button', { name: /share post/i }));
+    await waitFor(() => expect(openTelegramLink).toHaveBeenCalledWith(
+      expect.stringContaining('https://t.me/share/url?url=https%3A%2F%2Fapp.wellcircle.et%2Fpost%2Fpost-101')
+    ));
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
+  });
+
+  it('does not record a share when the native sheet is cancelled', async () => {
+    vi.spyOn(clientApi, 'sharePost').mockResolvedValue({});
+    navigator.share = vi.fn().mockRejectedValue(Object.assign(new Error('cancelled'), { name: 'AbortError' }));
+    renderWithProviders(<FeedPostCard item={mockPostItem} />);
+    fireEvent.click(screen.getByRole('button', { name: /share post/i }));
+    await waitFor(() => expect(navigator.share).toHaveBeenCalled());
+    expect(clientApi.sharePost).not.toHaveBeenCalled();
+  });
+
+  it('reposts to the feed and opens the new post', async () => {
+    vi.spyOn(clientApi, 'repostPost').mockResolvedValue({ id: 'new-post' });
+    renderWithProviders(<FeedPostCard item={mockPostItem} />);
+    fireEvent.click(screen.getByRole('button', { name: /repost/i }));
+    await waitFor(() => expect(clientApi.repostPost).toHaveBeenCalledWith('post-101'));
   });
 });

@@ -1219,6 +1219,20 @@ comments nested one level deep (`replies` on each top-level comment).
 }
 ```
 
+### `GET /api/posts/{post_id}`
+Returns one full post with its comments, reactions, and `source` for the
+`/post/{post_id}` detail route. Requires authentication. Private and paid
+circle posts require circle access; missing posts return `404`.
+
+### `POST /api/posts/{post_id}/repost`
+Publishes an attributed copy to the current user's standalone feed and returns
+`{ "id": "new-post-id", "original_post_id": "post-id", "message": "Post reposted" }`.
+The copy includes a link to the original post. Reposting your own post returns
+`400`; private and paid circle posts return `403`.
+
+Post activity notifications (`follower_post`, `circle_activity`, `post_liked`,
+`post_comment`, and `post_shared`) use `/post/{post_id}` as their `action_url`.
+
 ### `POST /api/posts/{post_id}/comments`
 `parent_comment_id` (optional) makes this a reply. Replies are **one level
 deep only** — replying to a comment that already has a `parent_comment_id`

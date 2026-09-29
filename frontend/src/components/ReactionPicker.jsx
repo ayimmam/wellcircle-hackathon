@@ -70,7 +70,7 @@ export default function ReactionPicker({
     <div style={{ position: 'relative', display: 'inline-flex' }}>
       <button
         type="button"
-        className={`post-action-btn ${hasLiked ? 'active' : ''}`}
+        className={`post-action-btn post-action-btn-square ${hasLiked ? 'active' : ''}`}
         onPointerDown={startLongPress}
         onPointerUp={endLongPress}
         onPointerLeave={() => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } }}

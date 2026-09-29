@@ -253,13 +253,13 @@ export default function FeedPostCard({ item, priority = false, onRetry, onDiscar
           disabled={sharing}
           id={`feed-post-share-${item.id}`}
           aria-label="Share post"
-          title="Share post link"
+          title="Share post image to Instagram or another app"
         >
           {sharing ? <span className="btn-spinner" style={{ width: 14, height: 14 }} aria-hidden="true" /> : <Icon name="share" size={18} strokeWidth={1.5} />}
         </button>
-        <button type="button" className="post-action-btn" onClick={handleRepost}
+        <button type="button" className="post-action-btn post-action-btn-square" onClick={handleRepost}
           disabled={reposting || post.user?.id === user?.id} aria-label="Repost" title="Repost to your feed">
-          <Icon name="repeat" size={18} strokeWidth={1.5} /> {reposting ? 'Reposting…' : 'Repost'}
+          {reposting ? <span className="btn-spinner" style={{ width: 14, height: 14 }} aria-hidden="true" /> : <Icon name="repeat" size={18} strokeWidth={1.5} />}
         </button>
       </div>
 

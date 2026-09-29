@@ -45,6 +45,7 @@ beforeEach(() => {
   installCanvasSpy();
   global.URL.createObjectURL = vi.fn(() => 'blob:mock-post-card');
   global.URL.revokeObjectURL = vi.fn();
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
   if (navigator.clipboard) {
     vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
   } else {
@@ -89,18 +90,22 @@ describe('FeedPostCard & Branded Post Sharing', () => {
     renderWithProviders(<FeedPostCard item={mockPostItem} />);
     const shareBtn = screen.getByRole('button', { name: /share post/i });
     expect(shareBtn).toBeInTheDocument();
+    const repostBtn = screen.getByRole('button', { name: /repost/i });
+    expect(repostBtn).toHaveClass('post-action-btn-square');
+    expect(repostBtn).toHaveTextContent('');
   });
 
-  it('generates a branded post card canvas containing author and @wellcirclebot watermark', async () => {
+  it('puts author credit and the bot post link on the shared image', async () => {
     const blob = await generatePostCardBlob(mockPostItem.post);
     expect(blob).toBeTruthy();
     expect(drawnText).toContain('WELL CIRCLE');
     expect(drawnText).toContain('Sarah Runner');
     expect(drawnText).toContain('@sarah_runs');
     expect(drawnText.some(t => t.includes('@WellCircleBot') || t.includes('@wellcirclebot'))).toBe(true);
+    expect(drawnText).toContain('https://t.me/WellCircleBot?startapp=post_post-101');
   });
 
-  it('opens the native share sheet with a direct web post link', async () => {
+  it('opens the native share sheet with the post image and bot link', async () => {
     vi.spyOn(clientApi, 'sharePost').mockResolvedValue({ message: 'Success' });
     navigator.share = vi.fn().mockResolvedValue(undefined);
     navigator.canShare = vi.fn(() => true);
@@ -111,38 +116,51 @@ describe('FeedPostCard & Branded Post Sharing', () => {
 
     await waitFor(() => {
       expect(navigator.share).toHaveBeenCalledWith(expect.objectContaining({
-        url: 'https://app.wellcircle.et/post/post-101',
+        files: [expect.objectContaining({ name: 'wellcircle-post-post-101.png', type: 'image/png' })],
+        text: expect.stringContaining('https://t.me/WellCircleBot?startapp=post_post-101'),
       }));
+      expect(navigator.canShare).toHaveBeenCalledWith({ files: [expect.any(File)] });
       expect(clientApi.sharePost).toHaveBeenCalledWith('post-101');
     });
   });
 
-  it('copies the direct post link when native sharing is unavailable', async () => {
+  it('downloads the image and copies the bot link when file sharing is unavailable', async () => {
     renderWithProviders(<FeedPostCard item={mockPostItem} />);
     const shareBtn = screen.getByRole('button', { name: /share post/i });
     fireEvent.click(shareBtn);
 
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-        'https://app.wellcircle.et/post/post-101'
+        'https://t.me/WellCircleBot?startapp=post_post-101'
       );
+      expect(HTMLAnchorElement.prototype.click).toHaveBeenCalled();
+      expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
     });
   });
 
-  it('opens Telegram recipient sharing from the Mini App when native sharing is unavailable', async () => {
+  it('saves the image in Telegram when its WebView cannot share files', async () => {
     const openTelegramLink = vi.fn();
     window.Telegram = { WebApp: { openTelegramLink, expand: vi.fn(), ready: vi.fn(), initDataUnsafe: {} } };
     renderWithProviders(<FeedPostCard item={mockPostItem} />);
     fireEvent.click(screen.getByRole('button', { name: /share post/i }));
-    await waitFor(() => expect(openTelegramLink).toHaveBeenCalledWith(
-      expect.stringContaining('https://t.me/share/url?url=https%3A%2F%2Fapp.wellcircle.et%2Fpost%2Fpost-101')
-    ));
-    expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
+    await waitFor(() => expect(HTMLAnchorElement.prototype.click).toHaveBeenCalled());
+    expect(openTelegramLink).not.toHaveBeenCalled();
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://t.me/WellCircleBot?startapp=post_post-101');
+  });
+
+  it('saves the image if a WebView rejects file sharing', async () => {
+    navigator.share = vi.fn().mockRejectedValue(new TypeError('files unsupported'));
+    navigator.canShare = vi.fn(() => true);
+    renderWithProviders(<FeedPostCard item={mockPostItem} />);
+    fireEvent.click(screen.getByRole('button', { name: /share post/i }));
+    await waitFor(() => expect(HTMLAnchorElement.prototype.click).toHaveBeenCalled());
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://t.me/WellCircleBot?startapp=post_post-101');
   });
 
   it('does not record a share when the native sheet is cancelled', async () => {
     vi.spyOn(clientApi, 'sharePost').mockResolvedValue({});
     navigator.share = vi.fn().mockRejectedValue(Object.assign(new Error('cancelled'), { name: 'AbortError' }));
+    navigator.canShare = vi.fn(() => true);
     renderWithProviders(<FeedPostCard item={mockPostItem} />);
     fireEvent.click(screen.getByRole('button', { name: /share post/i }));
     await waitFor(() => expect(navigator.share).toHaveBeenCalled());

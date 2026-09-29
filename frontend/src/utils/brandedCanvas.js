@@ -218,7 +218,7 @@ function wrapText(ctx, text, maxWidth) {
 
 /**
  * Generate a high-quality branded post card image on a canvas.
- * Includes author info, content, activity stats, attached photo, and @wellcirclebot watermark.
+ * Includes author info, content, activity stats, attached photo, and a bot deep link.
  */
 export async function generatePostCardBlob(post, { width = 1080, height = 1350 } = {}) {
   const canvas = document.createElement('canvas');
@@ -372,7 +372,7 @@ export async function generatePostCardBlob(post, { width = 1080, height = 1350 }
   if (post?.photo_url) {
     try {
       const postImg = await loadImage(post.photo_url, 800);
-      const maxPhotoH = height - curY - cardPad - 160;
+      const maxPhotoH = height - curY - cardPad - 205;
       if (maxPhotoH > 150) {
         const photoW = cardW - 72;
         const photoH = Math.min(maxPhotoH, 440);
@@ -395,56 +395,66 @@ export async function generatePostCardBlob(post, { width = 1080, height = 1350 }
   }
 
   // Watermark Footer at bottom of card
-  const footerY = height - cardPad - 90;
+  const footerY = height - cardPad - 130;
   ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-  drawRoundedRect(ctx, cardPad + 36, footerY, cardW - 72, 64, 20);
+  drawRoundedRect(ctx, cardPad + 36, footerY, cardW - 72, 104, 20);
   ctx.fill();
 
   ctx.textAlign = 'center';
   ctx.fillStyle = '#93C5FD';
-  ctx.font = '600 26px system-ui, -apple-system, sans-serif';
-  ctx.fillText(`@${BOT_USERNAME} on Telegram`, width / 2, footerY + 41);
+  ctx.font = '600 25px system-ui, -apple-system, sans-serif';
+  ctx.fillText(`@${BOT_USERNAME} on Telegram`, width / 2, footerY + 38);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '500 22px system-ui, -apple-system, sans-serif';
+  ctx.fillText(`${DEEP_LINK_BASE}?startapp=post_${post.id}`, width / 2, footerY + 76, cardW - 110);
 
   return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
 }
 
 /**
- * Share a direct post link outside the Mini App.
+ * Share a branded image card through the device's share sheet.
  */
 export async function sharePostCard(post) {
   try {
     if (!post?.id) return;
-    const postUrl = `${import.meta.env.VITE_WEB_APP_URL || 'https://app.wellcircle.et'}/post/${encodeURIComponent(post.id)}`;
+    const botLink = `${DEEP_LINK_BASE}?startapp=post_${encodeURIComponent(post.id)}`;
     const authorName = post?.user?.name || 'Someone';
-    const shareText = `Check out this post by ${authorName} on Well Circle`;
+    const shareText = `Check out this post by ${authorName} on Well Circle: ${botLink}`;
+    const blob = await generatePostCardBlob(post);
+    if (!blob) {
+      showToast('Could not create post image', 'error');
+      return;
+    }
+    const file = new File([blob], `wellcircle-post-${post.id}.png`, { type: 'image/png' });
 
-    // A URL can be sent to any app, and the recipient lands on the actual post.
-    if (navigator.share) {
+    // The OS presents compatible apps, including Instagram when installed.
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
-        await navigator.share({ title: 'Well Circle Post', text: shareText, url: postUrl });
+        await navigator.share({ files: [file], title: 'Well Circle Post', text: shareText });
         const { sharePost } = await import('../api/client');
         sharePost(post.id).catch(() => {});
-        track('post_card_shared', { postId: post?.id, method: 'web_share' });
+        track('post_card_shared', { postId: post.id, method: 'image_share' });
         showToast('Post shared!', 'success');
         return;
       } catch (err) {
         if (err?.name === 'AbortError') return;
-        // Some WebViews expose share() but reject URLs. Use Telegram below.
+        // Some Telegram WebViews advertise file sharing but reject it.
       }
     }
 
-    // Telegram's share URL opens a recipient picker outside the Mini App.
-    const tg = window.Telegram?.WebApp;
-    if (tg?.openTelegramLink) {
-      tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(postUrl)}&text=${encodeURIComponent(shareText)}`);
-      track('post_card_shared', { postId: post?.id, method: 'telegram_share' });
-      showToast('Opening Telegram share...', 'success');
-      return;
+    const imageUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = imageUrl;
+    anchor.download = file.name;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(imageUrl), 1000);
+    try {
+      await navigator.clipboard?.writeText(botLink);
+      showToast('Post image saved; bot link copied for Instagram', 'success');
+    } catch {
+      showToast('Post image saved for Instagram', 'success');
     }
-
-    await navigator.clipboard.writeText(postUrl);
-    showToast('Post link copied!', 'success');
-    track('post_card_shared', { postId: post?.id, method: 'copy_link' });
+    track('post_card_shared', { postId: post.id, method: 'image_download' });
   } catch (err) {
     if (err?.name !== 'AbortError') {
       showToast('Could not share post', 'error');

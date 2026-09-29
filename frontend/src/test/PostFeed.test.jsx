@@ -33,6 +33,15 @@ describe('PostFeed — Strava-style activity', () => {
     giftButtons.forEach(btn => expect(btn.querySelector('svg.icon')).toBeTruthy());
   });
 
+  it('shows a square icon-only repost button beside post reactions', async () => {
+    renderWithProviders(<PostFeed circleId={CIRCLE_ID} />);
+    const runPost = (await screen.findByText(/just finished a 5k run/i)).closest('.post-card');
+    const repost = within(runPost).getByRole('button', { name: 'Repost' });
+    expect(repost).toHaveClass('post-repost-btn');
+    expect(repost).toHaveTextContent('');
+    expect(repost.querySelector('svg.icon')).toBeTruthy();
+  });
+
   it('pre-fills the composer with a join-intro draft and consumes it once', async () => {
     const onDraftConsumed = vi.fn();
     renderWithProviders(

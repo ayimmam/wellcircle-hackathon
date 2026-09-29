@@ -3520,6 +3520,24 @@ body.in-telegram #detail-back-btn {
 }
 .post-action-btn.active { color: #ff4d6a; }
 .post-action-btn.active svg { fill: #ff4d6a; stroke: #ff4d6a; }
+.post-action-btn-square {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.post-repost-btn {
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+}
 
 /* WS15: reaction picker (long-press) */
 .reaction-picker-overlay {

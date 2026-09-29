@@ -442,12 +442,12 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                 <button
                   className="btn btn-secondary post-reaction-btn"
                   onClick={() => sharePostCard(post)}
-                  title="Share post link"
+                  title="Share post image to Instagram or another app"
                   aria-label="Share post"
                 >
                   <Icon name="share" size={13} /> Share
                 </button>
-                <button className="btn btn-secondary post-reaction-btn" aria-label="Repost"
+                <button className="btn btn-secondary post-reaction-btn post-repost-btn" aria-label="Repost" title="Repost to your feed"
                   disabled={post.user?.id === user?.id}
                   onClick={async () => {
                     try {
@@ -458,7 +458,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
                       showToast(err.message || 'Could not repost', 'error');
                     }
                   }}>
-                  <Icon name="repeat" size={13} /> Repost
+                  <Icon name="repeat" size={13} />
                 </button>
               </div>
 

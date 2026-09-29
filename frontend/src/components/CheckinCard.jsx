@@ -18,11 +18,11 @@ export default function CheckinCard({ circles, onChecked }) {
   const [shareMilestone, setShareMilestone] = useState(null);
   const checkin = useCheckin('home', setShareMilestone);
   const runOptimistic = useOptimisticAction();
-  const [checkedIds, setCheckedIds] = useState(() =>
-    new Set((circles || []).filter(c => c.checked_in_today).map(c => c.id))
-  );
+  const [checkedIds, setCheckedIds] = useState(() => new Set());
 
-  const list = (circles || []).slice(0, 3);
+  const isChecked = (circle) => circle.checked_in_today || checkedIds.has(circle.id);
+  // Keep the card compact, but always show circles that still need a check-in.
+  const list = [...(circles || [])].sort((a, b) => Number(isChecked(a)) - Number(isChecked(b))).slice(0, 3);
   const streak = user?.current_streak || 0;
 
   useEffect(() => {
@@ -37,13 +37,13 @@ export default function CheckinCard({ circles, onChecked }) {
 
   if (list.length === 0) return shareCard || null;
 
-  // Once every listed circle is checked in (including ones that arrived
+  // Once every joined circle is checked in (including ones that arrived
   // already checked_in_today), the card has nothing left to prompt — unmount
   // it. The toast for the last check-in is rendered by the global
   // ToastContainer, not inside this card, so it survives the unmount. The
   // milestone ShareCard (if any) still needs to render even though the
   // check-in prompt itself is gone.
-  const allDone = list.every(c => checkedIds.has(c.id));
+  const allDone = (circles || []).every(isChecked);
   if (allDone) return shareCard || null;
 
   // Optimistic: the button flips to "Checked in" the instant it's tapped —
@@ -78,7 +78,7 @@ export default function CheckinCard({ circles, onChecked }) {
       </div>
       <div className="flex-col gap-8">
         {list.map(c => {
-          const done = checkedIds.has(c.id);
+          const done = isChecked(c);
           return (
             <div key={c.id} className="flex items-center justify-between gap-8">
               <span style={{ fontSize: '0.82rem', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

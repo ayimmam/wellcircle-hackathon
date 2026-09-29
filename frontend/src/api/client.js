@@ -232,6 +232,7 @@ export const cacheKeys = {
   homeLite: () => keyOf('home', { lite: 1 }),
   trainer: () => 'trainer',
   strava: (userId) => keyOf('strava', { userId }),
+  wearables: () => 'wearables',
   subscriptionPlans: () => 'subscriptions',
 
   providers: (category, search) => keyOf('providers', { category, search }),
@@ -2272,6 +2273,25 @@ export async function reviewPaidCircleApplication(circleId, action, reason = nul
 export async function getStravaConnectUrl() {
   if (USE_MOCK) { await delay(); return { url: `${window.location.origin}/profile?strava=connected` }; }
   return request('GET', '/strava/connect');
+}
+
+let mockWearableConnected = false;
+
+export async function getWearableConnectUrl() {
+  if (USE_MOCK) {
+    await delay(150);
+    mockWearableConnected = true;
+    return { url: 'https://widget.tryterra.co/session/mock', expires_in: 900 };
+  }
+  return request('GET', '/wearables/connect');
+}
+
+export async function getWearableStatus() {
+  if (USE_MOCK) {
+    await delay(100);
+    return { connected: mockWearableConnected, providers: mockWearableConnected ? ['FITBIT'] : [], walk_score: MOCK_USER.walk_score || 0 };
+  }
+  return request('GET', '/wearables/status');
 }
 
 export async function disconnectStrava() {

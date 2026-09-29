@@ -10,6 +10,7 @@ import { changeProfilePhoto } from '../../api/client';
 import { compressImage, ImageTooLargeError } from '../../utils/imageCompress';
 import { showToast } from '../../components/Toast';
 import useDismissOnEscape from '../../hooks/useDismissOnEscape';
+import WalkScoreBadge from '../../components/WalkScoreBadge';
 
 const PHOTO_CHANGE_COST = 10;
 
@@ -122,6 +123,8 @@ export default function ProfileHeader({
       </div>
       <h1 className="profile-name">{user.name} {user.is_verified_trainer && <VerifiedBadge compact />}</h1>
       <p className="profile-handle">@{user.telegram_handle}</p>
+
+      <WalkScoreBadge score={user.walk_score} />
 
       {/* Tier progress arc replaces plain tier chip */}
       <TierProgressArc points={user.points_balance || 0} tier={tier} />

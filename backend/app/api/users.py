@@ -42,6 +42,7 @@ def _build_response(user: User, db: Session) -> UserResponse:
         interest_categories=user.interest_categories or [],
         exercise_frequency=user.exercise_frequency,
         points_balance=points_balance, tier=tier, tier_emoji=emoji,
+        walk_score=user.walk_score or 0,
         current_streak=user.current_streak or 0,
         freeze_count=user.freeze_count or 0,
         longest_streak=user.longest_streak or 0,

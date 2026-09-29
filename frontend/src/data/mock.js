@@ -16,6 +16,7 @@ export const MOCK_USER = {
   interest_categories: ['yoga', 'nutrition'],
   exercise_frequency: 'sometimes',
   points_balance: 120,
+  walk_score: 12840,
   tier: 'sprout',
   tier_emoji: '🌿',
   current_streak: 3,

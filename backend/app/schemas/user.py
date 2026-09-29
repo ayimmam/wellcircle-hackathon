@@ -124,6 +124,7 @@ class UserResponse(BaseModel):
     current_streak: int = 0
     freeze_count: int = 0
     longest_streak: int = 0
+    walk_score: int = 0
     is_onboarded: bool = False
     is_provider: bool = False
     is_super_admin: bool = False

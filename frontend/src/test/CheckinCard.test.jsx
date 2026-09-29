@@ -3,6 +3,7 @@ import { screen, fireEvent, waitFor } from '@testing-library/react';
 import CheckinCard from '../components/CheckinCard';
 import { renderWithProviders } from './renderWithProviders';
 import { track } from '../analytics';
+import { useState } from 'react';
 
 vi.mock('../analytics', () => ({
   initAnalytics: vi.fn(),
@@ -65,6 +66,30 @@ describe('CheckinCard (Home habit loop)', () => {
     const allChecked = CIRCLES.map(c => ({ ...c, checked_in_today: true }));
     renderWithProviders(<CheckinCard circles={allChecked} />);
     expect(document.getElementById('home-checkin-card')).toBeNull();
+  });
+
+  it('updates the prompt when a fresh response marks a community checked in', () => {
+    function Harness() {
+      const [circles, setCircles] = useState([{ id: 'c1', name: 'Lifestyle Fit Squad', checked_in_today: false }]);
+      return <>
+        <button onClick={() => setCircles([{ id: 'c1', name: 'Lifestyle Fit Squad', checked_in_today: true }])}>Refresh check-in</button>
+        <CheckinCard circles={circles} />
+      </>;
+    }
+    renderWithProviders(<Harness />);
+    expect(document.getElementById('home-checkin-card')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh check-in' }));
+    expect(document.getElementById('home-checkin-card')).toBeNull();
+  });
+
+  it('shows an unchecked community even when three earlier communities are done', () => {
+    const circles = [
+      ...CIRCLES.map(c => ({ ...c, checked_in_today: true })),
+      { id: 'c4', name: 'Morning Walkers', checked_in_today: false },
+    ];
+    renderWithProviders(<CheckinCard circles={circles} />);
+    expect(document.getElementById('home-checkin-c4')).toBeInTheDocument();
+    expect(document.getElementById('home-checkin-c4')).toBeEnabled();
   });
 
   it('disappears once the last remaining circle is checked in', async () => {

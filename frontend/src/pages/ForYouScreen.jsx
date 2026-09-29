@@ -3,8 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getHomeBootstrap, getHomeLite, getForYouFeed, deleteStory, markStoryViewed, createPost, uploadFile, cacheKeys } from '../api/client';
 import useResource from '../hooks/useResource';
+import { peek } from '../api/cache';
 import { logIssue } from '../utils/log';
-import useDailyReveal from '../hooks/useDailyReveal';
 import useStoryUpload from '../hooks/useStoryUpload';
 import { compressImage } from '../utils/imageCompress';
 import PointsBadge from '../components/PointsBadge';
@@ -48,11 +48,6 @@ export default function ForYouScreen() {
   const { t } = useTranslation();
   const [showPointsInfo, setShowPointsInfo] = useState(false);
   const justOnboarded = Boolean(location.state?.justOnboarded);
-  // The check-in card waits 2 minutes of foreground time before it appears,
-  // once per day (WS4) — it's a daily habit prompt, not the first thing a
-  // reopened app should nag about.
-  const showCheckin = useDailyReveal('checkin');
-
   // "Never show a new user a zero" extended to sharing: everyone — brand new
   // or long-time — gets exactly one shareable "Day N on WellCircle" moment,
   // the first time this screen loads for them.
@@ -94,13 +89,22 @@ export default function ForYouScreen() {
     { onError: err => logIssue('home_bootstrap_failed', { message: err?.message }) },
   );
 
-  // Prefer the full payload wherever it has arrived; fall back to the lite one
-  // until it does. `home` is undefined (not an empty shape) before it lands,
-  // so these are genuine "has the data arrived" checks.
+  // Use the newest communities payload for the check-in prompt. A fresh lite
+  // response can arrive while an older full bootstrap is still on screen.
+  const homeCache = peek(cacheKeys.home());
+  const liteCache = peek(cacheKeys.homeLite());
+  const useLiteCommunities = Boolean(lite?.communities) &&
+    (!home?.communities || (liteCache?.ts || 0) > (homeCache?.ts || 0));
+  const communitiesForCheckin = useLiteCommunities ? lite.communities : (home?.communities || []);
+  const checkinCacheTime = useLiteCommunities ? liteCache?.ts : homeCache?.ts;
+  // checked_in_today is a UTC-day flag. A cached response from yesterday must
+  // not hide today's button while the network refresh is in flight.
+  const checkedInFlagsCurrent = checkinCacheTime &&
+    new Date(checkinCacheTime).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10);
   const isJoined = (c) => c.user_joined || user?.joined_communities?.includes(c.id);
-  // lite's list is already joined-only; the filter is what makes the full
-  // list — which carries every circle — agree with it.
-  const joinedCircles = (home?.communities || lite?.communities || []).filter(isJoined);
+  const joinedCircles = communitiesForCheckin.filter(isJoined).map(c =>
+    checkedInFlagsCurrent ? c : { ...c, checked_in_today: false }
+  );
 
   // Stories ride in on both home payloads (see api/home.py) so the rail is
   // painted by the lite response, before any provider work has finished —
@@ -436,7 +440,7 @@ export default function ForYouScreen() {
 
       {user && <SocialProofBanner />}
 
-      {user && showCheckin && joinedCircles.length > 0 && (
+      {user && joinedCircles.length > 0 && (
         <CheckinCard
           key={joinedCircles.map(c => c.id).join(',')}
           circles={joinedCircles}

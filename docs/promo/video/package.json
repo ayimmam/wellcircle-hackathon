@@ -1,0 +1,17 @@
+{
+  "name": "wellcircle-promo-video",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.js",
+    "render": "remotion render src/index.js Booking out/booking.mp4 && remotion render src/index.js Community out/community.mp4",
+    "render:community": "remotion render src/index.js Community out/community.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.527",
+    "@remotion/google-fonts": "4.0.527",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.527"
+  }
+}

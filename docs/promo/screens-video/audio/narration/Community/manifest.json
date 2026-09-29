@@ -1,0 +1,37 @@
+{
+ "01-hook": {
+  "at": 4,
+  "seconds": 3.093,
+  "text": "Running alone? You skip, nobody notices, and you quit."
+ },
+ "02-find": {
+  "at": 124,
+  "seconds": 3.371,
+  "text": "On Well Circle you find your crew, like the Bertusew running club."
+ },
+ "03-join": {
+  "at": 262,
+  "seconds": 2.581,
+  "text": "Join the circle and save your spot for Sunday."
+ },
+ "04-points": {
+  "at": 346,
+  "seconds": 3.669,
+  "text": "Show up and check in, then post your run. Each one earns ten points."
+ },
+ "05-cheer": {
+  "at": 540,
+  "seconds": 3.285,
+  "text": "Cheer the crew on with reactions, comments and gifted points."
+ },
+ "06-spend": {
+  "at": 702,
+  "seconds": 2.24,
+  "text": "Then spend your points on a post-run massage."
+ },
+ "07-cta": {
+  "at": 846,
+  "seconds": 1.664,
+  "text": "Find your crew on Well Circle."
+ }
+}

@@ -1,0 +1,86 @@
+{
+ "08-booking-1-service-pre": [
+  0.5,
+  0.567
+ ],
+ "08-booking-1-service": [
+  0.5,
+  0.772
+ ],
+ "09-booking-2-datetime-pre": [
+  0.388,
+  0.282
+ ],
+ "09-booking-2-datetime-mid": [
+  0.187,
+  0.473
+ ],
+ "09-booking-2-datetime": [
+  0.5,
+  0.749
+ ],
+ "10-booking-3-confirm": [
+  0.5,
+  0.924
+ ],
+ "c01-search-pre": [
+  0.5,
+  0.234
+ ],
+ "c02-search-result": [
+  0.5,
+  0.518
+ ],
+ "c04-join-pre": [
+  0.797,
+  0.776
+ ],
+ "c06-checkin-pre": [
+  0.318,
+  0.207
+ ],
+ "c07-posts-pre": [
+  0.535,
+  0.338
+ ],
+ "c08-composer-pre": [
+  0.5,
+  0.425
+ ],
+ "c08-composer": [
+  0.212,
+  0.768
+ ],
+ "c10-react-pre": [
+  0.42,
+  0.5
+ ],
+ "c11-gift-pre": [
+  0.583,
+  0.5
+ ],
+ "c11-gift": [
+  0.5,
+  0.558
+ ],
+ "c13-comment-pre": [
+  0.233,
+  0.75
+ ],
+ "c13-comment": [
+  0.654,
+  0.753
+ ],
+ "c15-store": [
+  0.263,
+  0.5
+ ],
+ "c16-product": [
+  0.5,
+  0.738
+ ],
+ "c17-redeem": [
+  0.5,
+  0.3
+ ]
+}

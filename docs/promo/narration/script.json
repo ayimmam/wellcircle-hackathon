@@ -1,0 +1,24 @@
+{
+  "_help": "Narration per video. `at` = the frame (30fps) the line should start; a line never overlaps the one before it. Edit, then: python narration/narrate.py. Voices: af_heart, am_michael, bf_emma, bm_george.",
+  "voice": "af_heart",
+  "speed": 1.08,
+  "lang": "en-us",
+  "videos": {
+    "Booking": [
+      { "id": "01-hook", "at": 4, "text": "Booking a massage in Addis? Twelve DMs, one payment screenshot, and zero confirmation." },
+      { "id": "02-meet", "at": 150, "text": "Meet Well Circle, your wellness tribe inside Telegram." },
+      { "id": "03-taps", "at": 238, "text": "Pick a top studio, choose a service, pick a time, and send the request." },
+      { "id": "04-booked", "at": 415, "text": "Booked in three taps, and you pay at the studio." },
+      { "id": "05-cta", "at": 556, "text": "Open Well Circle in Telegram." }
+    ],
+    "Community": [
+      { "id": "01-hook", "at": 4, "text": "Running alone? You skip, nobody notices, and you quit." },
+      { "id": "02-find", "at": 124, "text": "On Well Circle you find your crew, like the Bertusew running club." },
+      { "id": "03-join", "at": 262, "text": "Join the circle and save your spot for Sunday." },
+      { "id": "04-points", "at": 346, "text": "Show up and check in, then post your run. Each one earns ten points." },
+      { "id": "05-cheer", "at": 540, "text": "Cheer the crew on with reactions, comments and gifted points." },
+      { "id": "06-spend", "at": 702, "text": "Then spend your points on a post-run massage." },
+      { "id": "07-cta", "at": 846, "text": "Find your crew on Well Circle." }
+    ]
+  }
+}

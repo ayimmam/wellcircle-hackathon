@@ -27,6 +27,7 @@ const CircleDetailScreen = lazy(() => import('./pages/CircleDetailScreen'));
 const BookingFlow = lazy(() => import('./pages/BookingFlow'));
 const ProfileScreen = lazy(() => import('./pages/ProfileScreen'));
 const PublicProfile = lazy(() => import('./pages/PublicProfile'));
+const PostDetail = lazy(() => import('./pages/PostDetail'));
 const FollowersList = lazy(() => import('./pages/FollowersList'));
 const TrainerVerification = lazy(() => import('./pages/TrainerVerification'));
 const ProviderDashboard = lazy(() => import('./pages/ProviderDashboard'));
@@ -105,6 +106,7 @@ export function AppShell() {
               <Route path="/circle/:id" element={<CircleDetailScreen />} />
               <Route path="/booking/:providerId" element={<BookingFlow />} />
               <Route path="/users/:id" element={<PublicProfile />} />
+              <Route path="/post/:id" element={<PostDetail />} />
               <Route path="/users/:id/followers" element={<FollowersList />} />
               <Route path="/users/:id/following" element={<FollowersList />} />
 

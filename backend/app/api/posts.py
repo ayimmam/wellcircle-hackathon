@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.crud.post import create_post, get_posts, react_to_post, toggle_reaction, VALID_REACTION_EMOJIS
+from app.crud.post import create_post, get_posts, get_post, react_to_post, toggle_reaction, VALID_REACTION_EMOJIS
 from app.services.points import POINTS_POST, POST_POINTS_DAILY_CAP, TXN_POST, award_capped
 
 router = APIRouter()
@@ -97,6 +97,31 @@ def api_get_posts(
     )
     return {"posts": posts}
 
+
+@router.get("/{post_id}")
+def api_get_post(post_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return get_post(db, post_id, user.id)
+
+
+@router.post("/{post_id}/repost")
+def api_repost_post(post_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    original = get_post(db, post_id, user.id)
+    if original["user"]["id"] == user.id:
+        raise HTTPException(status_code=400, detail="You cannot repost your own post")
+    # Circle-only content must stay in its circle. The repost keeps a durable
+    # reference to the original, so readers can open the full post.
+    if original["source"] and original["source"]["kind"] == "circle":
+        from app.models.circle import Circle
+        circle = db.query(Circle).filter(Circle.id == original["source"]["id"]).first()
+        if circle.is_private or circle.is_paid:
+            raise HTTPException(status_code=403, detail="This post cannot be reposted")
+    author = (original["user"]["name"] or "Someone")[:60]
+    # Keep the source link inside the feed's 280-character post preview.
+    excerpt = (original["content"] or "").strip()[:100]
+    content = f"Reposted from {author}:\n\n{excerpt}\n\nOriginal post: https://app.wellcircle.et/post/{post_id}"
+    repost = create_post(db, user_id=user.id, content=content, photo_url=original.get("photo_url"))
+    return {"id": repost.id, "original_post_id": post_id, "message": "Post reposted"}
+
 @router.post("/{post_id}/react")
 def api_react_to_post(post_id: str, reaction_in: ReactionCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     from app.models.post import Post
@@ -163,4 +188,3 @@ def api_share_post(post_id: str, user: User = Depends(get_current_user), db: Ses
     if post.circle_id and not has_circle_access(db, post.circle_id, user.id):
         raise HTTPException(status_code=403, detail="Paid circle access required")
     return share_post(db, UUID(post_id), user.id)
-

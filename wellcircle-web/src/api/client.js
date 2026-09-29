@@ -832,6 +832,16 @@ export async function getPosts(communityId = null, circleId = null) {
   });
 }
 
+export async function getPost(postId) {
+  if (USE_MOCK) {
+    await delay();
+    const post = MOCK_POSTS.find(p => p.id === postId) || MOCK_FOR_YOU_FEED.find(i => i.type === 'post' && i.post?.id === postId)?.post;
+    if (!post) throw new Error('Post not found');
+    return post;
+  }
+  return request('GET', `/posts/${postId}`);
+}
+
 // ─── For You Feed (Phase 4/5) ──────────────────────────
 export async function getForYouFeed({ before } = {}) {
   return cached(cacheKeys.feed(before), async () => {

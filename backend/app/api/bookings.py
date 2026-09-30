@@ -13,6 +13,8 @@ from app.schemas.booking import BookingCreate, BookingResponse, AppliedPromotion
 from app.services.promotion_service import get_eligible_promotion, compute_discount_etb
 from app.services.sheets import export_booking_to_sheets
 from app.models.provider import Provider
+from app.models.booking import Booking
+from app.models.provider_promotion import ProviderPromotion
 
 router = APIRouter()
 
@@ -50,6 +52,40 @@ async def create_new_booking(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if request.request_key:
+        # Serialize same-user create requests before the idempotency lookup;
+        # a unique key is also enforced by the database as the final guard.
+        db.query(User).filter(User.id == user.id).with_for_update().first()
+        existing = db.query(Booking).filter(
+            Booking.user_id == user.id,
+            Booking.idempotency_key == request.request_key,
+        ).first()
+        if existing:
+            siblings = []
+            if existing.booking_group_id:
+                siblings = db.query(Booking).filter(
+                    Booking.booking_group_id == existing.booking_group_id,
+                    Booking.id != existing.id,
+                ).order_by(Booking.slot_datetime.asc()).all()
+            promotion = db.query(ProviderPromotion).filter(
+                ProviderPromotion.id == existing.promotion_id
+            ).first() if existing.promotion_id else None
+            return BookingResponse(
+                id=str(existing.id), provider_id=str(existing.provider_id),
+                service_name=existing.service_name, slot_datetime=existing.slot_datetime,
+                amount_etb=existing.amount_etb, payment_method=existing.payment_method,
+                payment_status=existing.payment_status,
+                booking_status=existing.booking_status or "requested",
+                event_id=str(existing.event_id) if existing.event_id else None,
+                promotion=AppliedPromotion(
+                    id=str(promotion.id), headline=promotion.headline,
+                    discount_pct=promotion.discount_pct or 0,
+                    discount_etb=existing.discount_etb or 0,
+                ) if promotion else None,
+                created_at=existing.created_at,
+                additional_booking_ids=[str(item.id) for item in siblings],
+                total_amount_etb=existing.amount_etb + sum(item.amount_etb for item in siblings),
+            )
     # Presale loop: the backend, not the client, decides whether a promotion
     # applies — clients always send the undiscounted amount. Eligibility is
     # checked before the booking row exists so this booking can't disqualify
@@ -72,6 +108,8 @@ async def create_new_booking(
     # single-day booking for consistency (harmless — group of one).
     group_id = uuid.uuid4()
     primary_fields = {"booking_group_id": group_id}
+    if request.request_key:
+        primary_fields["idempotency_key"] = request.request_key
     if discount_etb > 0:
         primary_fields["promotion_id"] = UUID(promo["id"])
         primary_fields["discount_etb"] = discount_etb
@@ -104,7 +142,7 @@ async def create_new_booking(
         db.add(EventInventoryLog(
             event_id=event_uuid,
             delta=-1,
-            reason="booking_confirmed",
+            reason="booking_requested",
             booking_id=booking.id
         ))
         db.commit()
@@ -174,6 +212,7 @@ async def create_new_booking(
         amount_etb=booking.amount_etb,
         payment_method=booking.payment_method,
         payment_status=booking.payment_status,
+        booking_status=booking.booking_status or "requested",
         event_id=str(booking.event_id) if booking.event_id else None,
         promotion=AppliedPromotion(
             id=promo["id"],

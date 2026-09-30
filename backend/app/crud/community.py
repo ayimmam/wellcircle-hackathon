@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.models.community import Community, CommunityMember, CommunityFeedEvent
 from app.models.provider import Provider
 from app.models.user import User
+from app.utils.pilot_time import pilot_day_start_utc, pilot_date
 
 MAX_COMMUNITY_LIST = 200
 
@@ -58,23 +59,22 @@ def get_all_communities(
                 )
                 .all()
             }
-        # Drives the HomeScreen daily check-in card; batched like the joins
-        # above (one query for the whole list, not one per community)
+        # A daily check-in is a user action for the day, regardless of which
+        # joined community they use to trigger it. Reflect that consistently
+        # across every joined community card.
         if joined_community_ids:
-            today_start = datetime.now(timezone.utc).replace(
-                hour=0, minute=0, second=0, microsecond=0
-            )
-            checked_in_today_ids = {
-                row.community_id
-                for row in db.query(CommunityFeedEvent.community_id)
+            today_start = pilot_day_start_utc()
+            checked_in = (
+                db.query(CommunityFeedEvent.id)
                 .filter(
-                    CommunityFeedEvent.community_id.in_(joined_community_ids),
                     CommunityFeedEvent.user_id == user_id,
                     CommunityFeedEvent.event_type == "checkin",
                     CommunityFeedEvent.created_at >= today_start,
                 )
-                .all()
-            }
+                .first()
+            )
+            if checked_in:
+                checked_in_today_ids = set(joined_community_ids)
 
     result = []
     for c in communities:
@@ -108,11 +108,10 @@ def get_community_detail(db: Session, community_id: UUID, user_id: Optional[UUID
             .first()
         )
         user_joined = membership is not None
-        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start = pilot_day_start_utc()
         checkin = (
-            db.query(CommunityFeedEvent)
+            db.query(CommunityFeedEvent.id)
             .filter(
-                CommunityFeedEvent.community_id == community.id,
                 CommunityFeedEvent.user_id == user_id,
                 CommunityFeedEvent.event_type == "checkin",
                 CommunityFeedEvent.created_at >= today_start,
@@ -175,6 +174,19 @@ def leave_community(db: Session, community_id: UUID, user_id: UUID) -> Optional[
     community = db.query(Community).filter(Community.id == community_id).first()
     if not community:
         return None
+    # Serialize this user's check-ins so simultaneous taps in different
+    # communities cannot create multiple check-ins or increment the streak
+    # twice. The User row is the shared lock for all community entry points.
+    locked_user = (
+        db.query(User)
+        .filter(User.id == user.id)
+        .with_for_update()
+        .populate_existing()
+        .first()
+    )
+    if not locked_user:
+        return None
+    user = locked_user
     membership = (
         db.query(CommunityMember)
         .filter(CommunityMember.community_id == community_id, CommunityMember.user_id == user_id)
@@ -211,11 +223,10 @@ def checkin_community(db: Session, community_id: UUID, user: User):
     )
     if not membership:
         return "not_member"
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = pilot_day_start_utc()
     existing = (
-        db.query(CommunityFeedEvent)
+        db.query(CommunityFeedEvent.id)
         .filter(
-            CommunityFeedEvent.community_id == community_id,
             CommunityFeedEvent.user_id == user.id,
             CommunityFeedEvent.event_type == "checkin",
             CommunityFeedEvent.created_at >= today_start,
@@ -258,7 +269,7 @@ def checkin_community(db: Session, community_id: UUID, user: User):
     comeback_bonus = False
     previous_streak = user.current_streak or 0
     if user.last_checkin_at:
-        days_since = (now.date() - user.last_checkin_at.date()).days
+        days_since = (pilot_date(now) - pilot_date(user.last_checkin_at)).days
         if days_since == 1:
             user.current_streak = (user.current_streak or 0) + 1
         elif days_since == 2 and (user.freeze_count or 0) > 0:

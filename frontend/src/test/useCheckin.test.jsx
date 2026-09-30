@@ -57,6 +57,7 @@ async function runCheckin(overrides, onMilestone) {
 beforeEach(() => {
   vi.clearAllMocks();
   toasts.length = 0;
+  sessionStorage.clear();
   vi.useFakeTimers({ shouldAdvanceTime: true });
 });
 
@@ -74,16 +75,18 @@ describe('useCheckin — retention moments', () => {
     expect(toasts[0].message).toBe('Checked in');
   });
 
-  it('says the streak continued from day two onward', async () => {
+  it('shows the day-two streak in a single confirmation', async () => {
     await runCheckin({ current_streak: 2 });
-    expect(toasts[0].message).toBe('Streak continued');
+    expect(toasts[0].message).toBe('Checked in · 2-day streak');
+    expect(toasts).toHaveLength(1);
   });
 
   it('celebrates a comeback bonus and tracks it', async () => {
     await runCheckin({ current_streak: 1, comeback_bonus: true });
     act(() => { vi.advanceTimersByTime(3000); });
 
-    expect(messages()).toContain('Welcome back');
+    expect(messages()).toContain('+15 pts comeback bonus');
+    expect(toasts).toHaveLength(1);
     expect(track).toHaveBeenCalledWith('comeback_bonus', { surface: 'test', streak: 1 });
   });
 
@@ -91,7 +94,8 @@ describe('useCheckin — retention moments', () => {
     await runCheckin({ current_streak: 6, freeze_used: true });
     act(() => { vi.advanceTimersByTime(3000); });
 
-    expect(messages()).toContain('Streak freeze used');
+    expect(messages()).toContain('streak freeze used');
+    expect(toasts).toHaveLength(1);
   });
 
   it('fires the milestone callback on every 7th day', async () => {
@@ -101,7 +105,8 @@ describe('useCheckin — retention moments', () => {
 
     expect(onMilestone).toHaveBeenCalledWith({ type: 'streak', streak: 14, tier: 'sprout' });
     expect(track).toHaveBeenCalledWith('streak_milestone', { streak: 14, freezes: 2 });
-    expect(messages()).toContain('Freeze earned');
+    expect(messages()).toContain('freeze earned');
+    expect(toasts).toHaveLength(1);
   });
 
   it('fires a personal-best milestone when it is not also a 7-day mark', async () => {
@@ -111,7 +116,8 @@ describe('useCheckin — retention moments', () => {
 
     expect(onMilestone).toHaveBeenCalledWith({ type: 'personal_best', streak: 5, tier: 'sprout' });
     expect(track).toHaveBeenCalledWith('streak_personal_best', { streak: 5 });
-    expect(messages()).toContain('New personal best — 5 days');
+    expect(messages()).toContain('5-day streak · new personal best');
+    expect(toasts).toHaveLength(1);
   });
 
   it('prefers the 7-day milestone over personal best when both apply', async () => {
@@ -130,6 +136,18 @@ describe('useCheckin — retention moments', () => {
 
     expect(onMilestone).not.toHaveBeenCalled();
     expect(messages()).toContain('3-day streak');
+  });
+
+  it('shows only one check-in toast across multiple circle responses that day', async () => {
+    mockCheckin({ current_streak: 2 });
+    const { result } = renderHook(() => useCheckin('test'), { wrapper });
+    await act(async () => { await result.current('circle-one'); });
+    await act(async () => { await result.current('circle-two'); });
+
+    expect(toasts).toHaveLength(1);
+    expect(track).toHaveBeenCalledWith('checkin', {
+      surface: 'test', community_id: 'circle-two', streak: 2,
+    });
   });
 
   it('uses no emoji in any check-in toast', async () => {

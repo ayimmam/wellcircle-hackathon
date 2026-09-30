@@ -1,6 +1,7 @@
 """User routes — profile, onboarding, points history."""
 
 from datetime import datetime, timezone
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
@@ -42,6 +43,7 @@ def _build_response(user: User, db: Session) -> UserResponse:
         interest_categories=user.interest_categories or [],
         exercise_frequency=user.exercise_frequency,
         points_balance=points_balance, tier=tier, tier_emoji=emoji,
+        walk_score=user.walk_score or 0,
         current_streak=user.current_streak or 0,
         freeze_count=user.freeze_count or 0,
         longest_streak=user.longest_streak or 0,
@@ -53,6 +55,7 @@ def _build_response(user: User, db: Session) -> UserResponse:
         time_format=user.time_format,
         bio=user.bio,
         profile_privacy=user.profile_privacy or "public",
+        proactive_notifications_enabled=bool(user.proactive_notifications_enabled),
         is_verified_trainer=bool(user.is_verified_trainer),
         follower_count=get_follower_count(db, user.id),
         following_count=get_following_count(db, user.id),
@@ -220,11 +223,14 @@ async def get_my_bookings(
     
     now = datetime.now(timezone.utc)
     if status == "upcoming":
-        query = query.filter(Booking.slot_datetime >= now, Booking.payment_status != "cancelled")
+        query = query.filter(
+            Booking.slot_datetime >= now,
+            Booking.booking_status.notin_(["cancelled", "rejected"]),
+        )
     elif status == "completed":
-        query = query.filter(Booking.slot_datetime < now, Booking.payment_status == "success")
+        query = query.filter(Booking.booking_status == "fulfilled")
     elif status == "cancelled":
-        query = query.filter(Booking.payment_status == "cancelled")
+        query = query.filter(Booking.booking_status.in_(["cancelled", "rejected"]))
         
     query = query.order_by(Booking.slot_datetime.desc())
     results = query.all()
@@ -241,11 +247,28 @@ async def get_my_bookings(
             "amount_etb": booking.amount_etb,
             "payment_method": booking.payment_method,
             "payment_status": booking.payment_status,
+            "booking_status": booking.booking_status,
             "event_id": str(booking.event_id) if booking.event_id else None,
             "created_at": booking.created_at
         })
         
     return {"bookings": bookings_list, "count": len(bookings_list)}
+
+
+@router.post("/me/bookings/{booking_id}/cancel")
+async def cancel_my_booking(
+    booking_id: UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.crud.booking import cancel_user_booking
+    try:
+        booking = cancel_user_booking(db, user.id, booking_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    return {"booking_id": str(booking.id), "booking_status": booking.booking_status}
 
 
 @router.get("/me/points-history", response_model=PointsHistoryResponse)

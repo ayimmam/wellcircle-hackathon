@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import {
   cacheKeys, completeMockStravaConnection, disconnectStrava, getCommunities, getPointsHistory,
   getStravaConnectUrl, getStravaStats, getTrainerVerificationStatus, updateStravaVisibility,
+  getWearableConnectUrl, getWearableStatus,
 } from '../api/client';
 import useResource from '../hooks/useResource';
 import { getTier } from '../data/mock';
@@ -32,6 +33,9 @@ export default function ProfileScreen() {
   const [editingBio, setEditingBio] = useState(false);
   const [savingBio, setSavingBio] = useState(false);
   const [stravaBusy, setStravaBusy] = useState(false);
+  const [wearableStatus, setWearableStatus] = useState(null);
+  const [wearableBusy, setWearableBusy] = useState(false);
+  const [wearableAwaiting, setWearableAwaiting] = useState(false);
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneEditResult, setPhoneEditResult] = useState({ valid: false, e164: null });
   const [showBugReport, setShowBugReport] = useState(false);
@@ -73,6 +77,51 @@ export default function ProfileScreen() {
   useEffect(() => {
     refreshUser?.();
   }, [refreshUser]);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = async () => {
+      try {
+        const next = await getWearableStatus();
+        if (!active) return;
+        setWearableStatus(next);
+        if (next.connected) {
+          setWearableAwaiting(false);
+          await refreshUser?.();
+        }
+      } catch {
+        // The profile remains usable when Terra is unavailable.
+      }
+    };
+    refresh();
+    const onReturn = () => { if (!document.hidden) refresh(); };
+    document.addEventListener('visibilitychange', onReturn);
+    window.addEventListener('focus', onReturn);
+    const poll = wearableAwaiting ? window.setInterval(refresh, 4000) : null;
+    const timeout = wearableAwaiting ? window.setTimeout(() => setWearableAwaiting(false), 90_000) : null;
+    return () => {
+      active = false;
+      document.removeEventListener('visibilitychange', onReturn);
+      window.removeEventListener('focus', onReturn);
+      if (poll) window.clearInterval(poll);
+      if (timeout) window.clearTimeout(timeout);
+    };
+  }, [wearableAwaiting, refreshUser]);
+
+  const connectWearable = async () => {
+    setWearableBusy(true);
+    try {
+      const { url } = await getWearableConnectUrl();
+      if (new URL(url).origin !== 'https://widget.tryterra.co') throw new Error('Invalid tracker link');
+      if (window.Telegram?.WebApp?.openLink) window.Telegram.WebApp.openLink(url);
+      else window.location.assign(url);
+      setWearableAwaiting(true);
+    } catch (err) {
+      showToast(err.message || 'Could not connect your tracker', 'error');
+    } finally {
+      setWearableBusy(false);
+    }
+  };
 
   // An approval granted since the last visit only shows up on the user record
   // after a refresh.
@@ -209,6 +258,8 @@ export default function ProfileScreen() {
 
       <div className="profile-settings-heading">{t('Integrations')}</div>
       <IntegrationsSection
+        wearableStatus={wearableStatus} wearableBusy={wearableBusy}
+        wearableAwaiting={wearableAwaiting} connectWearable={connectWearable}
         strava={strava} stravaBusy={stravaBusy}
         connectStrava={connectStrava} handleDisconnectStrava={handleDisconnectStrava}
         toggleStravaStat={toggleStravaStat}

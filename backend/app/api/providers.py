@@ -34,6 +34,8 @@ from app.schemas.product import (
     RedemptionStatusUpdateRequest, RedemptionStatusUpdateResponse,
 )
 from app.schemas.promotion import PromotionCreate, PromotionResponse
+from app.schemas.booking import BookingStatusUpdateRequest, BookingStatusUpdateResponse
+from app.crud.booking import update_provider_booking_status
 from app.models.provider_promotion import ProviderPromotion
 
 router = APIRouter()
@@ -347,6 +349,7 @@ async def list_my_bookings(
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
     payment_status: Optional[str] = Query(None),
+    booking_status: Optional[str] = Query(None),
     service_name: Optional[str] = Query(None),
     user: User = Depends(get_current_provider),
     db: Session = Depends(get_db),
@@ -360,8 +363,33 @@ async def list_my_bookings(
         db, provider.id, page=page, per_page=per_page,
         start_date=start_date, end_date=end_date,
         payment_status=payment_status, service_name=service_name,
+        booking_status=booking_status,
     )
     return {"bookings": items, "total": total, "page": page, "per_page": per_page}
+
+
+@router.post("/me/bookings/{booking_id}/status", response_model=BookingStatusUpdateResponse)
+async def update_my_booking_status(
+    booking_id: UUID,
+    request: BookingStatusUpdateRequest,
+    user: User = Depends(get_current_provider),
+    db: Session = Depends(get_db),
+):
+    """Accept, reject, or mark fulfilled a booking owned by this provider."""
+    provider = get_provider_by_owner(db, user.id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    try:
+        booking = update_provider_booking_status(
+            db, provider.id, booking_id, request.status, user.id
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    return BookingStatusUpdateResponse(
+        booking_id=str(booking.id), booking_status=booking.booking_status
+    )
 
 
 @router.get("/me/analytics/services")

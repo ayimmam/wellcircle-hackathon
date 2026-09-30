@@ -6,13 +6,15 @@ from datetime import datetime, time
 
 from telegram import Update, BotCommand
 from telegram.error import Conflict
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
 from bot.handlers.start import start_handler
 from bot.handlers.admin import admin_handler
 from bot.handlers.evidence import evidence_conversation
 from bot.handlers.help import help_handler
+from bot.handlers.pin_bonus import pin_bonus_handler, pin_bonus_callback
 from bot.services.reengagement import schedule_reengagement
+from bot.services.day1_return import send_day1_return_reminders
 from bot.services.weekly_digest import send_weekly_digest
 from bot.services.streak_nudge import send_streak_nudges
 from bot.services.engagement_push import send_engagement_pushes
@@ -45,6 +47,7 @@ async def post_init(application: Application) -> None:
     """Set bot commands and initialise shared resources after startup."""
     await init_http_client()
     commands = [BotCommand("start", "Open Well Circle")]
+    commands.append(BotCommand("pinbonus", "Claim 200 points for pinning this chat"))
     # /admin is registered globally; visibility is enforced in the handler
     commands.append(BotCommand("admin", "Access admin dashboard"))
     commands.append(BotCommand("evidence", "Submit event participation proof"))
@@ -72,6 +75,8 @@ def main():
     # Register handlers
     app.add_handler(CommandHandler("start", start_handler))
     app.add_handler(CommandHandler("help", help_handler))
+    app.add_handler(CommandHandler("pinbonus", pin_bonus_handler))
+    app.add_handler(CallbackQueryHandler(pin_bonus_callback, pattern="^claim_pin_bonus$"))
     app.add_handler(CommandHandler("admin", admin_handler))
     app.add_handler(evidence_conversation)
     app.add_error_handler(error_handler)
@@ -88,6 +93,13 @@ def main():
             name="reengagement",
         )
         logger.info("📅 Re-engagement job scheduled (daily 07:00 UTC / 10:00 Addis Ababa)")
+
+        job_queue.run_daily(
+            send_day1_return_reminders,
+            time=time(hour=7, minute=10),
+            name="day1_return_reminder",
+        )
+        logger.info("📅 Day 1 return reminder job scheduled (daily 07:10 UTC / 10:10 Addis Ababa)")
 
         # C3: weekly circle digest, Sundays at 18:00 UTC
         job_queue.run_daily(

@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.models.booking import Booking
+from app.models.booking_status_event import BookingStatusEvent
 from app.models.community import CommunityFeedEvent, Community
 from app.models.user import User
 
@@ -15,6 +16,11 @@ def create_booking(db: Session, user_id: UUID, **kwargs) -> Booking:
     """Create a new booking record."""
     booking = Booking(user_id=user_id, **kwargs)
     db.add(booking)
+    db.flush()
+    db.add(BookingStatusEvent(
+        booking_id=booking.id, from_status=None, to_status="requested",
+        actor_user_id=user_id, actor_role="user",
+    ))
     db.commit()
     db.refresh(booking)
     return booking
@@ -32,14 +38,93 @@ def create_sibling_bookings(
         booking = Booking(user_id=user_id, booking_group_id=group_id, slot_datetime=slot, **kwargs)
         db.add(booking)
         siblings.append(booking)
-    db.commit()
+    db.flush()
     for s in siblings:
-        db.refresh(s)
+        db.add(BookingStatusEvent(
+            booking_id=s.id, from_status=None, to_status="requested",
+            actor_user_id=user_id, actor_role="user",
+        ))
+    if siblings:
+        db.commit()
+        for s in siblings:
+            db.refresh(s)
     return siblings
 
 
 def get_booking_by_id(db: Session, booking_id: UUID) -> Optional[Booking]:
     return db.query(Booking).filter(Booking.id == booking_id).first()
+
+
+def update_provider_booking_status(
+    db: Session, provider_id: UUID, booking_id: UUID, new_status: str, actor_user_id: UUID
+) -> Optional[Booking]:
+    """Apply an allowed provider-side booking lifecycle transition."""
+    booking = (
+        db.query(Booking)
+        .filter(Booking.id == booking_id, Booking.provider_id == provider_id)
+        .with_for_update()
+        .first()
+    )
+    if not booking:
+        return None
+    allowed = {
+        "requested": {"accepted", "rejected"},
+        "accepted": {"fulfilled"},
+    }
+    if new_status not in allowed.get(booking.booking_status or "requested", set()):
+        raise ValueError("Booking status transition is not allowed")
+    previous_status = booking.booking_status or "requested"
+    booking.booking_status = new_status
+    db.add(BookingStatusEvent(
+        booking_id=booking.id, from_status=previous_status, to_status=new_status,
+        actor_user_id=actor_user_id, actor_role="provider",
+    ))
+    from app.services.notification_service import create_notification
+    labels = {
+        "accepted": ("Booking accepted", "Your provider accepted your booking request."),
+        "rejected": ("Booking unavailable", "Your provider could not accept this booking request."),
+        "fulfilled": ("Booking completed", "Your provider marked this booking as completed."),
+    }
+    title, body = labels[new_status]
+    create_notification(
+        db, user_id=booking.user_id, type=f"booking_{new_status}",
+        title=title, body=body, action_url="/my-bookings",
+    )
+    db.commit()
+    db.refresh(booking)
+    return booking
+
+
+def cancel_user_booking(db: Session, user_id: UUID, booking_id: UUID) -> Optional[Booking]:
+    """Cancel a user's requested or accepted booking before its scheduled time."""
+    booking = (
+        db.query(Booking)
+        .filter(Booking.id == booking_id, Booking.user_id == user_id)
+        .with_for_update()
+        .first()
+    )
+    if not booking:
+        return None
+    if booking.booking_status not in {"requested", "accepted"}:
+        raise ValueError("This booking can no longer be cancelled")
+    if booking.payment_status == "success":
+        raise ValueError("Contact the provider to change a booking that has already been paid")
+    if booking.payment_method != "pay_on_site":
+        raise ValueError("Contact the provider to change a booking using online payment")
+    slot_datetime = booking.slot_datetime
+    if slot_datetime.tzinfo is None:
+        slot_datetime = slot_datetime.replace(tzinfo=timezone.utc)
+    if slot_datetime <= datetime.now(timezone.utc):
+        raise ValueError("A booking cannot be cancelled after its scheduled time")
+    previous_status = booking.booking_status
+    booking.booking_status = "cancelled"
+    db.add(BookingStatusEvent(
+        booking_id=booking.id, from_status=previous_status, to_status="cancelled",
+        actor_user_id=user_id, actor_role="user",
+    ))
+    db.commit()
+    db.refresh(booking)
+    return booking
 
 
 def update_booking_payment(
@@ -96,8 +181,8 @@ def update_booking_payment(
             db,
             user_id=booking.user_id,
             type="booking_confirmed",
-            title="Booking Confirmed! ✅",
-            body=f"Your booking for {booking.service_name} on {booking.slot_datetime.strftime('%a, %b %d %H:%M')} is confirmed.",
+            title="Payment received ✅",
+            body=f"Payment for {booking.service_name} was received. Check My Bookings for the provider's request status.",
             action_url="/my-bookings"
         )
         

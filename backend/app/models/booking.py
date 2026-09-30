@@ -1,6 +1,6 @@
 """Booking ORM model - service reservations and payment tracking."""
 
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime, timezone
@@ -10,6 +10,7 @@ from app.database import Base
 
 class Booking(Base):
     __tablename__ = "bookings"
+    __table_args__ = (UniqueConstraint("user_id", "idempotency_key", name="uq_bookings_user_idempotency_key"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
@@ -19,6 +20,9 @@ class Booking(Base):
     amount_etb = Column(Integer, nullable=False)  # Amount in Ethiopian Birr
     payment_method = Column(String(50), nullable=False)  # telebirr|mpesa
     payment_status = Column(String(50), default="pending")  # pending|success|failed
+    # Fulfillment lifecycle is independent from payment (pay-on-site stays
+    # payment-pending until operations reconcile it).
+    booking_status = Column(String(32), nullable=False, default="requested", server_default="requested")
     telebirr_trade_no = Column(String(255), nullable=True, unique=True)
     mpesa_checkout_id = Column(String(255), nullable=True)
     phone_number = Column(String(20), nullable=True)  # Payment phone number
@@ -31,4 +35,5 @@ class Booking(Base):
     # days) share this key so one payment can cover the whole group. No FK —
     # it's a correlation id, not a relationship to another booking.
     booking_group_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    idempotency_key = Column(String(100), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

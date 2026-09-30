@@ -82,6 +82,7 @@ export default function AccountSection({
                       {item.action === 'checkin' ? <><Icon name="check" size={13} /> Check-in</>
                         : item.action === 'decay' ? <><Icon name="chart" size={13} /> Decay</>
                         : item.action === 'profile_photo' ? <><Icon name="camera" size={13} /> Profile photo</>
+                        : item.action === 'pin_bot_bonus' ? <>Pinned bot bonus</>
                         : item.action}
                     </span>
                     {item.community_name && (

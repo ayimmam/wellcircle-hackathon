@@ -8,6 +8,7 @@ from app.models.user_redemption import UserRedemption
 from app.models.admin_notification import AdminNotification
 from app.models.community import Community, CommunityMember, CommunityFeedEvent
 from app.models.booking import Booking
+from app.models.booking_status_event import BookingStatusEvent
 from app.models.circle import Circle, CircleMember
 from app.models.post import Post, Reaction
 from app.models.post import Post, Reaction
@@ -26,6 +27,7 @@ from app.models.circle_subscription import CircleSubscription, CircleRevenueLedg
 from app.models.strava_activity_cache import StravaActivityCache
 from app.models.auth_identity import AuthIdentity
 from app.models.story import Story, StoryView
+from app.models.wearable import UserWearable, WearableDailySteps, WalkScoreDay
 
 __all__ = [
     "User",
@@ -38,6 +40,7 @@ __all__ = [
     "CommunityMember",
     "CommunityFeedEvent",
     "Booking",
+    "BookingStatusEvent",
     "Circle",
     "CircleMember",
     "Post",
@@ -60,5 +63,5 @@ __all__ = [
     "AuthIdentity",
     "Story",
     "StoryView",
+    "UserWearable", "WearableDailySteps", "WalkScoreDay",
 ]
-

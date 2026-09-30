@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getHomeBootstrap, getForYouFeed, cacheKeys } from '../api/client';
 import useResource from '../hooks/useResource';
@@ -20,6 +20,7 @@ import ShareCard from '../components/ShareCard';
 import { showToast } from '../components/Toast';
 import { useTranslation } from 'react-i18next';
 import { daysSinceJoin } from '../utils/milestones';
+import { track } from '../analytics';
 
 const EMPTY_HOME = { providers: [], communities: [], feed: { items: [], next_before: null } };
 // Bumping the suffix (v1 -> v2) would re-show the card to everyone once —
@@ -38,6 +39,7 @@ function FeedItem({ item, priority }) {
 }
 
 export default function ForYouScreen() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const location = useLocation();
   const { t } = useTranslation();
@@ -72,11 +74,14 @@ export default function ForYouScreen() {
   const isJoined = (c) => c.user_joined || user?.joined_communities?.includes(c.id);
   const joinedCircles = allCommunities.filter(isJoined);
 
-  const setCheckedIn = (id) => setHome(prev => {
+  const setCheckedIn = () => setHome(prev => {
     const base = prev || EMPTY_HOME;
     return {
       ...base,
-      communities: (base.communities || []).map(c => c.id === id ? { ...c, checked_in_today: true } : c),
+      communities: (base.communities || []).map(c => (
+        c.user_joined || user?.joined_communities?.includes(c.id)
+          ? { ...c, checked_in_today: true } : c
+      )),
     };
   });
 
@@ -167,6 +172,17 @@ export default function ForYouScreen() {
       {user && justOnboarded && <WelcomeBanner user={user} providers={home?.providers || []} />}
 
       {user && <SocialProofBanner />}
+
+      {user && joinedCircles.length === 0 && (
+        <div className="card mb-24" style={{ padding: 16 }} id="home-join-community-prompt">
+          <h3 style={{ fontWeight: 700, marginBottom: 6 }}>Join a community to check in</h3>
+          <p className="text-sm text-secondary mb-12">Choose a provider community to start tracking your daily streak.</p>
+          <button className="btn btn-primary btn-sm" onClick={() => {
+            track('community_discovery_open', { source: 'home_first_action' });
+            navigate('/community');
+          }}>Find a community</button>
+        </div>
+      )}
 
       {user && joinedCircles.length > 0 && (
         <CheckinCard

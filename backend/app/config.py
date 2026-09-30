@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     STRAVA_CLIENT_ID: str = ""
     STRAVA_CLIENT_SECRET: str = ""
     STRAVA_REDIRECT_URI: str = ""
+    TERRA_DEV_ID: str = ""
+    TERRA_API_KEY: str = ""
+    TERRA_WEBHOOK_SECRET: str = ""
+    TERRA_PROVIDERS: str = "FITBIT,GARMIN,STRAVA,GOOGLE"
 
     # Vercel/serverless maintenance endpoint
     CRON_SECRET: str = ""

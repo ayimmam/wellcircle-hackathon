@@ -278,6 +278,7 @@ def get_provider_stats(db: Session, provider_id: UUID) -> dict:
             "slot_datetime": b.slot_datetime.isoformat(),
             "amount_etb": b.amount_etb,
             "payment_status": b.payment_status,
+            "booking_status": b.booking_status or "requested",
             "created_at": b.created_at.isoformat(),
         })
 
@@ -981,6 +982,7 @@ def get_provider_bookings(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     payment_status: Optional[str] = None,
+    booking_status: Optional[str] = None,
     service_name: Optional[str] = None,
 ) -> tuple[List[dict], int]:
     """Paginated booking list for the provider website — each row carries the
@@ -997,6 +999,8 @@ def get_provider_bookings(
         query = query.filter(Booking.created_at <= end_date)
     if payment_status:
         query = query.filter(Booking.payment_status == payment_status)
+    if booking_status:
+        query = query.filter(Booking.booking_status == booking_status)
     if service_name:
         query = query.filter(Booking.service_name == service_name)
 
@@ -1018,6 +1022,7 @@ def get_provider_bookings(
             "slot_datetime": b.slot_datetime.isoformat(),
             "amount_etb": b.amount_etb,
             "payment_status": b.payment_status,
+            "booking_status": b.booking_status or "requested",
             "created_at": b.created_at.isoformat(),
             "customer_demographics": {
                 "location_neighborhood": user.location_neighborhood,
@@ -1177,4 +1182,3 @@ def get_provider_metrics_timeseries(
             "unique_customers": unique_customers,
         },
     }
-

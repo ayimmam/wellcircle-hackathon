@@ -16,7 +16,11 @@
 | Auth | POST | `/auth/google` | None | Web app |
 | Bot | POST | `/bot/register` | Bot API Key | Bot |
 | Bot | GET | `/bot/inactive-users` | Bot API Key | Bot |
+| Bot | GET | `/bot/day1-return-users` | Bot API Key | Bot |
 | Bot | GET | `/bot/streaks-at-risk` | Bot API Key | Bot |
+| Bot | POST | `/bot/users/:id/proactive-reminder-sent` | Bot API Key | Bot |
+| Bot | POST | `/bot/users/:id/day1-reminder-sent` | Bot API Key | Bot |
+| Bot | POST | `/bot/users/:telegram_id/pin-bonus` | Bot API Key | Bot |
 | Home | GET | `/home/lite` | JWT | Frontend |
 | Home | GET | `/home/bootstrap` | JWT | Frontend |
 | Users | GET | `/users/me` | JWT | Frontend |
@@ -33,6 +37,8 @@
 | Communities | POST | `/communities/:id/checkin` | JWT | Frontend |
 | Communities | GET | `/communities/:id/feed` | JWT | Frontend |
 | Bookings | POST | `/bookings` | JWT | Frontend |
+| Bookings | POST | `/users/me/bookings/:id/cancel` | JWT | Frontend |
+| Providers | POST | `/providers/me/bookings/:id/status` | JWT (provider) | Provider website |
 | Payments | POST | `/payments/telebirr/initiate` | JWT | Frontend |
 | Payments | POST | `/payments/telebirr/callback` | None (webhook) | Telebirr |
 | Payments | POST | `/payments/mpesa/initiate` | JWT | Frontend |
@@ -655,7 +661,8 @@ Update profile fields (personalization, neighborhood opt-in, contact/format pref
   "phone_number": "+251911234567",   // E.164; backend only checks shape (6-15 digits, optional +)
   "time_format": "12h",              // '12h' | '24h' — 422 on any other value
   "bio": "Yoga instructor & marathon runner 🧘‍♀️",  // max 300 chars — 422 if longer
-  "profile_privacy": "followers"     // 'public' | 'followers' | 'private' — 422 on any other value
+  "profile_privacy": "followers",    // 'public' | 'followers' | 'private' — 422 on any other value
+  "proactive_notifications_enabled": false // pause or resume daily/activity reminders
 }
 
 // RESPONSE 200 — same as GET /users/me
@@ -978,7 +985,7 @@ List communities. Supports filtering.
       "provider_name": "FitEthiopia Gym",
       "provider_id": "uuid-prov",
       "user_joined": false,
-      "checked_in_today": false   // per-user; drives the HomeScreen check-in card
+      "checked_in_today": false   // per-user; true across joined communities after one check-in today
     }
   ],
   "count": 5
@@ -1038,17 +1045,21 @@ Leave a community.
 ```
 
 ### `POST /api/communities/:id/checkin`
-Daily check-in. **One per day per community.** Awards Legacy Points.
+Daily check-in. **One per user per Addis Ababa calendar day**, across all
+communities. The user must be a member of the community used to check in.
+Routine check-ins maintain streaks and challenges and award 0 points; separate
+referral, comeback, and challenge rewards may still apply.
 
-Streak rules: consecutive days increment `current_streak`; every 7-day streak
+The calendar day runs in `Africa/Addis_Ababa` (UTC+3). Consecutive local days
+increment `current_streak`; every 7-day streak
 earns a freeze; **a freeze is consumed automatically to cover exactly one
 missed day** (`freeze_used: true`); a longer gap (or no freeze) resets to 1.
 
 ```json
 // RESPONSE 200
 {
-  "points_earned": 10,
-  "new_balance": 130,
+  "points_earned": 0,
+  "new_balance": 120,
   "current_streak": 4,
   "freeze_count": 1,
   "freeze_used": false,  // true when a freeze just covered a one-day gap
@@ -1062,7 +1073,7 @@ missed day** (`freeze_used: true`); a longer gap (or no freeze) resets to 1.
   }
 }
 
-// RESPONSE 409 — already checked in today
+// RESPONSE 409 — already checked in today in any community
 {
   "detail": "Already checked in today"
 }
@@ -1271,17 +1282,19 @@ Create a booking.
 this returns `400 { "detail": "This provider isn't taking bookings yet." }`
 before any booking row (or its siblings) is written.
 
-**`payment_method: "pay_on_site"` (WP1, consumer booking flow default).** No
+**`payment_method: "pay_on_site"` (consumer booking flow default).** No
 payment gateway is involved — the guest pays the provider in person after the
-service. The backend marks the booking (and every sibling in a multi-day
-group) `payment_status: "success"` immediately at creation, which fires the
-same side effects a gateway success would: +50 Legacy Points, a provider
-community feed event, and a "Booking Confirmed" in-app notification. Do not
-call `POST /api/payments/telebirr/initiate` or `.../mpesa/initiate` for a
-`pay_on_site` booking — there is nothing to poll. `telebirr`/`mpesa` remain
-valid values (used by provider-subscription payments and kept for API
-compatibility) and still create a `pending` booking that requires payment
-initiation + `GET /api/payments/:booking_id/status` polling as before.
+service. The booking is created with `payment_status: "pending"` and
+`booking_status: "requested"`; it is not accepted or paid at creation. Staff
+must accept/reject the request and reconcile any later payment separately.
+Do not call `POST /api/payments/telebirr/initiate` or `.../mpesa/initiate` for
+a `pay_on_site` booking. `telebirr`/`mpesa` remain supported gateway methods.
+
+**Fulfillment lifecycle.** `booking_status` is independent of
+`payment_status`: `requested → accepted → fulfilled`, `requested → rejected`,
+and `requested|accepted → cancelled`. Provider updates are restricted to
+their own bookings. Users may cancel a future requested or accepted booking.
+Provider acceptance and attendance are not implied by a payment callback.
 
 **Promotions are applied server-side.** Clients always send the
 **undiscounted** per-day amount; if the user is eligible for the provider's
@@ -1301,6 +1314,12 @@ reflects that, and `total_amount_etb` is the combined charge across every
 day. **Not supported for event bookings** (`event_id` set) — an event already
 has one fixed date; sending both is a 422.
 
+`request_key` is an optional stable client-generated retry key. When supplied,
+repeating the create request for the same authenticated user returns the
+original booking group without consuming event capacity or creating duplicate
+rows. Clients must reuse the key after a timeout and generate a new key for a
+new user-initiated request.
+
 ```json
 // REQUEST
 {
@@ -1309,6 +1328,7 @@ has one fixed date; sending both is a 422.
   "slot_datetime": "2026-06-07T07:00:00Z",
   "amount_etb": 800,               // undiscounted, per day — backend applies any promo
   "payment_method": "telebirr",
+  "request_key": "stable-client-generated-key",
   "phone_number": "0911234567",
   "additional_slot_datetimes": ["2026-06-09T07:00:00Z", "2026-06-11T07:00:00Z"]  // optional
 }
@@ -1322,6 +1342,7 @@ has one fixed date; sending both is a 422.
   "amount_etb": 640,                // final charged amount for THIS day (800 − 20%)
   "payment_method": "telebirr",
   "payment_status": "pending",
+  "booking_status": "requested",
   "promotion": {                    // null when no promotion applied
     "id": "uuid-promo",
     "headline": "Presale: 20% off your first visit",
@@ -1333,6 +1354,12 @@ has one fixed date; sending both is a 422.
   "created_at": "2026-06-06T10:30:00Z"
 }
 ```
+
+Historical `booking_confirmed` feed/notification records refer to the old
+payment-success side effect. They do not prove provider acceptance or service
+attendance and must not be used for the new acceptance funnel. Use the
+persisted `booking_status` transitions and the canonical events in
+`docs/Pilot_Event_Dictionary.md`.
 
 ### `POST /api/payments/telebirr/initiate`
 Initiate Telebirr payment for a booking.
@@ -2002,7 +2029,7 @@ a "Continue as Demo Provider" button instead (`VITE_USE_MOCK=true`).
 
 All **JWT (provider)**, scoped to the caller's own provider via `get_provider_by_owner`.
 
-**`GET /api/providers/me/bookings?page=&per_page=&start_date=&end_date=&payment_status=&service_name=`**
+**`GET /api/providers/me/bookings?page=&per_page=&start_date=&end_date=&payment_status=&booking_status=&service_name=`**
 Full paginated booking list — each row also carries the customer's
 demographic fields, so the table doubles as a lightweight CRM view.
 ```json
@@ -2010,12 +2037,47 @@ demographic fields, so the table doubles as a lightweight CRM view.
   "bookings": [
     { "id": "uuid", "user_handle": "meron_fitness", "user_name": "Meron Tadesse",
       "service_name": "Morning Vinyasa Flow", "slot_datetime": "2026-06-07T07:00:00Z",
-      "amount_etb": 800, "payment_status": "success", "created_at": "2026-06-06T10:30:00Z",
+      "amount_etb": 800, "payment_status": "pending", "booking_status": "requested", "created_at": "2026-06-06T10:30:00Z",
       "customer_demographics": { "location_neighborhood": "Bole", "interest_categories": ["yoga"], "exercise_frequency": "sometimes" } }
   ],
   "total": 1, "page": 1, "per_page": 20
 }
 ```
+
+**`POST /api/providers/me/bookings/{id}/status`** — provider-only request body
+`{ "status": "accepted" | "rejected" | "fulfilled" }`. Transitions are
+restricted to requested → accepted/rejected and accepted → fulfilled. Returns
+`{ "booking_id": "uuid", "booking_status": "accepted" }`; invalid transitions
+return 409 and bookings belonging to another provider return 404.
+
+**`POST /api/users/me/bookings/{id}/cancel`** — user may cancel a future
+requested or accepted `pay_on_site` booking that is not already paid. Returns
+the booking ID and `booking_status: "cancelled"`; unsupported transitions
+return 409. Online-payment changes go through the provider so payment is not
+left unreconciled.
+
+Booking create, provider decisions, attendance, and eligible user cancellations
+are appended to `booking_status_events` with the previous/next status, actor,
+and timestamp. Use this history for acceptance and fulfillment reporting; the
+current booking row is the latest state.
+
+Bot reminder jobs query `/api/bot/day1-return-users` for accounts inactive
+since activation for at least one and fewer than seven days. Telegram users
+receive a deep-linked message; web users receive an in-app notification.
+`POST /api/bot/users/{id}/day1-reminder-sent` records the one-time delivery.
+Day 1, streak-risk, re-engagement, and engagement-push jobs share a per-user
+Addis Ababa calendar-day reminder marker so a successful proactive message
+suppresses the other jobs for that day. Users can pause these messages using
+`proactive_notifications_enabled` in `PATCH /api/users/me`; opted-out users
+are excluded before delivery.
+
+**`POST /api/bot/users/{telegram_id}/pin-bonus`** — the bot calls this after
+the user taps its “I pinned it” button. Awards 200 points once per Telegram
+account through the points ledger (`pin_bot_bonus`), protected by a row lock
+and a partial unique index. Returns `awarded`, `points_awarded`, and
+`points_balance`; a repeat claim returns `awarded: false` and no new points.
+Telegram does not expose a user's pinned-chat list to bots, so pinning is
+self-reported rather than independently verified.
 
 **`GET /api/providers/me/analytics/services?start_date=&end_date=`** — Most-booked-service breakdown, sorted by bookings count descending.
 ```json

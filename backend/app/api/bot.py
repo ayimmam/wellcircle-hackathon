@@ -14,14 +14,44 @@ from app.dependencies import verify_bot_api_key
 from app.crud.user import (
     get_user_by_telegram_id, create_user_from_bot, get_inactive_users,
     mark_user_reengagement, get_streaks_at_risk,
+    get_day1_return_users, mark_user_day1_reminder, mark_user_day1_reminder_for_user,
+    mark_user_proactive_reminder,
 )
 from app.crud.evidence import get_staff_events, create_evidence_submission
 from app.crud.circle import get_weekly_digest_circles
 from app.services.promotion_service import get_reengagement_promos
 from app.schemas.user import BotRegisterRequest
 from app.schemas.evidence import BotEvidenceSubmitRequest
+from app.models.point_transaction import PointTransaction
+from app.models.user import User
+from app.services.points import apply_transaction, POINTS_PIN_BOT_BONUS, TXN_PIN_BOT_BONUS
 
 router = APIRouter()
+
+
+@router.post("/users/{telegram_id}/pin-bonus")
+async def claim_pin_bot_bonus(
+    telegram_id: int,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_bot_api_key),
+):
+    """One-time, self-reported chat pin reward; Telegram cannot report dialog pins."""
+    user = db.query(User).filter(User.telegram_id == telegram_id).with_for_update().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Telegram user not registered")
+    claimed = db.query(PointTransaction.id).filter(
+        PointTransaction.user_id == user.id,
+        PointTransaction.type == TXN_PIN_BOT_BONUS,
+    ).first()
+    if claimed:
+        return {"awarded": False, "points_awarded": 0, "points_balance": user.points_balance or 0}
+    apply_transaction(
+        db, user, POINTS_PIN_BOT_BONUS, TXN_PIN_BOT_BONUS,
+        note="Pinned Well Circle bot chat (self-reported)",
+    )
+    db.commit()
+    return {"awarded": True, "points_awarded": POINTS_PIN_BOT_BONUS,
+            "points_balance": user.points_balance or 0}
 
 
 @router.get("/photo/{file_path:path}")
@@ -154,6 +184,55 @@ async def inactive_users(
             "promo": promos_by_telegram_id.get(u.telegram_id),
         })
     return {"inactive_users": items, "count": len(items)}
+
+
+@router.get("/day1-return-users")
+async def day1_return_users(
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_bot_api_key),
+):
+    """Users who have not returned since activation; web users get an in-app prompt."""
+    users = get_day1_return_users(db)
+    return {"users": [{
+        "user_id": str(user.id),
+        "telegram_id": user.telegram_id,
+        "name": user.name or user.telegram_handle or "there",
+    } for user in users], "count": len(users)}
+
+
+@router.post("/users/{user_key}/day1-reminder-sent")
+async def bot_day1_reminder_sent(
+    user_key: str,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_bot_api_key),
+):
+    if user_key.startswith("web-"):
+        try:
+            from app.models.user import User
+            user = db.query(User).filter(User.id == UUID(user_key[4:])).first()
+            user = mark_user_day1_reminder_for_user(db, user)
+        except ValueError:
+            user = None
+    else:
+        try:
+            user = mark_user_day1_reminder(db, int(user_key))
+        except ValueError:
+            user = None
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"marked": True}
+
+
+@router.post("/users/{telegram_id}/proactive-reminder-sent")
+async def bot_proactive_reminder_sent(
+    telegram_id: int,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_bot_api_key),
+):
+    user = mark_user_proactive_reminder(db, telegram_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"marked": True}
 
 
 @router.get("/streaks-at-risk")
@@ -292,12 +371,18 @@ async def bot_engagement_digest(
         u.id: u for u in
         db.query(UserModel).filter(UserModel.id.in_(user_ids)).all()
     }
+    from app.utils.pilot_time import pilot_day_start_utc
+    day_start = pilot_day_start_utc()
 
     # Find top actor name for each user
     digest = []
     for r in rows:
         user = users.get(r.user_id)
-        if not user or not user.telegram_id:
+        last_reminder = user.last_proactive_reminder_at if user else None
+        if last_reminder and last_reminder.tzinfo is None:
+            last_reminder = last_reminder.replace(tzinfo=timezone.utc)
+        if (not user or not user.telegram_id or not user.proactive_notifications_enabled
+                or (last_reminder and last_reminder >= day_start)):
             continue
 
         # Find the most recent actor for this user's notifications
@@ -348,7 +433,7 @@ async def bot_mark_engagement_sent(
         UserNotification.type.in_(PUSH_WORTHY_TYPES),
         UserNotification.is_push_sent == False,
     ).update({"is_push_sent": True}, synchronize_session=False)
+    user.last_proactive_reminder_at = datetime.now(timezone.utc)
     db.commit()
 
     return {"marked": True}
-

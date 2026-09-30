@@ -31,29 +31,27 @@ describe('CheckinCard (Home habit loop)', () => {
     expect(track).toHaveBeenCalledWith('checkin_prompt_view', expect.objectContaining({ surface: 'home' }));
   });
 
-  it('checking in flips the button and fires checkin analytics', async () => {
+  it('checking in completes the daily prompt and fires checkin analytics', async () => {
     renderWithProviders(<CheckinCard circles={CIRCLES} />);
     fireEvent.click(document.getElementById('home-checkin-c1'));
     expect(track).toHaveBeenCalledWith('checkin_prompt_click', expect.objectContaining({ community_id: 'c1' }));
 
-    // mock client checkinCommunity resolves after ~400ms
-    await waitFor(
-      () => expect(document.getElementById('home-checkin-c1').textContent).toContain('Checked in'),
-      { timeout: 3000 }
-    );
+    // One daily check-in covers every joined community, so the prompt closes.
+    await waitFor(() => expect(document.getElementById('home-checkin-card')).toBeNull());
     await waitFor(() =>
       expect(track).toHaveBeenCalledWith('checkin', expect.objectContaining({ surface: 'home', community_id: 'c1' }))
     );
   });
 
-  it('flips to Checked in synchronously — before the mock check-in request resolves (WS7)', () => {
+  it('shows a pending state until the check-in request succeeds', () => {
     renderWithProviders(<CheckinCard circles={CIRCLES} />);
     expect(document.getElementById('home-checkin-c1').textContent).not.toContain('Checked in');
 
     fireEvent.click(document.getElementById('home-checkin-c1'));
 
-    // No await, no waitFor — this is the instant, pre-response state.
-    expect(document.getElementById('home-checkin-c1').textContent).toContain('Checked in');
+    // No await: pending is visible and the button cannot be tapped twice.
+    expect(document.getElementById('home-checkin-c1').textContent).not.toContain('Checked in');
+    expect(document.querySelector('#home-checkin-c1 .btn-spinner')).toBeInTheDocument();
     expect(document.getElementById('home-checkin-c1')).toBeDisabled();
   });
 
@@ -92,18 +90,11 @@ describe('CheckinCard (Home habit loop)', () => {
     expect(document.getElementById('home-checkin-c4')).toBeEnabled();
   });
 
-  it('disappears once the last remaining circle is checked in', async () => {
-    // Only c2 starts checked; check in c1 then c3 (the two remaining) —
-    // the card should unmount right after the last one.
+  it('disappears after one successful daily check-in across the joined circles', async () => {
     renderWithProviders(<CheckinCard circles={CIRCLES} />);
     expect(document.getElementById('home-checkin-card')).toBeInTheDocument();
 
     fireEvent.click(document.getElementById('home-checkin-c1'));
-    await waitFor(() =>
-      expect(document.getElementById('home-checkin-c1').textContent).toContain('Checked in')
-    );
-
-    fireEvent.click(document.getElementById('home-checkin-c3'));
     await waitFor(() =>
       expect(document.getElementById('home-checkin-card')).toBeNull()
     );

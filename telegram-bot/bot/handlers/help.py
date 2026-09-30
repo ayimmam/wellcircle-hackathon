@@ -10,6 +10,7 @@ HELP_MESSAGE = """
 
 Here's what I can do for you:
 /start - Open the Well Circle Mini App
+/pinbonus - Claim 200 points after pinning this bot chat
 /evidence - Submit a photo for event participation (if you're staff)
 /help - Show this message
 

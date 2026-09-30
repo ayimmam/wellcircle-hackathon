@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import useCheckin from '../hooks/useCheckin';
 import useOptimisticAction from '../hooks/useOptimisticAction';
@@ -14,11 +15,13 @@ import ShareCard from './ShareCard';
  * CommunityDetail so toasts/milestones/analytics behave identically.
  */
 export default function CheckinCard({ circles, onChecked }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [shareMilestone, setShareMilestone] = useState(null);
   const checkin = useCheckin('home', setShareMilestone);
   const runOptimistic = useOptimisticAction();
   const [checkedIds, setCheckedIds] = useState(() => new Set());
+  const [busyIds, setBusyIds] = useState(() => new Set());
 
   const isChecked = (circle) => circle.checked_in_today || checkedIds.has(circle.id);
   // Keep the card compact, but always show circles that still need a check-in.
@@ -46,24 +49,37 @@ export default function CheckinCard({ circles, onChecked }) {
   const allDone = (circles || []).every(isChecked);
   if (allDone) return shareCard || null;
 
-  // Optimistic: the button flips to "Checked in" the instant it's tapped —
-  // no spinner, no loading delay (WS7 of
-  // docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md). useCheckin's own toasts
-  // (streak, milestone, freeze) still land once the real response arrives;
-  // they're server-computed and can't be known ahead of time, which is fine
-  // — only the visible "did my tap register" state needed to be instant.
-  // A failure never reverts the checked state (matches the prior behavior:
-  // "already checked in today" reads as a non-error either way), it just
-  // says so once.
+  // Show a pending state while the server confirms the check-in. A failed
+  // request must remain retryable instead of looking like a completed action.
   const handleCheckin = (id) => {
     track('checkin_prompt_click', { surface: 'home', community_id: id });
     runOptimistic({
       apply: () => {
-        setCheckedIds(prev => new Set([...prev, id]));
-        onChecked?.(id);
+        setBusyIds(prev => new Set([...prev, id]));
+        return () => setBusyIds(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
       },
       request: () => checkin(id),
-      failureMessage: 'Already checked in today',
+      reconcile: () => {
+        setCheckedIds(new Set((circles || []).map(c => c.id)));
+        onChecked?.(id);
+      },
+      failureMessage: (error) => {
+        if (error?.status === 409) {
+          setCheckedIds(new Set((circles || []).map(c => c.id)));
+          onChecked?.(id);
+          return null;
+        }
+        if (error?.status === 403) {
+          navigate(`/community/${id}`);
+          return 'Join this community again to check in.';
+        }
+        if (error?.status === 401) return 'Your session expired. Reopen Well Circle to sign in again.';
+        return "Couldn't check in. Check your connection and try again.";
+      },
       dedupeKey: `checkin-${id}`,
     });
   };
@@ -86,12 +102,14 @@ export default function CheckinCard({ circles, onChecked }) {
               </span>
               <button
                 className={`btn btn-sm ${done ? 'btn-secondary' : 'btn-primary'}`}
-                disabled={done}
+                disabled={done || busyIds.has(c.id)}
                 onClick={() => handleCheckin(c.id)}
                 id={`home-checkin-${c.id}`}
               >
                 {done ? (
                   <span className="flex items-center gap-4"><Icon name="check" size={13} /> Checked in</span>
+                ) : busyIds.has(c.id) ? (
+                  <span className="btn-spinner" aria-hidden="true" />
                 ) : 'Check in'}
               </button>
             </div>

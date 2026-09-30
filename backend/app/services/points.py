@@ -34,6 +34,7 @@ POINTS_WELCOME = 20
 # Returning after a broken streak (3+ days built up, no freeze available)
 # should feel like a win, not just a reset — "reward the comeback."
 POINTS_COMEBACK = 15
+POINTS_PIN_BOT_BONUS = 200
 COMEBACK_MIN_PREVIOUS_STREAK = 3
 
 # D3 caps
@@ -72,6 +73,7 @@ TXN_STORY = "story"
 TXN_POST = "post"
 TXN_PROFILE_PHOTO = "profile_photo"
 TXN_REACTION_UNLOCK = "reaction_unlock"
+TXN_PIN_BOT_BONUS = "pin_bot_bonus"
 
 VALID_TXN_TYPES = {
     TXN_CHECKIN, TXN_BOOKING_BONUS, TXN_CHALLENGE,
@@ -79,6 +81,7 @@ VALID_TXN_TYPES = {
     TXN_DECAY, TXN_EVENT_PARTICIPATION, TXN_PROVIDER_AWARD,
     TXN_ADMIN_ADJUST, TXN_REFERRAL, TXN_WELCOME, TXN_COMEBACK,
     TXN_STORY, TXN_POST, TXN_PROFILE_PHOTO, TXN_REACTION_UNLOCK,
+    TXN_PIN_BOT_BONUS,
 }
 
 

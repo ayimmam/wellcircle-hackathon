@@ -8,6 +8,7 @@ import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
 import VerifiedBadge from '../components/VerifiedBadge';
 import StravaStats from '../components/StravaStats';
+import WalkScoreBadge from '../components/WalkScoreBadge';
 
 export default function PublicProfile() {
   const { id } = useParams();
@@ -84,6 +85,7 @@ export default function PublicProfile() {
         </div>
         <h1 className="profile-name">{profile.name} {profile.is_verified_trainer && <VerifiedBadge compact />}</h1>
         <p className="profile-handle">@{profile.telegram_handle || 'wellcircle'}</p>
+        {!statsHidden && <WalkScoreBadge score={profile.walk_score} />}
         {profile.bio && <p className="profile-bio">{profile.bio}</p>}
         <div className="profile-connections">
           <button onClick={() => navigate(`/users/${id}/followers`)}><strong>{profile.follower_count || 0}</strong> Followers</button>

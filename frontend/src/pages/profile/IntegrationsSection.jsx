@@ -10,8 +10,26 @@ const STRAVA_STATS = [
   ['recent_activities', 'Recent activities'],
 ];
 
-export default function IntegrationsSection({ strava, stravaBusy, connectStrava, handleDisconnectStrava, toggleStravaStat }) {
+export default function IntegrationsSection({ strava, stravaBusy, connectStrava, handleDisconnectStrava, toggleStravaStat,
+  wearableStatus, wearableBusy, wearableAwaiting, connectWearable }) {
   return (
+    <>
+    <div className="profile-section">
+      <div className="profile-section-title">Walk Score</div>
+      <div className="profile-card">
+        {wearableStatus?.connected ? (
+          <div role="status"><strong className="inline-icon-text"><Icon name="check" size={14} /> Fitness tracker connected</strong>
+            <p className="text-xs text-secondary">{wearableStatus.providers.join(', ')} · Steps sync automatically.</p>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-secondary mb-12">Connect a fitness tracker to grow your Walk Score automatically.</p>
+            <button className="btn btn-primary btn-block" disabled={wearableBusy || wearableAwaiting}
+              onClick={connectWearable}> {wearableBusy ? 'Opening…' : wearableAwaiting ? 'Waiting for connection…' : 'Connect Fitness Tracker'}</button>
+          </>
+        )}
+      </div>
+    </div>
     <div className="profile-section">
       <div className="profile-section-title">Strava Activity</div>
       <div className="profile-card">
@@ -41,5 +59,6 @@ export default function IntegrationsSection({ strava, stravaBusy, connectStrava,
         )}
       </div>
     </div>
+    </>
   );
 }

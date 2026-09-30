@@ -105,6 +105,7 @@ class UserProfileUpdate(BaseModel):
     time_format: Optional[str] = Field(None, pattern=r"^(12h|24h)$")
     bio: Optional[str] = Field(None, max_length=300)
     profile_privacy: Optional[str] = Field(None, pattern=r"^(public|followers|private)$")
+    proactive_notifications_enabled: Optional[bool] = None
 
 
 # --- Response schemas ---
@@ -124,6 +125,7 @@ class UserResponse(BaseModel):
     current_streak: int = 0
     freeze_count: int = 0
     longest_streak: int = 0
+    walk_score: int = 0
     is_onboarded: bool = False
     is_provider: bool = False
     is_super_admin: bool = False
@@ -133,6 +135,7 @@ class UserResponse(BaseModel):
     time_format: Optional[str] = None
     bio: Optional[str] = None
     profile_privacy: str = "public"
+    proactive_notifications_enabled: bool = True
     is_verified_trainer: bool = False
     follower_count: int = 0
     following_count: int = 0

@@ -76,6 +76,23 @@ export default function PreferencesSection({
         </div>
       </div>
 
+      <div className="profile-section">
+        <div className="profile-section-title">{t('Reminders')}</div>
+        <div className="profile-card">
+          <label className="privacy-option" style={{ cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={user?.proactive_notifications_enabled !== false}
+              onChange={e => updateProfile({ proactive_notifications_enabled: e.target.checked })
+                .then(() => showToast(e.target.checked ? 'Reminders enabled' : 'Reminders paused', 'success'))
+                .catch(err => showToast(err.message || 'Could not update reminders', 'error'))}
+              aria-label={t('Well Circle reminders')}
+            />
+            <span><strong>{t('Well Circle reminders')}</strong><small>{t('Pause daily check-in and activity reminders at any time.')}</small></span>
+          </label>
+        </div>
+      </div>
+
       {/* Language Selection */}
       <div className="profile-section">
         <div className="profile-section-title">{t('Language')}</div>

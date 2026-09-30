@@ -13,6 +13,53 @@ let enabled = false;
 let loading = null;
 /** Calls made before the SDK lands, replayed in order once it does. */
 const queue = [];
+let sessionId = null;
+let campaignContext;
+
+function readSessionValue(key) {
+  try { return window.sessionStorage.getItem(key); } catch { return null; }
+}
+
+function writeSessionValue(key, value) {
+  try { window.sessionStorage.setItem(key, value); } catch { /* private mode */ }
+}
+
+function getAnalyticsContext() {
+  if (!sessionId) {
+    sessionId = readSessionValue('wellcircle:analytics-session')
+      || globalThis.crypto?.randomUUID?.()
+      || `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    writeSessionValue('wellcircle:analytics-session', sessionId);
+  }
+  if (!campaignContext) {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const fresh = Object.fromEntries(['utm_source', 'utm_medium', 'utm_campaign', 'utm_content']
+        .map(key => [key, params.get(key)?.slice(0, 100)])
+        .filter(([, value]) => value));
+      if (params.get('qa') === '1') fresh.is_qa = true;
+      campaignContext = fresh;
+      if (Object.keys(fresh).length) writeSessionValue('wellcircle:campaign', JSON.stringify(fresh));
+      else campaignContext = JSON.parse(readSessionValue('wellcircle:campaign') || '{}');
+    } catch {
+      campaignContext = {};
+    }
+  }
+  const dateParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Addis_Ababa', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const localDate = Object.fromEntries(dateParts.map(part => [part.type, part.value]));
+  return {
+    session_id: sessionId,
+    surface: window.Telegram?.WebApp ? 'telegram_miniapp' : 'web',
+    local_date: `${localDate.year}-${localDate.month}-${localDate.day}`,
+    ...(campaignContext?.utm_source ? { campaign_source: campaignContext.utm_source } : {}),
+    ...(campaignContext?.utm_medium ? { campaign_medium: campaignContext.utm_medium } : {}),
+    ...(campaignContext?.utm_campaign ? { campaign: campaignContext.utm_campaign } : {}),
+    ...(campaignContext?.utm_content ? { campaign_content: campaignContext.utm_content } : {}),
+    ...(campaignContext?.is_qa ? { is_qa: true } : {}),
+  };
+}
 
 function flushQueue() {
   while (queue.length) {
@@ -102,7 +149,8 @@ export function track(event, properties = {}) {
   // `app_open` and the deep-link events fire during startup, before the SDK
   // has been fetched — queueing is what keeps them out of the funnel's blind
   // spot now that the import is deferred.
-  whenReady(() => posthog.capture(event, properties));
+  const context = getAnalyticsContext();
+  whenReady(() => posthog.capture(event, { ...context, ...properties }));
 }
 
 /**

@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes
 from bot.services.api_client import register_user
 from bot.utils.messages import WELCOME_MESSAGE
 from bot.config import MINI_APP_URL, BOT_TOKEN, BACKEND_URL
+from bot.handlers.pin_bonus import pin_bonus_keyboard
 
 logger = logging.getLogger(__name__)
 
@@ -60,9 +61,11 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             text="🟢 Open Well Circle",
             web_app=WebAppInfo(url=MINI_APP_URL),
         )],
+        pin_bonus_keyboard().inline_keyboard[0],
     ])
 
     welcome_text = WELCOME_MESSAGE.format(name=user.first_name or telegram_handle or f"User {telegram_id}")
+    welcome_text += "\n📌 Pin this bot chat in Telegram, then tap below to claim a one-time 200-point bonus."
 
     await update.message.reply_text(
         text=welcome_text,

@@ -27,6 +27,7 @@ class BookingCreate(BaseModel):
     phone_number: Optional[str] = None
     event_id: Optional[str] = None
     additional_slot_datetimes: Optional[List[datetime]] = None
+    request_key: Optional[str] = Field(None, min_length=8, max_length=100)
 
 class AppliedPromotion(BaseModel):
     """Promotion the backend auto-applied to a booking (presale loop)."""
@@ -45,6 +46,7 @@ class BookingResponse(BaseModel):
     amount_etb: int  # final charged amount for THIS day, after any promotion discount
     payment_method: str
     payment_status: str
+    booking_status: str = "requested"
     event_id: Optional[str] = None
     promotion: Optional[AppliedPromotion] = None
     created_at: datetime
@@ -56,6 +58,15 @@ class BookingResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class BookingStatusUpdateRequest(BaseModel):
+    status: str = Field(..., pattern="^(accepted|rejected|fulfilled)$")
+
+
+class BookingStatusUpdateResponse(BaseModel):
+    booking_id: str
+    booking_status: str
 
 
 class TelebirrInitiateRequest(BaseModel):

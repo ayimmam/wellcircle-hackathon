@@ -24,6 +24,7 @@ export default function ShareCard({ milestone, onClose }) {
   const { t } = useTranslation();
   const canvasRef = useRef(null);
   const [busy, setBusy] = useState(false);
+  const instanceId = useRef(globalThis.crypto?.randomUUID?.() || `card-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
   const { type, streak, day, tier } = milestone;
   // The hero is a single number with a quiet caps label under it — the stat
@@ -130,7 +131,7 @@ export default function ShareCard({ milestone, onClose }) {
           title: 'Well Circle',
           text: `${headline} — @wellcirclebot on Telegram`,
         });
-        track('share_card_shared', analyticsProps);
+        track('share_card_shared', { ...analyticsProps, card_instance_id: instanceId.current });
       } else {
         await handleDownload(blob);
       }
@@ -151,14 +152,14 @@ export default function ShareCard({ milestone, onClose }) {
       a.download = `wellcircle-${type}.png`;
       a.click();
       URL.revokeObjectURL(url);
-      track('share_card_downloaded', analyticsProps);
+      track('share_card_downloaded', { ...analyticsProps, card_instance_id: instanceId.current });
     } finally {
       setBusy(false);
     }
   };
 
   useEffect(() => {
-    track('share_card_shown', analyticsProps);
+    track('share_card_shown', { ...analyticsProps, card_instance_id: instanceId.current });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

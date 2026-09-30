@@ -232,6 +232,7 @@ export const cacheKeys = {
   homeLite: () => keyOf('home', { lite: 1 }),
   trainer: () => 'trainer',
   strava: (userId) => keyOf('strava', { userId }),
+  wearables: () => 'wearables',
   subscriptionPlans: () => 'subscriptions',
 
   providers: (category, search) => keyOf('providers', { category, search }),
@@ -612,8 +613,8 @@ export async function checkinCommunity(id) {
     await delay(400);
     const nextStreak = (MOCK_USER.current_streak || 0) + 1;
     return {
-      points_earned: 10,
-      new_balance: MOCK_USER.points_balance + 10,
+      points_earned: 0,
+      new_balance: MOCK_USER.points_balance,
       current_streak: nextStreak,
       freeze_count: MOCK_USER.freeze_count || 0,
       freeze_used: false,
@@ -689,6 +690,7 @@ export async function createBooking(data) {
       // Every booking starts pending — pay_on_site bookings wait on our team
       // calling to confirm, not an automatic flip (mirrors the backend).
       payment_status: 'pending',
+      booking_status: 'requested',
       created_at: new Date().toISOString(),
       additional_booking_ids: additionalBookingIds,
       total_amount_etb: primaryAmount + extraDates.length * data.amount_etb,
@@ -1302,6 +1304,15 @@ export async function getProviderBookings(params = {}) {
   });
 }
 
+export async function updateProviderBookingStatus(bookingId, status) {
+  invalidate('provider-me');
+  if (USE_MOCK) {
+    await delay(250);
+    return { booking_id: bookingId, booking_status: status };
+  }
+  return request('POST', `/providers/me/bookings/${bookingId}/status`, { status });
+}
+
 // Most-booked-service breakdown (bookings + revenue per service).
 export async function getProviderServiceBreakdown(params = {}) {
   return cached(cacheKeys.providerServices(params), async () => {
@@ -1785,6 +1796,15 @@ export async function getMyBookings() {
     if (USE_MOCK) return { bookings: mockBookingsCreatedThisSession };
     return request('GET', '/users/me/bookings');
   });
+}
+
+export async function cancelMyBooking(bookingId) {
+  invalidate('bookings');
+  if (USE_MOCK) {
+    await delay(250);
+    return { booking_id: bookingId, booking_status: 'cancelled' };
+  }
+  return request('POST', `/users/me/bookings/${bookingId}/cancel`);
 }
 
 export async function getProviderEvents(providerId) {
@@ -2272,6 +2292,25 @@ export async function reviewPaidCircleApplication(circleId, action, reason = nul
 export async function getStravaConnectUrl() {
   if (USE_MOCK) { await delay(); return { url: `${window.location.origin}/profile?strava=connected` }; }
   return request('GET', '/strava/connect');
+}
+
+let mockWearableConnected = false;
+
+export async function getWearableConnectUrl() {
+  if (USE_MOCK) {
+    await delay(150);
+    mockWearableConnected = true;
+    return { url: 'https://widget.tryterra.co/session/mock', expires_in: 900 };
+  }
+  return request('GET', '/wearables/connect');
+}
+
+export async function getWearableStatus() {
+  if (USE_MOCK) {
+    await delay(100);
+    return { connected: mockWearableConnected, providers: mockWearableConnected ? ['FITBIT'] : [], walk_score: MOCK_USER.walk_score || 0 };
+  }
+  return request('GET', '/wearables/status');
 }
 
 export async function disconnectStrava() {

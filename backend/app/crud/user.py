@@ -167,6 +167,7 @@ def get_all_users(
 def get_inactive_users(db: Session, days: int = 7, reengagement_cooldown_days: int = 7) -> List[User]:
     """Get onboarded users inactive for N+ days who haven't been re-engaged recently."""
     from datetime import timedelta
+    from app.utils.pilot_time import pilot_day_start_utc
     now = datetime.now(timezone.utc)
     cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days)
     reengagement_cutoff = now - timedelta(days=reengagement_cooldown_days)
@@ -175,8 +176,10 @@ def get_inactive_users(db: Session, days: int = 7, reengagement_cooldown_days: i
         db.query(User)
         .filter(
             User.is_onboarded == True,
+            User.proactive_notifications_enabled == True,
             (User.last_activity_at < cutoff) | (User.last_activity_at.is_(None)),
             (User.last_reengagement_at.is_(None)) | (User.last_reengagement_at < reengagement_cutoff),
+            (User.last_proactive_reminder_at.is_(None)) | (User.last_proactive_reminder_at < pilot_day_start_utc()),
         )
         .all()
     )
@@ -188,17 +191,19 @@ def get_streaks_at_risk(db: Session) -> List[User]:
     streak nudge (loss-aversion framing, ethically bounded: the streak is
     genuinely one missed day from needing a freeze/resetting)."""
     from datetime import timedelta
-    now = datetime.now(timezone.utc)
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    from app.utils.pilot_time import pilot_day_start_utc
+    today_start = pilot_day_start_utc()
     yesterday_start = today_start - timedelta(days=1)
 
     return (
         db.query(User)
         .filter(
             User.is_onboarded == True,
+            User.proactive_notifications_enabled == True,
             User.current_streak > 0,
             User.last_checkin_at >= yesterday_start,
             User.last_checkin_at < today_start,
+            (User.last_proactive_reminder_at.is_(None)) | (User.last_proactive_reminder_at < today_start),
         )
         .all()
     )
@@ -209,6 +214,67 @@ def mark_user_reengagement(db: Session, telegram_id: int) -> Optional[User]:
     if not user:
         return None
     user.last_reengagement_at = datetime.now(timezone.utc)
+    user.last_proactive_reminder_at = user.last_reengagement_at
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def get_day1_return_users(db: Session) -> List[User]:
+    """Users inactive since activation for at least one but fewer than seven days."""
+    from datetime import timedelta
+    from app.utils.pilot_time import pilot_day_start_utc
+    now = datetime.now(timezone.utc)
+    day1_cutoff = now - timedelta(days=1)
+    older_cutoff = now - timedelta(days=7)
+    day_start = pilot_day_start_utc()
+    return (
+        db.query(User)
+        .filter(
+            User.is_onboarded == True,
+            User.proactive_notifications_enabled == True,
+            User.last_activity_at <= day1_cutoff,
+            User.last_activity_at > older_cutoff,
+            User.day1_reminder_sent_at.is_(None),
+            (User.last_proactive_reminder_at.is_(None)) | (User.last_proactive_reminder_at < day_start),
+        )
+        .all()
+    )
+
+
+def mark_user_day1_reminder(db: Session, telegram_id: int) -> Optional[User]:
+    user = get_user_by_telegram_id(db, telegram_id)
+    return mark_user_day1_reminder_for_user(db, user)
+
+
+def mark_user_day1_reminder_for_user(db: Session, user: Optional[User]) -> Optional[User]:
+    if not user:
+        return None
+    if user.day1_reminder_sent_at:
+        return user
+    now = datetime.now(timezone.utc)
+    user.day1_reminder_sent_at = now
+    user.last_proactive_reminder_at = now
+    if not user.telegram_id:
+        from app.services.notification_service import create_notification
+        create_notification(
+            db,
+            user_id=user.id,
+            type="day1_return_prompt",
+            title="Ready for your next check-in?",
+            body="Your community is here when you are. Pick up your wellness journey where you left off.",
+            action_url="/community",
+        )
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def mark_user_proactive_reminder(db: Session, telegram_id: int) -> Optional[User]:
+    user = get_user_by_telegram_id(db, telegram_id)
+    if not user:
+        return None
+    user.last_proactive_reminder_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(user)
     return user

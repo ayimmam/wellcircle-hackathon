@@ -2719,6 +2719,23 @@ body.in-telegram #detail-back-btn {
   border-top: 1px solid var(--border-subtle);
 }
 
+.walk-score-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: min(100%, 220px);
+  margin: 12px auto;
+  padding: 12px 20px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  font-variant-numeric: tabular-nums;
+}
+.walk-score-label { color: var(--text-secondary); font-size: 0.76rem; font-weight: 700; }
+.walk-score-number { color: var(--text-primary); font-size: 1.65rem; line-height: 1.1; }
+.walk-score-caption { color: var(--text-secondary); font-size: 0.68rem; }
+
 /* Divider that marks where the profile stops and configuration starts. */
 .profile-settings-heading {
   display: flex;

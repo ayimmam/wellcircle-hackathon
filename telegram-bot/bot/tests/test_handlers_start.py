@@ -81,6 +81,8 @@ def test_start_handler_success_with_first_name():
         button = reply_markup.inline_keyboard[0][0]
         assert button.text == "🟢 Open Well Circle"
         assert button.web_app.url == MINI_APP_URL
+        assert "200-point bonus" in call_kwargs["text"]
+        assert reply_markup.inline_keyboard[1][0].callback_data == "claim_pin_bonus"
 
         mock_bg.assert_called_once_with(98765, "yoni_dev", update.effective_user)
         context.application.create_task.assert_called_once_with(fake_task)

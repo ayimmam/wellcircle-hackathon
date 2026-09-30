@@ -351,7 +351,7 @@ export default function ProfileScreen() {
               >
                 <div>
                   <span className="inline-icon-text" style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>
-                    {item.action === 'checkin' ? <><Icon name="check" size={13} /> Check-in</> : item.action === 'decay' ? <><Icon name="chart" size={13} /> Decay</> : item.action}
+                    {item.action === 'checkin' ? <><Icon name="check" size={13} /> Check-in</> : item.action === 'decay' ? <><Icon name="chart" size={13} /> Decay</> : item.action === 'pin_bot_bonus' ? 'Pinned bot bonus' : item.action}
                   </span>
                   {item.community_name && (
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginLeft: 8 }}>
@@ -447,6 +447,23 @@ export default function ProfileScreen() {
               </label>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="profile-section">
+        <div className="profile-section-title">{t('Reminders')}</div>
+        <div className="profile-card">
+          <label className="privacy-option" style={{ cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={user?.proactive_notifications_enabled !== false}
+              onChange={e => updateProfile({ proactive_notifications_enabled: e.target.checked })
+                .then(() => showToast(e.target.checked ? 'Reminders enabled' : 'Reminders paused', 'success'))
+                .catch(err => showToast(err.message || 'Could not update reminders', 'error'))}
+              aria-label={t('Well Circle reminders')}
+            />
+            <span><strong>{t('Well Circle reminders')}</strong><small>{t('Pause daily check-in and activity reminders at any time.')}</small></span>
+          </label>
         </div>
       </div>
 

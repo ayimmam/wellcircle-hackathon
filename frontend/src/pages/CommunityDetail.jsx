@@ -13,6 +13,7 @@ import usePolling from '../hooks/usePolling';
 import useCheckin from '../hooks/useCheckin';
 import ShareCard from '../components/ShareCard';
 import Icon from '../components/Icon';
+import { track } from '../analytics';
 
 export default function CommunityDetail() {
   const { id } = useParams();
@@ -92,6 +93,7 @@ export default function CommunityDetail() {
 
     try {
       const res = await joinCommunity(id);
+      track('community_joined', { community_id: id, group_type: 'provider_community', source: 'community_detail' });
       setCommunity(prev => ({ ...prev, member_count: res.member_count }));
       // Add join event to feed
       if (res.feed_event) {
@@ -150,21 +152,29 @@ export default function CommunityDetail() {
     if (checkingIn) return;
     setCheckingIn(true);
     
-    // Optimistic UI Update
-    setCheckedIn(true);
-    
     try {
       // Toasts, user points/streak updates, milestone celebration, and
       // analytics all live in useCheckin (shared with the Home check-in card)
       const res = await checkin(id);
+      setCheckedIn(true);
       // Add checkin event to feed
       if (res.feed_event) {
         setEvents(prev => [{ ...res.feed_event, user_photo: user?.photo_url }, ...prev]);
       }
       setChallengeRefreshKey(k => k + 1);
     } catch (err) {
-      showToast('Already checked in today');
-      // Don't revert checkedIn here because the backend confirmed we are already checked in.
+      if (err?.status === 409) {
+        setCheckedIn(true);
+      } else if (err?.status === 403) {
+        setCheckedIn(false);
+        showToast('Join this community before checking in.', 'error');
+      } else if (err?.status === 401) {
+        setCheckedIn(false);
+        showToast('Your session expired. Reopen Well Circle to sign in again.', 'error');
+      } else {
+        setCheckedIn(false);
+        showToast("Couldn't check in. Check your connection and try again.", 'error');
+      }
     } finally {
       setCheckingIn(false);
     }

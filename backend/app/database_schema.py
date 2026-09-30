@@ -31,6 +31,41 @@ def ensure_db_schema(engine):
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS strava_token_expires_at TIMESTAMP WITH TIME ZONE;",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS strava_visible_stats JSONB;",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS longest_streak INTEGER DEFAULT 0;",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS walk_score BIGINT NOT NULL DEFAULT 0;",
+        """CREATE TABLE IF NOT EXISTS user_wearables (
+            id UUID PRIMARY KEY, user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            terra_user_id VARCHAR(128) NOT NULL UNIQUE, reference_id VARCHAR(128) NOT NULL,
+            provider VARCHAR(64) NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE,
+            last_sync_timestamp TIMESTAMPTZ, connected_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );""",
+        "CREATE INDEX IF NOT EXISTS ix_user_wearables_user_id ON user_wearables(user_id);",
+        """CREATE TABLE IF NOT EXISTS wearable_daily_steps (
+            id UUID PRIMARY KEY, wearable_id UUID NOT NULL REFERENCES user_wearables(id) ON DELETE CASCADE,
+            activity_date DATE NOT NULL, steps INTEGER NOT NULL CHECK (steps BETWEEN 0 AND 100000),
+            UNIQUE (wearable_id, activity_date)
+        );""",
+        """CREATE TABLE IF NOT EXISTS walk_score_days (
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, activity_date DATE NOT NULL,
+            steps INTEGER NOT NULL DEFAULT 0 CHECK (steps BETWEEN 0 AND 100000),
+            PRIMARY KEY (user_id, activity_date)
+        );""",
+        "ALTER TABLE user_wearables ENABLE ROW LEVEL SECURITY;",
+        "ALTER TABLE wearable_daily_steps ENABLE ROW LEVEL SECURITY;",
+        "ALTER TABLE walk_score_days ENABLE ROW LEVEL SECURITY;",
+        """CREATE OR REPLACE FUNCTION protect_walk_score() RETURNS trigger
+            LANGUAGE plpgsql AS $$ BEGIN
+                IF current_user IN ('anon', 'authenticated') THEN
+                    IF TG_OP = 'INSERT' AND COALESCE(NEW.walk_score, 0) <> 0 THEN
+                        RAISE EXCEPTION 'walk_score is server managed';
+                    ELSIF TG_OP = 'UPDATE' AND NEW.walk_score IS DISTINCT FROM OLD.walk_score THEN
+                        RAISE EXCEPTION 'walk_score is server managed';
+                    END IF;
+                END IF;
+                RETURN NEW;
+            END; $$;""",
+        """DROP TRIGGER IF EXISTS trg_protect_walk_score ON users;""",
+        """CREATE TRIGGER trg_protect_walk_score BEFORE INSERT OR UPDATE ON users
+            FOR EACH ROW EXECUTE FUNCTION protect_walk_score();""",
         # Trainer Verifications table
         "ALTER TABLE trainer_verifications ADD COLUMN IF NOT EXISTS certificate_public_id VARCHAR(255);",
         "ALTER TABLE trainer_verifications ADD COLUMN IF NOT EXISTS payment_receipt_public_id VARCHAR(255);",

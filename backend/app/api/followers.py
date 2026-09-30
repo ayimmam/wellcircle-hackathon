@@ -116,6 +116,7 @@ def public_profile(
     return {
         **_user_item(db, target),
         "profile_privacy": target.profile_privacy,
+        "walk_score": (target.walk_score or 0) if can_view_stats else None,
         "is_following": viewer_follows,
         "strava_stats": stats,
         "circles": [

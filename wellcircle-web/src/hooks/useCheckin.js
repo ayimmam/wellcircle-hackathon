@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { showToast } from '../components/Toast';
 import { track } from '../analytics';
 
+
 /**
  * Shared daily check-in behavior: points/streak toasts, user-state update,
  * 7-day milestone celebration (haptic + freeze copy), comeback-bonus and
@@ -20,12 +21,21 @@ import { track } from '../analytics';
  * (feed events, challenge refresh).
  */
 export default function useCheckin(surface, onMilestone) {
-  const { setUser } = useAuth();
+  const { user, setUser } = useAuth();
 
   return useCallback(async (communityId) => {
-    const res = await checkinCommunity(communityId);
-    // A first-ever check-in has nothing to continue — don't claim it does.
-    showToast(res.current_streak > 1 ? 'Streak continued' : 'Checked in', 'success');
+    track('checkin_attempt', { surface, community_id: communityId });
+    let res;
+    try {
+      res = await checkinCommunity(communityId);
+    } catch (error) {
+      track('checkin_failure', {
+        surface,
+        community_id: communityId,
+        status: error?.status || (error?.isNetworkNoise ? 'network' : 'unknown'),
+      });
+      throw error;
+    }
     setUser(prev => prev ? {
       ...prev,
       points_balance: res.new_balance,
@@ -35,35 +45,32 @@ export default function useCheckin(surface, onMilestone) {
     } : prev);
     track('checkin', { surface, community_id: communityId, streak: res.current_streak });
 
-    if (res.freeze_used) {
-      setTimeout(() => showToast(
-        `Streak freeze used — your ${res.current_streak}-day streak survived!`,
-        'success'
-      ), 1200);
-    }
     if (res.comeback_bonus) {
-      // Streak broke with no freeze to save it — the return trip itself
-      // gets rewarded, so coming back still feels like a win.
-      setTimeout(() => showToast('Welcome back! +15 pts for restarting your streak', 'success'), 1200);
       track('comeback_bonus', { surface, streak: res.current_streak });
     }
     if (res.current_streak > 0 && res.current_streak % 7 === 0) {
-      // Milestone: every 7 days earns a streak freeze — celebrate it
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success');
-      setTimeout(() => showToast(
-        `${res.current_streak}-day streak! Freeze earned — miss a day without losing it.`,
-        'success'
-      ), 2400);
       track('streak_milestone', { streak: res.current_streak, freezes: res.freeze_count });
       onMilestone?.({ type: 'streak', streak: res.current_streak, tier: res.tier });
     } else if (res.is_personal_best && res.current_streak > 1) {
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success');
-      setTimeout(() => showToast(`New personal best — ${res.current_streak} days`, 'success'), 2400);
       track('streak_personal_best', { streak: res.current_streak });
       onMilestone?.({ type: 'personal_best', streak: res.current_streak, tier: res.tier });
-    } else if (res.current_streak > 1) {
-      setTimeout(() => showToast(`${res.current_streak}-day streak`, 'success'), 1200);
+    }
+    const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Addis_Ababa' }).format(new Date());
+    const toastKey = `wellcircle-checkin-toast:${user?.id || 'guest'}:${day}`;
+    let shown = false;
+    try { shown = sessionStorage.getItem(toastKey) === '1'; } catch { /* storage can be disabled */ }
+    if (!shown) {
+      const details = ['Checked in'];
+      if (res.current_streak > 1) details.push(`${res.current_streak}-day streak`);
+      if (res.freeze_used) details.push('streak freeze used');
+      if (res.comeback_bonus) details.push('+15 pts comeback bonus');
+      if (res.current_streak > 0 && res.current_streak % 7 === 0) details.push('freeze earned');
+      else if (res.is_personal_best && res.current_streak > 1) details.push('new personal best');
+      showToast(details.join(' · '), 'success');
+      try { sessionStorage.setItem(toastKey, '1'); } catch { /* storage can be disabled */ }
     }
     return res;
-  }, [surface, setUser, onMilestone]);
+  }, [surface, user?.id, setUser, onMilestone]);
 }

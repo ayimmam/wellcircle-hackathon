@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import useCheckin from '../hooks/useCheckin';
 import { showToast } from './Toast';
@@ -14,6 +15,7 @@ import ShareCard from './ShareCard';
  * CommunityDetail so toasts/milestones/analytics behave identically.
  */
 export default function CheckinCard({ circles, onChecked }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [shareMilestone, setShareMilestone] = useState(null);
   const checkin = useCheckin('home', setShareMilestone);
@@ -51,12 +53,20 @@ export default function CheckinCard({ circles, onChecked }) {
     track('checkin_prompt_click', { surface: 'home', community_id: id });
     try {
       await checkin(id);
-      setCheckedIds(prev => new Set([...prev, id]));
+      setCheckedIds(new Set((circles || []).map(c => c.id)));
       onChecked?.(id);
-    } catch {
-      showToast('Already checked in today');
-      setCheckedIds(prev => new Set([...prev, id]));
-      onChecked?.(id);
+    } catch (err) {
+      if (err?.status === 409) {
+        setCheckedIds(new Set((circles || []).map(c => c.id)));
+        onChecked?.(id);
+      } else if (err?.status === 403) {
+        showToast('Join this community again to check in.', 'error');
+        navigate(`/community/${id}`);
+      } else if (err?.status === 401) {
+        showToast('Your session expired. Reopen Well Circle to sign in again.', 'error');
+      } else {
+        showToast("Couldn't check in. Check your connection and try again.", 'error');
+      }
     } finally {
       setBusyId(null);
     }

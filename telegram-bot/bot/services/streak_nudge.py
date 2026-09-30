@@ -8,7 +8,7 @@ import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from bot.services.api_client import get_streaks_at_risk
+from bot.services.api_client import get_streaks_at_risk, mark_proactive_reminder_sent
 from bot.utils.nudges import build_streak_nudge
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,7 @@ async def send_streak_nudges(context: ContextTypes.DEFAULT_TYPE) -> None:
                     reply_markup=reply_markup,
                     parse_mode="HTML",
                 )
+                await mark_proactive_reminder_sent(telegram_id)
                 sent += 1
                 await asyncio.sleep(0.05)  # throttle: ~20 msgs/sec
             except Exception as e:

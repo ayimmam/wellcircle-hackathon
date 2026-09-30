@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
+import { track } from '../analytics';
 
 // Rank is carried by the numeral itself — the top three are marked with the
 // accent colour rather than medal emoji, which reads calmer at list density.
@@ -90,6 +91,7 @@ export default function CommunityList() {
 
     try {
       const res = await joinCommunity(id);
+      track('community_joined', { community_id: id, group_type: 'provider_community', source: 'community_list' });
       showToast('Joined the circle!', 'success');
       // Sync real member count
       setCommunities(prev => prev.map(c =>

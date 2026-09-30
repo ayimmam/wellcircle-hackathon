@@ -12,6 +12,7 @@ import Icon from '../components/Icon';
 import SmartImage from '../components/SmartImage';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import { clickableDivProps } from '../utils/a11y';
+import { track } from '../analytics';
 
 // Rank is carried by the numeral itself — the top three are marked with the
 // accent colour rather than medal emoji, which reads calmer at list density.
@@ -103,6 +104,7 @@ export default function CommunityList() {
 
     try {
       const res = await joinCommunity(id);
+      track('community_joined', { community_id: id, group_type: 'provider_community', source: 'community_list' });
       showToast('Joined the circle!', 'success');
       // Sync real member count
       setCommunities(prev => prev.map(c =>

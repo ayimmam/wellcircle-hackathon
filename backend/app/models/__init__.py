@@ -8,6 +8,7 @@ from app.models.user_redemption import UserRedemption
 from app.models.admin_notification import AdminNotification
 from app.models.community import Community, CommunityMember, CommunityFeedEvent
 from app.models.booking import Booking
+from app.models.booking_status_event import BookingStatusEvent
 from app.models.circle import Circle, CircleMember
 from app.models.post import Post, Reaction
 from app.models.post import Post, Reaction
@@ -39,6 +40,7 @@ __all__ = [
     "CommunityMember",
     "CommunityFeedEvent",
     "Booking",
+    "BookingStatusEvent",
     "Circle",
     "CircleMember",
     "Post",

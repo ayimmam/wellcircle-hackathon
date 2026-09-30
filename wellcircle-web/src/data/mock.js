@@ -29,6 +29,7 @@ export const MOCK_USER = {
   follower_count: 2,
   following_count: 2,
   profile_privacy: 'public',
+  proactive_notifications_enabled: true,
   is_verified_trainer: false,
   verified_trainer_expires_at: null,
   strava_connected: false,

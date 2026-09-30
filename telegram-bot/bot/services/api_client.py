@@ -66,6 +66,15 @@ async def register_user(
     return response.json()
 
 
+async def claim_pin_bot_bonus(telegram_id: int) -> dict:
+    """Claim the one-time, self-reported chat pin bonus."""
+    response = await get_http_client().post(
+        f"{BACKEND_URL}/api/bot/users/{telegram_id}/pin-bonus",
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 async def check_admin_access(telegram_id: int) -> dict:
     """Check if user has super-admin access via GET /api/bot/users/{id}/admin-access."""
     client = get_http_client()
@@ -83,6 +92,27 @@ async def get_inactive_users(days: int = 7) -> dict:
         f"{BACKEND_URL}/api/bot/inactive-users",
         params={"days": days},
     )
+    response.raise_for_status()
+    return response.json()
+
+
+async def get_day1_return_users() -> dict:
+    client = get_http_client()
+    response = await client.get(f"{BACKEND_URL}/api/bot/day1-return-users")
+    response.raise_for_status()
+    return response.json()
+
+
+async def mark_day1_reminder_sent(user_key: str) -> dict:
+    client = get_http_client()
+    response = await client.post(f"{BACKEND_URL}/api/bot/users/{user_key}/day1-reminder-sent")
+    response.raise_for_status()
+    return response.json()
+
+
+async def mark_proactive_reminder_sent(telegram_id: int) -> dict:
+    client = get_http_client()
+    response = await client.post(f"{BACKEND_URL}/api/bot/users/{telegram_id}/proactive-reminder-sent")
     response.raise_for_status()
     return response.json()
 

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { INTEREST_CATEGORIES, EXERCISE_FREQUENCIES, MOCK_COMMUNITIES } from '../data/mock';
+import { INTEREST_CATEGORIES, EXERCISE_FREQUENCIES } from '../data/mock';
 import { WELLNESS_VIBES, dicebearUrl } from '../components/AvatarPicker';
 import { motion } from 'motion/react';
 import { track } from '../analytics';
-import { getCircles, createCircle, joinCircle } from '../api/client';
+import { getCircles, getCommunities, createCircle, joinCircle } from '../api/client';
 import { shareCircleInvite } from '../utils/circleInvite';
 import { showToast } from '../components/Toast';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
@@ -39,6 +39,7 @@ export default function OnboardingFlow() {
   // (not deferred to final submit), matching how circles already work
   // everywhere else in the app (CircleDetailScreen).
   const [availableCircles, setAvailableCircles] = useState([]);
+  const [availableCommunities, setAvailableCommunities] = useState([]);
   const [committedCircle, setCommittedCircle] = useState(null); // created/joined this session
   const [newCircleName, setNewCircleName] = useState('');
   const [creatingCircle, setCreatingCircle] = useState(false);
@@ -46,6 +47,7 @@ export default function OnboardingFlow() {
 
   useEffect(() => {
     getCircles().then(res => setAvailableCircles(res.circles || [])).catch(() => {});
+    getCommunities().then(res => setAvailableCommunities(res.communities || [])).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -87,8 +89,8 @@ export default function OnboardingFlow() {
     .filter(c => !c.is_joined && !c.is_private && !c.is_paid && c.id !== committedCircle?.id)
     .slice(0, MAX_CIRCLE_SUGGESTIONS)
     .map(c => ({ ...c, kind: 'real' }));
-  const communitySuggestions = MOCK_COMMUNITIES
-    .filter(c => formData.interest_categories.includes(c.category))
+  const communitySuggestions = availableCommunities
+    .filter(c => !c.user_joined && formData.interest_categories.includes(c.category))
     .slice(0, Math.max(0, MAX_CIRCLE_SUGGESTIONS - realJoinableCircles.length))
     .map(c => ({ ...c, kind: 'suggestion' }));
   const circleSuggestions = [...realJoinableCircles, ...communitySuggestions].slice(0, MAX_CIRCLE_SUGGESTIONS);
@@ -132,8 +134,15 @@ export default function OnboardingFlow() {
     setLoading(true);
     try {
       const res = await onboard(formData);
-      track('onboarding_complete', {
-        circles_joined: formData.suggested_circle_ids.length,
+      const joinedCommunityIds = res?.auto_joined_communities || [];
+      joinedCommunityIds.forEach(communityId => track('community_joined', {
+        community_id: communityId,
+        group_type: 'provider_community',
+        source: 'onboarding',
+      }));
+      track('onboarding_completed', {
+        selected_community_count: formData.suggested_circle_ids.length,
+        joined_community_count: joinedCommunityIds.length,
         has_goal: formData.goal.trim().length > 0,
         frequency_changed_from_default: formData.exercise_frequency !== DEFAULT_FREQUENCY,
         welcome_points: res?.welcome_points ?? 0,
@@ -340,9 +349,9 @@ export default function OnboardingFlow() {
         {currentStep === 'circles' && (
           <>
             <div className="onboarding-emoji">🤝</div>
-            <h2 className="onboarding-title">Join a circle</h2>
+            <h2 className="onboarding-title">Join a community or circle</h2>
             <p className="onboarding-subtitle">
-              Circles are small accountability groups — check in together, cheer each other on, and stay consistent as a team.
+              Provider communities let you check in daily. Social circles are small accountability groups. You can skip this step.
             </p>
 
             {circleSuggestions.length > 0 && (
@@ -369,7 +378,7 @@ export default function OnboardingFlow() {
                       <div style={{ flex: 1 }}>
                         <div className="option-card-label">{c.name}</div>
                         <div className="option-card-desc">
-                          {isReal ? `👥 ${c.member_count} members` : `by ${c.provider_name} · 👥 ${c.member_count}`}
+                          {isReal ? `Social circle · 👥 ${c.member_count} members` : `Provider community · ${c.provider_name} · 👥 ${c.member_count}`}
                         </div>
                         {c.description && (
                           <div className="option-card-desc" style={{ marginTop: 2, fontSize: '0.75rem', opacity: 0.85 }}>

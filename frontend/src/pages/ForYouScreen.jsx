@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getHomeBootstrap, getHomeLite, getForYouFeed, deleteStory, markStoryViewed, createPost, uploadFile, cacheKeys } from '../api/client';
 import useResource from '../hooks/useResource';
@@ -26,6 +26,7 @@ import { showToast } from '../components/Toast';
 import { useTranslation } from 'react-i18next';
 import { daysSinceJoin } from '../utils/milestones';
 import { orderFeedItems } from '../utils/feedOrdering';
+import { track } from '../analytics';
 
 // Bumping the suffix (v1 -> v2) would re-show the card to everyone once —
 // only do that intentionally.
@@ -43,6 +44,7 @@ function FeedItem({ item, priority, onRetryPost, onDiscardPost }) {
 }
 
 export default function ForYouScreen() {
+  const navigate = useNavigate();
   const { user, setUser } = useAuth();
   const location = useLocation();
   const { t } = useTranslation();
@@ -97,10 +99,13 @@ export default function ForYouScreen() {
     (!home?.communities || (liteCache?.ts || 0) > (homeCache?.ts || 0));
   const communitiesForCheckin = useLiteCommunities ? lite.communities : (home?.communities || []);
   const checkinCacheTime = useLiteCommunities ? liteCache?.ts : homeCache?.ts;
-  // checked_in_today is a UTC-day flag. A cached response from yesterday must
-  // not hide today's button while the network refresh is in flight.
+  // The API's check-in day is in Addis Ababa time; apply that same day to
+  // cached state so crossing UTC midnight does not reset the prompt early.
+  const pilotDate = (date) => new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Addis_Ababa', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(date);
   const checkedInFlagsCurrent = checkinCacheTime &&
-    new Date(checkinCacheTime).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10);
+    pilotDate(new Date(checkinCacheTime)) === pilotDate(new Date());
   const isJoined = (c) => c.user_joined || user?.joined_communities?.includes(c.id);
   const joinedCircles = communitiesForCheckin.filter(isJoined).map(c =>
     checkedInFlagsCurrent ? c : { ...c, checked_in_today: false }
@@ -308,19 +313,22 @@ export default function ForYouScreen() {
     setLite(patchFeedItems(items => items.filter(it => it.id !== tempId)));
   };
 
-  const markCheckedIn = (id) => (prev) => (
+  const markCheckedIn = () => (prev) => (
     prev?.communities
       ? {
         ...prev,
-        communities: prev.communities.map(c => c.id === id ? { ...c, checked_in_today: true } : c),
+        communities: prev.communities.map(c => (
+          c.user_joined || user?.joined_communities?.includes(c.id)
+            ? { ...c, checked_in_today: true } : c
+        )),
       }
       : prev
   );
   // Whichever payload is on screen owns the card, and the other one will be
   // swapped in moments later — so both have to record the check-in.
-  const setCheckedIn = (id) => {
-    setHome(markCheckedIn(id));
-    setLite(markCheckedIn(id));
+  const setCheckedIn = () => {
+    setHome(markCheckedIn());
+    setLite(markCheckedIn());
   };
 
   // Image-led readiness ranking (WS3 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md):
@@ -439,6 +447,17 @@ export default function ForYouScreen() {
       {user && justOnboarded && <WelcomeBanner user={user} providers={home?.providers || []} />}
 
       {user && <SocialProofBanner />}
+
+      {user && joinedCircles.length === 0 && (
+        <div className="card mb-24" style={{ padding: 16 }} id="home-join-community-prompt">
+          <h3 style={{ fontWeight: 700, marginBottom: 6 }}>Join a community to check in</h3>
+          <p className="text-sm text-secondary mb-12">Choose a provider community to start tracking your daily streak.</p>
+          <button className="btn btn-primary btn-sm" onClick={() => {
+            track('community_discovery_open', { source: 'home_first_action' });
+            navigate('/community');
+          }}>Find a community</button>
+        </div>
+      )}
 
       {user && joinedCircles.length > 0 && (
         <CheckinCard

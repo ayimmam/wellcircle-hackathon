@@ -51,7 +51,8 @@ export default function useOptimisticAction() {
       return { ok: true, result };
     } catch (error) {
       undo?.();
-      if (failureMessage) showToast(failureMessage, 'error');
+      const message = typeof failureMessage === 'function' ? failureMessage(error) : failureMessage;
+      if (message) showToast(message, 'error');
       logIssue('optimistic_action_failed', { message: error?.message, dedupeKey });
       return { ok: false, error };
     } finally {

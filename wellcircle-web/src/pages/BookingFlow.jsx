@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 import { useTelegramHeaderColor } from '../hooks/useTelegramHeaderColor';
@@ -54,6 +54,7 @@ export default function BookingFlow() {
   // and collect payment in person (see docs/API_CONTRACT.md's pay_on_site note).
   const [phoneResult, setPhoneResult] = useState({ valid: false, e164: null });
   const [booking, setBooking] = useState(null);
+  const requestKeyRef = useRef(globalThis.crypto?.randomUUID?.() || `booking-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   // Kuriftu gap analysis (Jul 15): some services aren't booked in-app at all —
@@ -230,6 +231,7 @@ export default function BookingFlow() {
       const [primaryDate, ...extraDates] = sortedDates;
       const primaryTime = timeFor(primaryDate);
       const bk = await createBooking({
+        request_key: requestKeyRef.current,
         provider_id: providerId,
         service_name: selectedService.name,
         slot_datetime: `${primaryDate}T${primaryTime}:00Z`,
@@ -243,11 +245,13 @@ export default function BookingFlow() {
       });
       setBooking(bk);
       setConfirmed(true);
-      track('booking_confirmed', {
+      track('booking_requested', {
         provider_id: providerId,
         service: selectedService?.name,
         amount_etb: bk?.total_amount_etb ?? totalPrice,
         days: numDays,
+        booking_id: bk?.id,
+        payment_status: bk?.payment_status || 'pending',
       });
       if (bk?.promotion) {
         track('promo_redeemed', {

@@ -161,9 +161,9 @@ New in v1.1 - aligned with pitch deck Slide 6: Smart Notifications
 
 ### **6.2.3 Check-In**
 
-- Button: Check In Today - one tap, one per day per community.
-- POST /communities/:id/checkin → returns { points_earned: 10, new_balance: 120 }.
-- Toast notification: +10 Legacy Points earned!
+- Button: Check In Today - one tap for an eligible provider-community member, once per user per Addis Ababa calendar day across communities.
+- POST /communities/:id/checkin → returns the updated streak and { points_earned: 0, new_balance: 120 } for a routine check-in.
+- Toast confirms the check-in and streak. Separate referral, comeback, and challenge rewards may award points.
 - Check-in button state changes to Checked in today (disabled) after use.
 
 ## **6.3 Marketplace - Browse & Listing**
@@ -188,9 +188,10 @@ Displayed on the Profile screen: Current balance, lifetime earned, a simple tier
 
 | **Action**                  | **Points** | **Notes**                                     |
 | --------------------------- | ---------- | --------------------------------------------- |
-| Daily check-in              | +10        | One per day per community                     |
+| Daily check-in              | 0          | Streak-only; one per user per Addis Ababa day |
+| Pin Well Circle bot chat    | +200       | One-time Telegram self-reported claim via bot |
 | Post receives 10+ reactions | +25        | Phase 2 - not in MVP; shown in pitch deck     |
-| Complete a paid booking     | +50        | Phase 2 - not in MVP; shown in pitch deck     |
+| Successful booking payment  | +50        | Paid transaction; provider acceptance and attendance have separate states |
 | 3 days inactive (decay)     | −5 / day   | APScheduler job; not surfaced visually in MVP |
 
 Tiers based on cumulative balance:
@@ -475,7 +476,7 @@ _Consumer journey through discovery, community, and personalisation._
 - Open Telegram → click bot link → Well Circle loads instantly. No download.
 - Navigate to Explore → show real partner listing - photos, services, ETB pricing.
 - Tap into Community Spaces → show the provider's community with member count.
-- Tap Join → member count increments on screen. Tap Check In → toast: +10 Legacy Points.
+- Tap Join → member count increments on screen. Tap Check In → one confirmation toast; the streak advances once for the day.
 - Live feed shows the join event - username, timestamp, action.
 
 **- Personalization Teaser (30 seconds - new in v1.1) -**

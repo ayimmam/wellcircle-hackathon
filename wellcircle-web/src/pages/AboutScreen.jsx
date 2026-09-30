@@ -25,7 +25,7 @@ const HOW_IT_WORKS = [
   {
     icon: 'coins',
     title: 'Earn Legacy Points',
-    body: 'Check-ins, streaks, and bookings earn points. Points move you up tiers and buy real rewards in the Points Store.',
+    body: 'Daily check-ins build your streak. Referrals, comeback rewards, challenges, and successful booking payments can earn points to use in the Points Store.',
   },
   {
     icon: 'calendar',

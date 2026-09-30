@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { getMyBookings } from '../api/client';
+import { getMyBookings, cancelMyBooking } from '../api/client';
 import Icon from '../components/Icon';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
+import { showToast } from '../components/Toast';
+import { track } from '../analytics';
 
 export default function MyBookings() {
   const navigate = useNavigate();
@@ -12,6 +14,7 @@ export default function MyBookings() {
   const [upcoming, setUpcoming] = useState([]);
   const [past, setPast] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [cancellingId, setCancellingId] = useState(null);
 
   const fetchBookings = useCallback(async () => {
     try {
@@ -29,18 +32,35 @@ export default function MyBookings() {
     }
   }, []);
 
+  const handleCancel = async (booking) => {
+    setCancellingId(booking.id);
+    try {
+      await cancelMyBooking(booking.id);
+      track('booking_cancelled', { booking_id: booking.id, source: 'my_bookings' });
+      showToast('Booking request cancelled.', 'success');
+      await fetchBookings();
+    } catch (err) {
+      showToast(err.message || 'Could not cancel this booking.', 'error');
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
 
 
 
-  const STATUS_LABELS = { success: 'Confirmed', pending: 'Pending', failed: 'Failed' };
+  const STATUS_LABELS = {
+    requested: 'Request received', accepted: 'Accepted', fulfilled: 'Completed',
+    rejected: 'Unavailable', cancelled: 'Cancelled',
+  };
 
   const BookingItem = ({ b, isUpcoming }) => {
     let statusColor = 'var(--text-secondary)';
-    if (b.payment_status === 'success') statusColor = '#10b981'; // green
-    else if (b.payment_status === 'pending') statusColor = '#f59e0b'; // yellow
+    if (b.booking_status === 'accepted' || b.booking_status === 'fulfilled') statusColor = '#10b981';
+    else if (b.booking_status === 'requested') statusColor = '#f59e0b';
 
     return (
       <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
@@ -52,7 +72,7 @@ export default function MyBookings() {
           <div style={{ textAlign: 'right' }}>
             {isUpcoming && <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '4px 8px', borderRadius: '4px', background: 'var(--accent)', color: '#fff', display: 'inline-block', marginBottom: '4px', fontFamily: 'monospace' }}>#{b.id.split('-')[0].toUpperCase()}</span>}
             <div style={{ fontSize: '0.75rem', fontWeight: 600, color: statusColor, textTransform: 'uppercase' }}>
-              {STATUS_LABELS[b.payment_status] || b.payment_status}
+              {STATUS_LABELS[b.booking_status || 'requested'] || b.booking_status}
             </div>
           </div>
         </div>
@@ -60,6 +80,12 @@ export default function MyBookings() {
         <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
           {new Date(b.slot_datetime || b.created_at).toLocaleString()}
         </div>
+        {isUpcoming && ['requested', 'accepted'].includes(b.booking_status || 'requested') && (
+          <button className="btn btn-secondary btn-sm" style={{ alignSelf: 'flex-start' }}
+            disabled={cancellingId === b.id} onClick={() => handleCancel(b)}>
+            {cancellingId === b.id ? 'Cancelling…' : 'Cancel request'}
+          </button>
+        )}
 
 
       </div>

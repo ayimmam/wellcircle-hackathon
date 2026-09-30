@@ -562,8 +562,8 @@ export async function checkinCommunity(id) {
     await delay(400);
     const nextStreak = (MOCK_USER.current_streak || 0) + 1;
     return {
-      points_earned: 10,
-      new_balance: MOCK_USER.points_balance + 10,
+      points_earned: 0,
+      new_balance: MOCK_USER.points_balance,
       current_streak: nextStreak,
       freeze_count: MOCK_USER.freeze_count || 0,
       freeze_used: false,
@@ -639,6 +639,7 @@ export async function createBooking(data) {
       // Every booking starts pending — pay_on_site bookings wait on our team
       // calling to confirm, not an automatic flip (mirrors the backend).
       payment_status: 'pending',
+      booking_status: 'requested',
       created_at: new Date().toISOString(),
       additional_booking_ids: additionalBookingIds,
       total_amount_etb: primaryAmount + extraDates.length * data.amount_etb,
@@ -1167,6 +1168,15 @@ export async function getProviderBookings(params = {}) {
   });
 }
 
+export async function updateProviderBookingStatus(bookingId, status) {
+  invalidate('provider-me');
+  if (USE_MOCK) {
+    await delay(250);
+    return { booking_id: bookingId, booking_status: status };
+  }
+  return request('POST', `/providers/me/bookings/${bookingId}/status`, { status });
+}
+
 // Most-booked-service breakdown (bookings + revenue per service).
 export async function getProviderServiceBreakdown(params = {}) {
   return cached(cacheKeys.providerServices(params), async () => {
@@ -1560,6 +1570,15 @@ export async function getMyBookings() {
     if (USE_MOCK) return { bookings: mockBookingsCreatedThisSession };
     return request('GET', '/users/me/bookings');
   });
+}
+
+export async function cancelMyBooking(bookingId) {
+  invalidate('bookings');
+  if (USE_MOCK) {
+    await delay(250);
+    return { booking_id: bookingId, booking_status: 'cancelled' };
+  }
+  return request('POST', `/users/me/bookings/${bookingId}/cancel`);
 }
 
 export async function getProviderEvents(providerId) {

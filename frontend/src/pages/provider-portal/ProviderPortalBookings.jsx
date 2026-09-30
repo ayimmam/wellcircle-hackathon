@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useProviderPortalData } from '../../context/ProviderPortalDataContext';
-import { getProviderBookings, getProviderServiceBreakdown, getProviderDemographics } from '../../api/client';
+import { getProviderBookings, getProviderServiceBreakdown, getProviderDemographics, updateProviderBookingStatus } from '../../api/client';
 import { showToast } from '../../components/Toast';
 import Icon from '../../components/Icon';
+import { track } from '../../analytics';
 
 export default function ProviderPortalBookings() {
   const { providerId, stats } = useProviderPortalData();
@@ -11,6 +12,7 @@ export default function ProviderPortalBookings() {
   const [bookingsTotal, setBookingsTotal] = useState(0);
   const [bookingsPage, setBookingsPage] = useState(1);
   const [bookingsStatus, setBookingsStatus] = useState('');
+  const [updatingBookingId, setUpdatingBookingId] = useState(null);
   const [bookingsStartDate, setBookingsStartDate] = useState('');
   const [bookingsEndDate, setBookingsEndDate] = useState('');
   const [bookingsLoading, setBookingsLoading] = useState(false);
@@ -23,7 +25,7 @@ export default function ProviderPortalBookings() {
       const filters = {
         page,
         per_page: 20,
-        status: bookingsStatus || null,
+        booking_status: bookingsStatus || null,
         start_date: bookingsStartDate ? `${bookingsStartDate}T00:00:00Z` : null,
         end_date: bookingsEndDate ? `${bookingsEndDate}T23:59:59Z` : null,
       };
@@ -41,6 +43,20 @@ export default function ProviderPortalBookings() {
       showToast(err.message || 'Could not load bookings', 'error');
     } finally {
       setBookingsLoading(false);
+    }
+  };
+
+  const changeBookingStatus = async (booking, status) => {
+    setUpdatingBookingId(booking.id);
+    try {
+      await updateProviderBookingStatus(booking.id, status);
+      track(`booking_${status}`, { booking_id: booking.id, provider_id: providerId });
+      showToast(`Booking ${status}.`, 'success');
+      await load(bookingsPage);
+    } catch (err) {
+      showToast(err.message || 'Could not update booking.', 'error');
+    } finally {
+      setUpdatingBookingId(null);
     }
   };
 
@@ -69,9 +85,11 @@ export default function ProviderPortalBookings() {
             <select className="input" style={{ padding: '4px', width: 'auto' }}
               value={bookingsStatus} onChange={e => setBookingsStatus(e.target.value)} aria-label="Filter by status">
               <option value="">All statuses</option>
-              <option value="pending">Pending</option>
-              <option value="success">Success</option>
-              <option value="failed">Failed</option>
+              <option value="requested">Requested</option>
+              <option value="accepted">Accepted</option>
+              <option value="fulfilled">Fulfilled</option>
+              <option value="rejected">Rejected</option>
+              <option value="cancelled">Cancelled</option>
             </select>
             <button className="btn btn-primary btn-sm" disabled={bookingsLoading} onClick={() => load(1)}>
               {bookingsLoading ? '…' : 'Apply'}
@@ -172,7 +190,9 @@ export default function ProviderPortalBookings() {
                 <th>Customer</th>
                 <th>Service</th>
                 <th>Amount</th>
-                <th>Status</th>
+                <th>Booking</th>
+                <th>Payment</th>
+                <th>Actions</th>
                 <th>Demographics</th>
               </tr>
             </thead>
@@ -182,7 +202,16 @@ export default function ProviderPortalBookings() {
                   <td>{bk.user_name || `@${bk.user_handle}`}</td>
                   <td>{bk.service_name}</td>
                   <td style={{ fontWeight: 600 }}>ETB {bk.amount_etb?.toLocaleString()}</td>
+                  <td><span className={`status-badge ${bk.booking_status}`}>{bk.booking_status || 'requested'}</span></td>
                   <td><span className={`status-badge ${bk.payment_status}`}>{bk.payment_status}</span></td>
+                  <td>
+                    {bk.booking_status === 'requested' ? <div className="flex gap-6">
+                      <button className="btn btn-primary btn-sm" disabled={updatingBookingId === bk.id} onClick={() => changeBookingStatus(bk, 'accepted')}>Accept</button>
+                      <button className="btn btn-secondary btn-sm" disabled={updatingBookingId === bk.id} onClick={() => changeBookingStatus(bk, 'rejected')}>Decline</button>
+                    </div> : bk.booking_status === 'accepted' ? (
+                      <button className="btn btn-secondary btn-sm" disabled={updatingBookingId === bk.id} onClick={() => changeBookingStatus(bk, 'fulfilled')}>Mark attended</button>
+                    ) : <span className="text-xs text-secondary">—</span>}
+                  </td>
                   <td className="text-xs text-secondary">
                     {bk.customer_demographics?.location_neighborhood || '—'}
                     {bk.customer_demographics?.exercise_frequency ? ` · ${bk.customer_demographics.exercise_frequency}` : ''}

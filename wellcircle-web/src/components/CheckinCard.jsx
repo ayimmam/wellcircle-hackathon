@@ -39,14 +39,20 @@ export default function CheckinCard({ circles, onChecked }) {
 
   if (list.length === 0) return shareCard || null;
 
-  // Once every listed circle is checked in (including ones that arrived
-  // already checked_in_today), the card has nothing left to prompt — unmount
-  // it. The toast for the last check-in is rendered by the global
-  // ToastContainer, not inside this card, so it survives the unmount. The
-  // milestone ShareCard (if any) still needs to render even though the
-  // check-in prompt itself is gone.
+  // Confirm the daily action, then invite a visit to the community's real
+  // activity feed to close the loop with other members.
   const allDone = list.every(c => checkedIds.has(c.id));
-  if (allDone) return shareCard || null;
+  if (allDone) return (
+    <div className="card mb-24" style={{ padding: 16 }} id="home-community-activity-card">
+      <h3 style={{ fontSize: '0.9rem', marginBottom: 6 }}>You're checked in today</h3>
+      <p className="text-sm text-secondary mb-12">See how your community is doing and cheer someone on.</p>
+      <button className="btn btn-sm btn-outline" onClick={() => {
+        track('community_activity_open', { source: 'home_after_checkin', community_id: list[0].id });
+        navigate(`/community/${list[0].id}`);
+      }}>See community activity</button>
+      {shareCard}
+    </div>
+  );
 
   const handleCheckin = async (id) => {
     setBusyId(id);

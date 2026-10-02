@@ -60,10 +60,12 @@ describe('CheckinCard (Home habit loop)', () => {
     expect(document.getElementById('home-checkin-card')).toBeNull();
   });
 
-  it('renders nothing when every circle already arrived checked in today', () => {
+  it('offers community activity when every circle already arrived checked in today', () => {
     const allChecked = CIRCLES.map(c => ({ ...c, checked_in_today: true }));
     renderWithProviders(<CheckinCard circles={allChecked} />);
     expect(document.getElementById('home-checkin-card')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'See community activity' }));
+    expect(track).toHaveBeenCalledWith('community_activity_open', { source: 'home_after_checkin', community_id: 'c1' });
   });
 
   it('updates the prompt when a fresh response marks a community checked in', () => {

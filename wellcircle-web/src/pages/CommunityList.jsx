@@ -3,6 +3,7 @@ import { getCommunities, joinCommunity, getCircles, createCircle, getRanks, cach
 import useResource from '../hooks/useResource';
 import { CATEGORIES } from '../data/mock';
 import CommunityCard from '../components/CommunityCard';
+import { rankCommunities } from '../utils/communityDiscovery';
 import { showToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -384,7 +385,7 @@ export default function CommunityList() {
         </div>
       ) : communities.length > 0 ? (
         <div className="flex-col gap-12">
-          {communities.map(c => (
+          {rankCommunities(communities, user?.interest_categories || []).map(c => (
             <CommunityCard key={c.id} community={c} onJoin={handleJoin} joining={joiningId === c.id} />
           ))}
         </div>

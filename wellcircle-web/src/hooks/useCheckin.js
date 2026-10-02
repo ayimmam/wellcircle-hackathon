@@ -44,6 +44,9 @@ export default function useCheckin(surface, onMilestone) {
       longest_streak: res.longest_streak ?? prev.longest_streak,
     } : prev);
     track('checkin', { surface, community_id: communityId, streak: res.current_streak });
+    if ((user?.longest_streak ?? 0) === 0 && res.current_streak === 1) {
+      track('first_checkin', { surface, community_id: communityId });
+    }
 
     if (res.comeback_bonus) {
       track('comeback_bonus', { surface, streak: res.current_streak });
@@ -72,5 +75,5 @@ export default function useCheckin(surface, onMilestone) {
       try { sessionStorage.setItem(toastKey, '1'); } catch { /* storage can be disabled */ }
     }
     return res;
-  }, [surface, user?.id, setUser, onMilestone]);
+  }, [surface, user?.id, user?.longest_streak, setUser, onMilestone]);
 }

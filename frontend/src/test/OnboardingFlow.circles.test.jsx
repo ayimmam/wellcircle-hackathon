@@ -2,7 +2,13 @@ import { describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import OnboardingFlow from '../pages/OnboardingFlow';
 import { renderWithProviders } from './renderWithProviders';
-import { MOCK_CIRCLES } from '../data/mock';
+import { MOCK_CIRCLES, MOCK_COMMUNITIES } from '../data/mock';
+import { getCommunities } from '../api/client';
+
+vi.mock('../api/client', async importOriginal => ({
+  ...await importOriginal(),
+  getCommunities: vi.fn(async () => ({ communities: MOCK_COMMUNITIES })),
+}));
 
 vi.mock('../analytics', () => ({
   initAnalytics: vi.fn(),
@@ -23,7 +29,7 @@ async function goToCirclesStep() {
   fireEvent.click(document.getElementById('interest-gym'));
   fireEvent.click(document.getElementById('onboarding-next-btn')); // interest -> frequency
   fireEvent.click(document.getElementById('onboarding-next-btn')); // frequency -> circles
-  await screen.findByText('Join a circle');
+  await screen.findByText('Join a community or circle');
 }
 
 describe('OnboardingFlow — multi-select passions', () => {
@@ -55,6 +61,22 @@ describe('OnboardingFlow — multi-select passions', () => {
 });
 
 describe('OnboardingFlow — circles step', () => {
+  it('prioritizes matching communities and lets a selected community be deselected', async () => {
+    getCommunities.mockResolvedValueOnce({ communities: [
+      { id: 'busy', name: 'Active Yoga', category: 'yoga', active_members_7d: 5, member_count: 10 },
+      { id: 'quiet', name: 'Quiet Yoga', category: 'yoga', active_members_7d: 0, member_count: 500 },
+    ] });
+    renderWithProviders(<OnboardingFlow />, { route: '/onboarding' });
+    await screen.findByText("What's your name?");
+    await goToCirclesStep();
+    const cards = document.querySelectorAll('[id^="circle-"]');
+    expect([...cards].map(c => c.id)).toEqual(['circle-busy', 'circle-quiet']);
+    fireEvent.click(cards[0]);
+    expect(cards[0]).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(cards[0]);
+    expect(cards[0]).toHaveAttribute('aria-pressed', 'false');
+  });
+
   it('shows a one-sentence explainer of what circles are', async () => {
     renderWithProviders(<OnboardingFlow />, { route: '/onboarding' });
     await screen.findByText("What's your name?");
@@ -63,7 +85,8 @@ describe('OnboardingFlow — circles step', () => {
     expect(screen.getByText(/accountability groups/i)).toBeInTheDocument();
   });
 
-  it('lists available (joinable) real circles and joining shows an invite card', async () => {
+  it('offers a joinable social circle when no relevant provider community exists', async () => {
+    getCommunities.mockResolvedValueOnce({ communities: [] });
     renderWithProviders(<OnboardingFlow />, { route: '/onboarding' });
     await screen.findByText("What's your name?");
     await goToCirclesStep();

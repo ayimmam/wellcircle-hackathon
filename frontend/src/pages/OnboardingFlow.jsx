@@ -6,6 +6,7 @@ import { WELLNESS_VIBES, dicebearUrl } from '../components/AvatarPicker';
 import { motion } from 'motion/react';
 import { track } from '../analytics';
 import { getCircles, getCommunities, createCircle, joinCircle } from '../api/client';
+import { rankCommunities, communityActivityLabel } from '../utils/communityDiscovery';
 import { shareCircleInvite } from '../utils/circleInvite';
 import { showToast } from '../components/Toast';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
@@ -78,22 +79,18 @@ export default function OnboardingFlow() {
     }));
   };
 
-  // One merged list, capped at 2 total: real joinable circles first, then
-  // interest-matched community suggestions filling any remaining slots.
-  // Both interaction models render identically (per the plan) even though
-  // they hit different backends — a real circle joins immediately via
-  // joinCircle(), a suggestion just toggles into suggested_circle_ids and is
-  // auto-joined on final submit.
+  // Give provider communities the first slots: they support the first daily
+  // check-in. Social circles remain a fallback and can still be created here.
   const MAX_CIRCLE_SUGGESTIONS = 2;
+  const communitySuggestions = rankCommunities(
+    availableCommunities.filter(c => !c.user_joined && formData.interest_categories.includes(c.category)),
+    formData.interest_categories,
+  ).slice(0, MAX_CIRCLE_SUGGESTIONS).map(c => ({ ...c, kind: 'suggestion' }));
   const realJoinableCircles = availableCircles
     .filter(c => !c.is_joined && !c.is_private && !c.is_paid && c.id !== committedCircle?.id)
-    .slice(0, MAX_CIRCLE_SUGGESTIONS)
+    .slice(0, MAX_CIRCLE_SUGGESTIONS - communitySuggestions.length)
     .map(c => ({ ...c, kind: 'real' }));
-  const communitySuggestions = availableCommunities
-    .filter(c => !c.user_joined && formData.interest_categories.includes(c.category))
-    .slice(0, Math.max(0, MAX_CIRCLE_SUGGESTIONS - realJoinableCircles.length))
-    .map(c => ({ ...c, kind: 'suggestion' }));
-  const circleSuggestions = [...realJoinableCircles, ...communitySuggestions].slice(0, MAX_CIRCLE_SUGGESTIONS);
+  const circleSuggestions = [...communitySuggestions, ...realJoinableCircles];
 
   const handleJoinCircle = async (circle) => {
     setJoiningCircleId(circle.id);
@@ -367,9 +364,10 @@ export default function OnboardingFlow() {
                       key={c.id}
                       className={`option-card ${selected ? 'selected' : ''}`}
                       onClick={() => {
-                        if (joining || selected) return;
+                        if (joining || (isReal && selected)) return;
                         isReal ? handleJoinCircle(c) : toggleCircle(c.id);
                       }}
+                      aria-pressed={selected}
                       disabled={joining}
                       style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}
                       id={`circle-${c.id}`}
@@ -380,6 +378,9 @@ export default function OnboardingFlow() {
                         <div className="option-card-desc">
                           {isReal ? `Social circle · 👥 ${c.member_count} members` : `Provider community · ${c.provider_name} · 👥 ${c.member_count}`}
                         </div>
+                        {!isReal && communityActivityLabel(c) && (
+                          <div className="option-card-desc">{communityActivityLabel(c)}</div>
+                        )}
                         {c.description && (
                           <div className="option-card-desc" style={{ marginTop: 2, fontSize: '0.75rem', opacity: 0.85 }}>
                             {c.description}

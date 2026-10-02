@@ -1,6 +1,7 @@
 """Database schema migration utility to ensure PostgreSQL tables have all required columns."""
 
 from sqlalchemy import text, inspect
+from app.booking_lifecycle_schema import BOOKING_LIFECYCLE_STATEMENTS
 from app.utils.logger import get_logger
 
 logger = get_logger("wellcircle.schema")
@@ -12,6 +13,7 @@ def ensure_db_schema(engine):
         return
 
     statements = [
+        *BOOKING_LIFECYCLE_STATEMENTS,
         # Posts table
         "ALTER TABLE posts ADD COLUMN IF NOT EXISTS circle_id UUID;",
         "ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_system_event BOOLEAN DEFAULT FALSE;",
@@ -166,7 +168,10 @@ def ensure_db_schema(engine):
         with engine.begin() as conn:
             for stmt in statements:
                 try:
-                    conn.execute(text(stmt))
+                    # PostgreSQL aborts the transaction after a failed DDL.
+                    # Roll back only that statement so other repairs survive.
+                    with conn.begin_nested():
+                        conn.execute(text(stmt))
                 except Exception as stmt_err:
                     logger.warning("Migration statement skipped: %s (err: %s)", stmt, stmt_err)
         logger.info("Database schema columns checked and ensured successfully.")

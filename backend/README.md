@@ -17,6 +17,32 @@ API docs: http://localhost:8000/docs
 **Python 3.10+ is required** — `app/` uses `X | None` annotations at runtime,
 which raise `TypeError` on 3.9. CI runs 3.11.
 
+## Booking and reminder deployment migration
+
+Before deploying code that uses the booking lifecycle or proactive reminders,
+apply Alembic revision 024. For existing databases maintained with the repository's
+idempotent scripts, run this equivalent repair against the target `DATABASE_URL`:
+
+```bash
+cd backend
+python apply_booking_lifecycle_migration.py
+```
+
+The script adds the three reminder fields on `users`, booking status and
+idempotency fields on `bookings`, the idempotency constraint, and the booking
+status audit table/index with row level security. It preserves existing data,
+runs in one transaction, fails on an error, and can be rerun safely. It does
+not stamp Alembic's revision history; use one migration mechanism consistently.
+
+Startup also includes these repairs and isolates individual SQL failures with
+savepoints. Apply the explicit migration before deployment: serverless startup
+is not a reliable migration gate. Verify a real login and authenticated Home
+and bookings requests afterward; `/health` only checks that the API is running.
+
+Production settings should include `ENVIRONMENT=production` and a `BOT_API_KEY`
+matching the bot worker's `BOT_API_KEY`. A missing bot key causes the engagement
+digest to return 403 independently of database schema failures.
+
 ## Tests
 
 ```bash

@@ -382,6 +382,7 @@ export const MOCK_COMMUNITIES = MOCK_PROVIDERS.map(p => ({
   description: p.description,
   category: p.category,
   member_count: p.community.member_count,
+  active_members_7d: 0, // no check-in history in this fixture
   provider_name: p.name,
   provider_id: p.id,
   cover_photo_url: p.cover_photo_url,

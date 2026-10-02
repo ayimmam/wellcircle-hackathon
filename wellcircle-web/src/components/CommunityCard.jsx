@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import Icon from './Icon';
+import { communityActivityLabel } from '../utils/communityDiscovery';
 
 export default function CommunityCard({ community, onJoin, joining = false }) {
   const navigate = useNavigate();
@@ -20,6 +21,9 @@ export default function CommunityCard({ community, onJoin, joining = false }) {
         <div className="community-card-provider">
           by {community.provider_name}
         </div>
+        {communityActivityLabel(community) && (
+          <p className="text-sm text-secondary" style={{ margin: '8px 0' }}>{communityActivityLabel(community)}</p>
+        )}
         <div className="community-card-footer">
           <span className={`category-badge ${community.category}`}>
             {community.category}

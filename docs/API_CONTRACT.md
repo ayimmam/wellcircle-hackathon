@@ -982,6 +982,7 @@ List communities. Supports filtering.
       "description": "Morning runs around Bole...",
       "category": "running",
       "member_count": 32,
+      "active_members_7d": 8,     // distinct users who checked in here in the last rolling 7 days; joins excluded
       "provider_name": "FitEthiopia Gym",
       "provider_id": "uuid-prov",
       "user_joined": false,

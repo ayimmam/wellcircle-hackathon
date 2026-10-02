@@ -1,9 +1,10 @@
 """Community CRUD operations."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.community import Community, CommunityMember, CommunityFeedEvent
@@ -35,6 +36,23 @@ def get_all_communities(
     # Bounded for the same reason as the provider directory: the client renders
     # the full list, so this caps the payload without introducing paging.
     communities = query.order_by(Community.member_count.desc()).limit(MAX_COMMUNITY_LIST).all()
+
+    # Participation is a better cold-start signal than lifetime membership.
+    # One bounded aggregate for the whole list; never query per card. Only
+    # check-ins count, so signup bursts cannot masquerade as an active group.
+    now = datetime.now(timezone.utc)
+    activity_by_id = {
+        row.community_id: row.active_members
+        for row in db.query(
+            CommunityFeedEvent.community_id,
+            func.count(func.distinct(CommunityFeedEvent.user_id)).label("active_members"),
+        ).filter(
+            CommunityFeedEvent.community_id.in_([c.id for c in communities]),
+            CommunityFeedEvent.event_type == "checkin",
+            CommunityFeedEvent.created_at >= now - timedelta(days=7),
+            CommunityFeedEvent.created_at <= now,
+        ).group_by(CommunityFeedEvent.community_id).all()
+    } if communities else {}
 
     # Batch the per-row lookups below into two queries instead of one per
     # community (was N+1 — under concurrent load each request held its DB
@@ -85,6 +103,7 @@ def get_all_communities(
             "description": c.description,
             "category": c.category,
             "member_count": c.member_count,
+            "active_members_7d": activity_by_id.get(c.id, 0),
             "provider_name": provider.name if provider else None,
             "provider_id": str(provider.id) if provider else None,
             "user_joined": c.id in joined_community_ids,

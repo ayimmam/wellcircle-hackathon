@@ -30,6 +30,7 @@ documented in [`../CLAUDE.md`](../CLAUDE.md#branching-and-ci), with the change l
 - Supabase Observability PDFs — dashboard snapshots used to validate free-tier capacity during load testing (not narrative docs).
 
 ## Growth / UX
+- [BOOK_NETWORK_INSIGHTS.md](./BOOK_NETWORK_INSIGHTS.md) — prioritized applications of *The Cold Start Problem*, implemented community activation changes, and pilot measurement plan.
 - [UX_GROWTH_LOOP_PLAN.md](./UX_GROWTH_LOOP_PLAN.md) — 4-stage onboarding → habit-loop → conversion workflow, mapped to specific UX psychology principles and this app's actual features (Phase 8 in `HANDOFF.md`).
 - [FEATURE_PLAN_CIRCLES_AND_POLISH.md](./FEATURE_PLAN_CIRCLES_AND_POLISH.md) — pay-on-site booking, Strava-style circle activity feed, and emoji cleanup plan (Phase 13 in `HANDOFF.md`).
 - [FEATURE_PLAN_V2_UX_UPGRADES.md](./FEATURE_PLAN_V2_UX_UPGRADES.md) — location-aware nearby surfacing, weekly ranks, feedback, and concierge chips plan (Phase 14 in `HANDOFF.md`).

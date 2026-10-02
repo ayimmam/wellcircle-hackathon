@@ -9,6 +9,7 @@ check, never raises).
 """
 import sys
 import uuid
+from contextlib import contextmanager
 from sqlalchemy import create_engine, String, Text, TypeDecorator, event as sa_event
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -66,6 +67,53 @@ import app.models  # noqa: F401 — registers every table on Base.metadata
 # test's Base.metadata matches what production actually has by boot time.
 import app.models.circle_story  # noqa: F401
 from app.database_schema import ensure_db_schema, schema_drift
+
+
+def test_startup_repairs_survive_one_failed_postgres_statement(monkeypatch):
+    """Model PostgreSQL's aborted-transaction state until savepoint rollback."""
+    import app.database_schema as module
+
+    class Connection:
+        aborted = False
+        attempted = 0
+        applied = []
+
+        @contextmanager
+        def begin_nested(self):
+            try:
+                yield
+            except Exception:
+                self.aborted = False
+                raise
+
+        def execute(self, statement):
+            self.attempted += 1
+            if self.aborted:
+                raise RuntimeError("current transaction is aborted")
+            if self.attempted == 1:
+                self.aborted = True
+                raise RuntimeError("simulated failed DDL")
+            self.applied.append(str(statement))
+
+    connection = Connection()
+
+    class Engine:
+        url = "postgresql://test"
+        committed = False
+
+        @contextmanager
+        def begin(self):
+            yield connection
+            assert not connection.aborted
+            self.committed = True
+
+    engine = Engine()
+    monkeypatch.setattr(module, "schema_drift", lambda _: {})
+    ensure_db_schema(engine)
+    assert engine.committed
+    assert len(connection.applied) == connection.attempted - 1
+    assert any("day1_reminder_sent_at" in stmt for stmt in connection.applied)
+    assert any("community_challenges" in stmt for stmt in connection.applied)
 
 
 def _fresh_engine():

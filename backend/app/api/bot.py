@@ -410,6 +410,7 @@ async def bot_engagement_digest(
             "unread_count": r.unread_count,
             "top_type": r.top_type,
             "top_actor_name": top_actor_name,
+            "action_url": latest.action_url if latest else None,
         })
 
     return {"digest": digest}

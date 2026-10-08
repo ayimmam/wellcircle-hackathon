@@ -150,7 +150,13 @@ def build_engagement_nudge(entry: dict, bot_username: Optional[str] = None) -> d
 
     deep_link = None
     if bot_username:
-        deep_link = f"https://t.me/{bot_username}?startapp=notifications"
+        # Deep-link to the specific post when the notification is post-related
+        action_url = entry.get("action_url") or ""
+        if action_url.startswith("/post/"):
+            post_id = action_url.split("/post/", 1)[1]
+            deep_link = f"https://t.me/{bot_username}?startapp=post_{post_id}"
+        else:
+            deep_link = f"https://t.me/{bot_username}?startapp=notifications"
 
     return {
         "text": text,

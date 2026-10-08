@@ -156,6 +156,12 @@ export function AuthProvider({ children }) {
       });
       if (providerId) navigate(`/provider/${providerId}`);
       else if (isCheckinNudge) navigate('/home'); // check-in card lives on Home
+      else navigate('/home'); // generic re-engagement → land on dashboard
+      return;
+    }
+
+    if (startParam === 'notifications') {
+      navigate('/notifications');
       return;
     }
 

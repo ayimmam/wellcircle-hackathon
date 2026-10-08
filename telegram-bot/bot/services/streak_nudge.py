@@ -5,9 +5,10 @@ re-engagement job (a live streak means the user checked in yesterday)."""
 
 import asyncio
 import logging
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import ContextTypes
 
+from bot.config import MINI_APP_URL
 from bot.services.api_client import get_streaks_at_risk, mark_proactive_reminder_sent
 from bot.utils.nudges import build_streak_nudge
 
@@ -27,9 +28,12 @@ async def send_streak_nudges(context: ContextTypes.DEFAULT_TYPE) -> None:
             try:
                 nudge = build_streak_nudge(user, bot_username=bot_username)
                 reply_markup = None
-                if nudge["deep_link"]:
+                if nudge.get("deep_link"):
+                    start_param = nudge["deep_link"].split("startapp=")[1]
+                    sep = "&" if "?" in MINI_APP_URL else "?"
+                    web_app_url = f"{MINI_APP_URL}{sep}start_param={start_param}"
                     reply_markup = InlineKeyboardMarkup([
-                        [InlineKeyboardButton(text=nudge["button_text"], url=nudge["deep_link"])],
+                        [InlineKeyboardButton(text=nudge["button_text"], web_app=WebAppInfo(url=web_app_url))],
                     ])
                 await context.bot.send_message(
                     chat_id=telegram_id,

@@ -136,7 +136,7 @@ export function AuthProvider({ children }) {
   const handleStartParam = useCallback(async () => {
     if (handledStartParam.current) return;
     handledStartParam.current = true;
-    const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+    const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param || new URLSearchParams(window.location.search).get('start_param');
     if (!startParam) return;
 
     if (/^post_[0-9a-f-]{36}$/i.test(startParam)) {

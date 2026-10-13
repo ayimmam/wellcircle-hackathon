@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ProviderPortalAuthProvider } from './context/ProviderPortalAuthContext';
 import Header from './components/Header';
@@ -12,7 +13,6 @@ import AdminGuard from './components/AdminGuard';
 import ProviderPortalGuard from './components/ProviderPortalGuard';
 import useDoubleBackToExit from './hooks/useDoubleBackToExit';
 import { isProviderPortalDomain, providerPortalBase } from './utils/providerPortal';
-import { getProviders, getProvider } from './api/client';
 
 // SplashScreen is the entry/landing screen — keep it eager so first paint is
 // instant. Everything else is code-split so the initial bundle stays small,
@@ -88,17 +88,13 @@ const ProviderPortalSubscriptions = lazy(() => import('./pages/provider-portal/P
  */
 function prefetchTabs() {
   const warm = () => {
-    [importHome, importExplore, importCommunity, importProfile, importProviderDetail]
-      .forEach(load => { load().catch(() => {}); });
-    // A single live provider (Boston Day Spa) is the most probable next
-    // screen after Explore/Home — warm its detail payload into the cache so
-    // the tap feels free (Phase 2: instant open).
-    getProviders()
-      .then(res => {
-        const live = (res.providers || []).find(p => !p.is_coming_soon);
-        if (live) return getProvider(live.id);
-      })
-      .catch(() => {});
+    const loaders = [importHome, importExplore, importCommunity, importProfile, importProviderDetail];
+    let index = 0;
+    const next = () => {
+      if (index >= loaders.length) return;
+      loaders[index++]().catch(() => {}).finally(() => setTimeout(next, 250));
+    };
+    next();
   };
   if (typeof requestIdleCallback === 'function') requestIdleCallback(warm, { timeout: 4000 });
   else setTimeout(warm, 2000);
@@ -122,8 +118,9 @@ function RouteFallback() {
  */
 export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { user } = useAuth();
 
-  useEffect(() => { if (!isProviderPortalDomain()) prefetchTabs(); }, []);
+  useEffect(() => { if (user?.id && !isProviderPortalDomain()) prefetchTabs(); }, [user?.id]);
   useDoubleBackToExit();
 
   return (

@@ -86,6 +86,14 @@ once the surge settles. Override via `LOAD_TEST_USERS` /
 
 ## What each simulated user does
 
+The script now requests `/api/home/lite` and `/api/home/bootstrap` together
+on each Mini App open, plus the inbox and lightweight unread counter during
+browsing. Compare the `[...] [open]` request groups at 20, 50, and 200 users;
+watch aggregate section timings in the backend logs alongside database
+connections and CPU. Run `python check_bootstrap_payload_size.py` against a
+representative user after the load test to confirm the persisted home payload
+remains under the 192 KB cache limit.
+
 Mirrors the actual frontend flows, weighted toward browsing over booking
 (10:5:1 — see `docs/USER_FLOW_AUDIT.md`'s funnel):
 
@@ -93,8 +101,8 @@ Mirrors the actual frontend flows, weighted toward browsing over booking
    (globally unique per session, so this genuinely exercises "new user
    registers" every time, not repeated logins) → `POST /api/auth/telegram`
    → `POST /api/users/me/onboard`. This *is* the registration-surge path.
-2. **`browse_home`** (weight 10) — `GET /api/providers` + `GET
-   /api/communities` in parallel, like `HomeScreen.jsx`.
+2. **`browse_home`** (weight 10) — the paired lite and full home requests used
+   by `ForYouScreen.jsx`.
 3. **`view_provider_detail`** (weight 5) — providers list, then one detail
    fetch, like Explore → ProviderDetail.
 4. **`full_booking_flow`** (weight 1) — create booking → initiate Telebirr

@@ -41,6 +41,27 @@ def get_active_promotion(db: Session, provider_id: UUID) -> Optional[dict]:
     return _promo_dict(promo)
 
 
+def get_active_promotions(db: Session, provider_ids) -> Dict[UUID, dict]:
+    """Return each provider's latest active promotion in one database round trip."""
+    ids = list(provider_ids)
+    if not ids:
+        return {}
+    promos = (
+        db.query(ProviderPromotion)
+        .filter(
+            ProviderPromotion.provider_id.in_(ids),
+            ProviderPromotion.is_active == True,
+            ProviderPromotion.valid_until >= datetime.now(timezone.utc),
+        )
+        .order_by(ProviderPromotion.valid_until.desc())
+        .all()
+    )
+    result = {}
+    for promo in promos:
+        result.setdefault(promo.provider_id, _promo_dict(promo))
+    return result
+
+
 def user_is_first_time(db: Session, provider_id: UUID, user_id: UUID) -> bool:
     """A user is 'first-time' at a provider until they have a paid booking there."""
     from app.models.booking import Booking

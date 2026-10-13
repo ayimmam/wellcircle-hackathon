@@ -4,6 +4,7 @@ Postgres aborts the whole transaction on an error, so without this the first
 failed section would take every later one with it — each section instead
 degrades to its fallback and the request still returns."""
 from sqlalchemy.exc import ProgrammingError
+from time import perf_counter
 
 from app.utils.logger import get_logger
 
@@ -11,6 +12,7 @@ logger = get_logger(__name__)
 
 
 def section(db, name, fn, fallback):
+    started = perf_counter()
     try:
         return fn()
     except ProgrammingError as exc:
@@ -35,3 +37,7 @@ def section(db, name, fn, fallback):
         logger.exception("bootstrap section %s failed", name)
         db.rollback()
         return fallback
+    finally:
+        duration_ms = (perf_counter() - started) * 1000
+        if duration_ms > 250:
+            logger.warning("aggregate section %s took %.0fms", name, duration_ms)

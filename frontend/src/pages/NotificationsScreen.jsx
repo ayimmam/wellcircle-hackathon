@@ -1,24 +1,44 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
-import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../api/client';
+import { getNotifications, getPost, markNotificationRead, markAllNotificationsRead, cacheKeys } from '../api/client';
+import { peek, write, subscribe } from '../api/cache';
 import useOptimisticAction from '../hooks/useOptimisticAction';
 import Icon from '../components/Icon';
 import EmptyStateHero from '../components/EmptyStateHero';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 import { clickableDivProps } from '../utils/a11y';
 
 export default function NotificationsScreen() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { isAvailable: nativeBack } = useTelegramBackButton(() => navigate(-1));
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState(() => user?.id ? peek(cacheKeys.notifications())?.data?.notifications || [] : []);
+  const [loading, setLoading] = useState(() => !user?.id || !peek(cacheKeys.notifications()));
   const { t } = useTranslation();
   const runOptimistic = useOptimisticAction();
 
+  useEffect(() => {
+    if (!notifications.length) return undefined;
+    import('./PostDetail').catch(() => {});
+    const warm = () => {
+      notifications.filter(n => /^\/post\/[0-9a-f-]{36}$/i.test(n.action_url || ''))
+        .slice(0, 1)
+        .forEach(n => getPost(n.action_url.slice(6)).catch(() => {}));
+    };
+    if (typeof requestIdleCallback === 'function') {
+      const id = requestIdleCallback(warm, { timeout: 2000 });
+      return () => cancelIdleCallback(id);
+    }
+    const id = setTimeout(warm, 500);
+    return () => clearTimeout(id);
+  }, [notifications.length]);
+
   const fetchNotifications = useCallback(async () => {
+    if (!user?.id) return;
     try {
-      setLoading(true);
+      if (!peek(cacheKeys.notifications())) setLoading(true);
       const res = await getNotifications();
       setNotifications(res.notifications || []);
     } catch (err) {
@@ -26,11 +46,22 @@ export default function NotificationsScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
+
+  useEffect(() => subscribe(cacheKeys.notifications(), result => {
+    setNotifications(result?.notifications || []);
+    setLoading(false);
+  }), []);
+
+  useEffect(() => {
+    const onChange = () => { if (user?.id) getNotifications({ force: true }).catch(() => {}); };
+    window.addEventListener('wellcircle:notification-changed', onChange);
+    return () => window.removeEventListener('wellcircle:notification-changed', onChange);
+  }, [user?.id]);
 
   // Optimistic (WS7): the row flips to read, and navigation fires,
   // immediately — a notification tap shouldn't wait on the read receipt
@@ -41,7 +72,12 @@ export default function NotificationsScreen() {
       runOptimistic({
         apply: () => {
           setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-          return () => setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: false } : n));
+          const count = peek(cacheKeys.unread())?.data;
+          if (typeof count === 'number') write(cacheKeys.unread(), Math.max(0, count - 1));
+          return () => {
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: false } : n));
+            if (typeof count === 'number') write(cacheKeys.unread(), count);
+          };
         },
         request: () => markNotificationRead(id),
         dedupeKey: `notif-read-${id}`,
@@ -56,11 +92,16 @@ export default function NotificationsScreen() {
     let previous;
     runOptimistic({
       apply: () => {
+        const count = peek(cacheKeys.unread())?.data;
+        write(cacheKeys.unread(), 0);
         setNotifications(prev => {
           previous = prev;
           return prev.map(n => ({ ...n, is_read: true }));
         });
-        return () => setNotifications(previous);
+        return () => {
+          setNotifications(previous);
+          if (typeof count === 'number') write(cacheKeys.unread(), count);
+        };
       },
       request: () => markAllNotificationsRead(),
       failureMessage: 'Could not mark all as read',
@@ -68,7 +109,7 @@ export default function NotificationsScreen() {
     });
   };
 
-  if (loading) return <div className="page" style={{ textAlign: 'center', padding: '20px' }}>{t('Loading…')}</div>;
+  if (!user || loading) return <div className="page" style={{ textAlign: 'center', padding: '20px' }}>{t('Loading…')}</div>;
 
   const hasUnread = notifications.some(n => !n.is_read);
 
@@ -180,7 +221,11 @@ export default function NotificationsScreen() {
                           aria-label={n.title}
                           {...clickableDivProps(() => handleMarkRead(n.id, n.action_url))}
                           onMouseEnter={(e) => {
+                            if (/^\/post\/[0-9a-f-]{36}$/i.test(n.action_url || '')) getPost(n.action_url.slice(6)).catch(() => {});
                             if(n.action_url) e.currentTarget.style.transform = 'translateY(-2px)';
+                          }}
+                          onTouchStart={() => {
+                            if (/^\/post\/[0-9a-f-]{36}$/i.test(n.action_url || '')) getPost(n.action_url.slice(6)).catch(() => {});
                           }}
                           onMouseLeave={(e) => {
                             if(n.action_url) e.currentTarget.style.transform = 'none';

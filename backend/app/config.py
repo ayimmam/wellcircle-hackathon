@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 24
 
+    # Optional private notification stream. The signing secret stays server-side.
+    SUPABASE_URL: str = ""
+    SUPABASE_ANON_KEY: str = ""
+    SUPABASE_JWT_SECRET: str = ""
+
     # Super Admin - comma-separated Telegram IDs
     SUPER_ADMIN_TELEGRAM_IDS: str = "628489806,746296167"
 

@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, act } from '@testing-library/react';
 import { Routes, Route } from 'react-router-dom';
 import Header from '../components/Header';
 import { renderWithProviders } from './renderWithProviders';
+import { write } from '../api/cache';
+import { cacheKeys } from '../api/client';
 
 function Harness() {
   return (
@@ -30,5 +32,13 @@ describe('Header', () => {
 
     renderWithProviders(<Harness />, { route: '/admin/providers' });
     expect(screen.queryByText('WELL CIRCLE')).not.toBeInTheDocument();
+  });
+
+  it('shows the first unread notification from the shared cache immediately', () => {
+    renderWithProviders(<Harness />, { route: '/home' });
+    act(() => write(cacheKeys.unread(), 1));
+    expect(document.querySelector('.header-badge')).toHaveTextContent('1');
+    act(() => write(cacheKeys.unread(), 0));
+    expect(document.querySelector('.header-badge')).toBeNull();
   });
 });

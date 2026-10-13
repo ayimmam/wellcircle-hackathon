@@ -27,7 +27,6 @@ def main():
     from app.database import engine
     from app.models.user import User
     from app.api.home import home_bootstrap
-    import asyncio
 
     telegram_id = int(sys.argv[1]) if len(sys.argv) > 1 else None
 
@@ -42,7 +41,7 @@ def main():
             print("No user found — pass a telegram_id or seed a user first.")
             return
 
-        payload = asyncio.run(home_bootstrap(user=user, db=db))
+        payload = home_bootstrap(user=user, db=db)
         serialized = json.dumps(payload, default=str)
         size = len(serialized.encode("utf-8"))
 

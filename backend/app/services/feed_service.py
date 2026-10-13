@@ -49,7 +49,7 @@ from sqlalchemy.orm import Session
 from app.api.events import query_upcoming_events, query_past_events
 from app.crud.post import get_public_feed_posts
 from app.models.provider import Provider
-from app.services.promotion_service import get_active_promotion
+from app.services.promotion_service import get_active_promotions
 from app.utils.resilient import section
 
 # "This week" is the actionable block at the top of the feed; everything from
@@ -104,13 +104,14 @@ def _build_service_items(providers) -> list:
 
 
 def _build_provider_items(db: Session, providers) -> list:
+    promotions = get_active_promotions(db, (p.id for p in providers))
     return [
         {
             "type": "provider",
             "render_cost": "media",
             "id": p.id,
             "provider": _provider_brief(p),
-            "promotion": get_active_promotion(db, p.id),
+            "promotion": promotions.get(p.id),
         }
         for p in providers
     ]

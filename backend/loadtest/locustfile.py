@@ -14,6 +14,8 @@ surge then holding for 4 more minutes — the default shape below):
 import os
 import random
 import time
+import gevent
+from datetime import datetime, timedelta, timezone
 
 from locust import HttpUser, LoadTestShape, task, between
 
@@ -82,13 +84,29 @@ class WellCircleUser(HttpUser):
                 name="/api/users/me/onboard",
             )
 
+        if self.token:
+            self.open_home()
+
+    def open_home(self):
+        """Mini App sends lite and full home requests at the same time."""
+        seed = str(self.telegram_id)
+        lite = gevent.spawn(self.client.get, f"/api/home/lite?seed={seed}", name="/api/home/lite [open]")
+        full = gevent.spawn(self.client.get, f"/api/home/bootstrap?seed={seed}", name="/api/home/bootstrap [open]")
+        gevent.joinall([lite, full])
+
     @task(10)
     def browse_home(self):
-        """Mirrors HomeScreen.jsx's parallel fetch on load."""
+        """Returning users open the same aggregate home path."""
         if not self.token:
             return
-        self.client.get("/api/providers", name="/api/providers")
-        self.client.get("/api/communities", name="/api/communities")
+        self.open_home()
+
+    @task(3)
+    def check_notifications(self):
+        if not self.token:
+            return
+        self.client.get("/api/users/me/notifications/count", name="/api/users/me/notifications/count")
+        self.client.get("/api/users/me/notifications", name="/api/users/me/notifications")
 
     @task(5)
     def view_provider_detail(self):
@@ -123,7 +141,7 @@ class WellCircleUser(HttpUser):
             json={
                 "provider_id": provider["id"],
                 "service_name": service["name"],
-                "slot_datetime": "2026-07-20T10:00:00Z",
+                "slot_datetime": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
                 "amount_etb": service.get("price", 500),
                 "payment_method": "telebirr",
                 "phone_number": "0911234567",

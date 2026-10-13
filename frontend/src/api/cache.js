@@ -82,6 +82,16 @@ const inflight = new Map();
 const listeners = new Map();
 /** Keys already looked up in localStorage, so a miss is only paid for once. */
 const hydrated = new Set();
+// A request that started before a local mutation must not restore old data.
+const revisions = new Map();
+
+export function revision(key) { return revisions.get(key) || 0; }
+
+export function writeIfRevision(key, data, expected) {
+  if (revision(key) !== expected) return false;
+  write(key, data);
+  return true;
+}
 
 function ttlFor(key) {
   const namespace = key.split('|')[0];
@@ -178,6 +188,7 @@ function notify(key, data) {
 
 /** Store a value and wake up anything rendering it. */
 export function write(key, data) {
+  revisions.set(key, revision(key) + 1);
   const entry = { data, ts: Date.now() };
   memory.set(key, entry);
   hydrated.add(key);
@@ -206,18 +217,18 @@ export function peek(key, ttl) {
  * @param {{ttl?: number, force?: boolean}} [options]
  */
 export function cached(key, fetcher, { ttl, force = false } = {}) {
+  const pending = inflight.get(key);
+  if (pending) return pending;
   if (!force) {
     const hit = peek(key, ttl);
     if (hit && !hit.stale) return Promise.resolve(hit.data);
-
-    const pending = inflight.get(key);
-    if (pending) return pending;
   }
 
+  const startedAtRevision = revision(key);
   const request = fetcher()
     .then(data => {
-      write(key, data);
-      return data;
+      if (writeIfRevision(key, data, startedAtRevision)) return data;
+      return peek(key)?.data ?? data;
     })
     .finally(() => {
       if (inflight.get(key) === request) inflight.delete(key);
@@ -235,8 +246,9 @@ export function cached(key, fetcher, { ttl, force = false } = {}) {
 export function invalidate(prefix) {
   const match = (key) => key === prefix || key.startsWith(`${prefix}|`);
 
-  for (const key of [...memory.keys()]) {
+  for (const key of new Set([...memory.keys(), ...inflight.keys()])) {
     if (match(key)) {
+      revisions.set(key, revision(key) + 1);
       memory.delete(key);
       hydrated.delete(key);
     }
@@ -272,6 +284,7 @@ export function clearAll() {
   memory.clear();
   inflight.clear();
   hydrated.clear();
+  revisions.clear();
   dropPersisted();
 }
 

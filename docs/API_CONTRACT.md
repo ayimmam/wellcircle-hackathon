@@ -56,6 +56,8 @@
 | Challenges | GET | `/communities/:id/challenges` | JWT | Frontend |
 | Challenges | POST | `/providers/me/communities/:id/challenges` | JWT (provider) | Frontend |
 | Notifications | GET | `/users/me/notifications` | JWT | Frontend |
+| Notifications | GET | `/users/me/notifications/count` | JWT | Frontend |
+| Notifications | GET | `/users/me/notifications/realtime` | JWT | Telegram Mini App |
 | Subscriptions | GET | `/subscriptions/plans` | JWT | Frontend |
 | Subscriptions | POST | `/subscriptions/initiate` | JWT | Frontend |
 | Products | GET | `/products` | JWT | Frontend |
@@ -1648,8 +1650,18 @@ Bole | Kazanchis | Piassa | CMC | Sarbet | Megenagna | Other
 
 ### Notifications
 - `GET /api/users/me/notifications` — Inbox
-- `PATCH /api/users/me/notifications/read` — Mark read
+- `GET /api/users/me/notifications/count` — `{ "unread_count": number }` without loading inbox rows
+- `GET /api/users/me/notifications/realtime` — Short-lived private Broadcast credential (`enabled: false` when unconfigured)
+- `POST /api/users/me/notifications/{notification_id}/read` — Mark read
 - `POST /api/users/me/notifications/read-all` — Mark all read
+
+Migration `026_notification_realtime` broadcasts committed inbox inserts, read
+changes, and deletes on `user-notifications:{user_id}`. Realtime subscriptions
+must use private channels; the read policy permits only the matching JWT
+subject. Configure the three `SUPABASE_*` backend variables above and apply
+the migration before enabling the stream. The Mini App reconciles the badge
+through `/count` on join, reconnect, and events, and polls while foregrounded
+when the stream is unavailable.
 
 ### Subscriptions
 - `GET /api/subscriptions/plans` — View plans

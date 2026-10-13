@@ -43,7 +43,7 @@ def _touch_activity(db: Session, user: User) -> None:
         logger.warning("Failed to update last_activity_at for user %s", user.id, exc_info=True)
 
 
-async def get_current_user(
+def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
@@ -101,7 +101,7 @@ async def get_super_admin(
     return current_user
 
 
-async def get_optional_user(
+def get_optional_user(
     credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False)),
     db: Session = Depends(get_db),
 ) -> User | None:

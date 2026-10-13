@@ -54,7 +54,7 @@ describe('ShareCard — content', () => {
     expect(document.getElementById('share-card-caption').textContent).toContain('7-day streak');
     expect(drawnText).toContain('7');
     expect(drawnText).toContain('DAY STREAK');
-    expect(track).toHaveBeenCalledWith('share_card_shown', { type: 'streak', streak: 7 });
+    expect(track).toHaveBeenCalledWith('share_card_shown', expect.objectContaining({ type: 'streak', streak: 7, card_instance_id: expect.any(String) }));
   });
 
   it('renders personal-best copy for that milestone type', () => {
@@ -130,7 +130,7 @@ describe('ShareCard — actions', () => {
     await waitFor(() => expect(navigator.share).toHaveBeenCalled());
     expect(navigator.share.mock.calls[0][0].text).toContain('@wellcirclebot on Telegram');
     await waitFor(() =>
-      expect(track).toHaveBeenCalledWith('share_card_shared', { type: 'streak', streak: 7 })
+      expect(track).toHaveBeenCalledWith('share_card_shared', expect.objectContaining({ type: 'streak', streak: 7, card_instance_id: expect.any(String) }))
     );
   });
 
@@ -139,7 +139,7 @@ describe('ShareCard — actions', () => {
     fireEvent.click(document.getElementById('share-card-share-btn'));
 
     await waitFor(() =>
-      expect(track).toHaveBeenCalledWith('share_card_downloaded', { type: 'streak', streak: 7 })
+      expect(track).toHaveBeenCalledWith('share_card_downloaded', expect.objectContaining({ type: 'streak', streak: 7, card_instance_id: expect.any(String) }))
     );
     expect(URL.createObjectURL).toHaveBeenCalled();
   });
@@ -149,7 +149,7 @@ describe('ShareCard — actions', () => {
     fireEvent.click(document.getElementById('share-card-download-btn'));
 
     await waitFor(() =>
-      expect(track).toHaveBeenCalledWith('share_card_downloaded', { type: 'joined', day: 1 })
+      expect(track).toHaveBeenCalledWith('share_card_downloaded', expect.objectContaining({ type: 'joined', day: 1, card_instance_id: expect.any(String) }))
     );
   });
 

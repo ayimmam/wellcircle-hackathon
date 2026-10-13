@@ -95,7 +95,6 @@ def test_all():
         from app.crud.post import create_post, get_public_feed_posts
         from app.services.feed_service import build_for_you_feed
         from app.api.home import home_bootstrap, home_lite
-        import asyncio
 
         # === 1. A user who has joined nothing still gets a non-empty feed ===
         print("\n1. Non-empty feed with zero membership")
@@ -260,7 +259,7 @@ def test_all():
 
         # === 7. Bootstrap carries the feed and serializes reasonably ==========
         print("\n7. home_bootstrap carries feed under the Phase 2 ceiling")
-        bootstrap = asyncio.run(home_bootstrap(user=newcomer, db=db))
+        bootstrap = home_bootstrap(user=newcomer, db=db)
         assert "feed" in bootstrap
         assert len(bootstrap["feed"]["items"]) > 0
         serialized_size = len(json.dumps(bootstrap, default=str).encode("utf-8"))
@@ -269,7 +268,7 @@ def test_all():
 
         # === 8. The text-first payload is posts only, same cursor ===========
         print("\n8. home_lite serves the text half without the provider work")
-        lite = asyncio.run(home_lite(user=newcomer, db=db))
+        lite = home_lite(user=newcomer, db=db)
         assert lite["partial"] is True
         lite_items = lite["feed"]["items"]
         assert len(lite_items) > 0, "lite feed must not be empty"
@@ -391,7 +390,7 @@ def test_all():
         print("   ✅ page 2 partitioned independently, cursor unaffected")
 
         # The lite (text-only) payload carries the same partition.
-        lite2 = asyncio.run(home_lite(user=newcomer, db=db))
+        lite2 = home_lite(user=newcomer, db=db)
         lite2_ids = [i["id"] for i in lite2["feed"]["items"]]
         full2 = build_for_you_feed(db, limit=10)
         full2_post_ids = [i["id"] for i in full2["items"] if i["type"] == "post"]

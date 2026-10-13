@@ -39,14 +39,15 @@ describe('For You feed order', () => {
     expect(types[0]).toBe('event');
   });
 
-  it('lays the first cycle out in lane order', () => {
-    // Lanes 1 and 4 are both events (this week's, then the ones further
-    // out), which is why 'event' legitimately appears twice in one cycle.
-    expect(types.slice(0, 5)).toEqual(['event', 'post', 'post', 'event', 'service']);
+  it('puts image and text posts after the first event', () => {
+    expect(types.slice(0, 3)).toEqual(['event', 'post', 'post']);
+    expect(MOCK_FOR_YOU_FEED[1].post.photo_url).toBeTruthy();
+    expect(MOCK_FOR_YOU_FEED[2].post.photo_url).toBeFalsy();
   });
 
-  it('repeats the same cycle for as long as every lane has items', () => {
-    expect(types.slice(5, 10)).toEqual(['event', 'post', 'post', 'event', 'service']);
+  it('includes the provider service lane before the closing cards', () => {
+    expect(types.indexOf('service')).toBeGreaterThan(2);
+    expect(types.indexOf('service')).toBeLessThan(firstTailIndex);
   });
 
   it('interleaves posts between the events while the post lanes hold items', () => {

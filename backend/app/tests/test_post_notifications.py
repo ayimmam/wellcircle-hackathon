@@ -73,6 +73,8 @@ from app.crud.post import (
 )
 from app.api.bot import PUSH_WORTHY_TYPES
 from app.api.posts import api_repost_post
+from app.api.notifications import get_unread_count, mark_notification_read, notification_realtime_credentials
+from app.config import settings
 from fastapi import HTTPException
 
 engine = create_engine("sqlite:///:memory:", echo=False)
@@ -223,6 +225,13 @@ def test_post_notifications():
         assert "post_shared" in PUSH_WORTHY_TYPES
         assert "follower_post" in PUSH_WORTHY_TYPES
 
+        # Lightweight count uses the same user boundary as the inbox.
+        before = get_unread_count(db=db, current_user=bob)["unread_count"]
+        assert before > 0
+        mark_notification_read(str(bob_notifs[0].id), db=db, current_user=bob)
+        assert get_unread_count(db=db, current_user=bob)["unread_count"] == before - 1
+        assert get_unread_count(db=db, current_user=david)["unread_count"] >= 0
+
         print("All post notification tests passed!")
     finally:
         db.close()
@@ -230,3 +239,18 @@ def test_post_notifications():
 
 if __name__ == "__main__":
     test_post_notifications()
+
+
+def test_realtime_credentials_scoped(monkeypatch):
+    from jose import jwt
+
+    monkeypatch.setattr(settings, "SUPABASE_URL", "https://test.supabase.co")
+    monkeypatch.setattr(settings, "SUPABASE_ANON_KEY", "public")
+    monkeypatch.setattr(settings, "SUPABASE_JWT_SECRET", "separate-test-secret")
+    user = User(id=uuid.uuid4())
+    result = notification_realtime_credentials(current_user=user)
+    claims = jwt.decode(result["token"], "separate-test-secret",
+                        algorithms=["HS256"], audience="authenticated")
+    assert claims["sub"] == str(user.id)
+    assert claims["role"] == "authenticated"
+    assert result["anon_key"] == "public"

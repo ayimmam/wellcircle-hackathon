@@ -31,7 +31,7 @@ const API_BASE = resolveApiBase();
 
 export function getApiBase() { return API_BASE; }
 
-import { cached, invalidate, keyOf, write as cacheWrite, peek as peekCache, setCacheScope, clearAll as clearCache } from './cache';
+import { cached, invalidate, keyOf, write as cacheWrite, writeIfRevision, revision, peek as peekCache, setCacheScope, clearAll as clearCache } from './cache';
 import { logIssue } from '../utils/log';
 
 import {
@@ -226,6 +226,7 @@ export const cacheKeys = {
   redemptions: () => 'redemptions',
   notifications: () => 'notifications',
   unread: () => 'unread',
+  post: (id) => keyOf('post', id),
   social: () => 'social',
   ranks: () => 'ranks',
   home: () => 'home',
@@ -946,14 +947,25 @@ export async function getPosts(communityId = null, circleId = null) {
   });
 }
 
-export async function getPost(postId) {
+export async function getPost(postId, { force = false } = {}) {
   if (USE_MOCK) {
     await delay();
     const post = MOCK_POSTS.find(p => p.id === postId) || MOCK_FOR_YOU_FEED.find(i => i.type === 'post' && i.post?.id === postId)?.post;
     if (!post) throw new Error('Post not found');
     return post;
   }
-  return request('GET', `/posts/${postId}`);
+  return cached(cacheKeys.post(postId), () => request('GET', `/posts/${postId}`), { force });
+}
+
+export function getCachedPost(postId) {
+  const detail = peekCache(cacheKeys.post(postId))?.data;
+  if (detail) return detail;
+  for (const key of [cacheKeys.home(), cacheKeys.homeLite(), cacheKeys.feed(undefined)]) {
+    const items = peekCache(key)?.data?.feed?.items || peekCache(key)?.data?.items || [];
+    const item = items.find(entry => entry.type === 'post' && String(entry.post?.id) === String(postId));
+    if (item?.post && !item.post.truncated) return item.post;
+  }
+  return null;
 }
 
 export async function repostPost(postId) {
@@ -1560,8 +1572,9 @@ export async function getFeaturedEvents() {
  */
 export async function getHomeLite() {
   return cached(cacheKeys.homeLite(), async () => {
+    const unreadRevision = revision(cacheKeys.unread());
     const payload = USE_MOCK ? await mockHomeLite() : await fetchHomeLite();
-    warmFromLite(payload);
+    warmFromLite(payload, unreadRevision);
     return payload;
   });
 }
@@ -1598,14 +1611,14 @@ async function mockHomeLite() {
  * written to the keys the full bootstrap owns — a later reader would take the
  * partial list for the whole one.
  */
-function warmFromLite(payload) {
+function warmFromLite(payload, unreadRevision) {
   if (!payload || !payload.partial) return;
   cacheWrite(cacheKeys.communities(true), {
     communities: payload.communities || [],
     count: (payload.communities || []).length,
   });
   if (payload.social_proof) cacheWrite(cacheKeys.social(), payload.social_proof);
-  if (typeof payload.unread_count === 'number') cacheWrite(cacheKeys.unread(), payload.unread_count);
+  if (typeof payload.unread_count === 'number') writeIfRevision(cacheKeys.unread(), payload.unread_count, unreadRevision);
   // The rail is whole in both payloads — lite carries no partial version of
   // it — so it is safe to warm from either.
   if (payload.stories) cacheWrite(cacheKeys.storyRail(), { groups: payload.stories });
@@ -1613,8 +1626,9 @@ function warmFromLite(payload) {
 
 export async function getHomeBootstrap() {
   return cached(cacheKeys.home(), async () => {
+    const unreadRevision = revision(cacheKeys.unread());
     const payload = USE_MOCK ? await mockHomeBootstrap() : await fetchHomeBootstrap();
-    warmFromBootstrap(payload);
+    warmFromBootstrap(payload, unreadRevision);
     return payload;
   });
 }
@@ -1668,7 +1682,7 @@ async function mockHomeBootstrap() {
  * Seed the per-endpoint cache keys from the aggregate response, so opening
  * Explore or the circles tab straight after Home costs no requests at all.
  */
-function warmFromBootstrap(payload) {
+function warmFromBootstrap(payload, unreadRevision) {
   if (!payload) return;
   if (payload.stories) cacheWrite(cacheKeys.storyRail(), { groups: payload.stories });
   cacheWrite(cacheKeys.providers(), { providers: payload.providers || [], count: (payload.providers || []).length });
@@ -1676,7 +1690,7 @@ function warmFromBootstrap(payload) {
   cacheWrite(cacheKeys.events(), { events: payload.events || [], count: (payload.events || []).length });
   cacheWrite(cacheKeys.featuredEvents(), { events: payload.featured_events || [] });
   if (payload.social_proof) cacheWrite(cacheKeys.social(), payload.social_proof);
-  if (typeof payload.unread_count === 'number') cacheWrite(cacheKeys.unread(), payload.unread_count);
+  if (typeof payload.unread_count === 'number') writeIfRevision(cacheKeys.unread(), payload.unread_count, unreadRevision);
   if (payload.feed) cacheWrite(cacheKeys.feed(undefined), payload.feed);
 }
 
@@ -1760,33 +1774,39 @@ export async function getLeaderboard(communityId) {
   });
 }
 
-export async function getNotifications() {
+export async function getNotifications({ force = false } = {}) {
   return cached(cacheKeys.notifications(), async () => {
     if (USE_MOCK) return { notifications: [], unread_count: 0 };
-    return request('GET', '/users/me/notifications');
-  });
+    const unreadRevision = revision(cacheKeys.unread());
+    const result = await request('GET', '/users/me/notifications');
+    if (typeof result.unread_count === 'number') writeIfRevision(cacheKeys.unread(), result.unread_count, unreadRevision);
+    return result;
+  }, { force });
 }
 
-export async function getNotificationUnreadCount() {
+export async function getNotificationUnreadCount({ force = false } = {}) {
   // The header re-reads this on every route change; the cache absorbs those
   // while the 30s poll (just past this key's TTL) still reaches the server.
   return cached(cacheKeys.unread(), async () => {
     if (USE_MOCK) return 0;
-    const res = await request('GET', '/users/me/notifications?unread=true&limit=1');
+    const res = await request('GET', '/users/me/notifications/count');
     return res.unread_count ?? 0;
-  });
+  }, { force });
+}
+
+export async function getNotificationRealtimeCredentials() {
+  if (USE_MOCK) return { enabled: false };
+  return request('GET', '/users/me/notifications/realtime');
 }
 
 export async function markNotificationRead(id) {
   invalidate('notifications');
-  invalidate('unread');
   if (USE_MOCK) return { is_read: true };
   return request('POST', `/users/me/notifications/${id}/read`);
 }
 
 export async function markAllNotificationsRead() {
   invalidate('notifications');
-  invalidate('unread');
   if (USE_MOCK) return { marked_read: 0 };
   return request('POST', '/users/me/notifications/read-all');
 }
@@ -2072,12 +2092,14 @@ export async function toggleReaction(postId, emoji) {
     invalidate('posts');
     invalidate('feed');
     invalidate('home');
+    invalidate(cacheKeys.post(postId));
     return { reacted: true, reactions: { [emoji]: 1 } };
   }
   const res = await request('POST', `/posts/${postId}/toggle-react`, { emoji });
   invalidate('posts');
   invalidate('feed');
   invalidate('home');
+  invalidate(cacheKeys.post(postId));
   return res;
 }
 
@@ -2099,9 +2121,12 @@ export async function unlockReaction() {
 export async function createComment(postId, { content, parent_comment_id = null }) {
   if (USE_MOCK) {
     await delay(150);
+    invalidate(cacheKeys.post(postId));
     return { id: `mock-comment-${Date.now()}`, message: 'Comment added successfully' };
   }
-  return request('POST', `/posts/${postId}/comments`, { content, parent_comment_id });
+  const result = await request('POST', `/posts/${postId}/comments`, { content, parent_comment_id });
+  invalidate(cacheKeys.post(postId));
+  return result;
 }
 
 // ── WS13: get post comments (for inline loading on FYP feed) ─────────────

@@ -30,7 +30,7 @@ FEED_LIMIT = 10
 
 
 @router.get("/home/lite")
-async def home_lite(
+def home_lite(
     seed: Optional[str] = Query(
         None, max_length=64,
         description="Fixes the shuffle inside each For You feed lane. Send "
@@ -97,7 +97,7 @@ async def home_lite(
 
 
 @router.get("/home/bootstrap")
-async def home_bootstrap(
+def home_bootstrap(
     seed: Optional[str] = Query(
         None, max_length=64,
         description="Fixes the shuffle inside each For You feed lane. Send "

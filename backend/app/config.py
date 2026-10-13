@@ -2,6 +2,7 @@
 Configuration settings for Well Circle FastAPI application.
 Loaded from environment variables.
 """
+import os
 from typing import List
 from pydantic_settings import BaseSettings
 
@@ -103,3 +104,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+# Vercel injects VERCEL on deployed functions. A stale ENVIRONMENT=development
+# must never enable unsigned Telegram initData or return OTP codes there.
+if os.getenv("VERCEL"):
+    settings.ENVIRONMENT = "production"
+    settings.DEBUG = False

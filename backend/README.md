@@ -34,14 +34,19 @@ status audit table/index with row level security. It preserves existing data,
 runs in one transaction, fails on an error, and can be rerun safely. It does
 not stamp Alembic's revision history; use one migration mechanism consistently.
 
-Startup also includes these repairs and isolates individual SQL failures with
-savepoints. Apply the explicit migration before deployment: serverless startup
-is not a reliable migration gate. Verify a real login and authenticated Home
-and bookings requests afterward; `/health` only checks that the API is running.
+Vercel does not run schema migrations during request startup. Apply the
+explicit migration before deployment; its idempotent SQL can be rerun against
+the target database. Verify a real login and authenticated Home and bookings
+requests afterward; `/health` only checks that the API is running. The
+long-lived local/Render backend still performs its legacy startup schema check.
 
 Production settings should include `ENVIRONMENT=production` and a `BOT_API_KEY`
 matching the bot worker's `BOT_API_KEY`. A missing bot key causes the engagement
 digest to return 403 independently of database schema failures.
+Vercel enforces production mode even if `ENVIRONMENT` is accidentally set to
+`development`, because development mode accepts unsigned Telegram initData and
+exposes test OTP codes. Use Supabase's transaction pooler for `DATABASE_URL`
+on Vercel and apply schema changes once through the explicit migration scripts.
 
 ## Tests
 

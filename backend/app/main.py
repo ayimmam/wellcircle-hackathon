@@ -43,20 +43,26 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Scheduler disabled on serverless host; run decay via cron/Render instead")
 
-    # Create tables & ensure columns exist across environments
-    try:
-        from app.database import engine, Base
-        from app.database_schema import ensure_db_schema
-        from app.models import (  # noqa: ensure models loaded
-            User, Provider, ProviderInvite, Product, UserRedemption,
-            AdminNotification, Community, Booking, Circle, Post,
-        )
-        if settings.ENVIRONMENT == "development":
-            Base.metadata.create_all(bind=engine)
-            logger.info("Database tables ensured")
-        ensure_db_schema(engine)
-    except Exception:
-        logger.exception("DB table and column migration check skipped")
+    # A Vercel cold start can run on every new instance. Running DDL here
+    # holds schema locks and makes concurrent requests compete with PostgREST's
+    # schema cache, even when every statement is already applied. Migrations
+    # must be applied once, outside request handling.
+    if IS_SERVERLESS:
+        logger.info("Schema migration skipped on serverless host")
+    else:
+        try:
+            from app.database import engine, Base
+            from app.database_schema import ensure_db_schema
+            from app.models import (  # noqa: ensure models loaded
+                User, Provider, ProviderInvite, Product, UserRedemption,
+                AdminNotification, Community, Booking, Circle, Post,
+            )
+            if settings.ENVIRONMENT == "development":
+                Base.metadata.create_all(bind=engine)
+                logger.info("Database tables ensured")
+            ensure_db_schema(engine)
+        except Exception:
+            logger.exception("DB table and column migration check skipped")
 
     yield
 

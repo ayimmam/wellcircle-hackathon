@@ -11,6 +11,7 @@ from app.config import settings
 # Supabase and cloud Postgres require SSL and keepalives for reliable serverless connections
 connect_args = {}
 if "sqlite" not in settings.DATABASE_URL:
+    connect_args["connect_timeout"] = 5
     if "supabase" in settings.DATABASE_URL:
         connect_args["sslmode"] = "require"
     connect_args["keepalives"] = 1

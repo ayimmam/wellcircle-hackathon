@@ -88,10 +88,11 @@ def _notify_circle_of_new_post(db: Session, post: Post) -> None:
             UserNotification(
                 user_id=member_id,
                 type="circle_activity",
-                title=f"{author_name} shared an activity in {circle.name}",
+                title=f"{author_name} posted in {circle.name}",
                 body=preview,
                 action_url=f"/post/{post.id}",
                 is_read=False,
+                actor_user_id=post.user_id,
             )
             for member_id in member_ids
         ]
@@ -104,6 +105,11 @@ def _notify_circle_of_new_post(db: Session, post: Post) -> None:
 def _notify_followers_of_new_post(db: Session, post: Post) -> None:
     """Fan out an in-app notification to all followers of the post's author.
     Best-effort — a notification failure must never block the post itself."""
+    # A circle post belongs to its members. Circle notifications already reach
+    # them, while a follower outside a private or paid circle must not receive
+    # the post's text or a link they cannot open.
+    if post.circle_id:
+        return
     try:
         from app.models.follower import Follower
         from app.models.user_notification import UserNotification
@@ -112,12 +118,11 @@ def _notify_followers_of_new_post(db: Session, post: Post) -> None:
         if not author:
             return
 
-        follower_ids = [
-            row[0] for row in
-            db.query(Follower.follower_id)
-            .filter(Follower.following_id == post.user_id, Follower.follower_id != post.user_id)
-            .all()
-        ]
+        follower_query = db.query(Follower.follower_id).filter(
+            Follower.following_id == post.user_id,
+            Follower.follower_id != post.user_id,
+        )
+        follower_ids = [row[0] for row in follower_query.all()]
         if not follower_ids:
             return
 
@@ -255,7 +260,8 @@ def _assemble_posts(db: Session, posts_data, *, include_comments: bool,
 
 def get_posts(db: Session, community_id: Optional[UUID] = None,
               circle_id: Optional[UUID] = None, limit: int = 20,
-              viewer_id: Optional[UUID] = None) -> List[dict]:
+              viewer_id: Optional[UUID] = None,
+              include_comments: bool = True) -> List[dict]:
     query = db.query(Post, User).join(User, Post.user_id == User.id)
     if community_id:
         query = query.filter(Post.community_id == community_id)
@@ -263,7 +269,7 @@ def get_posts(db: Session, community_id: Optional[UUID] = None,
         query = query.filter(Post.circle_id == circle_id)
 
     posts_data = query.order_by(desc(Post.created_at)).limit(limit).all()
-    return _assemble_posts(db, posts_data, include_comments=True, viewer_id=viewer_id)
+    return _assemble_posts(db, posts_data, include_comments=include_comments, viewer_id=viewer_id)
 
 
 def get_post(db: Session, post_id: UUID, viewer_id: UUID) -> dict:

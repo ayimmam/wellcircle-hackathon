@@ -2141,15 +2141,24 @@ export async function getPostComments(_postId) {
 
 
 export async function setCircleBanner(circleId, { banner_url, banner_public_id }) {
-  invalidate('circles');
-  invalidate('home');
+  let result;
   if (USE_MOCK) {
     await delay();
     const circle = MOCK_CIRCLES.find(c => c.id === circleId);
     if (circle) circle.banner_url = banner_url;
-    return { id: circleId, banner_url };
+    result = { id: circleId, banner_url };
+  } else {
+    result = await request('PUT', `/circles/${circleId}/banner`, { banner_url, banner_public_id });
   }
-  return request('PUT', `/circles/${circleId}/banner`, { banner_url, banner_public_id });
+  const detailKey = cacheKeys.circle(circleId);
+  const detail = peekCache(detailKey)?.data;
+  if (detail) cacheWrite(detailKey, { ...detail, banner_url });
+  const list = peekCache(cacheKeys.circles())?.data;
+  if (list?.circles) cacheWrite(cacheKeys.circles(), {
+    ...list, circles: list.circles.map(circle => circle.id === circleId ? { ...circle, banner_url } : circle),
+  });
+  invalidate('home');
+  return result;
 }
 
 // WS9 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md — always costs 10 points,
@@ -2235,14 +2244,24 @@ export async function reviewTrainerVerification(id, action, reason = null) {
 }
 
 export async function applyForPaidCircle(circleId, priceEtb) {
-  invalidate('circles');
+  let result;
   if (USE_MOCK) {
     await delay();
     const circle = MOCK_CIRCLES.find(c => c.id === circleId);
     if (circle) Object.assign(circle, { price_etb: priceEtb, paid_circle_status: 'pending_approval' });
-    return { ...circle };
+    result = { ...circle };
+  } else {
+    result = await request('POST', `/circles/${circleId}/apply-paid`, { price_etb: priceEtb });
   }
-  return request('POST', `/circles/${circleId}/apply-paid`, { price_etb: priceEtb });
+  const patch = { price_etb: result.price_etb, paid_circle_status: result.paid_circle_status };
+  const detailKey = cacheKeys.circle(circleId);
+  const detail = peekCache(detailKey)?.data;
+  if (detail) cacheWrite(detailKey, { ...detail, ...patch });
+  const list = peekCache(cacheKeys.circles())?.data;
+  if (list?.circles) cacheWrite(cacheKeys.circles(), {
+    ...list, circles: list.circles.map(circle => circle.id === circleId ? { ...circle, ...patch } : circle),
+  });
+  return result;
 }
 
 export async function subscribeToCircle(circleId, receiptUrl, receiptPublicId) {

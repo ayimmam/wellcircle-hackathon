@@ -1,7 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { Route, Routes } from 'react-router-dom';
 import CommunityList from '../pages/CommunityList';
 import { renderWithProviders } from './renderWithProviders';
+import { createCircle, cacheKeys } from '../api/client';
+import { peek } from '../api/cache';
 
 vi.mock('../api/client', async () => {
   const actual = await vi.importActual('../api/client');
@@ -34,5 +37,23 @@ describe('CommunityList — actionable empty states', () => {
     fireEvent.click(cta);
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Explore' })).toHaveClass('active'));
+  });
+
+  it('creates a private circle with a generated invite code and opens it immediately', async () => {
+    createCircle.mockResolvedValueOnce({ id: 'new-circle', name: 'Morning Yogis', join_code: 'INVITE42' });
+    renderWithProviders(
+      <Routes>
+        <Route path="/" element={<CommunityList />} />
+        <Route path="/circle/:id" element={<div>New circle chat</div>} />
+      </Routes>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'My Circles' }));
+    await waitFor(() => expect(document.getElementById('new-circle-name-input')).toBeInTheDocument());
+    fireEvent.change(document.getElementById('new-circle-name-input'), { target: { value: 'Morning Yogis' } });
+    fireEvent.click(screen.getByLabelText('Private Circle'));
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    await screen.findByText('New circle chat');
+    expect(createCircle).toHaveBeenCalledWith({ name: 'Morning Yogis', description: '', is_private: true });
+    expect(peek(cacheKeys.circle('new-circle'))?.data?.join_code).toBe('INVITE42');
   });
 });

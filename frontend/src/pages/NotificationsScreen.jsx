@@ -179,7 +179,7 @@ export default function NotificationsScreen() {
                         iconName = 'check-circle';
                         iconColor = '#10b981'; // green
                         bgSoft = 'rgba(16, 185, 129, 0.1)';
-                      } else if (n.type === 'join' || n.type === 'follower' || n.type === 'follower_post') {
+                      } else if (n.type === 'join' || n.type === 'circle_joined' || n.type === 'follower' || n.type === 'follower_post') {
                         iconName = 'users';
                         iconColor = '#8b5cf6'; // purple
                         bgSoft = 'rgba(139, 92, 246, 0.1)';

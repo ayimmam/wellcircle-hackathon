@@ -55,6 +55,7 @@ export default function FeedPostCard({ item, priority = false, onRetry, onDiscar
   const [showUnlockSheet, setShowUnlockSheet] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [reposting, setReposting] = useState(false);
+  const [imageShape, setImageShape] = useState('wide');
 
   const destination = post.source?.kind === 'community'
     ? `/community/${post.source.id}`
@@ -193,6 +194,19 @@ export default function FeedPostCard({ item, priority = false, onRetry, onDiscar
         </div>
       </div>
 
+      {post.source?.kind === 'circle' && post.source.name && (
+        <button
+          type="button"
+          className="feed-circle-link"
+          onClick={goToSource}
+          aria-label={`Open ${post.source.name} circle chat`}
+        >
+          <Icon name="message-circle" size={14} />
+          <span>In {post.source.name}</span>
+          <Icon name="chevron-right" size={13} />
+        </button>
+      )}
+
       <div
         className="card-body"
         style={{ cursor: destination ? 'pointer' : 'default' }}
@@ -211,12 +225,16 @@ export default function FeedPostCard({ item, priority = false, onRetry, onDiscar
         )}
 
         {post.photo_url && (
-          <div style={{ height: 200, borderRadius: 'var(--radius-md)', overflow: 'hidden', marginTop: 8 }}>
+          <div style={{ aspectRatio: imageShape === 'square' ? '1 / 1' : '16 / 9', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginTop: 8 }}>
             <SmartImage
               src={post.photo_url}
               className="post-photo"
               width={430}
               priority={priority}
+              onLoad={(event) => {
+                const { naturalWidth, naturalHeight } = event.currentTarget;
+                setImageShape(naturalWidth / naturalHeight < 1.35 ? 'square' : 'wide');
+              }}
               style={{ height: '100%', width: '100%', objectFit: 'cover' }}
               fallback={<div style={{ height: '100%', background: 'var(--bg-tertiary)' }} />}
             />
@@ -263,7 +281,7 @@ export default function FeedPostCard({ item, priority = false, onRetry, onDiscar
         </button>
       </div>
 
-      {destination && post.source?.name && (
+      {destination && post.source?.name && post.source.kind !== 'circle' && (
         <div className="text-xs text-secondary" style={{ padding: '4px 14px 8px' }}>
           in <strong>{post.source.name}</strong>
         </div>

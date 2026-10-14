@@ -77,7 +77,7 @@ def test_all():
         print("=" * 50)
 
         from app.crud.user import create_user_from_bot
-        from app.crud.circle import create_circle, get_circle_detail, join_circle
+        from app.crud.circle import create_circle, get_circle_detail, get_circles, join_circle
         from app.crud.post import create_post
 
         owner = create_user_from_bot(db, telegram_id=910100100, telegram_handle="circle_owner")
@@ -89,6 +89,14 @@ def test_all():
         private_circle = create_circle(db, name="Private Club", description="Invite only", owner_id=owner.id, is_private=True)
         assert get_circle_detail(db, private_circle.id, outsider.id) is None
         assert get_circle_detail(db, private_circle.id, owner.id) is not None
+        assert private_circle.id not in {c["id"] for c in get_circles(db, outsider.id)}
+        assert private_circle.id in {c["id"] for c in get_circles(db, owner.id)}
+        from app.crud.circle_subscription import has_circle_access
+        assert not has_circle_access(db, private_circle.id, outsider.id)
+        assert has_circle_access(db, private_circle.id, owner.id)
+        join_circle(db, private_circle.id, member.id, join_code=private_circle.join_code)
+        assert has_circle_access(db, private_circle.id, member.id)
+        assert join_circle(db, private_circle.id, member.id).id == private_circle.id
         print("   ✅ private circle 404s for non-member, resolves for owner")
 
         # === 2. Paid circle, non-subscriber -> metadata only, no preview =====

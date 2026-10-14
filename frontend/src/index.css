@@ -1567,6 +1567,8 @@ select.input option {
 .post-content.has-stats { margin-bottom: 8px; }
 .post-stat-strip { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--accent-dark); margin-bottom: 12px; }
 .post-photo { max-width: 100%; border-radius: var(--radius-md); margin-bottom: 12px; display: block; }
+.feed-circle-link { display: inline-flex; align-items: center; gap: 6px; max-width: calc(100% - 28px); margin: 10px 14px 0; padding: 5px 9px; border: 1px solid var(--border-card); border-radius: 999px; background: var(--bg-card-hover); color: var(--text-secondary); font: inherit; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
+.feed-circle-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .post-reactions { display: flex; gap: 6px; flex-wrap: wrap; }
 .post-reaction-btn { padding: 4px 10px; font-size: 0.8rem; border-radius: var(--radius-full); }
 .post-reaction-btn.gift-5 { background: var(--tint-accent-10); color: var(--accent-dark); border: 1px solid var(--tint-accent-20); }

@@ -160,13 +160,18 @@ def get_user_active_subscription(db: Session, circle_id, user_id):
 
 
 def has_circle_access(db: Session, circle_id, user_id):
-    circle = db.query(Circle).filter(Circle.id == circle_id).first()
+    circle = db.query(Circle).filter(Circle.id == circle_id, Circle.deleted_at.is_(None)).first()
     if not circle:
         return False
-    if circle.owner_id == user_id or not circle.is_paid:
+    if circle.owner_id == user_id:
+        return True
+    member = db.query(CircleMember).filter_by(circle_id=circle_id, user_id=user_id).first() is not None
+    if circle.is_private and not member:
+        return False
+    if not circle.is_paid:
         return True
     # Existing rows are intentionally grandfathered when a free circle converts.
-    return db.query(CircleMember).filter_by(circle_id=circle_id, user_id=user_id).first() is not None
+    return member
 
 
 def get_circle_revenue(db: Session, circle_id, owner_id):

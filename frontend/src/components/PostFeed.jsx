@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getPosts, createPost, reactToPost, commentOnPost, repostPost, getCircleLeaderboard, getLeaderboard } from '../api/client';
+import { getPosts, createPost, reactToPost, commentOnPost, repostPost, getCircleLeaderboard, getLeaderboard, cacheKeys } from '../api/client';
+import { peek } from '../api/cache';
 import { useAuth } from '../context/AuthContext';
 import useOptimisticAction from '../hooks/useOptimisticAction';
 
@@ -20,9 +21,9 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
   const navigate = useNavigate();
   const { user, refreshUser } = useAuth();
   const runOptimistic = useOptimisticAction();
-  const [posts, setPosts] = useState([]);
+  const [posts, setPosts] = useState(() => peek(cacheKeys.posts(communityId, circleId))?.data?.posts || []);
   const [newPostContent, setNewPostContent] = useState(initialDraft || '');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !peek(cacheKeys.posts(communityId, circleId)));
   const [posting, setPosting] = useState(false);
   const [commentingOnId, setCommentingOnId] = useState(null); // top-level comment box, keyed by post id
   const [commentContent, setCommentContent] = useState('');
@@ -57,17 +58,36 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
       }).slice(0, 5)
     : [];
 
-  useEffect(() => {
-    loadPosts();
+  const loadPosts = useCallback(async () => {
+    try {
+      const res = await getPosts(communityId, circleId);
+      setPosts(res.posts || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, [communityId, circleId]);
 
   useEffect(() => {
+    loadPosts();
+  }, [loadPosts]);
+
+  useEffect(() => {
+    if (!composerExpanded) return;
     const fetchMembers = circleId ? getCircleLeaderboard(circleId) : communityId ? getLeaderboard(communityId) : null;
     if (!fetchMembers) return;
     fetchMembers
-      .then(res => setMembers(res.leaderboard || []))
+      .then(res => {
+        const loaded = res.leaderboard || [];
+        setMembers(loaded);
+        const input = composerRef.current;
+        if (loaded.length && input) {
+          setMention(findActiveMention(input.value, input.selectionStart));
+        }
+      })
       .catch(() => {});
-  }, [communityId, circleId]);
+  }, [communityId, circleId, composerExpanded]);
 
   // Consume the one-time join-intro draft so leaving and returning to this
   // tab later doesn't stomp on whatever the member is typing by then.
@@ -75,17 +95,6 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
     if (initialDraft && onDraftConsumed) onDraftConsumed();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const loadPosts = async () => {
-    try {
-      const res = await getPosts(communityId, circleId);
-      setPosts(res.posts);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const resetComposer = () => {
     setNewPostContent('');

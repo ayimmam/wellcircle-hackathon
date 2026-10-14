@@ -104,6 +104,15 @@ def test_all():
         member = make_user(db, 800100002, "Member")
         circle = create_circle(db, name="Runners", description="Morning runs", owner_id=owner.id)
         join_circle(db, circle.id, member.id)
+        join_notice = db.query(UserNotification).filter_by(
+            user_id=owner.id, type="circle_joined"
+        ).all()
+        assert len(join_notice) == 1
+        assert join_notice[0].action_url == f"/circle/{circle.id}"
+        join_circle(db, circle.id, member.id)
+        assert db.query(UserNotification).filter_by(
+            user_id=owner.id, type="circle_joined"
+        ).count() == 1
 
         result = leave_circle(db, circle.id, member.id)
         assert result == {"left": True}

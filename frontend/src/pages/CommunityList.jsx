@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { getCommunities, joinCommunity, getCircles, createCircle, getRanks, cacheKeys } from '../api/client';
 import useResource from '../hooks/useResource';
+import { peek, write } from '../api/cache';
 import { CATEGORIES } from '../data/mock';
 import CommunityCard from '../components/CommunityCard';
 import { rankCommunities } from '../utils/communityDiscovery';
@@ -39,6 +40,7 @@ export default function CommunityList() {
   const [tab, setTab] = useState(location.state?.tab || 'circles'); // 'explore' | 'joined' | 'circles' | 'ranks'
   const [category, setCategory] = useState('all');
   const [newCircleName, setNewCircleName] = useState('');
+  const [creatingCircle, setCreatingCircle] = useState(false);
   const [circleSearch, setCircleSearch] = useState('');
   const [ranksView, setRanksView] = useState('communities'); // 'communities' | 'individuals'
 
@@ -61,7 +63,7 @@ export default function CommunityList() {
   );
 
   const {
-    data: circles, loading: circlesLoading, refresh: refreshCircles,
+    data: circles, loading: circlesLoading,
   } = useResource(
     cacheKeys.circles(),
     getCircles,
@@ -131,23 +133,33 @@ export default function CommunityList() {
     }
   };
   const [isPrivate, setIsPrivate] = useState(false);
-  const [joinCode, setJoinCode] = useState('');
 
   const handleCreateCircle = async () => {
-    if (!newCircleName.trim()) return;
-    if (isPrivate && !joinCode.trim()) {
-      showToast('Please enter a join code for the private circle', 'error');
-      return;
-    }
+    if (!newCircleName.trim() || creatingCircle) return;
+    setCreatingCircle(true);
     try {
-      await createCircle({ name: newCircleName, description: '', is_private: isPrivate, join_code: isPrivate ? joinCode : null });
+      const created = await createCircle({ name: newCircleName.trim(), description: '', is_private: isPrivate });
+      const entry = {
+        id: created.id, name: created.name, description: '', owner_id: user?.id,
+        owner: { id: user?.id, name: user?.name, telegram_handle: user?.telegram_handle,
+          is_verified_trainer: Boolean(user?.is_verified_trainer) },
+        member_count: 1, is_joined: true, is_owner: true,
+        is_private: isPrivate, join_code: created.join_code,
+        is_paid: false, banner_url: null, preview_posts: null,
+        owner_is_verified: Boolean(user?.is_verified_trainer),
+      };
+      write(cacheKeys.circle(created.id), entry);
+      write(cacheKeys.posts(null, created.id), { posts: [] });
+      const current = peek(cacheKeys.circles())?.data?.circles || [];
+      write(cacheKeys.circles(), { circles: [entry, ...current.filter(c => c.id !== created.id)] });
       setNewCircleName('');
-      setJoinCode('');
       setIsPrivate(false);
       showToast('Circle created!', 'success');
-      refreshCircles();
+      navigate(`/circle/${created.id}`);
     } catch (err) {
-      showToast('Error creating circle', 'error');
+      showToast(err.message || 'Error creating circle', 'error');
+    } finally {
+      setCreatingCircle(false);
     }
   };
 
@@ -336,26 +348,16 @@ export default function CommunityList() {
                   aria-label="New circle name"
                   autoComplete="off"
                 />
-                <button className="btn btn-primary" onClick={handleCreateCircle} disabled={!newCircleName.trim()}>Create</button>
+                <button className="btn btn-primary" onClick={handleCreateCircle} disabled={!newCircleName.trim() || creatingCircle}>
+                  {creatingCircle ? <span className="btn-spinner" aria-hidden="true" /> : null} Create
+                </button>
               </div>
               <div className="flex items-center gap-8">
                 <label className="checkbox-row" style={{ margin: 0 }}>
                   <input type="checkbox" checked={isPrivate} onChange={e => setIsPrivate(e.target.checked)} />
                   <span style={{ fontSize: '0.85rem' }}>Private Circle</span>
                 </label>
-                {isPrivate && (
-                  <input
-                    type="text"
-                    placeholder="Join Code (e.g. VIP2024)"
-                    className="input"
-                    style={{ flex: 1, padding: '4px 8px' }}
-                    value={joinCode}
-                    onChange={e => setJoinCode(e.target.value)}
-                    aria-label="Join code"
-                    autoComplete="off"
-                    spellCheck={false}
-                  />
-                )}
+                {isPrivate && <span className="text-xs text-secondary">An invite code is created for you.</span>}
               </div>
             </div>
           </div>

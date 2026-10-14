@@ -5,7 +5,7 @@ from typing import List, Optional
 from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, Query
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, or_, select
 
 from app.models.circle import Circle, CircleMember
 from app.models.user import User
@@ -59,6 +59,11 @@ def join_circle(db: Session, circle_id: UUID, user_id: UUID, join_code: str = No
         CircleMember.user_id == user_id
     ).first()
 
+    # Existing members can retry a join without remembering the original code.
+    # Check the private gate before returning paid-circle metadata to outsiders.
+    if circle.is_private and not member and circle.join_code != join_code:
+        raise HTTPException(status_code=403, detail="Invalid or missing join code for private circle")
+
     # Existing members retain access when a formerly-free circle is monetized.
     if getattr(circle, "is_paid", False) and not member and circle.owner_id != user_id:
         from app.crud.circle_subscription import get_user_active_subscription
@@ -70,21 +75,44 @@ def join_circle(db: Session, circle_id: UUID, user_id: UUID, join_code: str = No
                 "circle_id": str(circle.id),
             })
 
-    if getattr(circle, 'is_private', False):
-        if not join_code or getattr(circle, 'join_code', None) != join_code:
-            from fastapi import HTTPException
-            raise HTTPException(status_code=403, detail="Invalid or missing join code for private circle")
-
-    
     if not member:
         member = CircleMember(circle_id=circle_id, user_id=user_id)
         db.add(member)
         db.commit()
+        # Notify only on a new membership. Repeated join requests must not
+        # create duplicate activity for the circle's existing members.
+        try:
+            from app.models.user_notification import UserNotification
+            joined_user = db.query(User.name).filter(User.id == user_id).scalar()
+            member_ids = [row[0] for row in db.query(CircleMember.user_id).filter(
+                CircleMember.circle_id == circle_id,
+                CircleMember.user_id != user_id,
+            ).all()]
+            if member_ids:
+                db.bulk_save_objects([
+                    UserNotification(
+                        user_id=member_id,
+                        type="circle_joined",
+                        title=f"{joined_user or 'Someone'} joined {circle.name}",
+                        body="Welcome your new circle member.",
+                        action_url=f"/circle/{circle.id}",
+                        actor_user_id=user_id,
+                    ) for member_id in member_ids
+                ])
+                db.commit()
+        except Exception:
+            db.rollback()
         
     return circle
 
 def get_circles(db: Session, user_id: Optional[UUID] = None) -> List[dict]:
-    circles = active_circles(db).all()
+    # A private circle is discoverable only to its members. Invite links
+    # resolve through join-by-code, so listing its name to strangers adds no
+    # useful discovery path and contradicts the detail endpoint's 404.
+    membership = select(CircleMember.circle_id).where(CircleMember.user_id == user_id)
+    circles = active_circles(db).filter(or_(
+        Circle.is_private.is_(False), Circle.id.in_(membership),
+    )).all()
     circle_ids = [c.id for c in circles]
     counts = dict(
         db.query(CircleMember.circle_id, func.count(CircleMember.user_id))
@@ -181,7 +209,7 @@ def get_circle_detail(db: Session, circle_id: UUID, user_id: UUID) -> Optional[d
     # free circle gets a read-only preview of recent activity.
     if not is_joined and not circle.is_paid:
         from app.crud.post import get_posts
-        result["preview_posts"] = get_posts(db, circle_id=circle_id, limit=5)
+        result["preview_posts"] = get_posts(db, circle_id=circle_id, limit=5, include_comments=False)
 
     return result
 

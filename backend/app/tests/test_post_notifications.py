@@ -66,7 +66,7 @@ from app.database import Base
 from app.models.user import User
 from app.models.follower import Follower
 from app.models.post import Post, Reaction, PostComment
-from app.models.circle import Circle
+from app.models.circle import Circle, CircleMember
 from app.models.user_notification import UserNotification
 from app.crud.post import (
     create_post, get_post, toggle_reaction, react_to_post, create_comment, share_post,
@@ -212,7 +212,15 @@ def test_post_notifications():
         private_circle = Circle(owner_id=alice.id, name="Private runners", is_private=True)
         db.add(private_circle)
         db.commit()
+        db.add(CircleMember(circle_id=private_circle.id, user_id=bob.id))
+        db.commit()
         private_post = create_post(db, user_id=alice.id, circle_id=private_circle.id, content="Members only")
+        assert db.query(UserNotification).filter_by(
+            user_id=bob.id, type="circle_activity", action_url=f"/post/{private_post.id}"
+        ).count() == 1
+        assert db.query(UserNotification).filter_by(
+            user_id=charlie.id, type="follower_post", action_url=f"/post/{private_post.id}"
+        ).count() == 0
         try:
             get_post(db, private_post.id, david.id)
             assert False, "private post should require membership"

@@ -6,7 +6,9 @@ import {
   getCircleLeaderboard, getPendingSubscriptions, joinCircle,
   reviewSubscription, setCircleBanner, subscribeToCircle, uploadFile,
   leaveCircle, deleteCircle, removeCircleFromCache, restoreCircleToCache,
+  cacheKeys,
 } from '../api/client';
+import { peek } from '../api/cache';
 import { useAuth } from '../context/AuthContext';
 import PostFeed from '../components/PostFeed';
 import ReadOnlyPostFeed from '../components/ReadOnlyPostFeed';
@@ -17,6 +19,7 @@ import { shareCircleInvite } from '../utils/circleInvite';
 import { clickableDivProps } from '../utils/a11y';
 import useDismissOnEscape from '../hooks/useDismissOnEscape';
 import EmptyStateHero from '../components/EmptyStateHero';
+import { compressImage } from '../utils/imageCompress';
 
 export default function CircleDetailScreen() {
   const { id } = useParams();
@@ -24,10 +27,10 @@ export default function CircleDetailScreen() {
   const { isAvailable: nativeBack } = useTelegramBackButton(() => navigate(-1));
   const { user } = useAuth();
 
-  const [circle, setCircle] = useState(null);
+  const [circle, setCircle] = useState(() => peek(cacheKeys.circle(id))?.data || null);
   const [leaderboard, setLeaderboard] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [joined, setJoined] = useState(false);
+  const [loading, setLoading] = useState(() => !peek(cacheKeys.circle(id)));
+  const [joined, setJoined] = useState(() => Boolean(peek(cacheKeys.circle(id))?.data?.is_joined));
   const [joining, setJoining] = useState(false);
   const [subscription, setSubscription] = useState(null);
   const [showSubscribe, setShowSubscribe] = useState(false);
@@ -56,36 +59,41 @@ export default function CircleDetailScreen() {
   useDismissOnEscape(() => setDeleteConfirmOpen(false), deleteConfirmOpen);
 
   useEffect(() => {
-    loadCircle();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  const loadCircle = async () => {
-    setLoading(true);
-    try {
-      const detail = await getCircle(id);
+    let current = true;
+    const cached = peek(cacheKeys.circle(id))?.data;
+    setCircle(cached || null);
+    setJoined(Boolean(cached?.is_joined));
+    setLoading(!cached);
+    setNotFound(false);
+    setLeaderboard([]);
+    setSubscription(null);
+    getCircle(id).then(detail => {
+      if (!current) return;
       setCircle(detail);
       setJoined(Boolean(detail.is_joined));
-
+      setLoading(false);
       if (detail.is_paid) {
-        try {
-          const status = await getCircleSubscriptionStatus(id);
-          if (status?.subscription?.status) setSubscription(status.subscription);
-        } catch { /* free circles and not-yet-supported backends may omit this */ }
+        getCircleSubscriptionStatus(id).then(status => {
+          if (current && status?.subscription?.status) setSubscription(status.subscription);
+        }).catch(() => {});
       }
-      if (detail.is_joined) {
-        try {
-          const lb = await getCircleLeaderboard(id);
-          setLeaderboard(lb.leaderboard || []);
-        } catch { /* leaderboard is a bonus, not required for the page to work */ }
-      }
-    } catch (err) {
+    }).catch(err => {
+      if (!current) return;
       if (err.status === 404) setNotFound(true);
       else console.error(err);
-    } finally {
       setLoading(false);
-    }
-  };
+    });
+    return () => { current = false; };
+  }, [id]);
+
+  useEffect(() => {
+    if (!joined || (activeTab !== 'leaderboard' && activeTab !== 'members')) return;
+    let current = true;
+    getCircleLeaderboard(id).then(result => {
+      if (current) setLeaderboard(result.leaderboard || []);
+    }).catch(() => {});
+    return () => { current = false; };
+  }, [id, joined, activeTab]);
 
   const handleBanner = async (event) => {
     const file = event.target.files?.[0];
@@ -93,7 +101,8 @@ export default function CircleDetailScreen() {
     if (!file) return;
     setBannerBusy(true);
     try {
-      const asset = await uploadFile(file, 'circle_banners');
+      const compressed = await compressImage(file, { maxBytes: 1_500_000, maxEdge: 1600 });
+      const asset = await uploadFile(compressed, 'circle_banners');
       await setCircleBanner(id, { banner_url: asset.url, banner_public_id: asset.public_id });
       setCircle(current => ({ ...current, banner_url: asset.url }));
       showToast('Banner updated', 'success');
@@ -156,12 +165,6 @@ export default function CircleDetailScreen() {
       setJustJoined(true);
       setActiveTab('chat');
       showToast('You joined the circle!', 'success');
-      // Flip from preview to full mode in place — no navigation — and pull
-      // the real leaderboard now that membership unlocks it.
-      try {
-        const lb = await getCircleLeaderboard(id);
-        setLeaderboard(lb.leaderboard || []);
-      } catch { /* non-fatal */ }
     } catch (err) {
       // Revert optimistic updates
       setJoined(false);

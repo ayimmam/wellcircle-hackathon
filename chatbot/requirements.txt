@@ -1,5 +1,5 @@
 # Runtime dependencies. For tests, also install requirements-dev.txt.
-fastapi==0.141.1
+fastapi==0.142.2
 uvicorn==0.52.4
 pydantic==2.13.5
 groq==1.7.0

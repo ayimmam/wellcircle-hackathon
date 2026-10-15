@@ -10,7 +10,7 @@ alembic==1.12.1
 
 # Authentication & Security
 python-jose[cryptography]==3.3.0
-python-multipart==0.0.6
+python-multipart==0.0.32
 cryptography>=42.0.0
 cloudinary>=1.40.0
 

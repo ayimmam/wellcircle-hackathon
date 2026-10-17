@@ -1385,6 +1385,9 @@ select.input option {
   color: var(--accent-light);
 }
 
+.streak-share-button { cursor: pointer; font-family: inherit; }
+.streak-share-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 /* ================================================================
    LIVE FEED
    ================================================================ */
@@ -2076,6 +2079,8 @@ select.input option {
 }
 
 .sheet-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; }
+
+#share-card-sheet { max-height: calc(100dvh - var(--safe-top, 0px) - 12px); overflow-y: auto; overscroll-behavior: contain; }
 .sheet-options { display: flex; flex-direction: column; gap: 6px; }
 
 .sheet-option {

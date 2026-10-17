@@ -32,6 +32,7 @@ function installCanvasSpy() {
   HTMLCanvasElement.prototype.toBlob = vi.fn(function (cb) {
     cb(new Blob(['fake-png'], { type: 'image/png' }));
   });
+  HTMLCanvasElement.prototype.toDataURL = vi.fn(() => `data:image/png;base64,${btoa('fake-png')}`);
 }
 
 beforeEach(() => {
@@ -127,7 +128,9 @@ describe('ShareCard — actions', () => {
     renderWithProviders(<ShareCard milestone={{ type: 'streak', streak: 7 }} onClose={vi.fn()} />);
     fireEvent.click(document.getElementById('share-card-share-btn'));
 
-    await waitFor(() => expect(navigator.share).toHaveBeenCalled());
+    // Native sharing must start in the click task, before an async PNG encode.
+    expect(navigator.share).toHaveBeenCalled();
+    expect(navigator.share.mock.calls[0][0].files[0]).toBeInstanceOf(File);
     expect(navigator.share.mock.calls[0][0].text).toContain('@wellcirclebot on Telegram');
     await waitFor(() =>
       expect(track).toHaveBeenCalledWith('share_card_shared', expect.objectContaining({ type: 'streak', streak: 7, card_instance_id: expect.any(String) }))
@@ -151,6 +154,19 @@ describe('ShareCard — actions', () => {
     await waitFor(() =>
       expect(track).toHaveBeenCalledWith('share_card_downloaded', expect.objectContaining({ type: 'joined', day: 1, card_instance_id: expect.any(String) }))
     );
+  });
+
+  it('downloads the PNG if an in-app browser rejects native file sharing', async () => {
+    navigator.share = vi.fn().mockRejectedValue(new TypeError('File sharing unavailable'));
+    navigator.canShare = vi.fn(() => true);
+
+    renderWithProviders(<ShareCard milestone={{ type: 'streak', streak: 7 }} onClose={vi.fn()} />);
+    fireEvent.click(document.getElementById('share-card-share-btn'));
+
+    await waitFor(() => expect(track).toHaveBeenCalledWith(
+      'share_card_downloaded', expect.objectContaining({ type: 'streak', streak: 7 }),
+    ));
+    expect(URL.createObjectURL).toHaveBeenCalled();
   });
 
   it('does not show an error toast when the user cancels the share sheet', async () => {

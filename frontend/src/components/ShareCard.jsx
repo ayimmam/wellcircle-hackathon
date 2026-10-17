@@ -123,38 +123,58 @@ export default function ShareCard({ milestone, onClose }) {
 
   const toBlob = () => new Promise(resolve => canvasRef.current.toBlob(resolve, 'image/png'));
 
+  // Encoding with toBlob is asynchronous. Mobile share sheets require the
+  // navigator.share call to happen during the original button tap, so create
+  // the PNG file synchronously before crossing an await boundary.
+  const toFile = () => {
+    const dataUrl = canvasRef.current.toDataURL('image/png');
+    const binary = atob(dataUrl.split(',')[1]);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return new File([bytes], `wellcircle-${type}.png`, { type: 'image/png' });
+  };
+
   const handleShare = async () => {
     setBusy(true);
     try {
-      const blob = await toBlob();
-      const file = new File([blob], `wellcircle-${type}.png`, { type: 'image/png' });
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'Well Circle',
-          text: `${headline} — @wellcirclebot on Telegram`,
-        });
-        track('share_card_shared', { ...analyticsProps, card_instance_id: instanceId.current });
-      } else {
-        await handleDownload(blob);
+      if (navigator.share && navigator.canShare) {
+        const file = toFile();
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'Well Circle',
+            text: `${headline} — @wellcirclebot on Telegram`,
+          });
+          track('share_card_shared', { ...analyticsProps, card_instance_id: instanceId.current });
+          return;
+        }
       }
+      await handleDownload();
     } catch (err) {
-      if (err?.name !== 'AbortError') showToast(t('Could not share — try downloading instead'), 'error');
+      if (err?.name !== 'AbortError') {
+        try {
+          await handleDownload();
+          showToast(t('Sharing is unavailable here — image downloaded'), 'info');
+        } catch {
+          showToast(t('Could not create share image'), 'error');
+        }
+      }
     } finally {
       setBusy(false);
     }
   };
 
-  const handleDownload = async (preBlob) => {
+  const handleDownload = async () => {
     setBusy(true);
     try {
-      const blob = preBlob || await toBlob();
+      const blob = await toBlob();
+      if (!blob) throw new Error('Could not create share image');
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `wellcircle-${type}.png`;
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
       track('share_card_downloaded', { ...analyticsProps, card_instance_id: instanceId.current });
     } finally {
       setBusy(false);
@@ -169,10 +189,10 @@ export default function ShareCard({ milestone, onClose }) {
   return (
     <>
       <div className="sheet-overlay" onClick={onClose} />
-      <div className="sheet" id="share-card-sheet">
+      <div className="sheet" id="share-card-sheet" role="dialog" aria-modal="true" aria-labelledby="share-card-title">
         <div className="sheet-handle" />
         <div className="flex items-center justify-between mb-16">
-          <h3 className="sheet-title" style={{ marginBottom: 0 }}>{t('Share your progress')}</h3>
+          <h3 className="sheet-title" id="share-card-title" style={{ marginBottom: 0 }}>{t('Share your progress')}</h3>
           <button
             className="btn btn-icon btn-secondary"
             onClick={onClose}

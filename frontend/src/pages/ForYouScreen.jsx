@@ -48,6 +48,7 @@ export default function ForYouScreen() {
   const location = useLocation();
   const { t } = useTranslation();
   const [showPointsInfo, setShowPointsInfo] = useState(false);
+  const [streakMilestone, setStreakMilestone] = useState(null);
   const justOnboarded = Boolean(location.state?.justOnboarded);
   // "Never show a new user a zero" extended to sharing: everyone — brand new
   // or long-time — gets exactly one shareable "Day N on WellCircle" moment,
@@ -419,6 +420,10 @@ export default function ForYouScreen() {
               streak={user.current_streak}
               freezeCount={user.freeze_count}
               atRisk={joinedCircles.length > 0 && joinedCircles.every(c => !c.checked_in_today)}
+              onClick={() => {
+                setJoinMilestone(null);
+                setStreakMilestone({ type: 'streak', streak: user.current_streak, tier: user.tier });
+              }}
             />
             <PointsBadge points={user.points_balance || 0} onClick={() => setShowPointsInfo(true)} />
           </div>
@@ -487,6 +492,7 @@ export default function ForYouScreen() {
 
       {showPointsInfo && <PointsInfoSheet onClose={() => setShowPointsInfo(false)} />}
       {joinMilestone && <ShareCard milestone={joinMilestone} onClose={() => setJoinMilestone(null)} />}
+      {streakMilestone && <ShareCard milestone={streakMilestone} onClose={() => setStreakMilestone(null)} />}
     </div>
   );
 }

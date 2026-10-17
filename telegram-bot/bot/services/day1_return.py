@@ -2,9 +2,10 @@
 
 import asyncio
 import logging
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import ContextTypes
 
+from bot.config import MINI_APP_URL
 from bot.services.api_client import get_day1_return_users, mark_day1_reminder_sent
 
 logger = logging.getLogger(__name__)
@@ -19,8 +20,11 @@ async def send_day1_return_reminders(context: ContextTypes.DEFAULT_TYPE) -> None
             telegram_id = user.get("telegram_id")
             try:
                 if telegram_id:
-                    link = f"https://t.me/{bot_username}?startapp=reentry_checkin" if bot_username else None
-                    markup = InlineKeyboardMarkup([[InlineKeyboardButton(text="Open Well Circle", url=link)]]) if link else None
+                    sep = "&" if "?" in MINI_APP_URL else "?"
+                    web_app_url = f"{MINI_APP_URL}{sep}start_param=home"
+                    markup = InlineKeyboardMarkup([
+                        [InlineKeyboardButton(text="Open Well Circle", web_app=WebAppInfo(url=web_app_url))],
+                    ])
                     await context.bot.send_message(
                         chat_id=telegram_id,
                         text=f"Hi {user.get('name', 'there')} — ready for your next wellness check-in? Your community is here when you are.",

@@ -99,6 +99,16 @@ def test_all():
     assert "1 freezes" not in nudge["text"]
     print("   ✅ freeze line omitted at zero, singular at one")
 
+    # 10. Engagement nudge leads to notifications
+    from bot.utils.nudges import build_engagement_nudge
+    nudge = build_engagement_nudge(
+        {"unread_count": 2, "top_type": "post_liked", "top_actor_name": "Jerry"},
+        bot_username="WellCircleBot",
+    )
+    assert "<b>Jerry</b> and 1 other reacted to your post" in nudge["text"]
+    assert nudge["deep_link"] == "https://t.me/WellCircleBot?startapp=notifications"
+    print("   ✅ engagement nudge deep-links to /notifications")
+
     print("\n" + "=" * 50)
     print("  ALL NUDGE TESTS PASSED ✅")
     print("=" * 50)

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { Routes, Route } from 'react-router-dom';
 import ForYouScreen from '../pages/ForYouScreen';
 import { renderWithProviders } from './renderWithProviders';
@@ -39,5 +39,13 @@ describe('ForYouScreen — one-time "Day N on Well Circle" share card', () => {
     renderForYou();
     await screen.findByText(/Your wellness journey awaits/);
     expect(document.getElementById('share-card-sheet')).toBeNull();
+  });
+
+  it('opens the current streak image when the streak button is tapped', async () => {
+    localStorage.setItem(SEEN_KEY, '1');
+    renderForYou();
+    const streakButton = await screen.findByRole('button', { name: /share your 3-day streak/i });
+    fireEvent.click(streakButton);
+    expect(document.getElementById('share-card-caption').textContent).toContain('3-day streak');
   });
 });

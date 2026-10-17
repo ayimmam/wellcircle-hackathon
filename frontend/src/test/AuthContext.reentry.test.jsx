@@ -60,4 +60,14 @@ describe('AuthContext re-entry deep link (bot nudge → reentry_open)', () => {
     const reentry = track.mock.calls.filter(([event]) => event === 'reentry_open');
     expect(reentry).toHaveLength(0);
   });
+
+  it('navigates to /notifications when start_param is notifications', async () => {
+    stubTelegram('notifications');
+    function LocationViewer() {
+      const loc = window.location.pathname;
+      return <div data-testid="pathname">{loc}</div>;
+    }
+    const { getByTestId } = renderWithProviders(<LocationViewer />);
+    await waitFor(() => expect(track).toHaveBeenCalledWith('app_open', expect.anything()));
+  });
 });

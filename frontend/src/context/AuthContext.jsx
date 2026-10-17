@@ -139,6 +139,16 @@ export function AuthProvider({ children }) {
     const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param || new URLSearchParams(window.location.search).get('start_param');
     if (!startParam) return;
 
+    if (startParam === 'notifications') {
+      navigate('/notifications');
+      return;
+    }
+
+    if (startParam === 'home') {
+      navigate('/home');
+      return;
+    }
+
     if (/^post_[0-9a-f-]{36}$/i.test(startParam)) {
       navigate(`/post/${startParam.slice(5)}`);
       return;
@@ -155,25 +165,24 @@ export function AuthProvider({ children }) {
         ...(providerId ? { provider_id: providerId } : {}),
       });
       if (providerId) navigate(`/provider/${providerId}`);
-      else if (isCheckinNudge) navigate('/home'); // check-in card lives on Home
-      else navigate('/home'); // generic re-engagement → land on dashboard
+      else navigate('/home'); // check-in card & generic re-engagement → land on dashboard
       return;
     }
 
-    if (startParam === 'notifications') {
-      navigate('/notifications');
+    if (startParam.startsWith('circle_')) {
+      const joinCode = startParam.slice('circle_'.length);
+      try {
+        const res = await joinCircleByCode(joinCode);
+        showToast(`Joined ${res.name || 'circle'}!`, 'success');
+        navigate(`/circle/${res.id}`);
+      } catch {
+        showToast('Invalid or expired invite link', 'error');
+      }
       return;
     }
 
-    if (!startParam.startsWith('circle_')) return;
-    const joinCode = startParam.slice('circle_'.length);
-    try {
-      const res = await joinCircleByCode(joinCode);
-      showToast(`Joined ${res.name || 'circle'}!`, 'success');
-      navigate(`/circle/${res.id}`);
-    } catch {
-      showToast('Invalid or expired invite link', 'error');
-    }
+    // All other notifications lead to /home
+    navigate('/home');
   }, [navigate]);
 
   // Auth must run on every entry route (e.g. /admin from Telegram WebApp), not only on /

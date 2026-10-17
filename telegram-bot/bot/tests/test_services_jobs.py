@@ -25,6 +25,7 @@ from bot.services.keep_warm import ping_backend
 from bot.services.reengagement import schedule_reengagement
 from bot.services.streak_nudge import send_streak_nudges
 from bot.services.weekly_digest import send_weekly_digest
+from bot.services.engagement_push import send_engagement_pushes
 
 
 def _create_mock_context(bot_username="WellCircleBot"):
@@ -103,7 +104,9 @@ def test_send_streak_nudges_success():
         assert "4-day streak" in call1_kwargs["text"]
         assert "1 freeze" in call1_kwargs["text"]
         assert isinstance(call1_kwargs["reply_markup"], InlineKeyboardMarkup)
-        assert call1_kwargs["reply_markup"].inline_keyboard[0][0].url == "https://t.me/WellCircleBot?startapp=reentry_checkin"
+        btn1 = call1_kwargs["reply_markup"].inline_keyboard[0][0]
+        btn1_url = btn1.web_app.url if btn1.web_app else btn1.url
+        assert "start_param=reentry_checkin" in btn1_url or "startapp=reentry_checkin" in btn1_url
 
         # Check call 2
         call2_kwargs = context.bot.send_message.await_args_list[1].kwargs
@@ -190,7 +193,9 @@ def test_schedule_reengagement_promo_and_generic():
         assert promo_call["chat_id"] == 301
         assert "20% off" in promo_call["text"]
         assert "Kuriftu Resort & Spa" in promo_call["text"]
-        assert "reentry_promo_p-100" in promo_call["reply_markup"].inline_keyboard[0][0].url
+        btn = promo_call["reply_markup"].inline_keyboard[0][0]
+        btn_url = btn.web_app.url if btn.web_app else btn.url
+        assert "reentry_promo_p-100" in btn_url
 
         # Generic message checks
         generic_call = context.bot.send_message.await_args_list[1].kwargs
@@ -286,6 +291,34 @@ def test_send_weekly_digest_blocked_member_handled():
         asyncio.run(send_weekly_digest(context))
 
         assert context.bot.send_message.await_count == 2
+
+
+def test_send_engagement_pushes_success():
+    """Verify engagement pushes are sent with deep link to /notifications."""
+    digest = [
+        {
+            "user_id": "u-1",
+            "telegram_id": 601,
+            "name": "Jerry",
+            "unread_count": 2,
+            "top_type": "post_liked",
+            "top_actor_name": "Jerry",
+        }
+    ]
+    context = _create_mock_context(bot_username="WellCircleBot")
+    with patch("bot.services.engagement_push.get_engagement_digest", new_callable=AsyncMock) as mock_api, \
+         patch("bot.services.engagement_push.mark_engagement_push_sent", new_callable=AsyncMock) as mock_mark:
+        mock_api.return_value = {"digest": digest}
+        asyncio.run(send_engagement_pushes(context))
+
+        assert context.bot.send_message.await_count == 1
+        call = context.bot.send_message.await_args_list[0].kwargs
+        assert call["chat_id"] == 601
+        assert "reacted to your post" in call["text"]
+        btn = call["reply_markup"].inline_keyboard[0][0]
+        btn_url = btn.web_app.url if btn.web_app else btn.url
+        assert "start_param=notifications" in btn_url or "startapp=notifications" in btn_url
+        mock_mark.assert_awaited_once_with(601)
 
 
 if __name__ == "__main__":

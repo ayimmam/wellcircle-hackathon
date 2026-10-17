@@ -1,8 +1,10 @@
 """C3: Sunday weekly circle digest — DMs every circle member the top scorer."""
 
 import logging
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import ContextTypes
 
+from bot.config import MINI_APP_URL
 from bot.services.api_client import get_circle_digests
 from bot.utils.messages import WEEKLY_DIGEST_MESSAGE
 
@@ -17,6 +19,12 @@ async def send_weekly_digest(context: ContextTypes.DEFAULT_TYPE) -> None:
         circles = data.get("circles", [])
         sent = 0
 
+        sep = "&" if "?" in MINI_APP_URL else "?"
+        web_app_url = f"{MINI_APP_URL}{sep}start_param=home"
+        markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton(text="Open Well Circle", web_app=WebAppInfo(url=web_app_url))],
+        ])
+
         for circle in circles:
             text = WEEKLY_DIGEST_MESSAGE.format(
                 circle_name=circle["circle_name"],
@@ -28,6 +36,7 @@ async def send_weekly_digest(context: ContextTypes.DEFAULT_TYPE) -> None:
                     await context.bot.send_message(
                         chat_id=telegram_id,
                         text=text,
+                        reply_markup=markup,
                         parse_mode="HTML",
                     )
                     sent += 1

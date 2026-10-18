@@ -173,6 +173,10 @@ export function AuthProvider({ children }) {
       const joinCode = startParam.slice('circle_'.length);
       try {
         const res = await joinCircleByCode(joinCode);
+        track('circle_invite_accepted', {
+          circle_id: res.id,
+          source: 'telegram_start_param',
+        });
         showToast(`Joined ${res.name || 'circle'}!`, 'success');
         navigate(`/circle/${res.id}`);
       } catch {

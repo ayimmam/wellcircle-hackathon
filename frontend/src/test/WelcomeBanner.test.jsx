@@ -58,4 +58,12 @@ describe('WelcomeBanner (IKEA reflection + reciprocity gift)', () => {
     fireEvent.click(screen.getByLabelText('Dismiss welcome banner'));
     expect(document.getElementById('welcome-banner')).toBeNull();
   });
+
+  it('opens sharing only after the member asks for it', () => {
+    const onShare = vi.fn();
+    renderWithProviders(<WelcomeBanner user={USER} providers={[]} onShare={onShare} />);
+    fireEvent.click(document.getElementById('welcome-share-btn'));
+    expect(onShare).toHaveBeenCalledOnce();
+    expect(track).toHaveBeenCalledWith('join_card_requested', { source: 'welcome_banner' });
+  });
 });

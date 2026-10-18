@@ -18,7 +18,7 @@ function FlameIcon({ size = 14, color = 'currentColor' }) {
   );
 }
 
-export default function StreakBadge({ streak, freezeCount = 0, atRisk = false }) {
+export default function StreakBadge({ streak, freezeCount = 0, atRisk = false, onClick }) {
   useEffect(() => {
     if (streak && atRisk) track('streak_risk_view', { streak, freezes: freezeCount });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -31,7 +31,9 @@ export default function StreakBadge({ streak, freezeCount = 0, atRisk = false })
     : freezeCount ? `${freezeCount} streak freeze${freezeCount > 1 ? 's' : ''} available` : undefined;
 
   return (
-    <div className="points-chip" id="streak-badge" title={title} style={{ position: 'relative' }}>
+    <button type="button" className="points-chip streak-share-button" id="streak-badge"
+      title={title} aria-label={`Share your ${streak}-day streak`} onClick={onClick}
+      style={{ position: 'relative' }}>
       <FlameIcon
         size={14}
         color={atRisk ? 'var(--warning, #f59e0b)' : '#f43f5e'}
@@ -47,6 +49,6 @@ export default function StreakBadge({ streak, freezeCount = 0, atRisk = false })
           }}
         />
       )}
-    </div>
+    </button>
   );
 }

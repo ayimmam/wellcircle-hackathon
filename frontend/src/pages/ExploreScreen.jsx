@@ -270,7 +270,7 @@ export default function ExploreScreen() {
 
       {/* Moved here from Home (WS2 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md)
           — the "+" post composer took its old spot on Home. */}
-      <AskWellCircle />
+      <AskWellCircle searchActive={Boolean(search.trim())} />
     </div>
   );
 }

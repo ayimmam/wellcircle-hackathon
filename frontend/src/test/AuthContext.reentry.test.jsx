@@ -67,7 +67,7 @@ describe('AuthContext re-entry deep link (bot nudge → reentry_open)', () => {
       const loc = window.location.pathname;
       return <div data-testid="pathname">{loc}</div>;
     }
-    const { getByTestId } = renderWithProviders(<LocationViewer />);
+    renderWithProviders(<LocationViewer />);
     await waitFor(() => expect(track).toHaveBeenCalledWith('app_open', expect.anything()));
   });
 });

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { track } from '../analytics';
 import { getHomeBootstrap, getHomeLite, getForYouFeed, deleteStory, markStoryViewed, createPost, uploadFile, cacheKeys } from '../api/client';
 import useResource from '../hooks/useResource';
 import { peek } from '../api/cache';
@@ -28,10 +29,6 @@ import { useTranslation } from 'react-i18next';
 import { daysSinceJoin } from '../utils/milestones';
 import { orderFeedItems } from '../utils/feedOrdering';
 
-// Bumping the suffix (v1 -> v2) would re-show the card to everyone once —
-// only do that intentionally.
-const JOIN_CARD_SEEN_KEY = 'wc_join_card_seen_v1';
-
 function FeedItem({ item, priority, onRetryPost, onDiscardPost }) {
   switch (item.type) {
     case 'post': return <FeedPostCard item={item} priority={priority} onRetry={onRetryPost} onDiscard={onDiscardPost} />;
@@ -50,17 +47,9 @@ export default function ForYouScreen() {
   const [showPointsInfo, setShowPointsInfo] = useState(false);
   const [streakMilestone, setStreakMilestone] = useState(null);
   const justOnboarded = Boolean(location.state?.justOnboarded);
-  // "Never show a new user a zero" extended to sharing: everyone — brand new
-  // or long-time — gets exactly one shareable "Day N on WellCircle" moment,
-  // the first time this screen loads for them.
+  // Join progress is offered from the welcome banner. It opens only after a
+  // member asks for it, so first value is not interrupted by a modal.
   const [joinMilestone, setJoinMilestone] = useState(null);
-  useEffect(() => {
-    if (!user?.id) return;
-    const key = `${JOIN_CARD_SEEN_KEY}_${user.id}`;
-    if (localStorage.getItem(key)) return;
-    localStorage.setItem(key, '1');
-    setJoinMilestone({ type: 'joined', day: daysSinceJoin(user.created_at) });
-  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Two requests, fired together, painted in whichever order they land.
   //
@@ -74,7 +63,7 @@ export default function ForYouScreen() {
   // exist.
   //
   // Both paint from the previous session's copy while they revalidate.
-  const { data: lite, setData: setLite } = useResource(
+  const { data: lite, setData: setLite, error: liteError, refresh: refreshLite } = useResource(
     cacheKeys.homeLite(),
     getHomeLite,
     // Silent on error: this is the head start, not the screen. If it fails the
@@ -82,7 +71,7 @@ export default function ForYouScreen() {
     // is one too many.
     { onError: () => {} },
   );
-  const { data: home, setData: setHome } = useResource(
+  const { data: home, setData: setHome, error: homeError, refresh: refreshHome } = useResource(
     cacheKeys.home(),
     getHomeBootstrap,
     // Silent here too, same reasoning as `lite` above: a background load
@@ -201,6 +190,7 @@ export default function ForYouScreen() {
       setLite(patchOwnStory(tempId, { progress: pct }));
     },
     onSuccess: (tempId, story) => {
+      track('story_published', { story_id: story.id, surface: 'home' });
       const patch = { id: story.id, image_url: story.image_url, pending: false, failed: false, progress: 100 };
       setHome(patchOwnStory(tempId, patch));
       setLite(patchOwnStory(tempId, patch));
@@ -247,6 +237,7 @@ export default function ForYouScreen() {
         photo_url = asset.url;
       }
       const res = await createPost({ content, photo_url });
+      track('post_published', { post_id: res.id, surface: 'home', has_photo: Boolean(photo_url) });
       delete pendingPostsRef.current[tempId];
       setHome(patchFeedItems(items => items.map(it => it.id !== tempId ? it : {
         ...it, id: res.id, pending: false, failed: false,
@@ -402,6 +393,12 @@ export default function ForYouScreen() {
   // counts as presence, so the skeleton only survives until the *first* of the
   // two requests answers.
   const showSkeleton = feedItems.length === 0 && !feed;
+  const coldLoadFailed = !feed && homeError && liteError;
+  const retryHome = async () => {
+    track('home_recovery_attempted');
+    const [nextLite, nextHome] = await Promise.all([refreshLite(), refreshHome()]);
+    track(nextLite || nextHome ? 'home_recovery_succeeded' : 'home_recovery_failed');
+  };
 
   return (
     <div className="page" id="for-you-screen">
@@ -421,7 +418,6 @@ export default function ForYouScreen() {
               freezeCount={user.freeze_count}
               atRisk={joinedCircles.length > 0 && joinedCircles.every(c => !c.checked_in_today)}
               onClick={() => {
-                setJoinMilestone(null);
                 setStreakMilestone({ type: 'streak', streak: user.current_streak, tier: user.tier });
               }}
             />
@@ -448,7 +444,13 @@ export default function ForYouScreen() {
         onDelete={handleStoryDeleted}
       />
 
-      {user && justOnboarded && <WelcomeBanner user={user} providers={home?.providers || []} />}
+      {user && justOnboarded && (
+        <WelcomeBanner
+          user={user}
+          providers={home?.providers || []}
+          onShare={() => setJoinMilestone({ type: 'joined', day: daysSinceJoin(user.created_at) })}
+        />
+      )}
 
       {user && <SocialProofBanner />}
 
@@ -466,7 +468,15 @@ export default function ForYouScreen() {
 
       {user && <FirstRewardCard pointsBalance={user.points_balance || 0} />}
 
-      {showSkeleton ? (
+      {coldLoadFailed ? (
+        <div className="card mb-24" id="home-recovery-card">
+          <div className="card-body" style={{ textAlign: 'center' }}>
+            <h3 style={{ marginBottom: 6 }}>We couldn't load your Home feed</h3>
+            <p className="text-sm text-secondary mb-12">Check your connection and try again.</p>
+            <button className="btn btn-primary" onClick={retryHome} id="home-retry-btn">Try again</button>
+          </div>
+        </div>
+      ) : showSkeleton ? (
         <div id="for-you-feed-skeleton">
           <div className="skeleton" style={{ height: 120, marginBottom: 12 }} />
           <div className="skeleton" style={{ height: 120, marginBottom: 12 }} />

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getPosts, createPost, reactToPost, commentOnPost, repostPost, getCircleLeaderboard, getLeaderboard, cacheKeys } from '../api/client';
+import { track } from '../analytics';
 import { peek } from '../api/cache';
 import { useAuth } from '../context/AuthContext';
 import useOptimisticAction from '../hooks/useOptimisticAction';
@@ -126,7 +127,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
     if (!newPostContent.trim() || posting) return;
     setPosting(true);
     try {
-      await createPost({
+      const created = await createPost({
         content: newPostContent,
         community_id: communityId,
         circle_id: circleId,
@@ -134,6 +135,13 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
         ...(distanceKm ? { distance_km: parseFloat(distanceKm) } : {}),
         ...(durationMin ? { duration_min: parseInt(durationMin, 10) } : {}),
         ...(photoUrl.trim() ? { photo_url: photoUrl.trim() } : {}),
+      });
+      track('post_published', {
+        post_id: created?.id,
+        surface: communityId ? 'community' : 'circle',
+        community_id: communityId,
+        circle_id: circleId,
+        has_photo: Boolean(photoUrl.trim()),
       });
       resetComposer();
       loadPosts();
@@ -178,6 +186,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
       },
       request: () => commentOnPost(postId, content),
       reconcile: (res) => {
+        track('post_comment_created', { post_id: postId, comment_id: res?.id, is_reply: false });
         setPosts(prev => prev.map(p => p.id === postId
           ? { ...p, comments: (p.comments || []).map(c => c.id === tempId ? { ...c, id: res?.id || c.id } : c) }
           : p));
@@ -217,6 +226,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
       },
       request: () => commentOnPost(postId, content, parentCommentId),
       reconcile: (res) => {
+        track('post_comment_created', { post_id: postId, comment_id: res?.id, is_reply: true });
         setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: swapReplyId(p.comments || [], res?.id) } : p));
       },
       failureMessage: 'Could not post that reply',
@@ -245,6 +255,7 @@ export default function PostFeed({ communityId, circleId, initialDraft, onDraftC
 
     try {
       await reactToPost(postId, { emoji, points_gifted: points });
+      track('post_reaction_succeeded', { post_id: postId, emoji, points_gifted: points || 0 });
       showToast(`Reacted${points ? ' and gifted ' + points + ' points' : ''}`, 'success');
       // The background loadPosts will synchronize any other missing changes
       loadPosts();

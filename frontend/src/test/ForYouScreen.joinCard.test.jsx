@@ -1,9 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import { fireEvent, screen } from '@testing-library/react';
 import { Routes, Route } from 'react-router-dom';
 import ForYouScreen from '../pages/ForYouScreen';
 import { renderWithProviders } from './renderWithProviders';
-import { MOCK_USER } from '../data/mock';
 
 vi.mock('../analytics', () => ({
   initAnalytics: vi.fn(),
@@ -11,38 +10,32 @@ vi.mock('../analytics', () => ({
   track: vi.fn(),
 }));
 
-const SEEN_KEY = `wc_join_card_seen_v1_${MOCK_USER.id}`;
-
-function renderForYou() {
+function renderForYou(state) {
   return renderWithProviders(
     <Routes>
       <Route path="/home" element={<ForYouScreen />} />
     </Routes>,
-    { route: '/home' }
+    { route: '/home', state }
   );
 }
 
-describe('ForYouScreen — one-time "Day N on Well Circle" share card', () => {
-  beforeEach(() => {
-    localStorage.removeItem(SEEN_KEY);
-  });
-
-  it('shows the join ShareCard once on first load, for both new and existing accounts', async () => {
-    renderForYou();
-    await waitFor(() => expect(document.getElementById('share-card-sheet')).toBeInTheDocument());
+describe('ForYouScreen — user-invoked share cards', () => {
+  it('offers the join card after onboarding without opening it automatically', async () => {
+    renderForYou({ justOnboarded: true });
+    const share = await screen.findByRole('button', { name: /share progress/i });
+    expect(document.getElementById('share-card-sheet')).toBeNull();
+    fireEvent.click(share);
+    expect(document.getElementById('share-card-sheet')).toBeInTheDocument();
     expect(document.getElementById('share-card-caption').textContent).toContain('Well Circle');
-    expect(localStorage.getItem(SEEN_KEY)).toBe('1');
   });
 
-  it('does not show it again once already seen', async () => {
-    localStorage.setItem(SEEN_KEY, '1');
+  it('does not interrupt a normal Home visit with a join card', async () => {
     renderForYou();
     await screen.findByText(/Your wellness journey awaits/);
     expect(document.getElementById('share-card-sheet')).toBeNull();
   });
 
   it('opens the current streak image when the streak button is tapped', async () => {
-    localStorage.setItem(SEEN_KEY, '1');
     renderForYou();
     const streakButton = await screen.findByRole('button', { name: /share your 3-day streak/i });
     fireEvent.click(streakButton);

@@ -14,7 +14,7 @@ import Icon from './Icon';
  *  - Reciprocity: surface a "welcome gift" — the first provider promo the
  *    user is eligible for (first-time presale promos auto-apply at checkout).
  */
-export default function WelcomeBanner({ user, providers }) {
+export default function WelcomeBanner({ user, providers, onShare }) {
   const navigate = useNavigate();
   const [dismissed, setDismissed] = useState(false);
 
@@ -85,14 +85,25 @@ export default function WelcomeBanner({ user, providers }) {
           </button>
         )}
 
-        <button
-          className="section-action inline-icon-text"
-          style={{ fontSize: '0.78rem' }}
-          onClick={() => { track('profile_prompt_click', { field: 'neighbourhood' }); navigate('/profile'); }}
-          id="neighbourhood-prompt"
-        >
-          Add your neighbourhood for local alerts <Icon name="chevron-right" size={13} />
-        </button>
+        <div className="flex items-center justify-between gap-8">
+          <button
+            className="section-action inline-icon-text"
+            style={{ fontSize: '0.78rem' }}
+            onClick={() => { track('profile_prompt_click', { field: 'neighbourhood' }); navigate('/profile'); }}
+            id="neighbourhood-prompt"
+          >
+            Add your neighbourhood <Icon name="chevron-right" size={13} />
+          </button>
+          {onShare && (
+            <button
+              className="btn btn-sm btn-outline"
+              onClick={() => { track('join_card_requested', { source: 'welcome_banner' }); onShare(); }}
+              id="welcome-share-btn"
+            >
+              Share progress
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

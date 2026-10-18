@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { INTEREST_CATEGORIES, EXERCISE_FREQUENCIES } from '../data/mock';
-import { WELLNESS_VIBES, dicebearUrl } from '../components/AvatarPicker';
-import { motion } from 'motion/react';
+import { INTEREST_CATEGORIES } from '../data/mock';
 import { track } from '../analytics';
 import { getCircles, getCommunities, createCircle, joinCircle } from '../api/client';
 import { rankCommunities, communityActivityLabel } from '../utils/communityDiscovery';
@@ -11,7 +9,10 @@ import { shareCircleInvite } from '../utils/circleInvite';
 import { showToast } from '../components/Toast';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
-const STEPS = ['name', 'goal', 'avatar', 'interest', 'frequency', 'circles'];
+// Keep first-run setup to the information needed to recommend a community.
+// Goal, avatar and exercise frequency remain editable from Profile after the
+// member has reached Home and completed a useful action.
+const STEPS = ['name', 'interest', 'circles'];
 // Smart default: most users land mid-scale, and a pre-selected card means the
 // Next button is never dead on this step. Interest is deliberately NOT
 // defaulted — it drives circle suggestions, so a wrong default poisons them.
@@ -62,10 +63,7 @@ export default function OnboardingFlow() {
   const currentStep = STEPS[step];
   const canNext = () => {
     if (currentStep === 'name') return formData.name.trim().length > 0;
-    if (currentStep === 'goal') return true; // optional
-    if (currentStep === 'avatar') return true; // optional
     if (currentStep === 'interest') return formData.interest_categories.length > 0;
-    if (currentStep === 'frequency') return formData.exercise_frequency !== '';
     if (currentStep === 'circles') return true; // optional
     return false;
   };
@@ -138,10 +136,12 @@ export default function OnboardingFlow() {
         source: 'onboarding',
       }));
       track('onboarding_completed', {
+        onboarding_version: 'first_value_v2',
+        required_step_count: STEPS.length,
         selected_community_count: formData.suggested_circle_ids.length,
         joined_community_count: joinedCommunityIds.length,
-        has_goal: formData.goal.trim().length > 0,
-        frequency_changed_from_default: formData.exercise_frequency !== DEFAULT_FREQUENCY,
+        has_goal: false,
+        frequency_changed_from_default: false,
         welcome_points: res?.welcome_points ?? 0,
       });
       // justOnboarded → ForYouScreen shows the one-time completion banner
@@ -209,76 +209,6 @@ export default function OnboardingFlow() {
           </>
         )}
 
-        {currentStep === 'goal' && (
-          <>
-            <div className="onboarding-emoji">🎯</div>
-            <h2 className="onboarding-title">What's your wellness goal?</h2>
-            <p className="onboarding-subtitle">
-              This helps us personalise your experience. You can skip this.
-            </p>
-            <input
-              className="onboarding-input"
-              placeholder="e.g. Lose weight and stay consistent"
-              value={formData.goal}
-              onChange={e => setFormData(prev => ({ ...prev, goal: e.target.value }))}
-              autoFocus
-              autoComplete="off"
-              aria-label="Your wellness goal"
-              id="onboarding-goal-input"
-            />
-          </>
-        )}
-
-        {currentStep === 'avatar' && (
-          <>
-            <div className="onboarding-emoji">🎨</div>
-            <h2 className="onboarding-title">Pick your vibe</h2>
-            <p className="onboarding-subtitle">
-              Choose an avatar that represents you — you can change it anytime.
-            </p>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: 12,
-              marginTop: 8,
-            }}>
-              {WELLNESS_VIBES.map(vibe => {
-                const isSelected = formData.avatar_vibe === vibe.id;
-                return (
-                  <motion.button
-                    key={vibe.id}
-                    className={`avatar-picker-item ${isSelected ? 'selected' : ''}`}
-                    onClick={() => setFormData(prev => ({ ...prev, avatar_vibe: vibe.id }))}
-                    whileTap={{ scale: 0.88 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    id={`vibe-${vibe.id}`}
-                    title={vibe.label}
-                  >
-                    <img
-                      src={dicebearUrl(vibe.id, 60)}
-                      alt={vibe.label}
-                      width={52}
-                      height={52}
-                      loading="lazy"
-                    />
-                    {isSelected && (
-                      <motion.span
-                        className="avatar-picker-check"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-                      >
-                        ✓
-                      </motion.span>
-                    )}
-                    <span className="avatar-picker-item-label">{vibe.emoji}</span>
-                  </motion.button>
-                );
-              })}
-            </div>
-          </>
-        )}
-
         {currentStep === 'interest' && (
           <>
             <div className="onboarding-emoji">💡</div>
@@ -304,42 +234,6 @@ export default function OnboardingFlow() {
                 Nice pick! Each passion has <strong>circles</strong> — small accountability groups you can join (or create) on the next steps.
               </p>
             )}
-          </>
-        )}
-
-        {currentStep === 'frequency' && (
-          <>
-            <div className="onboarding-emoji">💪</div>
-            <h2 className="onboarding-title">How often do you exercise?</h2>
-            <p className="onboarding-subtitle">
-              No judgment — we're here to help you grow.
-            </p>
-            <div className="flex-col gap-8">
-              {EXERCISE_FREQUENCIES.map(freq => (
-                <button
-                  key={freq.value}
-                  className={`option-card ${formData.exercise_frequency === freq.value ? 'selected' : ''}`}
-                  onClick={() => setFormData(prev => ({ ...prev, exercise_frequency: freq.value }))}
-                  style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}
-                  id={`frequency-${freq.value}`}
-                >
-                  <span style={{ fontSize: '1.4rem' }}>{freq.emoji}</span>
-                  <div style={{ flex: 1 }}>
-                    <div className="option-card-label">{freq.label}</div>
-                    <div className="option-card-desc">{freq.desc}</div>
-                  </div>
-                  {freq.value === DEFAULT_FREQUENCY && (
-                    <span
-                      className="chip"
-                      style={{ padding: '3px 8px', fontSize: '0.65rem', fontWeight: 700 }}
-                      id="most-popular-chip"
-                    >
-                      Most popular
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
           </>
         )}
 
@@ -456,7 +350,7 @@ export default function OnboardingFlow() {
           style={{ flex: step > 0 ? 2 : 1 }}
           id="onboarding-next-btn"
         >
-          {loading ? 'Setting up...' : step === STEPS.length - 1 ? "Let's Go! 🚀" : (currentStep === 'goal' || currentStep === 'circles') ? 'Skip / Next →' : 'Next →'}
+          {loading ? 'Setting up...' : step === STEPS.length - 1 ? "Let's Go! 🚀" : 'Next →'}
         </button>
       </div>
     </div>

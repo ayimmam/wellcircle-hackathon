@@ -103,6 +103,7 @@ export function initAnalytics() {
 function startPosthog() {
   posthog.init(KEY, {
     api_host: HOST,
+    defaults: '2026-05-30',
     // Telegram WebView: no cookies — keep identity in localStorage
     persistence: 'localStorage',
     // Auto-capture $pageview (incl. react-router's pushState navigation) and

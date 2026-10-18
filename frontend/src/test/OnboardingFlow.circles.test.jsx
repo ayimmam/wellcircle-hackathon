@@ -18,17 +18,14 @@ vi.mock('../analytics', () => ({
 
 function goToInterestStep() {
   fireEvent.change(document.getElementById('onboarding-name-input'), { target: { value: 'Meron' } });
-  fireEvent.click(document.getElementById('onboarding-next-btn')); // name -> goal
-  fireEvent.click(document.getElementById('onboarding-next-btn')); // goal -> avatar
-  fireEvent.click(document.getElementById('onboarding-next-btn')); // avatar -> interest
+  fireEvent.click(document.getElementById('onboarding-next-btn')); // name -> interest
 }
 
 async function goToCirclesStep() {
   goToInterestStep();
   fireEvent.click(document.getElementById('interest-yoga'));
   fireEvent.click(document.getElementById('interest-gym'));
-  fireEvent.click(document.getElementById('onboarding-next-btn')); // interest -> frequency
-  fireEvent.click(document.getElementById('onboarding-next-btn')); // frequency -> circles
+  fireEvent.click(document.getElementById('onboarding-next-btn')); // interest -> circles
   await screen.findByText('Join a community or circle');
 }
 

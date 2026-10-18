@@ -10,50 +10,32 @@ vi.mock('../analytics', () => ({
 }));
 
 function goToStep(target) {
-  // name → goal → avatar → interest → frequency → circles
+  // name → interest → circles
   const next = () => fireEvent.click(document.getElementById('onboarding-next-btn'));
   fireEvent.change(document.getElementById('onboarding-name-input'), { target: { value: 'Meron' } });
   if (target === 'name') return;
-  next(); // → goal
-  if (target === 'goal') return;
-  next(); // → avatar (goal skippable)
-  if (target === 'avatar') return;
-  next(); // → interest (avatar skippable)
+  next(); // → interest
   if (target === 'interest') return;
   fireEvent.click(document.getElementById('interest-yoga'));
-  next(); // → frequency
+  next(); // → circles
 }
 
 describe('OnboardingFlow (Stage 1 psychology)', () => {
-  it('endowed progress: first dot done + "1 of 6 already done" on the name step', async () => {
+  it('shows the shortened three-step progress on the name step', async () => {
     renderWithProviders(<OnboardingFlow />, { route: '/onboarding' });
     await screen.findByText("What's your name?");
     const dots = document.querySelectorAll('.progress-dot');
     expect(dots[0].className).toContain('done');
-    expect(screen.getByText(/1 of 6 already done/)).toBeInTheDocument();
+    expect(screen.getByText(/1 of 3 already done/)).toBeInTheDocument();
   });
 
-  it('smart default: frequency arrives pre-selected with a "Most popular" chip', async () => {
+  it('moves optional goal, avatar, and frequency setup out of first run', async () => {
     renderWithProviders(<OnboardingFlow />, { route: '/onboarding' });
     await screen.findByText("What's your name?");
-    goToStep('frequency');
-
-    expect(screen.getByText('How often do you exercise?')).toBeInTheDocument();
-    const defaultCard = document.getElementById('frequency-sometimes');
-    expect(defaultCard.className).toContain('selected');
-    expect(document.getElementById('most-popular-chip')).toBeInTheDocument();
-    // Next is never dead on this step
-    expect(document.getElementById('onboarding-next-btn')).not.toBeDisabled();
-  });
-
-  it('the default can still be changed', async () => {
-    renderWithProviders(<OnboardingFlow />, { route: '/onboarding' });
-    await screen.findByText("What's your name?");
-    goToStep('frequency');
-
-    fireEvent.click(document.getElementById('frequency-daily'));
-    expect(document.getElementById('frequency-daily').className).toContain('selected');
-    expect(document.getElementById('frequency-sometimes').className).not.toContain('selected');
+    goToStep('interest');
+    expect(screen.queryByText("What's your wellness goal?")).not.toBeInTheDocument();
+    expect(screen.queryByText('Pick your vibe')).not.toBeInTheDocument();
+    expect(screen.queryByText('How often do you exercise?')).not.toBeInTheDocument();
   });
 
   it('selecting a passion on the interest step surfaces the circles hint immediately', async () => {

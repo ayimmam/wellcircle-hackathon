@@ -25,6 +25,7 @@ export default function ExploreScreen() {
   const { user } = useAuth();
   // Defaults to Events — that's what a returning visitor checks (what's
   // happening), not the provider directory (Providers is one tap away).
+  const [chatOpen, setChatOpen] = useState(false);
   const [view, setView] = useState('events');
   const [category, setCategory] = useState('all');
   const [nearMeActive, setNearMeActive] = useState(false);
@@ -183,9 +184,15 @@ export default function ExploreScreen() {
               {visibleEvents.map(e => <EventCard key={e.id} event={e} />)}
             </div>
           ) : (
-            <p className="text-sm text-secondary" id="explore-events-empty">
-              {t('No upcoming events in this category.')}
-            </p>
+            <div className="circler-empty-state" id="explore-events-empty">
+              <p>{t("Not sure what fits you? Let's figure it out.")}</p>
+              <button type="button" className="btn btn-primary" aria-haspopup="dialog" onClick={() => {
+                track('circler_opened', { source: 'explore_empty_state', nudged: false });
+                setChatOpen(true);
+              }}>
+                <Icon name="sparkles" size={20} /> {t('Ask Circler')}
+              </button>
+            </div>
           )}
 
           {!pastEventsLoading && visiblePastEvents.length > 0 && (
@@ -270,7 +277,28 @@ export default function ExploreScreen() {
 
       {/* Moved here from Home (WS2 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md)
           — the "+" post composer took its old spot on Home. */}
-      <AskWellCircle searchActive={Boolean(search.trim())} />
+      <AskWellCircle searchActive={Boolean(search.trim())} isOpen={chatOpen} onOpenChange={setChatOpen} />
+      <style>{`
+        #explore-screen.page {
+          padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 108px) !important;
+        }
+        .circler-empty-state {
+          padding: 24px 16px;
+          border: 1px dashed var(--accent);
+          border-radius: 20px;
+          background: var(--bg-card);
+          text-align: center;
+          color: var(--text-secondary);
+        }
+        .circler-empty-state p { margin: 0; font-size: 14px; }
+        .circler-empty-state .btn {
+          display: inline-flex;
+          margin-top: 16px;
+          gap: 8px;
+          padding: 12px 24px;
+          border-radius: var(--radius-full);
+        }
+      `}</style>
     </div>
   );
 }

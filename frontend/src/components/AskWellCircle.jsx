@@ -17,32 +17,47 @@ const CONCIERGE_CHIPS = [
   { label: 'Yoga classes this week', needsLocation: false },
 ];
 
-export default function AskWellCircle({ searchActive = false }) {
+export default function AskWellCircle({ searchActive = false, isOpen: controlledIsOpen, onOpenChange }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t } = useTranslation();
   const inputRef = useRef(null);
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = controlledIsOpen ?? internalIsOpen;
+  const setIsOpen = onOpenChange ?? setInternalIsOpen;
   const [showNudge, setShowNudge] = useState(false);
-  const nudgeKey = user?.id ? `wc:circler-intro:v1:${user.id}` : null;
+  const nudgeSeen = useRef(false);
+  const nudgeKey = 'wc:circler-intro:session:v2';
 
   useEffect(() => {
-    if (!nudgeKey || isOpen || searchActive) return undefined;
-    try { if (localStorage.getItem(nudgeKey)) return undefined; } catch { /* best effort */ }
+    if (isOpen || searchActive || nudgeSeen.current) return undefined;
+    try { if (sessionStorage.getItem(nudgeKey)) return undefined; } catch { /* best effort */ }
     const timer = setTimeout(() => {
+      nudgeSeen.current = true;
+      try { sessionStorage.setItem(nudgeKey, '1'); } catch { /* best effort */ }
       setShowNudge(true);
-      track('circler_nudge_view', { source: 'explore', variant: 'coachmark_ring_v1' });
+      track('circler_nudge_view', { source: 'explore', variant: 'speech_bubble_v2' });
     }, 4000);
     return () => clearTimeout(timer);
-  }, [nudgeKey, isOpen, searchActive]);
+  }, [isOpen, searchActive]);
 
-  const finishNudge = () => {
+  useEffect(() => {
+    if (!showNudge) return undefined;
+    // The final 300ms of the seven-second display fades the bubble out.
+    const timer = setTimeout(() => setShowNudge(false), 7000);
+    return () => clearTimeout(timer);
+  }, [showNudge]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    nudgeSeen.current = true;
     setShowNudge(false);
-    try { if (nudgeKey) localStorage.setItem(nudgeKey, '1'); } catch { /* best effort */ }
-  };
+    try { sessionStorage.setItem(nudgeKey, '1'); } catch { /* best effort */ }
+  }, [isOpen]);
+
   const openChat = (source) => {
     track('circler_opened', { source, nudged: showNudge && !searchActive });
-    finishNudge();
+    setShowNudge(false);
     setIsOpen(true);
   };
   useDismissOnEscape(() => setIsOpen(false), isOpen);
@@ -98,7 +113,7 @@ export default function AskWellCircle({ searchActive = false }) {
         }
       };
     }
-  }, [isOpen]);
+  }, [isOpen, setIsOpen]);
 
   const messagesEndRef = useRef(null);
 
@@ -203,86 +218,70 @@ export default function AskWellCircle({ searchActive = false }) {
 
   return (
     <>
-      {/* Floating Action Button */}
       {!isOpen && showNudge && !searchActive && (
         <div className="circler-coachmark" id="circler-coachmark" role="status">
-          <button className="circler-coachmark-action" onClick={() => openChat('explore_nudge')}>
-            <strong>Need a hand finding your fit?</strong>
-            <span>Ask Circler about wellness events and communities.</span>
-            <b>Ask Circler →</b>
-          </button>
-          <button className="circler-coachmark-dismiss" aria-label="Dismiss Circler tip" onClick={() => {
-            track('circler_nudge_dismissed', { source: 'explore' });
-            finishNudge();
-          }}><Icon name="x" size={16} /></button>
+          {t("Hey, I'm Circler. Let's find your next wellness plan.")}
         </div>
       )}
       {!isOpen && (
         <button
+          type="button"
           onClick={() => openChat('explore_fab')}
-          style={{
-            position: 'fixed',
-            bottom: 'calc(var(--nav-height) + var(--safe-bottom) + 20px)',
-            right: 'calc(50% - 215px + 20px)', // max-width 430px adjustment
-            background: 'linear-gradient(135deg, var(--accent), var(--accent-dark))',
-            color: 'var(--text-on-accent)',
-            border: 'none',
-            borderRadius: '50%',
-            width: '56px',
-            height: '56px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: 'var(--shadow-lg), 0 0 15px var(--accent-glow)',
-            cursor: 'pointer',
-            zIndex: 100
-          }}
-          className={`fab-ask${showNudge && !searchActive ? ' circler-nudge-ring' : ''}`}
+          className="fab-ask"
           id="ask-wellcircle-fab"
-          aria-label="Ask WellCircle"
+          aria-label={t('Ask Circler')}
+          aria-haspopup="dialog"
         >
           <Icon name="message-circle" size={24} />
+          <span>{t('Ask Circler')}</span>
         </button>
       )}
-      
+
       <style>{`
+        .fab-ask {
+          position: fixed;
+          bottom: calc(var(--nav-height) + var(--safe-bottom) + 32px);
+          right: max(20px, calc(50% - 195px));
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          min-height: 56px;
+          padding: 14px 22px;
+          border: none;
+          border-radius: var(--radius-full);
+          background: var(--accent);
+          color: var(--text-on-accent);
+          font: inherit;
+          font-weight: 700;
+          box-shadow: var(--shadow-lg);
+          cursor: pointer;
+          z-index: 100;
+        }
         .circler-coachmark {
           position: fixed;
-          bottom: calc(var(--nav-height) + var(--safe-bottom) + 90px);
+          bottom: calc(var(--nav-height) + var(--safe-bottom) + 100px);
           right: max(20px, calc(50% - 195px));
-          width: min(290px, calc(100vw - 40px));
-          background: var(--bg-primary);
-          color: var(--text-primary);
-          border: 1px solid var(--accent);
-          border-radius: 16px;
+          box-sizing: border-box;
+          width: min(220px, calc(100vw - 40px));
+          padding: 14px;
+          background: #fff;
+          color: #171717;
+          border-radius: 18px;
+          font-size: 14px;
+          line-height: 1.45;
           box-shadow: var(--shadow-lg);
+          pointer-events: none;
           z-index: 101;
+          animation: circler-bubble 7s ease both;
         }
-        .circler-coachmark-action {
-          display: flex; flex-direction: column; gap: 8px;
-          width: 100%; padding: 16px 42px 16px 16px;
-          background: none; border: 0; color: inherit; text-align: left;
-          font: inherit; cursor: pointer;
-        }
-        .circler-coachmark-action span { font-size: .82rem; color: var(--text-secondary); }
-        .circler-coachmark-action b { font-size: .82rem; color: var(--accent); }
-        .circler-coachmark-dismiss {
-          position: absolute; right: 0; top: 0; width: 44px; height: 44px;
-          display: grid; place-items: center; border: 0; background: none;
-          color: var(--text-secondary); cursor: pointer;
-        }
-        .circler-nudge-ring { animation: circler-ring 1.6s ease-out 3; }
-        @keyframes circler-ring {
-          0% { outline: 3px solid var(--accent); outline-offset: 2px; }
-          100% { outline: 0px solid transparent; outline-offset: 14px; }
+        @keyframes circler-bubble {
+          0% { opacity: 0; }
+          4.3%, 95.7% { opacity: 1; }
+          100% { opacity: 0; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .circler-nudge-ring { animation: none; outline: 2px solid var(--accent); outline-offset: 4px; }
-        }
-        @media (max-width: 430px) {
-          .fab-ask {
-            right: 20px !important;
-          }
+          .circler-coachmark { animation: none; }
         }
       `}</style>
 
@@ -290,7 +289,7 @@ export default function AskWellCircle({ searchActive = false }) {
       {isOpen && (
         <>
           <div className="burger-overlay" onClick={() => setIsOpen(false)} style={{ zIndex: 200 }} />
-          <div style={{
+          <div role="dialog" aria-modal="true" aria-label="Circler chat" style={{
             position: 'fixed',
             inset: 0,
             maxWidth: '430px',

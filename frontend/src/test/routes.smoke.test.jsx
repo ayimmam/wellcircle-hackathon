@@ -114,8 +114,11 @@ describe('route smoke tests — every reachable screen mounts without crashing',
     // Let mock data fetches resolve so any late render crash surfaces.
     await new Promise((r) => setTimeout(r, 500));
 
-    // The ErrorBoundary fallback uses role="alert"; its presence means a crash.
-    expect(screen.queryByRole('alert')).toBeNull();
+    // Expected error states (such as 404) are valid; a caught render crash is not.
+    expect(container.querySelector('.error-boundary')).toBeNull();
+    if (route === '/this-does-not-exist') {
+      expect(screen.getByRole('link', { name: /contact support/i })).toHaveAttribute('href', 'https://t.me/well_circle');
+    }
     // The app shell itself should still be mounted.
     expect(container.querySelector('.app-shell')).toBeInTheDocument();
   });

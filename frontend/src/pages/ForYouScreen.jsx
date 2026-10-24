@@ -8,6 +8,7 @@ import { peek } from '../api/cache';
 import { logIssue } from '../utils/log';
 import useStoryUpload from '../hooks/useStoryUpload';
 import { compressImage } from '../utils/imageCompress';
+import ErrorScreen from '../components/ErrorScreen';
 import PointsBadge from '../components/PointsBadge';
 import StreakBadge from '../components/StreakBadge';
 import FirstRewardCard from '../components/FirstRewardCard';
@@ -470,11 +471,7 @@ export default function ForYouScreen() {
 
       {coldLoadFailed ? (
         <div className="card mb-24" id="home-recovery-card">
-          <div className="card-body" style={{ textAlign: 'center' }}>
-            <h3 style={{ marginBottom: 6 }}>We couldn't load your Home feed</h3>
-            <p className="text-sm text-secondary mb-12">Check your connection and try again.</p>
-            <button className="btn btn-primary" onClick={retryHome} id="home-retry-btn">Try again</button>
-          </div>
+          <ErrorScreen error={homeError} title="We couldn't load your Home feed" onRetry={retryHome} />
         </div>
       ) : showSkeleton ? (
         <div id="for-you-feed-skeleton">

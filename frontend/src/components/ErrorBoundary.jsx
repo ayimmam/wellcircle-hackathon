@@ -1,5 +1,5 @@
 import { Component } from 'react';
-import Icon from './Icon';
+import ErrorScreen from './ErrorScreen';
 import BugReportSheet from './BugReportSheet';
 
 /**
@@ -31,29 +31,14 @@ export default class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="error-boundary" role="alert" style={fallbackStyle}>
-          <div style={{ marginBottom: 12 }}><Icon name="leaf" size={40} /></div>
-          <h2 style={{ margin: '0 0 8px', fontSize: 18 }}>Something went wrong</h2>
-          <p style={{ margin: '0 0 20px', color: 'var(--text-muted, #6b7280)', maxWidth: 280 }}>
-            We hit a snag loading this screen. Please try again.
-          </p>
-          <div className="flex gap-8">
-            <button className="btn btn-primary" onClick={this.handleReload}>
-              Reload
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => this.setState({ showReportSheet: true })}
-              id="report-problem-btn"
-            >
+        <div className="error-boundary">
+          <ErrorScreen variant="unexpected" onRetry={this.handleReload} retryLabel="Reload">
+            <button className="btn btn-secondary" onClick={() => this.setState({ showReportSheet: true })} id="report-problem-btn">
               Report this problem
             </button>
-          </div>
+          </ErrorScreen>
           {this.state.showReportSheet && (
-            <BugReportSheet
-              error={this.state.error}
-              onClose={() => this.setState({ showReportSheet: false })}
-            />
+            <BugReportSheet error={this.state.error} onClose={() => this.setState({ showReportSheet: false })} />
           )}
         </div>
       );
@@ -61,13 +46,3 @@ export default class ErrorBoundary extends Component {
     return this.props.children;
   }
 }
-
-const fallbackStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  textAlign: 'center',
-  minHeight: '60vh',
-  padding: 24,
-};

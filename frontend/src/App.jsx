@@ -9,6 +9,7 @@ import BottomNav from './components/BottomNav';
 import BurgerMenu from './components/BurgerMenu';
 import ToastContainer from './components/Toast';
 import ErrorBoundary from './components/ErrorBoundary';
+import ErrorScreen from './components/ErrorScreen';
 import AdminGuard from './components/AdminGuard';
 import ProviderPortalGuard from './components/ProviderPortalGuard';
 import useDoubleBackToExit from './hooks/useDoubleBackToExit';
@@ -207,7 +208,7 @@ export function AppShell() {
               </Route>
 
               {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<ErrorScreen variant="notFound" homeHref={isProviderPortalDomain() ? "/overview" : "/"} />} />
             </Routes>
           </Suspense>
         </ErrorBoundary>

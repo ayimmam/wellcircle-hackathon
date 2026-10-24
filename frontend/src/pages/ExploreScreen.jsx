@@ -8,6 +8,7 @@ import EventCard from '../components/EventCard';
 import PastEventRow from '../components/PastEventRow';
 import AskWellCircle from '../components/AskWellCircle';
 import Icon from '../components/Icon';
+import ErrorScreen from '../components/ErrorScreen';
 import SmartImage from '../components/SmartImage';
 import EmptyStateHero from '../components/EmptyStateHero';
 import { useTranslation } from 'react-i18next';
@@ -59,7 +60,7 @@ export default function ExploreScreen() {
     { initialData: EMPTY_LIST, select: res => res.providers || EMPTY_LIST },
   );
 
-  const { data: providers, loading: providersLoading } = useResource(
+  const { data: providers, loading: providersLoading, error: providersError, refresh: refreshProviders } = useResource(
     cacheKeys.providers(categoryFilter, searchFilter),
     () => getProviders(categoryFilter, searchFilter),
     {
@@ -69,7 +70,7 @@ export default function ExploreScreen() {
     },
   );
 
-  const { data: events, loading: eventsLoading } = useResource(
+  const { data: events, loading: eventsLoading, error: eventsError, refresh: refreshEvents } = useResource(
     cacheKeys.events(eventParams),
     () => getEvents(eventParams),
     {
@@ -96,6 +97,8 @@ export default function ExploreScreen() {
   );
 
   const loading = view === 'providers' ? providersLoading : eventsLoading;
+  const loadError = view === 'providers' ? providersError : eventsError;
+  const hasContent = view === 'providers' ? providers.length > 0 : events.length > 0;
 
   useEffect(() => {
     providers.forEach(p => {
@@ -171,7 +174,9 @@ export default function ExploreScreen() {
         </button>
       </div>
 
-      {loading ? (
+      {!loading && loadError && !hasContent ? (
+        <ErrorScreen error={loadError} onRetry={view === 'providers' ? refreshProviders : refreshEvents} />
+      ) : loading ? (
         <div className="flex-col gap-16">
           {[1, 2, 3].map(i => (
             <div key={i} className="skeleton" style={{ height: 120 }} />

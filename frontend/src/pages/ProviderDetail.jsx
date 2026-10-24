@@ -6,6 +6,7 @@ import { getProvider, joinCommunity, getProviderEvents } from '../api/client';
 import EventCard from '../components/EventCard';
 import { showToast } from '../components/Toast';
 import Icon from '../components/Icon';
+import ErrorScreen from '../components/ErrorScreen';
 import SmartImage from '../components/SmartImage';
 import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
@@ -22,18 +23,21 @@ export default function ProviderDetail() {
   const [provider, setProvider] = useState(null);
   const [activePhoto, setActivePhoto] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [attempt, setAttempt] = useState(0);
   const [events, setEvents] = useState([]);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     getProvider(id)
       .then(p => setProvider(p))
-      .catch(() => navigate('/explore', { replace: true }))
+      .catch(setError)
       .finally(() => setLoading(false));
     getProviderEvents(id)
       .then(res => setEvents((res.events || []).filter(e => !e.is_cancelled)))
       .catch(() => setEvents([]));
-  }, [id, navigate]);
+  }, [id, attempt]);
 
   // Prefer the provider's shared Google Maps place link — short links carry no
   // coordinates, so fall back to a lat/lng search only when there's no link.
@@ -70,6 +74,10 @@ export default function ProviderDetail() {
       showToast('Already a member');
     }
   };
+
+  if (!loading && (error || !provider)) {
+    return <ErrorScreen error={error} variant={error ? undefined : 'missing'} onRetry={() => setAttempt(n => n + 1)} />;
+  }
 
   if (loading || !provider) {
     return (

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getProduct } from '../api/client';
 import Icon from '../components/Icon';
+import ErrorScreen from '../components/ErrorScreen';
 import SmartImage from '../components/SmartImage';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
@@ -12,10 +13,18 @@ export default function ProductDetail() {
   const [product, setProduct] = useState(null);
   const [imgIdx, setImgIdx] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    getProduct(id).then(setProduct).catch(() => navigate('/products')).finally(() => setLoading(false));
-  }, [id, navigate]);
+    setLoading(true);
+    setError(null);
+    getProduct(id).then(setProduct).catch(setError).finally(() => setLoading(false));
+  }, [id, attempt]);
+
+  if (!loading && (error || !product)) {
+    return <ErrorScreen error={error} variant={error ? undefined : 'missing'} onRetry={() => setAttempt(n => n + 1)} />;
+  }
 
   if (loading || !product) {
     return <div className="page"><div className="skeleton" style={{ height: 300 }} /></div>;

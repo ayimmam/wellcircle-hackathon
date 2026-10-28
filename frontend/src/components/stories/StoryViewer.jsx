@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { unlockSound, playSound } from '../../utils/sound';
 import SmartImage from '../SmartImage';
 import Icon from '../Icon';
 import { followUser, unfollowUser, toggleStoryLike, getStoryViewers } from '../../api/client';
@@ -151,6 +152,8 @@ export default function StoryViewer({ groups, startIndex = 0, onClose, onViewed,
 
   // WS11b: like toggle
   const handleLike = () => {
+    unlockSound();
+    playSound(liked ? 'tap' : 'like');
     const storyId = story.id;
     const nextLiked = !liked;
     const nextCount = likeCount + (nextLiked ? 1 : -1);
@@ -285,6 +288,7 @@ export default function StoryViewer({ groups, startIndex = 0, onClose, onViewed,
         <button
           type="button"
           className={`story-like-btn ${liked ? 'liked' : ''}`}
+          data-ui-sound="off"
           onClick={handleLike}
           id="story-like-btn"
           aria-label={liked ? 'Unlike' : 'Like'}

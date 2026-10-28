@@ -1,3 +1,6 @@
+import likeUrl from '../assets/sounds/like.wav';
+import navigateUrl from '../assets/sounds/navigate.wav';
+import loadingUrl from '../assets/sounds/loading.wav';
 import tapUrl from '../assets/sounds/tap.wav';
 import openUrl from '../assets/sounds/open.wav';
 import closeUrl from '../assets/sounds/close.wav';
@@ -5,7 +8,7 @@ import successUrl from '../assets/sounds/success.wav';
 import errorUrl from '../assets/sounds/error.wav';
 
 const KEY = 'wellcircle-sound';
-const urls = { tap: tapUrl, open: openUrl, close: closeUrl, success: successUrl, error: errorUrl };
+const urls = { like: likeUrl, navigate: navigateUrl, loading: loadingUrl, tap: tapUrl, open: openUrl, close: closeUrl, success: successUrl, error: errorUrl };
 const listeners = new Set();
 const buffers = new Map();
 let enabled = true;
@@ -16,6 +19,8 @@ let lastPlay = -Infinity;
 let lastKind;
 let lastGesture = -Infinity;
 let generation = 0;
+let loadingCount = 0;
+let loadingTimer;
 
 export const getSoundEnabled = () => enabled;
 export function subscribeSound(listener) {
@@ -60,9 +65,9 @@ export async function playSound(name) {
   const requested = Date.now();
   const version = generation;
   const buffer = await buffers.get(name);
-  const confirmation = name === 'success' || name === 'error';
+  const confirmation = ['success', 'error', 'navigate', 'like'].includes(name);
   // Drop late downloads rather than producing a delayed click or burst.
-  if (!buffer || !enabled || version !== generation || document.hidden
+  if ((name === 'loading' && loadingCount === 0) || !buffer || !enabled || version !== generation || document.hidden
     || context.state !== 'running' || Date.now() - requested > 200
     || (Date.now() - lastPlay < 85 && !(confirmation && lastKind !== name))) return;
   try {
@@ -76,4 +81,21 @@ export async function playSound(name) {
     lastPlay = Date.now();
     lastKind = name;
   } catch { /* Silent fallback in restricted webviews. */ }
+}
+
+// One cue per sustained foreground load, shared by concurrent resources and Suspense.
+// Fast/cached loads stay silent; polling does not set useResource's loading flag.
+export function startLoadingSound() {
+  loadingCount += 1;
+  if (loadingCount === 1) loadingTimer = setTimeout(() => { playSound('loading'); }, 700);
+  let stopped = false;
+  return () => {
+    if (stopped) return;
+    stopped = true;
+    loadingCount = Math.max(0, loadingCount - 1);
+    if (loadingCount === 0) {
+      clearTimeout(loadingTimer);
+      if (lastKind === 'loading') { active?.stop(); active = null; }
+    }
+  };
 }

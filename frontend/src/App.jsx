@@ -13,6 +13,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import ErrorScreen from './components/ErrorScreen';
 import AdminGuard from './components/AdminGuard';
 import ProviderPortalGuard from './components/ProviderPortalGuard';
+import { startLoadingSound } from './utils/sound';
 import useDoubleBackToExit from './hooks/useDoubleBackToExit';
 import { isProviderPortalDomain, providerPortalBase } from './utils/providerPortal';
 
@@ -34,6 +35,7 @@ const importProviderDetail = () => import('./pages/ProviderDetail');
 const OnboardingFlow = lazy(() => import('./pages/OnboardingFlow'));
 const ForYouScreen = lazy(importHome);
 const ExploreScreen = lazy(importExplore);
+const RunningClubsScreen = lazy(() => import('./pages/RunningClubsScreen'));
 const NotificationsScreen = lazy(() => import('./pages/NotificationsScreen'));
 const MyBookings = lazy(() => import('./pages/MyBookings'));
 const EventsScreen = lazy(() => import('./pages/EventsScreen'));
@@ -105,6 +107,7 @@ function prefetchTabs() {
 }
 
 function RouteFallback() {
+  useEffect(() => startLoadingSound(), []);
   return (
     <div className="route-fallback" style={{ padding: 16 }} aria-busy="true">
       <div className="skeleton" style={{ height: 120, marginBottom: 12 }} />
@@ -151,6 +154,7 @@ export function AppShell({ entryElement, extraRoutes, web = false }) {
               {/* Main tabs */}
               <Route path="/home" element={<ForYouScreen />} />
               <Route path="/explore" element={<ExploreScreen />} />
+              <Route path="/running-clubs" element={<RunningClubsScreen />} />
               <Route path="/notifications" element={<NotificationsScreen />} />
               <Route path="/my-bookings" element={<MyBookings />} />
               <Route path="/users/me/bookings" element={<MyBookings />} />

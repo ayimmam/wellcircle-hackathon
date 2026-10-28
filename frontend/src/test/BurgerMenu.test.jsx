@@ -30,8 +30,10 @@ describe('BurgerMenu', () => {
     renderMenu();
     ['Points Store', 'Bookings', 'Events', 'Help & support', 'About']
       .forEach((label) => expect(screen.getByText(label)).toBeInTheDocument());
-    expect(document.querySelectorAll('.burger-nav .burger-nav-item')).toHaveLength(5);
-    expect(screen.getByRole('button', { name: /Interface sounds/ })).toHaveAttribute('aria-pressed');
+    expect(document.querySelectorAll('.burger-nav .burger-nav-item')).toHaveLength(6);
+    const toggle = screen.getByRole('button', { name: /Interface sounds/ });
+    expect(toggle).toHaveAttribute('aria-pressed');
+    expect(document.querySelectorAll('.burger-nav .burger-nav-item')[2]).toBe(toggle);
   });
 
   it('does not duplicate bottom-nav or header destinations', () => {

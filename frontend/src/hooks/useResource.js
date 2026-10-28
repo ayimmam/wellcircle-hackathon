@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { startLoadingSound } from '../utils/sound';
 import { peek, subscribe, invalidate } from '../api/cache';
 
 /**
@@ -50,6 +51,11 @@ export default function useResource(key, fetcher, options = {}) {
   });
   const [loading, setLoading] = useState(() => enabled && readCache(key) === undefined);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (loading && enabled) return startLoadingSound();
+    return undefined;
+  }, [loading, enabled]);
 
   const load = useCallback(async (cacheKey, { force = false } = {}) => {
     if (!cacheKey) return undefined;

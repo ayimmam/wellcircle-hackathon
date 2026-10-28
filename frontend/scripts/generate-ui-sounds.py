@@ -12,6 +12,9 @@ palette = {
     'close': ('ui_pop/fall', -27, {}),
     'success': ('notify/mid_tine', -21, {}),
     'error': ('knock/wood', -24, {}),
+    'like': ('ui_pop/step', -24, {}),
+    'navigate': ('whoosh_fast/tight', -29, {'dur': 0.24, 'apex': 0.06}),
+    'loading': ('ui_pop/boop', -30, {}),
 }
 report = {'source': 'https://github.com/leonxlnx/earshot', 'bank': bank.VERSION, 'sounds': {}}
 for name, (sound, peak, edits) in palette.items():

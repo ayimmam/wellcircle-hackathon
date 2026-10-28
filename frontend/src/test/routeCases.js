@@ -11,6 +11,7 @@ export const ROUTE_CASES = [
   ['Onboarding', '/onboarding'],
   ['Home', '/home'],
   ['Explore', '/explore'],
+  ['Running communities', '/running-clubs'],
   ['Notifications', '/notifications'],
   ['My Bookings', '/my-bookings'],
   ['Community list', '/community'],

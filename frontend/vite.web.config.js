@@ -13,7 +13,7 @@ export default mergeConfig(browserConfig, defineConfig({
     globals: true,
     environment: 'happy-dom',
     setupFiles: [fileURLToPath(new URL('./src/test/setup.js', import.meta.url))],
-    include: ['../wellcircle-web/src/test/**/*.test.{js,jsx}'],
+    include: ['../wellcircle-web/src/test/**/*.test.{js,jsx}', 'src/test/RunningClubsCard.test.jsx'],
     restoreMocks: true,
     css: false,
     env: { VITE_USE_MOCK: 'true', VITE_APP_SURFACE: 'web' },

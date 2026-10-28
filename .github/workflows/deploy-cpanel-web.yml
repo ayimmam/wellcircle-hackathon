@@ -1,0 +1,82 @@
+name: Deploy browser app to cPanel
+
+# A shared-feature release updates the browser host after the same CI gate.
+# Configure the SSH secrets documented in wellcircle-web/README.md first.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: cpanel-web-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository) ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    env:
+      CPANEL_HOST: ${{ vars.CPANEL_HOST || 'wellcircle.et' }}
+      CPANEL_HOST_KEY_ALIAS: ${{ vars.CPANEL_HOST_KEY_ALIAS || 'wellcircle.et' }}
+      CPANEL_USER: ${{ vars.CPANEL_USER || 'ethiowzj' }}
+      CPANEL_PORT: ${{ vars.CPANEL_PORT || '22' }}
+      CPANEL_REMOTE_PATH: ${{ vars.CPANEL_WEB_ROOT || '/home/ethiowzj/app.wellcircle.et' }}
+      VITE_API_BASE_URL: ${{ vars.WEB_API_BASE_URL || 'https://wellcircle-hackathon-backend.vercel.app/api' }}
+      VITE_BOT_USERNAME: ${{ vars.WEB_BOT_USERNAME || 'WellCircleBot' }}
+      VITE_USE_MOCK: 'false'
+      VITE_FIREBASE_API_KEY: ${{ vars.WEB_FIREBASE_API_KEY }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.WEB_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_PROJECT_ID: ${{ vars.WEB_FIREBASE_PROJECT_ID }}
+      VITE_FIREBASE_APP_ID: ${{ vars.WEB_FIREBASE_APP_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Reject superseded releases
+        run: |
+          git fetch origin main --depth=1
+          test "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)" || { echo 'A newer main commit exists; let its verified release deploy.'; exit 1; }
+      - name: Require configured deployment credentials
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.CPANEL_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.CPANEL_KNOWN_HOSTS }}
+        run: |
+          test -n "$SSH_PRIVATE_KEY" || { echo 'Configure CPANEL_SSH_PRIVATE_KEY to enable cPanel publishing.'; exit 1; }
+          test -n "$SSH_KNOWN_HOSTS" || { echo 'Configure CPANEL_KNOWN_HOSTS with a verified host key.'; exit 1; }
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$RUNNER_TEMP/cpanel-key"
+          chmod 600 "$RUNNER_TEMP/cpanel-key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            wellcircle-web/package-lock.json
+      - run: npm ci --prefix frontend
+      - run: npm ci --prefix wellcircle-web
+      - run: npm run test:web --prefix frontend
+      - name: Require Google sign-in public configuration
+        run: |
+          for setting in VITE_FIREBASE_API_KEY VITE_FIREBASE_AUTH_DOMAIN VITE_FIREBASE_PROJECT_ID VITE_FIREBASE_APP_ID; do
+            test -n "${!setting}" || { echo "Configure the corresponding WEB_FIREBASE repository variable for $setting before publishing."; exit 1; }
+          done
+      - name: Upload assets and switch the entry point
+        run: CPANEL_SSH_KEY="$RUNNER_TEMP/cpanel-key" bash wellcircle-web/deploy-sftp.sh "$CPANEL_HOST" "$CPANEL_USER" "$CPANEL_PORT"
+      - name: Verify deployed build
+        run: |
+          curl --fail --silent --show-error --retry 3 https://app.wellcircle.et/build-info.json -o "$RUNNER_TEMP/deployed-build.json"
+          node -e 'const fs=require("fs"); const local=JSON.parse(fs.readFileSync("wellcircle-web/dist/build-info.json")); const live=JSON.parse(fs.readFileSync(process.argv[1])); if(local.sharedSourceDigest!==live.sharedSourceDigest) throw new Error("Live shared source does not match this build");' "$RUNNER_TEMP/deployed-build.json"
+      - name: Remove temporary key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/cpanel-key"

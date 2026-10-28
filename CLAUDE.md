@@ -15,7 +15,7 @@ Well Circle is a Telegram Mini App for wellness providers and communities in Eth
 | Domain | What it serves | Auth |
 | --- | --- | --- |
 | `wellcircle.et` | This repo's `frontend/` — the **Mini App** | Telegram `initData` **only**. `authTelegram()` in `src/api/client.js` throws `TELEGRAM_INIT_DATA_MISSING` for any plain browser, so every route dead-ends on the splash error card outside Telegram. |
-| `app.wellcircle.et` | The **standalone web app** — Telegram not required | WhatsApp OTP / Google / Telegram widget. **Its frontend source is not in this repo** (no branch here calls `/auth/whatsapp`); the backend endpoints it uses are in `backend/app/api/auth.py`. |
+| `app.wellcircle.et` | The **standalone web app** — Telegram not required | Google/Gmail via Firebase / Telegram widget. **Its browser entry is in `wellcircle-web/` and all feature code is shared from `frontend/src`**. See `wellcircle-web/README.md` and `AGENTS.md`; never fork app features between the two builds. |
 | `provider.wellcircle.et` | This repo's provider portal at root paths (see `src/utils/providerPortal.js`) | Telegram Login Widget / provider username+password |
 
 Because the Mini App build cannot serve a Telegram-less visitor, anything in
@@ -149,6 +149,18 @@ If a screen goes mysteriously empty after a deploy, check the logs for
 Two parallel mechanisms exist — match what you're touching:
 - **Alembic** lives in `backend/alembic/versions/` (`001_phase2`, `002_phase3`, `003_...`).
 - **Ad-hoc psycopg2 scripts** in `backend/` (`apply_migration.py`, `apply_phase3_migration.py`, `apply_circle_migration.py`, `apply_rls.py`) run idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` against `DATABASE_URL`. The numerous `check_*.py`, `fix_*.py`, `patch_*.py`, `make_super_admin.py`, `seed_*.py` files at the backend root are one-off operational scripts, not part of the app.
+
+## Web feature parity — required for every app change
+
+`frontend/src` is the canonical feature source for both apps. `wellcircle-web/`
+builds the same `AppShell`, routes, pages, components, API client, cache,
+translations and base styles, with a browser AuthContext adapter. Its Vite
+build rejects duplicate feature imports. Run both build gates, the frontend
+tests and `npm run test:web --prefix frontend` for feature changes. Publish
+the browser build to cPanel as part of releases; Vercel alone does not update
+`app.wellcircle.et`. See [wellcircle-web/README.md](wellcircle-web/README.md).
+Telegram-only pin bonuses, evidence submission and bot reminder delivery stay
+in Telegram and are linked from the shared Help & support screen.
 
 ## Frontend architecture
 

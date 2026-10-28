@@ -1,0 +1,60 @@
+import { MOCK_PROVIDERS, MOCK_COMMUNITIES, MOCK_CIRCLES, MOCK_PRODUCTS, MOCK_PUBLIC_USERS, MOCK_EVENTS, MOCK_POSTS } from '../data/mock';
+
+const providerId = MOCK_PROVIDERS[0].id;
+const communityId = MOCK_COMMUNITIES[0].id;
+const circleId = MOCK_CIRCLES[0].id;
+const productId = MOCK_PRODUCTS[0].id;
+const paidEventId = MOCK_EVENTS.find(e => e.price_etb > 0).id;
+
+export const ROUTE_CASES = [
+  ['Splash', '/'],
+  ['Onboarding', '/onboarding'],
+  ['Home', '/home'],
+  ['Explore', '/explore'],
+  ['Notifications', '/notifications'],
+  ['My Bookings', '/my-bookings'],
+  ['Community list', '/community'],
+  ['Profile', '/profile'],
+  ['Events', '/events'],
+  ['Events (past tab)', '/events?tab=past'],
+  ['About', '/about'],
+  ['QR visit landing', '/visit'],
+  ['QR visit landing (tagged)', '/visit?src=boston-day-spa'],
+  ['Trainer verification', '/trainer/verify'],
+  ['Public profile', `/users/${MOCK_PUBLIC_USERS[0].id}`],
+  ['Post detail', `/post/${MOCK_POSTS[0].id}`],
+  ['Followers', `/users/${MOCK_PUBLIC_USERS[0].id}/followers`],
+  ['Following', `/users/${MOCK_PUBLIC_USERS[0].id}/following`],
+  ['Provider detail', `/provider/${providerId}`],
+  ['Community detail', `/community/${communityId}`],
+  ['Circle detail', `/circle/${circleId}`],
+  ['Booking flow', `/booking/${providerId}`],
+  ['Event RSVP', `/event/${paidEventId}/rsvp`],
+  ['Provider dashboard', '/provider-dashboard'],
+  ['Provider onboard', '/provider-onboard'],
+  ['Products store', '/products'],
+  ['Product detail', `/products/${productId}`],
+  ['Product redeem', `/products/${productId}/redeem`],
+  ['My redemptions', '/users/me/redemptions'],
+  ['Admin analytics', '/admin/analytics'],
+  ['Admin providers', '/admin/providers'],
+  ['Admin products', '/admin/products'],
+  ['Admin reports', '/admin/reports'],
+  ['Admin feedback', '/admin/feedback'],
+  ['Admin trainers', '/admin/trainers'],
+  ['Admin paid circles', '/admin/paid-circles'],
+  ['Provider portal login', '/provider-portal/login'],
+  ['Provider portal overview (redirects when signed out)', '/provider-portal/overview'],
+  ['Provider portal bookings (redirects when signed out)', '/provider-portal/bookings'],
+  ['Provider portal events (redirects when signed out)', '/provider-portal/events'],
+  ['Provider portal products (redirects when signed out)', '/provider-portal/products'],
+  ['Provider portal customers (redirects when signed out)', '/provider-portal/customers'],
+  ['Provider portal promotions (redirects when signed out)', '/provider-portal/promotions'],
+  ['Provider portal subscriptions (redirects when signed out)', '/provider-portal/subscriptions'],
+  ['Privacy Policy', '/privacy'],
+  ['Terms of Service', '/terms'],
+  ['Data deletion', '/data-deletion'],
+  ['Help and Telegram bot features', '/help'],
+  ['Unknown route fallback', '/this-does-not-exist'],
+];
+

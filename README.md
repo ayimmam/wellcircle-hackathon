@@ -29,7 +29,8 @@ Three independently deployed services share a single Supabase PostgreSQL databas
 | Service | Stack | Directory | Deploys to |
 |---------|-------|-----------|------------|
 | Backend API | FastAPI · SQLAlchemy · Supabase | [`backend/`](./backend) | Vercel (serverless) / Render |
-| Frontend Mini App | React 18 · Vite · React Router | [`frontend/`](./frontend) | Vercel |
+| Frontend Mini App | React 18 · Vite · React Router | [`frontend/`](./frontend) — shared app features | Vercel / cPanel |
+| Browser app | Shared React features + browser sign-in | [`wellcircle-web/`](./wellcircle-web/README.md) | cPanel (`app.wellcircle.et`) |
 | Telegram Bot | python-telegram-bot | [`telegram-bot/`](./telegram-bot) | Render (migrating from Railway) |
 
 The AI Concierge is a separate microservice (external repo) reached from the frontend.

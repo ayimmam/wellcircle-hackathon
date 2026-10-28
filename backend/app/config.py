@@ -72,10 +72,17 @@ class Settings(BaseSettings):
     # Vercel/serverless maintenance endpoint
     CRON_SECRET: str = ""
 
+    # Firebase phone-token audience; no service-account private key is required.
+    FIREBASE_PROJECT_ID: str = ""
+    GOOGLE_CLIENT_ID: str = ""
+    WEB_FRONTEND_URL: str = "https://app.wellcircle.et"
+
     # WhatsApp OTP delivery (Meta WhatsApp Cloud API / Twilio)
     WHATSAPP_PHONE_NUMBER_ID: str = ""
     WHATSAPP_API_TOKEN: str = ""
     WHATSAPP_OTP_TEMPLATE_NAME: str = ""
+    WHATSAPP_OTP_TEMPLATE_LANGUAGE: str = "en_US"
+    WHATSAPP_API_VERSION: str = ""  # Use the supported version shown in Meta API Setup.
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""
     TWILIO_VERIFY_SERVICE_SID: str = ""
@@ -90,6 +97,12 @@ class Settings(BaseSettings):
         "https://wellcircle.et",
         "https://app.wellcircle.et",
     ]
+
+    @property
+    def cors_origins(self) -> List[str]:
+        # Saved CORS_ORIGINS may predate the independently deployed browser app.
+        # Keep every configured origin and include both first-party surfaces.
+        return list(dict.fromkeys(origin for origin in [*self.CORS_ORIGINS, self.FRONTEND_URL, self.WEB_FRONTEND_URL] if origin))
 
     @property
     def super_admin_ids(self) -> List[int]:

@@ -7,10 +7,12 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from jose import jwt
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
 from app.database import get_db
 from app.models.user import User
+from app.models.auth_identity import AuthIdentity
 from app.crud.user import (
     get_user_by_telegram_id,
     create_user_from_telegram_auth,
@@ -25,12 +27,13 @@ from app.crud.auth_identity import (
 from app.services.points import get_points_tier
 from app.schemas.user import (
     TelegramAuthRequest, TelegramWidgetLoginRequest, ProviderPasswordLoginRequest,
-    WhatsAppStartRequest, WhatsAppVerifyRequest, GoogleAuthRequest,
+    WhatsAppStartRequest, WhatsAppVerifyRequest, GoogleAuthRequest, FirebaseAuthRequest,
     WhatsAppStartResponse, AuthResponse, UserResponse,
 )
 from app.services.telegram_auth import validate_init_data, validate_init_data_dev
 from app.services.telegram_login_widget import validate_login_widget_data
-from app.services.otp import start_otp, verify_otp
+from app.services.otp import start_otp, verify_otp, OTPDeliveryUnavailable
+from app.services.firebase_auth import verify_google_token, FirebaseUnavailable
 from app.utils.password import verify_password
 
 router = APIRouter()
@@ -106,6 +109,16 @@ async def telegram_auth(request: TelegramAuthRequest, db: Session = Depends(get_
         user=_build_response(user, db),
         is_new_user=is_new,
     )
+
+
+@router.get("/telegram/config")
+def telegram_login_config():
+    # The token's numeric prefix is a public bot ID, never the bot credential.
+    # Derive it here so website login uses the same bot as signature validation.
+    bot_id, separator, secret = settings.TELEGRAM_BOT_TOKEN.partition(":")
+    if not separator or not secret or not bot_id.isdigit() or int(bot_id) <= 0:
+        raise HTTPException(status_code=503, detail="Telegram sign-in is unavailable. Please use Google or contact support.")
+    return {"bot_id": int(bot_id)}
 
 
 @router.post("/telegram-widget", response_model=AuthResponse)
@@ -195,31 +208,41 @@ async def provider_password_login(request: ProviderPasswordLoginRequest, db: Ses
 # ── WhatsApp OTP ──────────────────────────────────────────────
 
 @router.post("/whatsapp/start", response_model=WhatsAppStartResponse)
-async def whatsapp_start(req: WhatsAppStartRequest, request: Request, db: Session = Depends(get_db)):
+def whatsapp_start(req: WhatsAppStartRequest, request: Request, db: Session = Depends(get_db)):
     """
     Start WhatsApp OTP flow: normalize phone to E.164, rate-limit, send code.
     POST /api/auth/whatsapp/start  { phone: "+2519xxxxxxxx" }
     """
-    result = start_otp(req.phone, channel=req.channel or "whatsapp")
+    try:
+        result = start_otp(req.phone, channel=req.channel, db=db, ip=request.client.host if request.client else "unknown")
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except OTPDeliveryUnavailable as error:
+        raise HTTPException(status_code=503, detail="WhatsApp sign-in is unavailable right now. Please use Telegram or contact support.") from error
     if result is None:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many OTP requests. Please wait a moment and try again.",
+            headers={"Retry-After": "60"},
         )
     return WhatsAppStartResponse(
         request_id=result["request_id"],
         expires_in=result["expires_in"],
+        retry_after=result["retry_after"],
     )
 
 
 @router.post("/whatsapp/verify", response_model=AuthResponse)
-async def whatsapp_verify(req: WhatsAppVerifyRequest, db: Session = Depends(get_db)):
+def whatsapp_verify(req: WhatsAppVerifyRequest, db: Session = Depends(get_db)):
     """
     Verify WhatsApp OTP and return JWT.
     POST /api/auth/whatsapp/verify  { request_id, code }
       → 200 { token, user, is_new_user }
     """
-    phone = verify_otp(req.request_id, req.code)
+    try:
+        phone = verify_otp(req.request_id, req.code, db=db)
+    except OTPDeliveryUnavailable as error:
+        raise HTTPException(status_code=503, detail="Verification is temporarily unavailable. Please try again.") from error
     if not phone:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -227,36 +250,29 @@ async def whatsapp_verify(req: WhatsAppVerifyRequest, db: Session = Depends(get_
         )
 
     is_new = False
-
-    # 1. Check if we already have a whatsapp identity for this phone
-    user = get_user_by_identity(db, "whatsapp", phone)
-
-    # 2. Phone-based linking: check if an existing user has this phone
-    if not user:
-        user = find_user_by_phone(db, phone)
-        if user:
-            # Link: create a whatsapp identity for the existing user
-            create_identity(db, user.id, "whatsapp", phone)
-
-    # 3. Brand new user
-    if not user:
-        user = User(
-            phone_number=phone,
-            last_activity_at=datetime.now(timezone.utc),
-        )
-        db.add(user)
+    try:
+        user = get_user_by_identity(db, "whatsapp", phone)
+        if not user:
+            user = find_user_by_phone(db, phone)
+            if not user:
+                user = User(phone_number=phone, last_activity_at=datetime.now(timezone.utc))
+                db.add(user)
+                db.flush()
+                is_new = True
+            db.add(AuthIdentity(user_id=user.id, provider="whatsapp", subject=phone))
+        if not user.phone_number:
+            user.phone_number = phone
+        user.last_activity_at = datetime.now(timezone.utc)
+        # User creation and its identity must commit together. Two valid OTPs
+        # for the same phone cannot leave duplicate/orphan accounts behind.
         db.commit()
-        db.refresh(user)
-        create_identity(db, user.id, "whatsapp", phone)
-        is_new = True
-
-    # Update phone if not set
-    if not user.phone_number:
-        user.phone_number = phone
-        db.commit()
-
-    user.last_activity_at = datetime.now(timezone.utc)
-    db.commit()
+    except IntegrityError:
+        db.rollback()
+        user = get_user_by_identity(db, "whatsapp", phone)
+        if not user:
+            raise HTTPException(status_code=409, detail="Please request a new code and try signing in again.")
+        is_new = False
+    db.refresh(user)
 
     token = _create_token(str(user.id))
 
@@ -265,6 +281,41 @@ async def whatsapp_verify(req: WhatsAppVerifyRequest, db: Session = Depends(get_
         user=_build_response(user, db),
         is_new_user=is_new,
     )
+
+
+# ── Firebase Google sign-in ──────────────────────────────────────
+
+@router.post("/firebase", response_model=AuthResponse)
+def firebase_auth(req: FirebaseAuthRequest, db: Session = Depends(get_db)):
+    try:
+        verified = verify_google_token(req.id_token)
+    except FirebaseUnavailable as error:
+        raise HTTPException(status_code=503, detail="Google sign-in is temporarily unavailable. Please use Telegram or contact support.") from error
+    except ValueError as error:
+        raise HTTPException(status_code=401, detail="Google sign-in could not be verified. Please try again.") from error
+
+    google_sub = verified["google_sub"]
+    is_new = False
+    try:
+        # Google subject is stable across Firebase and direct Google sign-in.
+        # Never merge accounts by matching an editable profile/email address.
+        user = get_user_by_identity(db, "google", google_sub)
+        if not user:
+            user = User(name=verified.get("name"), photo_url=verified.get("picture"), last_activity_at=datetime.now(timezone.utc))
+            db.add(user)
+            db.flush()
+            db.add(AuthIdentity(user_id=user.id, provider="google", subject=google_sub, email=verified["email"]))
+            is_new = True
+        user.last_activity_at = datetime.now(timezone.utc)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        user = get_user_by_identity(db, "google", google_sub)
+        if not user:
+            raise HTTPException(status_code=409, detail="Please try signing in again.")
+        is_new = False
+    db.refresh(user)
+    return AuthResponse(token=_create_token(str(user.id)), user=_build_response(user, db), is_new_user=is_new)
 
 
 # ── Google Sign-In ────────────────────────────────────────────
@@ -278,6 +329,8 @@ async def google_auth(req: GoogleAuthRequest, db: Session = Depends(get_db)):
 
     Identity subject is Google's `sub`, never the email — emails change hands.
     """
+    if not settings.GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="Google sign-in is not configured.")
     # Verify the Google ID token
     try:
         from google.oauth2 import id_token as google_id_token
@@ -286,21 +339,8 @@ async def google_auth(req: GoogleAuthRequest, db: Session = Depends(get_db)):
         idinfo = google_id_token.verify_oauth2_token(
             req.credential,
             google_requests.Request(),
-            settings.GOOGLE_CLIENT_ID if hasattr(settings, "GOOGLE_CLIENT_ID") else None,
+            settings.GOOGLE_CLIENT_ID,
         )
-    except ImportError:
-        # google-auth not installed — decode manually for dev
-        try:
-            # Unverified decode for development only
-            import json, base64
-            parts = req.credential.split(".")
-            payload = json.loads(base64.urlsafe_b64decode(parts[1] + "=="))
-            idinfo = payload
-        except Exception:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not verify Google credential (google-auth not installed)",
-            )
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

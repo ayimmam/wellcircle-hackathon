@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Icon from './Icon';
+import { SoundToggle } from './SoundFeedback';
 import useDismissOnEscape from '../hooks/useDismissOnEscape';
 
 // Deliberately excludes every bottom-nav destination (Home, Explore,
@@ -12,6 +13,7 @@ const MENU_ITEMS = [
   { path: '/products', icon: 'bag', label: 'Points Store', desc: 'Spend your points on real rewards' },
   { path: '/my-bookings', icon: 'ticket', label: 'Bookings', desc: 'Upcoming and past sessions' },
   { path: '/events', icon: 'calendar', label: 'Events', desc: "What's happening around Addis" },
+  { path: '/help', icon: 'message-circle', label: 'Help & support', desc: 'Support and Telegram bot features' },
   { path: '/about', icon: 'info', label: 'About', desc: 'What Well Circle is and how it works' },
 ];
 
@@ -42,7 +44,7 @@ export default function BurgerMenu({ isOpen, onClose }) {
               <div className="burger-brand-sub">{t('YOUR WELLNESS TRIBE')}</div>
             </div>
           </div>
-          <button className="burger-close" onClick={onClose} id="burger-close-btn" aria-label="Close menu">
+          <button className="burger-close" data-ui-sound="close" onClick={onClose} id="burger-close-btn" aria-label="Close menu">
             <Icon name="x" size={20} />
           </button>
         </div>
@@ -67,6 +69,7 @@ export default function BurgerMenu({ isOpen, onClose }) {
             );
           })}
         </nav>
+        <SoundToggle />
       </div>
     </>
   );

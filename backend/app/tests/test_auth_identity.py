@@ -115,7 +115,7 @@ class TestAuthIdentities(unittest.TestCase):
 
     def test_otp_flow(self):
         # Start OTP
-        res = start_otp("+251933445566")
+        res = start_otp("+251933445566", db=self.db)
         self.assertIsNotNone(res)
         request_id = res["request_id"]
         dev_code = res.get("_dev_code")
@@ -123,15 +123,15 @@ class TestAuthIdentities(unittest.TestCase):
         self.assertEqual(len(dev_code), 6)
 
         # Verify with wrong code fails
-        fail = verify_otp(request_id, "000000")
+        fail = verify_otp(request_id, "000000", db=self.db)
         self.assertIsNone(fail)
 
         # Verify with right code succeeds
-        success_phone = verify_otp(request_id, dev_code)
+        success_phone = verify_otp(request_id, dev_code, db=self.db)
         self.assertEqual(success_phone, "+251933445566")
 
         # Replay attempt fails (single use)
-        replay = verify_otp(request_id, dev_code)
+        replay = verify_otp(request_id, dev_code, db=self.db)
         self.assertIsNone(replay)
 
 

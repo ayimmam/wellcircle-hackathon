@@ -11,13 +11,19 @@
 # Browser caching rules
 <IfModule mod_headers.c>
   # Never cache index.html so updates are instant
-  <Files "index.html">
+  <FilesMatch "^(index\.html|sw\.js|build-info\.json)$">
     Header set Cache-Control "no-cache, no-store, must-revalidate"
     Header set Pragma "no-cache"
     Header set Expires 0
-  </Files>
-  # Cache hashed static assets
+  </FilesMatch>
+  # Cache static assets; override the unhashed worker below.
   <FilesMatch "\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$">
     Header set Cache-Control "max-age=31536000, public, immutable"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "^(index\.html|sw\.js|build-info\.json)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
   </FilesMatch>
 </IfModule>

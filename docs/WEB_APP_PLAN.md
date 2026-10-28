@@ -1,22 +1,22 @@
+> Current browser login uses Google/Gmail through Firebase and Telegram. SMS/WhatsApp login is retired. See [Google setup](GOOGLE_SIGNIN_SETUP.md); the design history below describes the original approach.
+
 # Well Circle Web App — `app.wellcircle.et`
 
-**Status:** partially shipped — see *Delivery order* below for what is live.
-`https://app.wellcircle.et` is **serving** (cPanel/LiteSpeed), and its bundle
-calls `/auth/whatsapp/start`, `/auth/whatsapp/verify` and `/auth/google`, so
-phases 1–4 are at least deployed.
+**Current implementation:** `wellcircle-web/` is the cPanel browser entry, and
+`frontend/src` is the single shared source for app features, routes, API,
+components, styles and translations. Browser authentication remains separate
+from Telegram initData. The web build enforces shared-source parity, and CI
+runs browser session/deep-link tests. See [the current implementation and
+release guide](../wellcircle-web/README.md) and [development rules](../AGENTS.md).
 
-**Goal:** let people use Well Circle without Telegram — either because they
-don't have it, or because they'd rather not run the app inside a chat client.
+Telegram-only pin bonuses, staff evidence submission and bot reminders remain
+in Telegram by product decision; both apps link to them from Help & support.
 
-Sign-in options, **in this order**: **WhatsApp → Telegram → Google.**
-
-> ⚠️ **The deployed web app's frontend source is not in this repository.**
-> No branch here (`main`, `webapp`, or any feature branch) contains a
-> `/auth/whatsapp` call in `frontend/` — but the live bundle at
-> `app.wellcircle.et` does. Whoever needs to change that app must find its
-> actual source first; editing `frontend/` in this repo will not affect it.
-> `frontend/` here builds the **Mini App** served at `wellcircle.et`, whose
-> auth still hard-requires Telegram `initData` (`src/api/client.js`).
+**Historical planning notes below:** the identity proposals, deployment
+observations, security observations and delivery-status table describe the
+original plan and earlier audits, not a verification of the current deployment.
+In particular, the earlier claim that the web frontend source is missing is
+obsolete. Use the implementation guide above for current source ownership.
 
 ---
 

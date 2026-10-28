@@ -5,12 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "npm run check:parity && vite build",
+    "preview": "vite preview",
+    "check:parity": "node scripts/check-parity.mjs",
+    "prebuild": "node ../frontend/scripts/generate-legal-pages.mjs"
   },
   "dependencies": {
+    "firebase": "^13.1.0",
     "i18next": "^26.3.1",
-    "posthog-js": "^1.417.1",
+    "motion": "^13.4.0",
+    "posthog-js": "^1.399.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-i18next": "^17.0.8",
@@ -21,5 +25,8 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "vite": "^8.3.0"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.13.6"
   }
 }

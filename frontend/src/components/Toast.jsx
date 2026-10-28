@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Icon from './Icon';
 import { haptic } from '../utils/haptic';
+import { playSound } from '../utils/sound';
 
 let activeTimeout = null;
 let globalSetToast = null;
@@ -17,6 +18,8 @@ let currentToastRef = { message: '', count: 1, variant: '' };
  * background load) — without editing any of those call sites individually. */
 export function showToast(message, variant) {
   if (!message) return;
+  if (globalSetToast && !(activeTimeout && currentToastRef.message === message)
+    && (variant === 'success' || variant === 'error')) playSound(variant);
   if (variant === 'success') haptic('notification.success');
   else if (variant === 'error') haptic('notification.error');
 

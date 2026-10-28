@@ -3,18 +3,19 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   setToken, getMe, onboardUser as apiOnboard,
   updateProfile as apiUpdate, joinCircleByCode, cacheKeys,
-  authWhatsAppStart as apiWhatsAppStart,
-  authWhatsAppVerify as apiWhatsAppVerify,
+  authFirebase as apiFirebase,
   authTelegramWidget as apiTelegramWidget,
   authGoogle as apiGoogle,
-} from '../api/client';
-import { peek, write, invalidate, setCacheScope, clearAll as clearCache } from '../api/cache';
-import { showToast } from '../components/Toast';
-import { initAnalytics, identifyUser, track } from '../analytics';
+} from '@shared/api/client';
+import { peek, write, invalidate, setCacheScope, clearAll as clearCache } from '@shared/api/cache';
+import { showToast } from '@shared/components/Toast';
+import { initAnalytics, identifyUser, track } from '@shared/analytics';
 
 const AuthContext = createContext(null);
 
-const PUBLIC_ROUTES = ['/', '/login', '/about'];
+import { SESSION_EXPIRED_EVENT } from '@shared/utils/platform';
+import { takePostRedirect } from '../utils/session';
+import { clearGoogleSignIn } from '../utils/firebaseGoogle';
 
 function restoreSession() {
   if (typeof window === 'undefined') return null;
@@ -47,6 +48,9 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const joinedInvite = useRef(null);
+  const locationRef = useRef(location);
+  locationRef.current = location;
 
   const handleAuthSuccess = useCallback((res) => {
     localStorage.setItem('wc_token', res.token);
@@ -58,33 +62,25 @@ export function AuthProvider({ children }) {
     if (!res.user.is_onboarded) {
       navigate('/onboarding', { replace: true });
     } else {
-      const postRedirect = sessionStorage.getItem('wc_post_redirect');
+      const postRedirect = takePostRedirect();
       navigate(postRedirect || '/home', { replace: true });
     }
   }, [navigate]);
 
-  const loginWithWhatsAppStart = useCallback(async (phone, channel = "whatsapp") => {
-    setError(null);
-    return apiWhatsAppStart(phone, channel);
-  }, []);
-
-  const loginWithWhatsAppVerify = useCallback(async (requestId, code) => {
-    setLoading(true);
+  const loginWithFirebase = useCallback(async (idToken) => {
     setError(null);
     try {
-      const res = await apiWhatsAppVerify(requestId, code);
+      const res = await apiFirebase(idToken);
       handleAuthSuccess(res);
+      clearGoogleSignIn();
       return res;
     } catch (err) {
       setError(err.message);
       throw err;
-    } finally {
-      setLoading(false);
     }
   }, [handleAuthSuccess]);
 
   const loginWithTelegram = useCallback(async (widgetData) => {
-    setLoading(true);
     setError(null);
     try {
       const res = await apiTelegramWidget(widgetData);
@@ -93,8 +89,6 @@ export function AuthProvider({ children }) {
     } catch (err) {
       setError(err.message);
       throw err;
-    } finally {
-      setLoading(false);
     }
   }, [handleAuthSuccess]);
 
@@ -113,9 +107,27 @@ export function AuthProvider({ children }) {
     }
   }, [handleAuthSuccess]);
 
+  useEffect(() => {
+    const expire = () => {
+      localStorage.removeItem('wc_token');
+      setToken(null);
+      clearCache();
+      setCacheScope(null);
+      setUser(null);
+      const current = locationRef.current;
+      if (!['/', '/login', '/landing'].includes(current.pathname)) {
+        sessionStorage.setItem('wc_post_redirect', current.pathname + current.search + current.hash);
+      }
+      navigate('/login', { replace: true, state: { expired: true } });
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, expire);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, expire);
+  }, [navigate]);
+
   // Initial load: verify token if present
   useEffect(() => {
     initAnalytics();
+    if (locationRef.current.pathname.startsWith('/provider-portal')) { setLoading(false); return; }
     const token = localStorage.getItem('wc_token');
     if (token) {
       setToken(token);
@@ -126,7 +138,7 @@ export function AuthProvider({ children }) {
           identifyUser(u);
         })
         .catch(err => {
-          if (err.status === 401 || err.status === 403) {
+          if (err.status === 401) {
             localStorage.removeItem('wc_token');
             setToken(null);
             clearCache();
@@ -141,22 +153,22 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // Check join code param in URL (e.g. ?join=ABC or /circle/id?join=ABC)
+  // A protected invite URL is saved before login; consume it only after onboarding.
   useEffect(() => {
-    if (!user) return;
-    const params = new URLSearchParams(window.location.search);
-    const joinCode = params.get('join');
-    if (joinCode) {
-      joinCircleByCode(joinCode)
-        .then(res => {
-          showToast(`Joined ${res.name || 'circle'}!`, 'success');
-          navigate(`/circle/${res.id}`);
-        })
-        .catch(() => {
-          showToast('Invalid or expired invite link', 'error');
-        });
-    }
-  }, [user, navigate]);
+    if (!user?.is_onboarded) return;
+    const joinCode = new URLSearchParams(location.search).get('join');
+    if (!joinCode || joinedInvite.current === joinCode) return;
+    joinedInvite.current = joinCode;
+    joinCircleByCode(joinCode)
+      .then(res => {
+        showToast(`Joined ${res.name || 'circle'}!`, 'success');
+        navigate(`/circle/${res.id}`, { replace: true });
+      })
+      .catch(() => {
+        joinedInvite.current = null;
+        showToast('Invalid or expired invite link', 'error');
+      });
+  }, [user?.is_onboarded, location.pathname, location.search, navigate]);
 
   const refreshUser = useCallback(async () => {
     try {
@@ -181,7 +193,7 @@ export function AuthProvider({ children }) {
   const onboard = useCallback(async (data) => {
     const res = await apiOnboard(data);
     updateUser(prev => ({ ...prev, ...res, is_onboarded: true }));
-    return res;
+    return { ...res, redirectTo: takePostRedirect() };
   }, [updateUser]);
 
   const updateProfile = useCallback(async (data) => {
@@ -191,9 +203,12 @@ export function AuthProvider({ children }) {
   }, [updateUser]);
 
   const logout = useCallback(() => {
+    clearGoogleSignIn();
     setUser(null);
     setToken(null);
     localStorage.removeItem('wc_token');
+    sessionStorage.removeItem('wc_post_redirect');
+    joinedInvite.current = null;
     clearCache();
     setCacheScope(null);
     navigate('/login', { replace: true });
@@ -205,8 +220,8 @@ export function AuthProvider({ children }) {
       setUser: updateUser,
       loading,
       error,
-      loginWithWhatsAppStart,
-      loginWithWhatsAppVerify,
+      login: () => navigate('/login'),
+      loginWithFirebase,
       loginWithTelegram,
       loginWithGoogle,
       refreshUser,

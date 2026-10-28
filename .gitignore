@@ -50,3 +50,9 @@ backend/loadtest/*.html
 # events/assets/, which backend/scripts/prepare_event_covers.py falls back to,
 # so committing a second 16 MB copy buys nothing.
 docs/wellcircle_image_collection/
+
+# Generated from the shared legal document source during both builds.
+frontend/public/privacy.html
+frontend/public/terms.html
+frontend/public/data-deletion.html
+!wellcircle-web/.env.example

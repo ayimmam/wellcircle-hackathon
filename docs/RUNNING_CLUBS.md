@@ -1,10 +1,19 @@
-# Pinned Addis running clubs
+# Running communities in Addis Ababa and Hawassa
 
-The FYP renders `frontend/src/components/feed/RunningClubsCard.jsx` ahead of
+The FYP renders `frontend/src/components/feed/RunningClubsCard.jsx` as a single banner ahead of
 stories and personalized content for every user, even when feed requests fail.
+Its Explore Running Communities link opens `/running-clubs`, a separate shared
+page with the community dropdown, details and contact links.
 This is a permanent first placement, not a viewport-sticky panel. Both app
 builds use this component and the same local artwork extracted from the supplied
 `GreatRun Running Clubs – Telegram Mini App preview.html`.
+
+The directory includes four Addis Ababa clubs and three Hawassa communities
+from `docs/hawassa running clubs.pdf`: Hawassa Run LIT, Powerplus Gym and Robi
+Fitness. Every option and detail identifies its city. Gym/fitness listings retain
+their supplied category rather than being presented as verified running clubs.
+Phone numbers use standard `tel:+251...` links. `@TEDLA GUYE` is a supplied display
+name, not a valid Telegram username, so it is not turned into an invented URL.
 
 Edit the directory in `frontend/src/data/runningClubs.js`. These are contact-led
 club listings, not dated event reservations. The supplied schedules are a guide;
@@ -12,6 +21,14 @@ users must confirm current arrangements, local time conventions and fees with
 the club. The GreatRun banner makes no race-date/countdown claim.
 
 ## Information still needed
+
+- Hawassa Run LIT: a confirmed social/profile URL, meeting-point map and any
+  schedule changes. Supplied: Mon/Wed/Fri 6 AM, Medaniyalem Church, Tedla Guye,
+  0938651675.
+- Powerplus Gym (Hawassa): Saturday time, exact location and social/profile URL.
+  Supplied contacts: 0942425050 / 0967230500.
+- Robi Fitness (Hawassa): next session date, time, exact location and profile URL.
+  Supplied frequency: every 15 days; contact 0943313282.
 
 - Bole Burners: confirmed TikTok profile URL for `@boleburners`; meeting points
   for Saturday and Wednesday. Supplied times: Saturday 7 AM, Wednesday 6 PM.

@@ -1,4 +1,5 @@
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getSoundEnabled, subscribeSound, setSoundEnabled, unlockSound, playSound } from '../utils/sound';
 
@@ -20,6 +21,12 @@ export function SoundToggle() {
 }
 
 export default function SoundFeedback() {
+  const { pathname } = useLocation();
+  const previousPath = useRef(pathname);
+  useEffect(() => {
+    if (previousPath.current !== pathname) playSound('navigate');
+    previousPath.current = pathname;
+  }, [pathname]);
   useEffect(() => {
     const prepare = event => {
       if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;

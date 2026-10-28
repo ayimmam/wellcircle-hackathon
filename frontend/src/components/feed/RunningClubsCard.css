@@ -34,3 +34,7 @@
 .running-clubs-reminder p { margin: 0; font-size: .8rem; }
 .running-clubs :is(button, a):focus-visible { outline: 3px solid var(--text-primary); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .running-clubs { scroll-behavior: auto; } }
+
+.running-clubs-initial { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; background: var(--bg-elevated); border-radius: 10px; font-size: 1.1rem; }
+.running-clubs-button + .running-clubs-button { margin-top: 8px; }
+.running-clubs.page > h1 { margin: 16px 0 8px; }

@@ -29,9 +29,10 @@ function renderForYou() {
 describe('ForYouScreen — feed item types', () => {
   it('pins the running directory before personalized content on first paint', async () => {
     renderForYou();
-    const directory = screen.getByRole('region', { name: 'Running clubs in Addis Ababa' });
+    const directory = screen.getByRole('region', { name: 'Running communities' });
     expect(directory).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Bertusew Running Club/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Bertusew Running Club/ })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Explore Running Communities' })).toHaveAttribute('href', '/running-clubs');
     await waitFor(() => expect(document.getElementById('for-you-feed')).toBeInTheDocument());
     expect(directory.compareDocumentPosition(document.getElementById('for-you-feed')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });

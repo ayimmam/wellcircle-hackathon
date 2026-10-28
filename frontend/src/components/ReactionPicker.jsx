@@ -8,6 +8,7 @@
 
 import { useRef, useState, useCallback, useEffect } from 'react';
 import Icon from './Icon';
+import { unlockSound, playSound } from '../utils/sound';
 
 const REACTION_SET = [
   { emoji: '❤️', label: 'Love' },
@@ -43,10 +44,12 @@ export default function ReactionPicker({
       timerRef.current = null;
       // Short press — toggle default ❤️
       if (!pickerOpen && !disabled) {
+        unlockSound();
+        playSound(hasLiked ? 'tap' : 'like');
         onReact?.('❤️');
       }
     }
-  }, [pickerOpen, onReact, disabled]);
+  }, [pickerOpen, onReact, disabled, hasLiked]);
 
   const handlePick = (emoji) => {
     if (emoji === 'wc' && !hasWellcircleReaction) {
@@ -54,6 +57,8 @@ export default function ReactionPicker({
       setPickerOpen(false);
       return;
     }
+    unlockSound();
+    playSound(viewerReactions.includes(emoji) ? 'tap' : 'like');
     onReact?.(emoji);
     setPickerOpen(false);
   };
@@ -71,6 +76,14 @@ export default function ReactionPicker({
       <button
         type="button"
         className={`post-action-btn post-action-btn-square ${hasLiked ? 'active' : ''}`}
+        data-ui-sound="off"
+        onClick={event => {
+          if (event.detail === 0 && !disabled && !pickerOpen) {
+            unlockSound();
+            playSound(hasLiked ? 'tap' : 'like');
+            onReact?.('❤️');
+          }
+        }}
         onPointerDown={startLongPress}
         onPointerUp={endLongPress}
         onPointerLeave={() => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } }}
@@ -91,6 +104,7 @@ export default function ReactionPicker({
                 key={r.emoji}
                 type="button"
                 className={`${r.emoji === 'wc' && !hasWellcircleReaction ? 'locked' : ''} ${viewerReactions.includes(r.emoji) ? 'active' : ''}`}
+                data-ui-sound="off"
                 onClick={() => handlePick(r.emoji)}
                 title={r.label}
                 id={`reaction-pick-${r.emoji}`}

@@ -12,6 +12,7 @@ import useDismissOnEscape from '../hooks/useDismissOnEscape';
 const MENU_ITEMS = [
   { path: '/products', icon: 'bag', label: 'Points Store', desc: 'Spend your points on real rewards' },
   { path: '/my-bookings', icon: 'ticket', label: 'Bookings', desc: 'Upcoming and past sessions' },
+  { sound: true },
   { path: '/events', icon: 'calendar', label: 'Events', desc: "What's happening around Addis" },
   { path: '/help', icon: 'message-circle', label: 'Help & support', desc: 'Support and Telegram bot features' },
   { path: '/about', icon: 'info', label: 'About', desc: 'What Well Circle is and how it works' },
@@ -51,6 +52,7 @@ export default function BurgerMenu({ isOpen, onClose }) {
 
         <nav className="burger-nav">
           {MENU_ITEMS.map(item => {
+            if (item.sound) return <SoundToggle key="sound" />;
             const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
             return (
               <button
@@ -69,7 +71,6 @@ export default function BurgerMenu({ isOpen, onClose }) {
             );
           })}
         </nav>
-        <SoundToggle />
       </div>
     </>
   );

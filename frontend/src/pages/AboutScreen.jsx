@@ -174,6 +174,15 @@ export default function AboutScreen() {
         </div>
       </div>
 
+      <div className="about-section">
+        <h2 className="about-section-title">{t('Legal & privacy')}</h2>
+        <div className="about-rows">
+          <Row icon="shield" title="Privacy Policy" sub="How your information is handled" onClick={() => navigate('/privacy')} />
+          <Row icon="info" title="Terms of Service" sub="Conditions for using Well Circle" onClick={() => navigate('/terms')} />
+          <Row icon="user" title="Data Deletion" sub="How to request account or data removal" onClick={() => navigate('/data-deletion')} />
+        </div>
+      </div>
+
       <p className="about-footer">
         {t('Made in Addis Ababa')}
         {appVersion && <span> · v{appVersion}</span>}

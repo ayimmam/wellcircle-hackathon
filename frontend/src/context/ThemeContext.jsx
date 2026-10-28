@@ -50,6 +50,7 @@ export function ThemeProvider({ children }) {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem(STORAGE_KEY, theme);
     syncTelegramChrome(theme);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0A0A0F' : '#F5F6FA');
   }, [theme]);
 
   useEffect(() => {

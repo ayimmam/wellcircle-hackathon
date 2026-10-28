@@ -7,6 +7,7 @@ import { ProviderPortalAuthProvider } from './context/ProviderPortalAuthContext'
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import BurgerMenu from './components/BurgerMenu';
+import SoundFeedback from './components/SoundFeedback';
 import ToastContainer from './components/Toast';
 import ErrorBoundary from './components/ErrorBoundary';
 import ErrorScreen from './components/ErrorScreen';
@@ -36,6 +37,8 @@ const ExploreScreen = lazy(importExplore);
 const NotificationsScreen = lazy(() => import('./pages/NotificationsScreen'));
 const MyBookings = lazy(() => import('./pages/MyBookings'));
 const EventsScreen = lazy(() => import('./pages/EventsScreen'));
+const LegalPage = lazy(() => import('./pages/LegalPage'));
+const HelpScreen = lazy(() => import('./pages/HelpScreen'));
 const AboutScreen = lazy(() => import('./pages/AboutScreen'));
 const VisitScreen = lazy(() => import('./pages/VisitScreen'));
 const ProviderDetail = lazy(importProviderDetail);
@@ -117,7 +120,7 @@ function RouteFallback() {
  * like AuthProvider) so tests that mount AppShell directly still get a
  * working provider-portal session context.
  */
-export function AppShell() {
+export function AppShell({ entryElement, extraRoutes, web = false }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { user } = useAuth();
 
@@ -126,7 +129,8 @@ export function AppShell() {
 
   return (
     <ProviderPortalAuthProvider>
-      <div className="app-shell">
+      <div className={`app-shell${web ? ' web-shell' : ''}`}>
+        <SoundFeedback />
         <ToastContainer />
         <Header onMenuOpen={() => setMenuOpen(true)} />
         <BurgerMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
@@ -136,7 +140,8 @@ export function AppShell() {
             <Routes>
               {/* Auth & Onboarding — the "/" route below is skipped on
                   provider.wellcircle.et since the portal route claims "/" there */}
-              {!isProviderPortalDomain() && <Route path="/" element={<SplashScreen />} />}
+              {!isProviderPortalDomain() && <Route path="/" element={entryElement || <SplashScreen />} />}
+              {extraRoutes}
               <Route path="/onboarding" element={<OnboardingFlow />} />
 
               {/* Printed-QR landing: asks "do you have Telegram?" and routes
@@ -156,6 +161,10 @@ export function AppShell() {
                   entry point on the bottom nav or header. */}
               <Route path="/events" element={<EventsScreen />} />
               <Route path="/about" element={<AboutScreen />} />
+              <Route path="/help" element={<HelpScreen />} />
+              <Route path="/privacy" element={<LegalPage document="privacy" />} />
+              <Route path="/terms" element={<LegalPage document="terms" />} />
+              <Route path="/data-deletion" element={<LegalPage document="data-deletion" />} />
               <Route path="/trainer/verify" element={<TrainerVerification />} />
 
               {/* Detail screens */}

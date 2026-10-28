@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { isWebApp } from '../utils/platform';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +24,7 @@ import PrivacySection from './profile/PrivacySection';
 import IntegrationsSection from './profile/IntegrationsSection';
 
 export default function ProfileScreen() {
-  const { user, updateProfile, refreshUser } = useAuth();
+  const { user, updateProfile, refreshUser, logout } = useAuth();
   const { theme, setTheme, accent, setAccent } = useTheme();
   const navigate = useNavigate();
   useTelegramBackButton(() => navigate('/home'));
@@ -269,6 +270,8 @@ export default function ProfileScreen() {
           used to live here. All three now have a permanent home — the first
           two in the menu (Points Store, Bookings), the third on About — and
           repeating them at the bottom of a long screen only added scroll. */}
+
+      {isWebApp() && <button type="button" className="btn btn-secondary btn-block mt-16" onClick={logout}>{t('Sign out')}</button>}
 
       {showBugReport && <BugReportSheet onClose={() => setShowBugReport(false)} />}
     </div>

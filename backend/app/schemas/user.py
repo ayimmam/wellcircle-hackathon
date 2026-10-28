@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Literal
 from enum import Enum
 
 
@@ -57,13 +57,18 @@ class ProviderPasswordLoginRequest(BaseModel):
 class WhatsAppStartRequest(BaseModel):
     """Start WhatsApp/SMS OTP flow — sends a 6-digit code."""
     phone: str = Field(..., pattern=r"^\+?[0-9]{6,15}$", description="E.164 phone number")
-    channel: Optional[str] = Field("whatsapp", description="'whatsapp' or 'sms'")
+    channel: Literal["whatsapp", "sms"] = "whatsapp"
 
 
 class WhatsAppVerifyRequest(BaseModel):
     """Verify the OTP code from a WhatsApp/SMS delivery."""
-    request_id: str
-    code: str = Field(..., min_length=6, max_length=6)
+    request_id: str = Field(..., min_length=1, max_length=64)
+    code: str = Field(..., pattern=r"^[0-9]{6}$")
+
+
+class FirebaseAuthRequest(BaseModel):
+    """Firebase ID token issued after Google account sign-in."""
+    id_token: str = Field(..., min_length=1, max_length=8192)
 
 
 class GoogleAuthRequest(BaseModel):
@@ -75,6 +80,7 @@ class WhatsAppStartResponse(BaseModel):
     """Response after starting the OTP flow."""
     request_id: str
     expires_in: int = 600  # seconds
+    retry_after: int = 60
 
 
 class BotRegisterRequest(BaseModel):

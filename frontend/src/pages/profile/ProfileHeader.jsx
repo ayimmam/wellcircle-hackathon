@@ -122,7 +122,7 @@ export default function ProfileHeader({
         </button>
       </div>
       <h1 className="profile-name">{user.name} {user.is_verified_trainer && <VerifiedBadge compact />}</h1>
-      <p className="profile-handle">@{user.telegram_handle}</p>
+      {user.telegram_handle && <p className="profile-handle">@{user.telegram_handle}</p>}
 
       <WalkScoreBadge score={user.walk_score} />
 

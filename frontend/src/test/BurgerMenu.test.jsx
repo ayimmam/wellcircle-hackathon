@@ -26,11 +26,12 @@ describe('BurgerMenu', () => {
     expect(screen.queryByText('Points Store')).not.toBeInTheDocument();
   });
 
-  it('shows exactly the four destinations with no other permanent entry point', () => {
+  it('shows exactly the five destinations with no other permanent entry point', () => {
     renderMenu();
-    ['Points Store', 'Bookings', 'Events', 'About']
+    ['Points Store', 'Bookings', 'Events', 'Help & support', 'About']
       .forEach((label) => expect(screen.getByText(label)).toBeInTheDocument());
-    expect(document.querySelectorAll('.burger-nav-item')).toHaveLength(4);
+    expect(document.querySelectorAll('.burger-nav .burger-nav-item')).toHaveLength(5);
+    expect(screen.getByRole('button', { name: /Interface sounds/ })).toHaveAttribute('aria-pressed');
   });
 
   it('does not duplicate bottom-nav or header destinations', () => {

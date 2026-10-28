@@ -10,8 +10,9 @@
 import { showToast } from '../components/Toast';
 import { track } from '../analytics';
 
+import { featureShareLink } from './shareLinks';
+import { isWebApp } from './platform';
 const BOT_USERNAME = import.meta.env.VITE_BOT_USERNAME || 'WellCircleBot';
-const DEEP_LINK_BASE = `https://t.me/${BOT_USERNAME}`;
 
 /**
  * Draw the Well Circle wordmark and branding bar onto a canvas context.
@@ -31,7 +32,7 @@ export function drawBrandingBar(ctx, width, height) {
   // Wordmark
   ctx.font = '500 28px system-ui, -apple-system, sans-serif';
   ctx.globalAlpha = 0.85;
-  ctx.fillText(`@${BOT_USERNAME} on Telegram`, width / 2, height - 30);
+  ctx.fillText(isWebApp() ? 'Well Circle · app.wellcircle.et' : `@${BOT_USERNAME} on Telegram`, width / 2, height - 30);
   ctx.globalAlpha = 1;
 }
 
@@ -135,7 +136,7 @@ export async function shareBrandedImage({ imageUrl, title, subtitle, tag = 'shar
     }
 
     const file = new File([blob], `wellcircle-${tag}.png`, { type: 'image/png' });
-    const deepLink = `${DEEP_LINK_BASE}?startapp=${tag}`;
+    const deepLink = featureShareLink(tag);
     const shareText = `${title || 'Check this out'} — Join me on Well Circle! ${deepLink}`;
 
     // Tier 1: Web Share API (works for Instagram, WhatsApp, etc.)
@@ -164,7 +165,7 @@ export async function shareBrandedImage({ imageUrl, title, subtitle, tag = 'shar
   } catch (err) {
     if (err?.name !== 'AbortError') {
       // Clipboard fallback on share failure
-      const deepLink = `${DEEP_LINK_BASE}?startapp=${tag}`;
+      const deepLink = featureShareLink(tag);
       try {
         await navigator.clipboard.writeText(deepLink);
         showToast('Link copied!', 'success');
@@ -403,10 +404,10 @@ export async function generatePostCardBlob(post, { width = 1080, height = 1350 }
   ctx.textAlign = 'center';
   ctx.fillStyle = '#93C5FD';
   ctx.font = '600 25px system-ui, -apple-system, sans-serif';
-  ctx.fillText(`@${BOT_USERNAME} on Telegram`, width / 2, footerY + 38);
+  ctx.fillText(isWebApp() ? 'Well Circle · app.wellcircle.et' : `@${BOT_USERNAME} on Telegram`, width / 2, footerY + 38);
   ctx.fillStyle = '#FFFFFF';
   ctx.font = '500 22px system-ui, -apple-system, sans-serif';
-  ctx.fillText(`${DEEP_LINK_BASE}?startapp=post_${post.id}`, width / 2, footerY + 76, cardW - 110);
+  ctx.fillText(featureShareLink(`post_${post.id}`), width / 2, footerY + 76, cardW - 110);
 
   return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
 }
@@ -417,7 +418,7 @@ export async function generatePostCardBlob(post, { width = 1080, height = 1350 }
 export async function sharePostCard(post) {
   try {
     if (!post?.id) return;
-    const botLink = `${DEEP_LINK_BASE}?startapp=post_${encodeURIComponent(post.id)}`;
+    const botLink = featureShareLink(`post_${post.id}`);
     const authorName = post?.user?.name || 'Someone';
     const shareText = `Check out this post by ${authorName} on Well Circle: ${botLink}`;
     const blob = await generatePostCardBlob(post);

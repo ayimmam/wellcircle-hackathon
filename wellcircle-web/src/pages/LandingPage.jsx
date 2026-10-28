@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import Icon from '../components/Icon';
-import newLogo from '../new_logo.png';
+import Icon from '@shared/components/Icon';
+import newLogo from '@shared/new_logo.png';
 
 const HOW_IT_WORKS = [
   {

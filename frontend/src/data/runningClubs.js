@@ -13,7 +13,7 @@ export const runningClubs = [
     id: 'sat', city: 'Addis Ababa', image: '/running-clubs/sat.jpg', name: 'Satenaw Running Club', subtitle: 'Thursdays · Friendship Park',
     description: 'Group runs to keep your 10K training on track.',
     tags: ['Running', 'Open to everyone'],
-    details: [['Thursday', '5:30 PM · Friendship Park'], ['Sunday', 'Additional session · contact the club for the time and location'], ['Open to', 'Everyone']],
+    details: [['Thursday', '5:30 PM · Friendship Park'], ['Park entrance', '150 birr · Friendship Park entrance fee'], ['Sunday', 'Additional session · contact the club for the time and location'], ['Open to', 'Everyone']],
     url: 'https://t.me/satenaw_runclub', action: 'Join Telegram Community',
   },
   {
@@ -21,14 +21,14 @@ export const runningClubs = [
     description: 'Early-morning and midweek evening runs with a lively crew.',
     tags: ['Running', 'Open to everyone'],
     details: [['Saturday', '7:00 AM'], ['Wednesday', '6:00 PM'], ['Meet at', 'Contact the club for the meeting point'], ['Open to', 'Everyone'], ['TikTok', '@boleburners']],
-    url: null, missingContact: 'Find @boleburners on TikTok for the latest updates. A confirmed profile link will be added here.',
+    url: 'https://www.tiktok.com/@boleburners?_r=1&_t=ZS-9AxXp6M8suA', action: 'Follow on TikTok',
   },
   {
     id: 'son', city: 'Addis Ababa', image: '/running-clubs/son.jpg', name: 'Sonder Running Club', subtitle: 'Sunday session',
     description: 'Sunday group runs for runners of every level.',
     tags: ['Running', 'Open to everyone'],
     details: [['Sunday', 'Running session · contact the club for the time and location'], ['Open to', 'Everyone'], ['TikTok', '@sonder.running.cl']],
-    url: null, missingContact: 'Find @sonder.running.cl on TikTok for the latest updates. A confirmed profile link will be added here.',
+    url: 'https://www.tiktok.com/@sonder.running.cl?_r=1&_t=ZS-9AxXuxV3tPb', action: 'Check TikTok for Updates',
   },
   // Source: docs/hawassa running clubs.pdf. Display names are not Telegram usernames.
   {

@@ -1,10 +1,10 @@
 # Running communities in Addis Ababa and Hawassa
 
-The FYP renders `frontend/src/components/feed/RunningClubsCard.jsx` as a single banner ahead of
-stories and personalized content for every user, even when feed requests fail.
+The FYP renders `frontend/src/components/feed/RunningClubsCard.jsx` as a single banner below
+stories and ahead of personalized content for every user, even when feed requests fail.
 Its Explore Running Communities link opens `/running-clubs`, a separate shared
 page with the community dropdown, details and contact links.
-This is a permanent first placement, not a viewport-sticky panel. Both app
+The banner stays above the personalized feed; it does not stick to the viewport. Both app
 builds use this component and the same local artwork extracted from the supplied
 `GreatRun Running Clubs – Telegram Mini App preview.html`.
 

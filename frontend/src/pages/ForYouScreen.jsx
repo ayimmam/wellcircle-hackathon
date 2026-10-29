@@ -436,8 +436,6 @@ export default function ForYouScreen() {
         style={{ display: 'none' }}
         id="story-file-input"
       />
-      <RunningClubsCard />
-
       <StoryRail
         groups={storyGroups}
         currentUser={user}
@@ -447,6 +445,8 @@ export default function ForYouScreen() {
         onViewed={handleStoryViewed}
         onDelete={handleStoryDeleted}
       />
+
+      <RunningClubsCard />
 
       {user && justOnboarded && (
         <WelcomeBanner

@@ -1,10 +1,10 @@
 # Running communities in Addis Ababa and Hawassa
 
-The FYP renders `frontend/src/components/feed/RunningClubsCard.jsx` as a single banner ahead of
-stories and personalized content for every user, even when feed requests fail.
+The FYP renders `frontend/src/components/feed/RunningClubsCard.jsx` as a single banner below
+stories and ahead of personalized content for every user, even when feed requests fail.
 Its Explore Running Communities link opens `/running-clubs`, a separate shared
 page with the community dropdown, details and contact links.
-This is a permanent first placement, not a viewport-sticky panel. Both app
+The banner stays above the personalized feed; it does not stick to the viewport. Both app
 builds use this component and the same local artwork extracted from the supplied
 `GreatRun Running Clubs – Telegram Mini App preview.html`.
 
@@ -30,16 +30,16 @@ the club. The GreatRun banner makes no race-date/countdown claim.
 - Robi Fitness (Hawassa): next session date, time, exact location and profile URL.
   Supplied frequency: every 15 days; contact 0943313282.
 
-- Bole Burners: confirmed TikTok profile URL for `@boleburners`; meeting points
+- Bole Burners: meeting points
   for Saturday and Wednesday. Supplied times: Saturday 7 AM, Wednesday 6 PM.
-- Sonder: confirmed TikTok profile URL for `@sonder.running.cl`; Sunday start
+- Sonder: Sunday start
   time and meeting point.
 - Bertusew: Sunday start time and precise location/map for the run. The preview
   says Megenagna / Yetebabert Square Sport Center; older repository records say
   CMC, so the area is omitted until clarified. Telegram link supplied:
   https://t.me/bertusewrunningclub.
-- Satenaw: Sunday start time and meeting point; any Friendship Park entrance
-  fee. Supplied Thursday schedule: 5:30 PM at Friendship Park. Telegram link:
+- Satenaw: Sunday start time and meeting point. Confirmed Friendship Park
+  entrance fee: 150 birr. Supplied Thursday schedule: 5:30 PM at Friendship Park. Telegram link:
   https://t.me/satenaw_runclub.
 - All clubs: changes to indicative schedules and confirmation that clock times
   use the international clock rather than Ethiopian clock time.
@@ -47,7 +47,8 @@ the club. The GreatRun banner makes no race-date/countdown claim.
   calendar announcement, 12:00 meeting / 12:35 departure, is shown as historical
   only. Its Piazza map is retained for reference, not advertised as a next event.
 
-Missing profile URLs are plain contact instructions, never dead CTA links.
+Bole Burners and Sonder link to their supplied TikTok profiles.
+Any future missing profile URLs remain plain contact instructions, never dead CTA links.
 Telegram links use the native Mini App API when signed initData is present;
 browser builds retain normal external anchors. No bot polling worker change
 is needed: the Telegram Mini App runs the same shared FYP.

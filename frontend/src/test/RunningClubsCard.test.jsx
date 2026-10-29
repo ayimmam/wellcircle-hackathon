@@ -61,17 +61,20 @@ describe('Running communities', () => {
     fireEvent.click(screen.getByRole('button', { name: /Satenaw Running Club Addis Ababa/ }));
     expect(screen.queryByRole('article', { name: 'Bertusew Running Club' })).toBeNull();
     expect(screen.getByRole('article', { name: 'Satenaw Running Club' })).toHaveTextContent('5:30 PM');
+    expect(screen.getByRole('article', { name: 'Satenaw Running Club' })).toHaveTextContent('150 birr · Friendship Park entrance fee');
     expect(screen.getByRole('heading', { name: 'Running Communities' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Back to all clubs' }));
     expect(screen.queryByRole('article')).toBeNull();
     expect(screen.getAllByRole('button', { pressed: false })).toHaveLength(7);
   });
 
-  it('shows missing contact links as useful handle text with no placeholder anchor', () => {
+  it.each([
+    ['Bole Burners Running Club', 'Follow on TikTok', 'https://www.tiktok.com/@boleburners?_r=1&_t=ZS-9AxXp6M8suA'],
+    ['Sonder Running Club', 'Check TikTok for Updates', 'https://www.tiktok.com/@sonder.running.cl?_r=1&_t=ZS-9AxXuxV3tPb'],
+  ])('links %s to its supplied TikTok profile', (name, action, url) => {
     renderDirectory();
-    fireEvent.click(screen.getByRole('button', { name: /Bole Burners Running Club/ }));
-    expect(screen.getByRole('article')).toHaveTextContent('Find @boleburners on TikTok');
-    expect(within(screen.getByRole('article')).queryByRole('link')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(name) }));
+    expect(within(screen.getByRole('article')).getByRole('link', { name: action })).toHaveAttribute('href', url);
   });
 
   it('opens Telegram natively only in an authenticated Mini App', () => {

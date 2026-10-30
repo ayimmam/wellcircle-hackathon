@@ -129,6 +129,10 @@ jobs:
           cache-dependency-path: chatbot/requirements*.txt
       - run: pip install -r requirements.txt -r requirements-dev.txt
         working-directory: chatbot
+      - run: python quality_eval.py
+        working-directory: chatbot
+      - run: python migration_check.py
+        working-directory: chatbot
       - run: pytest -q
         working-directory: chatbot
 

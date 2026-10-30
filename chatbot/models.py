@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 FALLBACK_PROVIDERS = [
@@ -101,11 +103,13 @@ class ChatMessage(BaseModel):
 
 class ConciergeRequest(BaseModel):
     message: str
-    # NEW: client-provided session id. Optional — server will generate one
-    # if missing and hand it back in the response.
-    session_id: str | None = None
-    # Kept for backward compatibility with older clients. Only used to seed
-    # a brand-new session that has no server-side memory yet.
+    # Client-provided session id. Optional — the server generates one when it
+    # is missing and returns it in the response. Keep the same bound as the
+    # GET /session query parameter.
+    session_id: str | None = Field(default=None, max_length=200)
+    # Kept only for backward compatibility with older clients. The server
+    # never seeds conversation history from this field; session_id plus the
+    # stored chat_memory row is the sole source of truth.
     history: list[ChatMessage] = []
 
 
@@ -118,4 +122,67 @@ class ConciergeResponse(BaseModel):
     event_provider_id: str | None = None
     data_source: str = "unknown"
     # NEW: echoed/generated session id so the client can persist it.
+    session_id: str = ""
+    # Issued only when the request started a new anonymous identity. Authenticated
+    # users never receive one, and anonymous tokens are not user JWTs.
+    anonymous_token: str | None = None
+    # Persistent profile name, independent of the expiring chat history.
+    profile_name: str | None = None
+
+
+class SuggestionCard(BaseModel):
+    """One server-owned quick-request card."""
+
+    id: str
+    label: str
+    prompt: str
+    needs_location: bool = False
+
+
+class WelcomePayload(BaseModel):
+    """The greeting a client should render before the user types."""
+
+    text: str
+    cards: list[SuggestionCard] = []
+
+
+class ConciergeSessionResponse(BaseModel):
+    """Conversation state returned when a client opens the chat."""
+
+    session_id: str
+    # first_visit | returning | expired
+    experience: str
+    welcome: WelcomePayload | None = None
+    # Only active, owned history is returned. Expired or another owner's
+    # history is never included.
+    history: list[ChatMessage] = []
+    profile_name: str | None = None
+    anonymous_token: str | None = None
+    memory_available: bool = True
+
+
+class ConciergeProfileUpdate(BaseModel):
+    """Explicit, consent-gated update of persistent profile data."""
+
+    display_name: str | None = None
+    preferences: dict[str, Any] | None = None
+    # Must be true for any persistent write. Omitted/false is rejected.
+    consent: bool = False
+
+
+class ConciergeProfileResponse(BaseModel):
+    display_name: str | None = None
+    preferences: dict[str, Any] = {}
+    consent_recorded: bool = False
+
+
+class ConciergeHistoryClearResponse(BaseModel):
+    """Result of a server-side conversation-history clear.
+
+    ``session_id`` is a fresh id for the next conversation; the client adopts
+    it instead of the cleared one so the next open starts a genuinely new
+    conversation. The persistent profile is never touched by this operation.
+    """
+
+    cleared: bool = True
     session_id: str = ""

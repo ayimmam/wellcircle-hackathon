@@ -3,23 +3,38 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Icon from './Icon';
 
-import { getApiBase } from '../api/client';
+import { getToken } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { track } from '../analytics';
 import useDismissOnEscape from '../hooks/useDismissOnEscape';
 
-const WELCOME_MESSAGE =
-  "Hi! 👋 I'm Circler, your personal wellness chatbot. Tell me what you're looking for  from wellness services and events to spas, gyms, yoga, and more  and I'll help you find the right options for you.";
-
-const CONCIERGE_CHIPS = [
-  { label: 'Wellness events this week', needsLocation: false },
-  { label: 'Affordable gyms around me', needsLocation: true },
-  { label: 'Yoga classes this week', needsLocation: false },
+// Server-owned fallback only. The live list and welcome copy come from
+// GET /ai/concierge/session so all three clients stay in sync.
+const FALLBACK_SUGGESTIONS = [
+  { id: 'events', label: 'Wellness events this week', prompt: 'Wellness events this week', needs_location: false },
+  { id: 'gyms', label: 'Affordable gyms around me', prompt: 'Affordable gyms around me', needs_location: true },
+  { id: 'yoga', label: 'Yoga classes this week', prompt: 'Yoga classes this week', needs_location: false },
+  { id: 'nutrition', label: 'Nutrition coaching options', prompt: 'Nutrition coaching options', needs_location: false },
 ];
+
+// Production-default concierge endpoint. Overridable for local/testing
+// environments via ?api=<url> on the page URL or VITE_CONCIERGE_URL at build
+// time; anything absent or non-http(s) falls back to production. Evaluated on
+// render so a per-test/per-page URL change takes effect on reload.
+const DEFAULT_CONCIERGE_URL = 'https://well-circle-concierge.vercel.app/ai/concierge';
+const readConciergeUrl = () => {
+  const fromParam = new URLSearchParams(window.location.search).get('api');
+  const fromEnv = import.meta.env.VITE_CONCIERGE_URL;
+  const candidate = fromParam || fromEnv;
+  if (candidate && /^https?:\/\//.test(candidate)) return candidate;
+  return DEFAULT_CONCIERGE_URL;
+};
+const ANONYMOUS_HEADER = 'X-Circler-Anonymous-Token';
 
 export default function AskWellCircle({ searchActive = false, isOpen: controlledIsOpen, onOpenChange }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const conciergeUrl = readConciergeUrl();
   const { t } = useTranslation();
   const inputRef = useRef(null);
   const [internalIsOpen, setInternalIsOpen] = useState(false);
@@ -58,44 +73,46 @@ export default function AskWellCircle({ searchActive = false, isOpen: controlled
   const openChat = (source) => {
     track('circler_opened', { source, nudged: showNudge && !searchActive });
     setShowNudge(false);
+    setSettingsOpen(false);
     setIsOpen(true);
   };
-  useDismissOnEscape(() => setIsOpen(false), isOpen);
+
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isFirstMessage, setIsFirstMessage] = useState(() => {
-    const saved = localStorage.getItem('concierge_is_first');
-    return saved ? JSON.parse(saved) : true;
-  });
+
+  // --- Settings panel state (personalization + conversation) ---------------
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Server profile shape: { display_name, preferences, consent_recorded }.
+  // Never assumed present until GET /ai/concierge/profile answers.
+  const [profileState, setProfileState] = useState(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
+  const [settingsStatus, setSettingsStatus] = useState('');
+  const [busyAction, setBusyAction] = useState('');
+  const [editingPrefs, setEditingPrefs] = useState(false);
+  const [prefsDraft, setPrefsDraft] = useState({ neighbourhood: '', budget: '', interests: '' });
+
+  useDismissOnEscape(() => setIsOpen(false), isOpen && !settingsOpen);
+  useDismissOnEscape(() => setSettingsOpen(false), settingsOpen);
 
   // Persisted per-device session id so the backend can remember the last
   // few turns of this conversation across app opens/reloads.
   const [sessionId, setSessionId] = useState(() => {
     return localStorage.getItem('concierge_session_id') || null;
   });
-  
-  const [messages, setMessages] = useState(() => {
-    const saved = localStorage.getItem('concierge_messages');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed.length > 0) return parsed;
-      } catch { /* corrupt saved history: fall through to the default greeting */ }
-    }
-    return [{
-      id: 0,
-      text: WELCOME_MESSAGE,
-      sender: 'assistant'
-    }];
+  const [anonymousToken, setAnonymousToken] = useState(() => {
+    return localStorage.getItem('concierge_anonymous_token') || null;
   });
 
-  useEffect(() => {
-    localStorage.setItem('concierge_messages', JSON.stringify(messages));
-  }, [messages]);
-
-  useEffect(() => {
-    localStorage.setItem('concierge_is_first', JSON.stringify(isFirstMessage));
-  }, [isFirstMessage]);
+  // Conversation content is server-authoritative. Local storage no longer
+  // invents a greeting or restores stale messages before the server answers.
+  const [messages, setMessages] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  // A failed conversation bootstrap (outage or stale deployed service),
+  // surfaced as a one-click retry. Auth failures are excluded: resending the
+  // same request cannot recover those.
+  const [sessionLoadFailed, setSessionLoadFailed] = useState(false);
+  const bootstrapRef = useRef(0);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -123,73 +140,188 @@ export default function AskWellCircle({ searchActive = false, isOpen: controlled
     }
   }, [messages, isOpen]);
 
+  /**
+   * Opening the chat loads the server's welcome/history decision. This is a
+   * GET, not a fake chat turn: opening the widget must never call the model or
+   * append an unsolicited assistant message.
+   */
+  const loadConversation = async ({ sid = sessionId, anon = anonymousToken } = {}) => {
+    const attempt = ++bootstrapRef.current;
+    const userToken = getToken();
+
+    const request = (requestSessionId, requestAnon, authToken) => {
+      const headers = {};
+      if (authToken) headers.Authorization = `Bearer ${authToken}`;
+      else if (requestAnon) headers[ANONYMOUS_HEADER] = requestAnon;
+      const query = requestSessionId
+        ? `?session_id=${encodeURIComponent(requestSessionId)}`
+        : '';
+      return fetch(`${conciergeUrl}/session${query}`, {
+        headers,
+        cache: 'no-store',
+      });
+    };
+
+    try {
+      let res = await request(sid, anon, userToken);
+
+      if (res.status === 401 && !userToken && anon) {
+        localStorage.removeItem('concierge_anonymous_token');
+        localStorage.removeItem('concierge_session_id');
+        setAnonymousToken(null);
+        setSessionId(null);
+        res = await request(null, null, null);
+      } else if (res.status === 403) {
+        localStorage.removeItem('concierge_session_id');
+        setSessionId(null);
+        res = await request(null, userToken ? null : anon, userToken);
+      }
+
+      if (!res.ok) {
+        throw new Error(res.status === 401 ? 'AUTH_REQUIRED' : 'SESSION_LOAD_FAILED');
+      }
+
+      const data = await res.json();
+      if (attempt !== bootstrapRef.current) return;
+      setSessionLoadFailed(false);
+
+      if (data.anonymous_token) {
+        setAnonymousToken(data.anonymous_token);
+        localStorage.setItem('concierge_anonymous_token', data.anonymous_token);
+      }
+      if (data.session_id) {
+        setSessionId(data.session_id);
+        localStorage.setItem('concierge_session_id', data.session_id);
+      }
+      if (Array.isArray(data.history) && data.history.length > 0) {
+        setMessages(
+          data.history.map((message, index) => ({
+            id: `history-${index}`,
+            text: message.content,
+            sender: message.role === 'user' ? 'user' : 'assistant',
+          })),
+        );
+        setSuggestions([]);
+      } else if (data.welcome?.text) {
+        setMessages([{ id: 'welcome', text: data.welcome.text, sender: 'assistant' }]);
+        setSuggestions(
+          Array.isArray(data.welcome.cards) && data.welcome.cards.length > 0
+            ? data.welcome.cards
+            : FALLBACK_SUGGESTIONS,
+        );
+      } else {
+        // Returning conversation with no stored history yet, or a temporary
+        // outage. Do not repeat a greeting in either case.
+        setMessages([]);
+        setSuggestions([]);
+      }
+    } catch (e) {
+      if (attempt !== bootstrapRef.current) return;
+      setSessionLoadFailed(e?.message !== 'AUTH_REQUIRED');
+      setMessages([{
+        id: 'session-error',
+        text: e?.message === 'AUTH_REQUIRED'
+          ? 'Your session has expired. Please sign in again.'
+          : "I couldn't load your conversation. Please try again.",
+        sender: 'assistant',
+      }]);
+      setSuggestions([]);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) loadConversation();
+    // loadConversation intentionally reads the current persisted credentials.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   const handleSend = async (override) => {
     const raw = override ?? input;
     if (!raw.trim() || isLoading) return;
 
     const userMsg = raw.trim();
+    bootstrapRef.current += 1;
     setInput('');
+    setSuggestions([]);
     setMessages(prev => [...prev, { id: Date.now(), text: userMsg, sender: 'user' }]);
     setIsLoading(true);
 
     try {
-      const res = await fetch("https://well-circle-concierge.vercel.app/ai/concierge", {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg, is_first_message: isFirstMessage, session_id: sessionId }),
-      });
+      const userToken = getToken();
+      const postConcierge = async (sid, anonToken, authToken) => {
+        const headers = { 'Content-Type': 'application/json' };
+        if (authToken) {
+          headers.Authorization = `Bearer ${authToken}`;
+        } else if (anonToken) {
+          headers[ANONYMOUS_HEADER] = anonToken;
+        }
+        const payload = { message: userMsg };
+        if (sid) payload.session_id = sid;
+        return fetch(conciergeUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        });
+      };
+
+      let res = await postConcierge(sessionId, anonymousToken, userToken);
+
+      if (res.status === 401 && !userToken && anonymousToken) {
+        // Expired/tampered anonymous credential: drop it and obtain a new
+        // anonymous identity. Never do this for an invalid user token.
+        localStorage.removeItem('concierge_anonymous_token');
+        localStorage.removeItem('concierge_session_id');
+        setAnonymousToken(null);
+        setSessionId(null);
+        res = await postConcierge(null, null, null);
+      } else if (res.status === 403) {
+        // The stored session id belongs to an earlier identity or a
+        // pre-ownership row. Start a fresh conversation, never reuse it.
+        localStorage.removeItem('concierge_session_id');
+        setSessionId(null);
+        res = await postConcierge(
+          null,
+          userToken ? null : anonymousToken,
+          userToken,
+        );
+      }
+
+      if (!res.ok) {
+        if (res.status === 401) throw new Error('AUTH_REQUIRED');
+        throw new Error('CONCIERGE_REQUEST_FAILED');
+      }
+
       let data = await res.json();
 
-      // Persist whatever session_id the backend assigned/echoed so the
-      // next message keeps using the same remembered conversation.
+      // Persist the anonymous credential and the server-issued session id so
+      // later turns stay bound to the same identity.
+      if (data.anonymous_token) {
+        setAnonymousToken(data.anonymous_token);
+        localStorage.setItem('concierge_anonymous_token', data.anonymous_token);
+      }
       if (data.session_id && data.session_id !== sessionId) {
         setSessionId(data.session_id);
         localStorage.setItem('concierge_session_id', data.session_id);
       }
-      
-      // Shim for broken external API: replace fallback with real provider
-      if (data.data_source === 'fallback') {
-        try {
-          const provRes = await fetch(getApiBase() + '/providers');
-          const provData = await provRes.json();
-          if (provData.providers && provData.providers.length > 0) {
-              const replyLower = (data.reply || '').toLowerCase() + ' ' + userMsg.toLowerCase();
-              let matched = provData.providers.find(p => replyLower.includes(p.category.toLowerCase()));
-              if (!matched) matched = provData.providers[Math.floor(Math.random() * provData.providers.length)];
-              
-              // Update the reply text to mention the matched provider instead of the fallback
-              if (data.reply && data.provider_name) {
-                data.reply = data.reply.replace(new RegExp(data.provider_name, 'gi'), matched.name);
-              }
-              
-              data.provider_id = matched.id;
-              data.provider_name = matched.name;
-              data.data_source = 'live';
-          }
-        } catch { /* provider lookup is best-effort; leave the reply as the model wrote it */ }
-      }
 
-      // Only append the intro bubble if it has real content
-      if (data.intro && data.intro.trim().length > 0) {
-        setMessages(prev => [...prev, { id: Date.now() + 1, text: data.intro, sender: 'assistant' }]);
-      }
-
-      // Only append the reply bubble if it has real content - prevents
-      // empty/blank message bubbles (e.g. on the is_first_message turn,
-      // where the backend intentionally returns an empty reply).
+      // The server is the only source of truth for the reply, provider/event
+      // ids, and the fallback data source. Do not swap in an unrelated live
+      // provider here: that would break the server-side grounding guarantee.
+      // The server returns exactly one reply bubble per successful turn.
       if (data.reply && data.reply.trim().length > 0) {
         setMessages(prev => [...prev, {
           id: Date.now() + 2,
           text: data.reply,
           sender: 'assistant',
           provider: data.provider_name ? { id: data.provider_id, name: data.provider_name, data_source: data.data_source } : null,
-          event: data.event_name ? { id: data.event_id, name: data.event_name, providerId: data.event_provider_id } : null
+          event: data.event_name ? { id: data.event_id, name: data.event_name, providerId: data.event_provider_id, data_source: data.data_source } : null
         }]);
       }
-
-      setIsFirstMessage(false);
     } catch (e) {
-      setMessages(prev => [...prev, { id: Date.now() + 2, text: "Sorry, I'm having trouble connecting right now.", sender: 'assistant' }]);
+      const text = e?.message === 'AUTH_REQUIRED'
+        ? 'Your session has expired. Please sign in again.'
+        : "Sorry, I'm having trouble connecting right now.";
+      setMessages(prev => [...prev, { id: Date.now() + 2, text, sender: 'assistant' }]);
     }
     
     setIsLoading(false);
@@ -202,19 +334,247 @@ export default function AskWellCircle({ searchActive = false, isOpen: controlled
   };
 
   const handleChipTap = (chip) => {
+    const prompt = chip.prompt || chip.label;
     track('concierge_chip_click', { chip: chip.label });
-    if (chip.needsLocation) {
+    if (chip.needs_location) {
       const area = user?.location_neighborhood;
       if (area) {
-        handleSend(`Affordable gyms around ${area}`);
+        handleSend(prompt.replace(/\bme\b/i, area));
       } else {
-        setInput('Affordable gyms around ');
+        setInput(prompt.replace(/\bme\b/i, ''));
         inputRef.current?.focus();
       }
       return;
     }
-    handleSend(chip.label);
+    handleSend(prompt);
   };
+
+  // --- Settings panel logic -------------------------------------------------
+  // All settings requests re-resolve the credential on every call: the same
+  // Authorization / X-Circler-Anonymous-Token rules as the chat requests, and
+  // the backend derives ownership from it — no client-supplied owner id.
+  const settingsFetch = (path, options = {}) => {
+    const userToken = getToken();
+    const headers = { ...options.headers };
+    if (userToken) {
+      headers.Authorization = `Bearer ${userToken}`;
+    } else if (anonymousToken) {
+      headers[ANONYMOUS_HEADER] = anonymousToken;
+    }
+    return fetch(`${conciergeUrl}${path}`, { cache: 'no-store', ...options, headers });
+  };
+
+  const authErrorMessage = (error, fallback) => (
+    error?.message === 'AUTH_REQUIRED'
+      ? 'Your session has expired. Reopen the chat to continue.'
+      : fallback
+  );
+
+  const applyProfileState = (data) => {
+    setProfileState({
+      display_name: data?.display_name ?? null,
+      preferences: data?.preferences && typeof data.preferences === 'object' ? data.preferences : {},
+      consent_recorded: !!data?.consent_recorded,
+    });
+  };
+
+  // Runs one settings mutation. UI only updates after a confirmed backend
+  // success — a failed request is reported and changes nothing.
+  const runSettingsAction = async (action, request) => {
+    setBusyAction(action);
+    setSettingsError('');
+    setSettingsStatus('');
+    try {
+      const res = await request();
+      if (!res.ok) {
+        throw new Error(res.status === 401 ? 'AUTH_REQUIRED' : 'SETTINGS_REQUEST_FAILED');
+      }
+      const data = await res.json();
+      track('circler_settings_action', { action });
+      return data;
+    } catch (e) {
+      setSettingsError(authErrorMessage(e, "That change couldn't be saved. Please try again."));
+      return null;
+    } finally {
+      setBusyAction('');
+    }
+  };
+
+  const loadProfile = async () => {
+    setSettingsLoading(true);
+    setSettingsError('');
+    setSettingsStatus('');
+    setEditingPrefs(false);
+    try {
+      const res = await settingsFetch('/profile');
+      if (!res.ok) {
+        throw new Error(res.status === 401 ? 'AUTH_REQUIRED' : 'SETTINGS_REQUEST_FAILED');
+      }
+      const data = await res.json();
+      if (!isOpen) return;
+      applyProfileState(data);
+      track('circler_settings_action', { action: 'load' });
+    } catch (e) {
+      setProfileState(null);
+      setEditingPrefs(false);
+      setSettingsError(authErrorMessage(
+        e,
+        "Circler couldn't load your settings. Please try again.",
+      ));
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const openSettings = () => {
+    setSettingsOpen(true);
+    setSettingsStatus('');
+    setSettingsError('');
+    loadProfile();
+  };
+
+  const handleTogglePersonalization = async () => {
+    if (busyAction || settingsLoading) return;
+    if (profileState?.consent_recorded) {
+      // Disabling withdraws consent AND deletes saved preferences on the
+      // server. Say so plainly before doing it.
+      if (!window.confirm(
+        'Turning off personalization deletes your saved preferences. '
+        + 'Your profile name is kept. Continue?',
+      )) return;
+      const data = await runSettingsAction('personalization-off', () =>
+        settingsFetch('/personalization', { method: 'DELETE' }));
+      if (data) {
+        applyProfileState(data);
+        setEditingPrefs(false);
+        setSettingsStatus('Personalization is off. Saved preferences were deleted.');
+      }
+    } else {
+      const data = await runSettingsAction('personalization-on', () =>
+        settingsFetch('/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            consent: true,
+            preferences: profileState?.preferences ?? {},
+          }),
+        }));
+      if (data) {
+        applyProfileState(data);
+        setSettingsStatus('Personalization is on. Add preferences below so Circler can use them.');
+      }
+    }
+  };
+
+  // A still-loading open has priority; handlers early-return on busy/loading.
+
+  const startEditingPreferences = () => {
+    const preferences = profileState?.preferences ?? {};
+    setPrefsDraft({
+      neighbourhood: typeof preferences.neighbourhood === 'string' ? preferences.neighbourhood : '',
+      budget: preferences.budget_etb != null ? String(preferences.budget_etb) : '',
+      interests: Array.isArray(preferences.interests) ? preferences.interests.join(', ') : '',
+    });
+    setEditingPrefs(true);
+    setSettingsStatus('');
+    setSettingsError('');
+  };
+
+  const cancelEditingPreferences = () => {
+    if (busyAction === 'save') return;
+    setEditingPrefs(false);
+    setSettingsError('');
+  };
+
+  const handleSavePreferences = async () => {
+    if (busyAction || !profileState?.consent_recorded) return;
+    const neighbourhood = prefsDraft.neighbourhood.trim();
+    const budgetText = prefsDraft.budget.trim();
+    const interests = prefsDraft.interests
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    let budget = null;
+    if (budgetText) {
+      budget = Number(budgetText);
+      if (!Number.isInteger(budget) || budget < 0 || budget > 100000000) {
+        setSettingsError('Budget must be a whole number of ETB between 0 and 100000000.');
+        return;
+      }
+    }
+
+    // The profile PATCH replaces the whole saved set, so send the complete
+    // merged object — never a partial draft that would silently drop the
+    // other saved fields.
+    const next = { ...(profileState.preferences ?? {}) };
+    delete next.neighbourhood;
+    delete next.budget_etb;
+    delete next.interests;
+    if (neighbourhood) next.neighbourhood = neighbourhood;
+    if (budget != null) next.budget_etb = budget;
+    if (interests.length > 0) next.interests = interests;
+
+    const data = await runSettingsAction('save', () =>
+      settingsFetch('/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ consent: true, preferences: next }),
+      }));
+    if (data) {
+      applyProfileState(data);
+      setEditingPrefs(false);
+      setSettingsStatus('Preferences saved.');
+    }
+  };
+
+  const handleDeletePreferences = async () => {
+    if (busyAction || !profileState?.consent_recorded) return;
+    if (!window.confirm('Delete your saved preferences? Circler will no longer use them.')) return;
+    const data = await runSettingsAction('delete-preferences', () =>
+      settingsFetch('/preferences', { method: 'DELETE' }));
+    if (data) {
+      applyProfileState(data);
+      setEditingPrefs(false);
+      setSettingsStatus('Saved preferences were deleted.');
+    }
+  };
+
+  const handleClearHistory = async () => {
+    if (busyAction || settingsLoading) return;
+    if (!sessionId) {
+      setSettingsStatus('The conversation is already clear.');
+      return;
+    }
+    if (!window.confirm(
+      'Clear the current conversation? Your profile name and saved preferences are not affected.',
+    )) return;
+
+    const data = await runSettingsAction('clear-history', () =>
+      settingsFetch(`/history?session_id=${encodeURIComponent(sessionId)}`, {
+        method: 'DELETE',
+      }));
+    if (data) {
+      // The next conversation uses the fresh server-issued id; the anonymous
+      // credential (and therefore the profile) is intentionally kept.
+      setSessionId(data.session_id);
+      localStorage.setItem('concierge_session_id', data.session_id);
+      setSettingsStatus('Conversation cleared. Your profile was not affected.');
+      loadConversation({ sid: data.session_id, anon: anonymousToken });
+    }
+  };
+
+  const savedPreferenceParts = (() => {
+    const preferences = profileState?.preferences ?? {};
+    const parts = [];
+    if (preferences.budget_etb != null) parts.push(`Budget: up to ETB ${preferences.budget_etb}`);
+    if (preferences.neighbourhood) parts.push(`Area: ${preferences.neighbourhood}`);
+    if (Array.isArray(preferences.interests) && preferences.interests.length > 0) {
+      parts.push(`Interests: ${preferences.interests.join(', ')}`);
+    }
+    if (preferences.notes) parts.push(`Notes: ${preferences.notes}`);
+    return parts;
+  })();
 
   return (
     <>
@@ -322,25 +682,24 @@ export default function AskWellCircle({ searchActive = false, isOpen: controlled
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button
+                  type="button"
                   className="burger-close"
-                  style={{ width: 'auto', padding: '0 8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}
-                  onClick={() => {
-                    if (window.confirm("Clear chat history?")) {
-                      setMessages([{
-                        id: 0,
-                        text: WELCOME_MESSAGE,
-                        sender: 'assistant'
-                      }]);
-                      setIsFirstMessage(true);
-                      setSessionId(null);
-                      localStorage.removeItem('concierge_messages');
-                      localStorage.removeItem('concierge_is_first');
-                      localStorage.removeItem('concierge_session_id');
-                    }
+                  id="circler-settings-btn"
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    padding: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-secondary)',
                   }}
-                  title="Clear Chat"
+                  onClick={openSettings}
+                  aria-label="Circler settings"
+                  aria-haspopup="dialog"
+                  title="Circler settings"
                 >
-                  Clear
+                  <Icon name="settings" size={18} />
                 </button>
               </div>
             </div>
@@ -407,7 +766,11 @@ export default function AskWellCircle({ searchActive = false, isOpen: controlled
                         className="chip"
                         onClick={() => {
                           setIsOpen(false);
-                          if (msg.event.id && msg.event.providerId) {
+                          if (
+                            msg.event.id
+                            && msg.event.providerId
+                            && msg.event.data_source === 'live'
+                          ) {
                             navigate(
                               `/booking/${msg.event.providerId}?event_id=${msg.event.id}`,
                               {
@@ -418,6 +781,9 @@ export default function AskWellCircle({ searchActive = false, isOpen: controlled
                               },
                             );
                           } else {
+                            // Fallback ids are placeholders, not real provider
+                            // rows. Send the user to the events list instead
+                            // of a booking URL that would 404.
                             navigate('/events');
                           }
                         }}
@@ -442,7 +808,20 @@ export default function AskWellCircle({ searchActive = false, isOpen: controlled
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Area */}
+              {sessionLoadFailed && (
+                <div style={{ display: 'flex', marginBottom: '12px' }}>
+                  <button
+                    type="button"
+                    className="chip"
+                    id="concierge-retry-load"
+                    onClick={() => loadConversation()}
+                  >
+                    {t('Try again')}
+                  </button>
+                </div>
+              )}
+
+              {/* Input Area */}
             <div style={{
               padding: '12px 16px',
               background: 'var(--bg-glass)',
@@ -450,17 +829,17 @@ export default function AskWellCircle({ searchActive = false, isOpen: controlled
               borderTop: '1px solid var(--border-subtle)',
               paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)'
             }}>
-              {messages.length <= 1 && (
+              {suggestions.length > 0 && (
                 <div
                   id="concierge-chips"
                   style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}
                 >
-                  {CONCIERGE_CHIPS.map(chip => (
+                  {suggestions.map(chip => (
                     <button
-                      key={chip.label}
+                      key={chip.id || chip.label}
                       className="chip"
                       onClick={() => handleChipTap(chip)}
-                      id={`concierge-chip-${chip.label.replace(/\s+/g, '-').toLowerCase()}`}
+                      id={`concierge-chip-${(chip.id || chip.label).replace(/\s+/g, '-').toLowerCase()}`}
                     >
                       {t(chip.label)}
                     </button>
@@ -497,6 +876,235 @@ export default function AskWellCircle({ searchActive = false, isOpen: controlled
                 </button>
               </div>
             </div>
+
+            {/* Circler settings — personalization + conversation controls. */}
+            {settingsOpen && (
+              <div
+                id="circler-settings-panel"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Circler settings"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'var(--bg-primary)',
+                  zIndex: 20,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  animation: 'fadeIn 0.2s ease-out'
+                }}
+              >
+                <div style={{
+                  padding: '16px',
+                  background: 'var(--bg-glass)',
+                  backdropFilter: 'blur(20px)',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingTop: 'calc(var(--tg-content-safe-area-inset-top, 0px) + var(--tg-safe-area-inset-top, env(safe-area-inset-top, 0px)) + 16px)'
+                }}>
+                  <div className="burger-brand-name">CIRCLER SETTINGS</div>
+                  <button
+                    type="button"
+                    className="burger-close"
+                    id="circler-settings-close"
+                    style={{
+                      width: '36px',
+                      height: '36px',
+                      padding: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--text-secondary)'
+                    }}
+                    onClick={() => setSettingsOpen(false)}
+                    aria-label="Close settings"
+                  >
+                    <Icon name="x" size={18} />
+                  </button>
+                </div>
+
+                <div style={{
+                  flex: 1,
+                  overflowY: 'auto',
+                  padding: '20px',
+                  display: 'grid',
+                  gap: '20px',
+                  alignContent: 'start'
+                }}>
+                  {settingsLoading && (
+                    <p id="circler-settings-loading" role="status" style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                      Loading your settings…
+                    </p>
+                  )}
+
+                  {!settingsLoading && settingsError && (
+                    <div id="circler-settings-error" role="alert" style={{ display: 'grid', gap: '10px' }}>
+                      <p style={{ color: 'var(--text-primary)', fontSize: '0.9rem', margin: 0 }}>{settingsError}</p>
+                      <button type="button" className="chip" onClick={loadProfile} id="circler-settings-retry">
+                        Try again
+                      </button>
+                    </div>
+                  )}
+
+                  {busyAction && !settingsError && (
+                    <p id="circler-settings-busy" role="status" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>
+                      Saving your changes…
+                    </p>
+                  )}
+
+                  {settingsStatus && (
+                    <p id="circler-settings-status" role="status" style={{ color: 'var(--text-primary)', fontSize: '0.85rem', margin: 0 }}>
+                      {settingsStatus}
+                    </p>
+                  )}
+
+                  {!settingsLoading && profileState && (
+                    <>
+                      <section aria-label="Personalization">
+                        <h4 style={{ margin: '0 0 6px', fontSize: '0.95rem' }}>
+                          {t('Personalization')}
+                        </h4>
+                        <p style={{ margin: '0 0 12px', color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                          {t('Circler can use saved preferences — like budget or neighbourhood — to personalize recommendations. Turning it off deletes them; your name is kept.')}
+                        </p>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                          <span style={{ fontSize: '0.9rem' }}>{t('Circler personalization')}</span>
+                          <button
+                            type="button"
+                            role="switch"
+                            id="circler-personalization-toggle"
+                            aria-checked={profileState.consent_recorded}
+                            className="chip"
+                            onClick={handleTogglePersonalization}
+                            disabled={!!busyAction || settingsLoading}
+                            style={{ minWidth: '56px' }}
+                          >
+                            {profileState.consent_recorded ? t('On') : t('Off')}
+                          </button>
+                        </div>
+
+                        {profileState.consent_recorded && (
+                          <div id="circler-saved-prefs" style={{ marginTop: '12px', display: 'grid', gap: '10px' }}>
+                            <p id="circler-saved-prefs-summary" style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                              {savedPreferenceParts.length === 0
+                                ? t('No preferences saved yet.')
+                                : savedPreferenceParts.join(' · ')}
+                            </p>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              {!editingPrefs && (
+                                <button
+                                  type="button"
+                                  className="chip"
+                                  id="circler-edit-preferences"
+                                  onClick={startEditingPreferences}
+                                  disabled={!!busyAction}
+                                >
+                                  {savedPreferenceParts.length === 0 ? t('Add preferences') : t('Edit preferences')}
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className="chip"
+                                id="circler-delete-preferences"
+                                onClick={handleDeletePreferences}
+                                disabled={!!busyAction}
+                              >
+                                {t('Delete saved preferences')}
+                              </button>
+                            </div>
+
+                            {editingPrefs && (
+                              <div
+                                id="circler-prefs-editor"
+                                style={{
+                                  display: 'grid',
+                                  gap: '10px',
+                                  padding: '12px',
+                                  border: '1px solid var(--border-subtle)',
+                                  borderRadius: '14px',
+                                  background: 'var(--bg-card)'
+                                }}
+                              >
+                                <label style={{ display: 'grid', gap: '4px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                  {t('Neighbourhood')}
+                                  <input
+                                    className="input"
+                                    id="circler-pref-neighbourhood"
+                                    value={prefsDraft.neighbourhood}
+                                    maxLength={100}
+                                    onChange={(e) => setPrefsDraft((d) => ({ ...d, neighbourhood: e.target.value }))}
+                                  />
+                                </label>
+                                <label style={{ display: 'grid', gap: '4px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                  {t('Budget per visit (ETB)')}
+                                  <input
+                                    className="input"
+                                    id="circler-pref-budget"
+                                    type="number"
+                                    min="0"
+                                    inputMode="numeric"
+                                    value={prefsDraft.budget}
+                                    onChange={(e) => setPrefsDraft((d) => ({ ...d, budget: e.target.value }))}
+                                  />
+                                </label>
+                                <label style={{ display: 'grid', gap: '4px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                  {t('Interests (comma-separated)')}
+                                  <input
+                                    className="input"
+                                    id="circler-pref-interests"
+                                    value={prefsDraft.interests}
+                                    maxLength={400}
+                                    onChange={(e) => setPrefsDraft((d) => ({ ...d, interests: e.target.value }))}
+                                  />
+                                </label>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                  <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    id="circler-prefs-save"
+                                    onClick={handleSavePreferences}
+                                    disabled={!!busyAction}
+                                    style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                                  >
+                                    {busyAction === 'save' ? t('Saving…') : t('Save preferences')}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="chip"
+                                    onClick={cancelEditingPreferences}
+                                    disabled={!!busyAction}
+                                  >
+                                    {t('Cancel')}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </section>
+
+                      <section aria-label="Conversation">
+                        <h4 style={{ margin: '0 0 6px', fontSize: '0.95rem' }}>{t('Conversation')}</h4>
+                        <p style={{ margin: '0 0 12px', color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                          {t('The current conversation is kept for up to 24 hours of inactivity. Clearing it starts a fresh chat — your profile name and saved preferences are not affected.')}
+                        </p>
+                        <button
+                          type="button"
+                          className="chip"
+                          id="circler-clear-history"
+                          onClick={handleClearHistory}
+                          disabled={!!busyAction || settingsLoading}
+                        >
+                          {busyAction === 'clear-history' ? t('Clearing…') : t('Clear conversation history')}
+                        </button>
+                      </section>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

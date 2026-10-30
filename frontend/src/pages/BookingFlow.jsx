@@ -5,6 +5,7 @@ import { useTelegramHeaderColor } from '../hooks/useTelegramHeaderColor';
 import { getProvider, createBooking } from '../api/client';
 import { MOCK_TIME_SLOTS, getNextDays } from '../data/mock';
 import { showToast } from '../components/Toast';
+import { playSound } from '../utils/sound';
 import Icon from '../components/Icon';
 import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
@@ -256,6 +257,7 @@ export default function BookingFlow() {
       });
       setBooking(bk);
       setConfirmed(true);
+      playSound('success');
       track('booking_requested', {
         provider_id: providerId,
         service: selectedService?.name,

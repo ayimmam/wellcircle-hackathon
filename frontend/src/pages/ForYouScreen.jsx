@@ -18,6 +18,7 @@ import CommunityStartCard from '../components/CommunityStartCard';
 import CheckinCard from '../components/CheckinCard';
 import PostComposerFab from '../components/PostComposerFab';
 import PointsInfoSheet from '../components/PointsInfoSheet';
+import RunningClubsCard from '../components/feed/RunningClubsCard';
 import FeedPostCard from '../components/feed/FeedPostCard';
 import FeedServiceCard from '../components/feed/FeedServiceCard';
 import FeedEventBanner from '../components/feed/FeedEventBanner';
@@ -444,6 +445,8 @@ export default function ForYouScreen() {
         onViewed={handleStoryViewed}
         onDelete={handleStoryDeleted}
       />
+
+      <RunningClubsCard />
 
       {user && justOnboarded && (
         <WelcomeBanner

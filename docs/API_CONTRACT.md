@@ -10,9 +10,11 @@
 
 | Area | Method | Endpoint | Auth | Owner |
 |------|--------|----------|------|-------|
+| Auth | GET | `/auth/telegram/config` | None | Web app |
 | Auth | POST | `/auth/telegram` | None | Frontend |
 | Auth | POST | `/auth/whatsapp/start` | None | Web app |
 | Auth | POST | `/auth/whatsapp/verify` | None | Web app |
+| Auth | POST | `/auth/firebase` | None | Web app |
 | Auth | POST | `/auth/google` | None | Web app |
 | Bot | POST | `/bot/register` | Bot API Key | Bot |
 | Bot | GET | `/bot/inactive-users` | Bot API Key | Bot |
@@ -125,6 +127,21 @@
 
 ## 1. Auth
 
+### `GET /api/auth/telegram/config`
+Public browser-login configuration, derived from the same backend bot token
+used to verify Telegram widget signatures. No credentials or user data are
+returned, and no database connection is needed.
+
+```json
+{ "bot_id": 8839515595 }
+```
+
+Returns 503 if the configured token cannot supply a valid public bot ID. The
+browser loads Telegram's official Login SDK and exchanges its signed callback
+through `POST /api/auth/telegram-widget`. Codes and phone verification remain on
+Telegram's own authorization page. The bot must separately authorize the
+website domain in BotFather; see [Telegram web setup](TELEGRAM_WEB_LOGIN_SETUP.md).
+
 ### `POST /api/auth/telegram`
 Authenticate via Telegram Mini App `initData`. Creates user if first login.
 
@@ -189,18 +206,33 @@ the standalone web app (`app.wellcircle.et`), never by the Mini App.
 // RESPONSE 200
 {
   "request_id": "opaque-string",
-  "expires_in": 600
+  "expires_in": 600,
+  "retry_after": 60
 }
 
 // RESPONSE 429 — rate limited
 { "detail": "Too many OTP requests. Please wait a moment and try again." }
 ```
 
-**Delivery depends on backend config.** With `WHATSAPP_PHONE_NUMBER_ID` +
-`WHATSAPP_API_TOKEN` (Meta Cloud API) or the `TWILIO_*` trio set, the code is
-sent over that channel. With none of them set the code goes to an in-process
-store and **is never delivered** — the endpoint still returns 200, so a
-misconfigured environment looks healthy while no user can ever log in.
+**Delivery configuration:** Meta Cloud API requires `WHATSAPP_PHONE_NUMBER_ID`,
+`WHATSAPP_API_TOKEN`, `WHATSAPP_OTP_TEMPLATE_NAME`, and `WHATSAPP_API_VERSION`.
+`WHATSAPP_OTP_TEMPLATE_LANGUAGE` defaults to `en_US`. The approved authentication
+template must include its OTP copy-code button. Twilio Verify remains available
+with the `TWILIO_*` trio; SMS requires that provider.
+
+**Response 503:** `{ "detail": "WhatsApp sign-in is unavailable right now. Please use Telegram or contact support." }`
+when delivery is unconfigured or the provider rejects/fails the request. An
+unconfigured production deployment no longer returns a false successful send.
+`retry_after` is the resend interval in seconds; 429 also supplies `Retry-After`.
+
+**Storage and abuse controls:** apply migration 027 before this backend release.
+Challenges and rate limits are shared in PostgreSQL across serverless workers.
+Codes are HMAC-protected, valid for ten minutes, single-use and limited to five
+attempts. Requests are limited to two per normalized phone and thirty per client
+IP in sixty seconds. Expired records are pruned on new requests; terminal states
+clear the stored phone, code hash and provider reference. Development-only codes
+never appear in this endpoint's public response and are disabled on Vercel.
+Setup: [WhatsApp sign-up guide](WHATSAPP_SIGNUP_SETUP.md).
 
 ### `POST /api/auth/whatsapp/verify`
 Exchange the OTP for a JWT. Returns the same `AuthResponse` shape as
@@ -210,7 +242,7 @@ Exchange the OTP for a JWT. Returns the same `AuthResponse` shape as
 
 ```json
 // REQUEST
-{ "request_id": "opaque-string", "code": "123456" }   // code is exactly 6 chars
+{ "request_id": "opaque-string", "code": "123456" }   // code is exactly 6 digits
 
 // RESPONSE 200
 { "token": "eyJ...", "user": { /* same user shape as /auth/telegram */ }, "is_new_user": true }
@@ -222,6 +254,32 @@ Exchange the OTP for a JWT. Returns the same `AuthResponse` shape as
 **Account resolution, in order:** existing `whatsapp` identity for that phone →
 existing user whose `phone_number` matches (the identity is linked to them) →
 brand-new user. A user created this way has **no `telegram_id`**.
+
+### `POST /api/auth/firebase`
+Exchanges a Firebase **Google sign-in** ID token for the existing Well Circle
+session. The browser login does not offer SMS or WhatsApp.
+
+```json
+// REQUEST
+{ "id_token": "<firebase-google-id-token-jwt>" }
+// RESPONSE 200
+{ "token": "eyJ...", "user": { /* same user shape */ }, "is_new_user": false }
+```
+
+The backend pins the `FIREBASE_PROJECT_ID` audience and issuer, verifies Google's
+signature, expiration, issued-at and authentication time, and requires the
+`google.com` sign-in provider, a verified email and a Google subject in signed
+identity claims. Phone/password tokens, forged tokens and wrong projects return
+401. Missing config or certificate-service connectivity failures return 503;
+malformed request bodies return 422. No private service-account key is needed.
+
+Identity is `(google, Google subject)`, shared with direct Google sign-in.
+Existing Google users keep their accounts. Users/identities commit atomically;
+concurrent conflicts reuse the winning identity or return 409 to retry. Email
+alone never links separate accounts. Firebase credentials remain in browser
+memory; Well Circle's existing session controls application access.
+
+Setup: [Google/Gmail sign-in](GOOGLE_SIGNIN_SETUP.md).
 
 ### `POST /api/auth/google`
 Google Identity Services — the ID token is verified server-side. Identity
@@ -237,12 +295,9 @@ subject is Google's `sub`, never the email.
 { "token": "eyJ...", "user": { /* same user shape */ }, "is_new_user": false }
 ```
 
-> **⚠️ Not safe to expose yet.** `google-auth` is absent from
-> `backend/requirements.txt`, and the handler catches that `ImportError` by
-> falling back to an *unverified* base64 decode of the ID token — any forged
-> credential would be accepted as any `sub`. Add `google-auth` and set
-> `GOOGLE_CLIENT_ID` (also absent from `app/config.py`) before this endpoint is
-> reachable in production.
+Requires `GOOGLE_CLIENT_ID` and the installed `google-auth` verifier. Missing
+configuration returns 503; invalid credentials return 401. Unverified decoding
+is never used. This separate provider is not required for Firebase SMS.
 
 ---
 

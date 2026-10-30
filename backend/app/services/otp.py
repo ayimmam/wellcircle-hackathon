@@ -1,240 +1,194 @@
-"""WhatsApp/SMS OTP service — rate limiting, code generation, hashed storage.
+"""Durable WhatsApp/SMS verification with bounded retries and honest delivery errors.
 
-Production deploys against a BSP (e.g. Twilio Verify). This module provides
-the in-process store and verification logic; the delivery transport is pluggable.
+Only the backend holds messaging tokens and verification state. Production never
+falls back to an undelivered development code. Apply migration 027 before deploy.
 """
-
 import hashlib
 import hmac
 import os
 import re
 import secrets
 import time
-from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Optional
 
+import httpx
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from app.config import settings
+from app.models.otp_challenge import OTPChallenge
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
-
-# ── Configuration ─────────────────────────────────────────────
 CODE_LENGTH = 6
-CODE_TTL_SECONDS = 600        # 10 minutes
+CODE_TTL_SECONDS = 600
 MAX_ATTEMPTS = 5
-# Per-phone: max N requests per window
-RATE_LIMIT_WINDOW = 60        # 1 minute
+RATE_LIMIT_WINDOW = 60
 RATE_LIMIT_MAX_PER_WINDOW = 2
+IP_RATE_LIMIT = 30
 
 
-@dataclass
-class OTPRecord:
-    """A single OTP challenge. The code is stored hashed (SHA-256)."""
-    code_hash: str
-    phone_e164: str
-    created_at: float
-    attempts: int = 0
-    used: bool = False
-
-
-# ── In-process store (swap for Redis in production) ───────────
-_store: Dict[str, OTPRecord] = {}
-_rate_limits: Dict[str, list] = {}  # phone → [timestamps]
+class OTPDeliveryUnavailable(Exception):
+    """A code could not be accepted for delivery, or delivery is not configured."""
 
 
 def _normalize_phone(raw: str) -> str:
-    """Normalize to E.164 so 0911…, 911…, and +251911… are one account."""
-    digits = re.sub(r"[^0-9+]", "", raw)
-    if digits.startswith("+251"):
-        return digits
-    if digits.startswith("0") and len(digits) == 10:
-        return "+251" + digits[1:]
-    if (digits.startswith("9") or digits.startswith("7")) and len(digits) == 9:
-        return "+251" + digits
-    if not digits.startswith("+"):
-        digits = "+" + digits
-    return digits
+    if not isinstance(raw, str) or not re.fullmatch(r"[+0-9\s()\-]+", raw):
+        raise ValueError("Enter a valid phone number.")
+    number = re.sub(r"[\s()\-]", "", raw)
+    if number.startswith("0") and len(number) == 10:
+        number = "+251" + number[1:]
+    elif number.startswith(("9", "7")) and len(number) == 9:
+        number = "+251" + number
+    elif not number.startswith("+"):
+        number = "+" + number
+    if not re.fullmatch(r"\+[1-9][0-9]{5,14}", number):
+        raise ValueError("Enter a valid phone number.")
+    return number
 
 
-def _hash_code(code: str) -> str:
-    return hashlib.sha256(code.encode()).hexdigest()
+def _digest(value: str) -> str:
+    return hmac.new(settings.JWT_SECRET.encode(), value.encode(), hashlib.sha256).hexdigest()
 
 
-def _constant_time_compare(a: str, b: str) -> bool:
-    return hmac.compare_digest(a.encode(), b.encode())
+def _provider(channel: str) -> str:
+    meta = [settings.WHATSAPP_PHONE_NUMBER_ID, settings.WHATSAPP_API_TOKEN,
+            settings.WHATSAPP_OTP_TEMPLATE_NAME, settings.WHATSAPP_API_VERSION]
+    if channel == "whatsapp" and any(meta):
+        if not all(meta) or not re.fullmatch(r"v[0-9]+\.[0-9]+", settings.WHATSAPP_API_VERSION):
+            raise OTPDeliveryUnavailable("WhatsApp delivery is not fully configured.")
+        return "meta"
+    if all([settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN, settings.TWILIO_VERIFY_SERVICE_SID]):
+        return "twilio"
+    if settings.ENVIRONMENT == "development" and not os.getenv("VERCEL"):
+        return "development"
+    raise OTPDeliveryUnavailable("Verification delivery is not configured.")
 
 
-def _check_rate_limit(phone: str) -> bool:
-    """Returns True if the phone is within rate limits."""
-    now = time.time()
-    timestamps = _rate_limits.get(phone, [])
-    # Prune old entries
-    timestamps = [t for t in timestamps if now - t < RATE_LIMIT_WINDOW]
-    _rate_limits[phone] = timestamps
-    return len(timestamps) < RATE_LIMIT_MAX_PER_WINDOW
+def _lock_rate_limits(db: Session, keys: list[str]) -> None:
+    # Transaction-scoped locks work with Supabase's transaction pooler. Serialize
+    # reservations per phone AND IP so parallel serverless workers cannot bypass limits.
+    if db.get_bind().dialect.name == "postgresql":
+        for key in sorted(set(keys)):
+            lock_id = int.from_bytes(bytes.fromhex(key)[:8], "big", signed=True)
+            db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": lock_id})
 
 
-def start_otp(phone_raw: str, channel: str = "whatsapp") -> Optional[dict]:
-    """Generate and send an OTP. Returns {request_id, expires_in} or None if rate-limited.
+def _redact(record: OTPChallenge, state: str) -> None:
+    record.status = state
+    record.phone_e164 = None
+    record.code_hash = None
+    record.provider_request_id = None
 
-    If Twilio Verify credentials are configured in settings, delivers via Twilio Verify
-    (channel='whatsapp' or 'sms'). Otherwise uses the secure in-process hashed store.
-    """
-    phone = _normalize_phone(phone_raw)
 
-    if not _check_rate_limit(phone):
-        return None
-
-    # Record rate-limit hit
-    _rate_limits.setdefault(phone, []).append(time.time())
-
-    from app.config import settings
-
-    # Check if Meta WhatsApp Cloud API is configured
-    if settings.WHATSAPP_PHONE_NUMBER_ID and settings.WHATSAPP_API_TOKEN:
-        try:
-            import httpx
-            clean_to = phone.lstrip("+")
-            url = f"https://graph.facebook.com/v18.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
-            headers = {
-                "Authorization": f"Bearer {settings.WHATSAPP_API_TOKEN}",
-                "Content-Type": "application/json",
-            }
-            if getattr(settings, "WHATSAPP_OTP_TEMPLATE_NAME", ""):
-                payload = {
-                    "messaging_product": "whatsapp",
-                    "recipient_type": "individual",
-                    "to": clean_to,
-                    "type": "template",
-                    "template": {
-                        "name": settings.WHATSAPP_OTP_TEMPLATE_NAME,
-                        "language": {"code": "en_US"},
-                        "components": [
-                            {
-                                "type": "body",
-                                "parameters": [{"type": "text", "text": code}],
-                            },
-                        ],
-                    },
-                }
-            else:
-                payload = {
-                    "messaging_product": "whatsapp",
-                    "recipient_type": "individual",
-                    "to": clean_to,
-                    "type": "text",
-                    "text": {
-                        "preview_url": False,
-                        "body": f"Your Well Circle verification code is: {code}\n\nValid for 10 minutes. Do not share this code.",
-                    },
-                }
-
-            resp = httpx.post(url, json=payload, headers=headers, timeout=10.0)
-            if resp.status_code in (200, 201):
-                logger.info("Sent WhatsApp OTP to %s via Meta Cloud API", phone)
-            else:
-                logger.error("Meta WhatsApp Cloud API error (%s): %s", resp.status_code, resp.text)
-        except Exception as e:
-            logger.exception("Failed to send WhatsApp message via Meta Cloud API: %s", e)
-
-    # Check if Twilio Verify is configured
-    elif settings.TWILIO_ACCOUNT_SID and settings.TWILIO_AUTH_TOKEN and settings.TWILIO_VERIFY_SERVICE_SID:
-        try:
-            import httpx
-            url = f"https://verify.twilio.com/v2/Services/{settings.TWILIO_VERIFY_SERVICE_SID}/Verifications"
-            resp = httpx.post(
-                url,
-                data={"To": phone, "Channel": channel},
-                auth=(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN),
-                timeout=10.0,
-            )
-            if resp.status_code in (200, 201):
-                data = resp.json()
-                request_id = data.get("sid", secrets.token_urlsafe(24))
-                _store[request_id] = OTPRecord(
-                    code_hash="",
-                    phone_e164=phone,
-                    created_at=time.time(),
-                )
-                logger.info("Sent Twilio Verify code to %s via %s (sid=%s)", phone, channel, request_id)
-                return {"request_id": request_id, "expires_in": CODE_TTL_SECONDS}
-            else:
-                logger.error("Twilio Verify error (%s): %s", resp.status_code, resp.text)
-        except Exception as e:
-            logger.exception("Failed to call Twilio Verify API: %s", e)
-
-    # Fallback / In-process store (dev & pilot mode)
-    code = "".join([str(secrets.randbelow(10)) for _ in range(CODE_LENGTH)])
-    request_id = secrets.token_urlsafe(24)
-
-    _store[request_id] = OTPRecord(
-        code_hash=_hash_code(code),
-        phone_e164=phone,
-        created_at=time.time(),
-    )
-
-    logger.info("OTP for %s: %s (request_id=%s)", phone, code, request_id)
-
-    return {
-        "request_id": request_id,
-        "expires_in": CODE_TTL_SECONDS,
-        "_dev_code": code if settings.ENVIRONMENT == "development" else None,
+def _send_meta(phone: str, code: str) -> None:
+    payload = {
+        "messaging_product": "whatsapp", "recipient_type": "individual",
+        "to": phone.lstrip("+"), "type": "template",
+        "template": {
+            "name": settings.WHATSAPP_OTP_TEMPLATE_NAME,
+            "language": {"code": settings.WHATSAPP_OTP_TEMPLATE_LANGUAGE},
+            "components": [
+                {"type": "body", "parameters": [{"type": "text", "text": code}]},
+                {"type": "button", "sub_type": "url", "index": "0",
+                 "parameters": [{"type": "text", "text": code}]},
+            ],
+        },
     }
+    response = httpx.post(
+        f"https://graph.facebook.com/{settings.WHATSAPP_API_VERSION}/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages",
+        json=payload, headers={"Authorization": f"Bearer {settings.WHATSAPP_API_TOKEN}"}, timeout=10.0,
+    )
+    data = response.json()
+    if (response.status_code not in (200, 201) or not isinstance(data, dict)
+            or not data.get("messages") or not data["messages"][0].get("id")):
+        logger.warning("Meta rejected OTP delivery (HTTP %s)", response.status_code)
+        raise OTPDeliveryUnavailable("WhatsApp delivery failed.")
 
 
-def verify_otp(request_id: str, code: str) -> Optional[str]:
-    """Verify an OTP. Returns the E.164 phone on success, None on failure.
+def start_otp(phone_raw: str, channel: str = "whatsapp", *, db: Session, ip: str = "unknown") -> Optional[dict]:
+    if channel not in ("whatsapp", "sms"):
+        raise ValueError("Choose WhatsApp or SMS.")
+    phone = _normalize_phone(phone_raw)
+    provider = _provider(channel)
+    now = int(time.time())
+    phone_hash, ip_hash = _digest("phone:" + phone), _digest("ip:" + ip)
+    _lock_rate_limits(db, [phone_hash, ip_hash])
+    db.query(OTPChallenge).filter(OTPChallenge.expires_at < now).delete(synchronize_session=False)
+    recent = db.query(OTPChallenge).filter(OTPChallenge.created_at > now - RATE_LIMIT_WINDOW)
+    if (recent.filter(OTPChallenge.phone_hash == phone_hash).count() >= RATE_LIMIT_MAX_PER_WINDOW
+            or recent.filter(OTPChallenge.ip_hash == ip_hash).count() >= IP_RATE_LIMIT):
+        db.rollback()
+        return None
+    code = "".join(str(secrets.randbelow(10)) for _ in range(CODE_LENGTH))
+    request_id = secrets.token_urlsafe(32)
+    record = OTPChallenge(
+        id=request_id, phone_e164=phone, phone_hash=phone_hash, ip_hash=ip_hash,
+        code_hash=_digest(request_id + ":" + code) if provider != "twilio" else None,
+        provider=provider, status="pending", attempts=0,
+        created_at=now, expires_at=now + CODE_TTL_SECONDS,
+    )
+    db.add(record)
+    db.commit()  # Reserve the rate-limit slot before contacting the messaging provider.
+    try:
+        if provider == "meta":
+            _send_meta(phone, code)
+        elif provider == "twilio":
+            response = httpx.post(
+                f"https://verify.twilio.com/v2/Services/{settings.TWILIO_VERIFY_SERVICE_SID}/Verifications",
+                data={"To": phone, "Channel": channel},
+                auth=(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN), timeout=10.0,
+            )
+            data = response.json()
+            if response.status_code not in (200, 201) or not isinstance(data, dict) or not data.get("sid") or data.get("status") != "pending":
+                raise OTPDeliveryUnavailable("Verification delivery failed.")
+            record.provider_request_id = data["sid"]
+        record.status = "sent"
+        db.commit()
+    except (httpx.HTTPError, ValueError, KeyError, TypeError, IndexError, OTPDeliveryUnavailable) as error:
+        _redact(record, "failed")
+        db.commit()
+        # Never log a code, token, phone number or provider response body.
+        logger.warning("OTP delivery failed (%s)", type(error).__name__)
+        raise OTPDeliveryUnavailable("Verification delivery failed.") from error
+    result = {"request_id": request_id, "expires_in": CODE_TTL_SECONDS, "retry_after": RATE_LIMIT_WINDOW}
+    if provider == "development":
+        result["_dev_code"] = code
+    return result
 
-    Checks Twilio Verify if configured, otherwise checks in-process hashed store.
-    """
-    record = _store.get(request_id)
+
+def verify_otp(request_id: str, code: str, *, db: Session) -> Optional[str]:
+    if not re.fullmatch(r"[0-9]{6}", code) or len(request_id) > 64:
+        return None
+    record = db.query(OTPChallenge).filter(OTPChallenge.id == request_id).with_for_update().first()
     if not record:
         return None
-
-    from app.config import settings
-
-    # If Twilio Verify is configured and record was sent via Twilio
-    if settings.TWILIO_ACCOUNT_SID and settings.TWILIO_AUTH_TOKEN and settings.TWILIO_VERIFY_SERVICE_SID:
-        if record.phone_e164 and not record.code_hash:
-            try:
-                import httpx
-                url = f"https://verify.twilio.com/v2/Services/{settings.TWILIO_VERIFY_SERVICE_SID}/VerificationCheck"
-                resp = httpx.post(
-                    url,
-                    data={"To": record.phone_e164, "Code": code},
-                    auth=(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN),
-                    timeout=10.0,
-                )
-                if resp.status_code == 200 and resp.json().get("status") == "approved":
-                    phone = record.phone_e164
-                    del _store[request_id]
-                    return phone
-                else:
-                    return None
-            except Exception as e:
-                logger.exception("Twilio verification check failed: %s", e)
-                return None
-
-    # Expired?
-    if time.time() - record.created_at > CODE_TTL_SECONDS:
-        del _store[request_id]
+    if record.status != "sent" or record.expires_at <= int(time.time()) or record.attempts >= MAX_ATTEMPTS:
+        if record.status == "sent":
+            _redact(record, "expired" if record.expires_at <= int(time.time()) else "locked")
+        db.commit()
         return None
-
-    # Already used?
-    if record.used:
-        return None
-
-    # Too many attempts?
     record.attempts += 1
-    if record.attempts > MAX_ATTEMPTS:
-        del _store[request_id]
-        return None
-
-    # Constant-time comparison
-    if not _constant_time_compare(_hash_code(code), record.code_hash):
-        return None
-
-    # Success — mark used
-    record.used = True
-    phone = record.phone_e164
-    del _store[request_id]
+    if record.provider == "twilio":
+        try:
+            response = httpx.post(
+                f"https://verify.twilio.com/v2/Services/{settings.TWILIO_VERIFY_SERVICE_SID}/VerificationCheck",
+                data={"VerificationSid": record.provider_request_id, "Code": code},
+                auth=(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN), timeout=10.0,
+            )
+            if response.status_code >= 500 or response.status_code == 429:
+                raise OTPDeliveryUnavailable("Verification is temporarily unavailable.")
+            result = response.json()
+            approved = response.status_code == 200 and isinstance(result, dict) and result.get("status") == "approved"
+        except (httpx.HTTPError, ValueError, OTPDeliveryUnavailable):
+            db.commit()
+            raise OTPDeliveryUnavailable("Verification is temporarily unavailable.")
+    else:
+        approved = bool(record.code_hash) and hmac.compare_digest(_digest(record.id + ":" + code), record.code_hash)
+    phone = record.phone_e164 if approved else None
+    if approved:
+        _redact(record, "used")
+    elif record.attempts >= MAX_ATTEMPTS:
+        _redact(record, "locked")
+    db.commit()
     return phone

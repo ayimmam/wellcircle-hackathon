@@ -48,10 +48,13 @@ def validate_login_widget_data(data: Dict[str, Optional[str]]) -> Optional[Dict]
         auth_date = data.get("auth_date")
         if auth_date is None:
             return None
-        if time.time() - int(auth_date) > MAX_AUTH_AGE_SECONDS:
+        age = time.time() - int(auth_date)
+        if age < -60 or age > MAX_AUTH_AGE_SECONDS:
             return None
 
         telegram_id = int(data["id"])
+        if telegram_id <= 0:
+            return None
         return {
             "telegram_id": telegram_id,
             "username": data.get("username"),

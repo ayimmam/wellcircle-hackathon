@@ -29,7 +29,7 @@ export default function Header({ onMenuOpen }) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const hidden = ['/', '/onboarding', '/provider-onboard', '/visit'].includes(location.pathname)
+  const hidden = ['/', '/login', '/landing', '/splash', '/onboarding', '/provider-onboard', '/visit'].includes(location.pathname)
     || location.pathname.startsWith('/admin')
     || location.pathname.startsWith('/provider-portal')
     || isProviderPortalDomain();
@@ -87,7 +87,7 @@ export default function Header({ onMenuOpen }) {
             </span>
           )}
         </button>
-        <button className="header-menu-btn" onClick={onMenuOpen} id="header-menu-btn" aria-label="Open menu">
+        <button className="header-menu-btn" data-ui-sound="open" onClick={onMenuOpen} id="header-menu-btn" aria-label="Open menu">
           <Icon name="menu" size={20} />
         </button>
       </div>

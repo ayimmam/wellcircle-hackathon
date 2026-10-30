@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { authTelegramWidget, authProviderPassword, setToken, getMe } from '../api/client';
+import { useLocation } from 'react-router-dom';
+import { isProviderPortalDomain } from '../utils/providerPortal';
+import { authTelegramWidget, authProviderPassword, setToken, getToken, getMe } from '../api/client';
 
 // Provider website session — deliberately independent of AuthContext (the
 // Mini App's Telegram-initData flow). Uses its own localStorage key so a
@@ -10,28 +12,39 @@ const STORAGE_KEY = 'wc_provider_token';
 const ProviderPortalAuthContext = createContext(null);
 
 export function ProviderPortalAuthProvider({ children }) {
+  const location = useLocation();
+  const active = isProviderPortalDomain() || location.pathname.startsWith('/provider-portal');
   const [providerUser, setProviderUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!active) { setLoading(false); return; }
+    setLoading(true);
+    setProviderUser(null);
+    const previousToken = getToken();
+    let alive = true;
+    const restore = () => { alive = false; setToken(previousToken); };
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) {
       setLoading(false);
-      return;
+      return restore;
     }
     setToken(saved);
-    getMe()
+    getMe({ uncached: true })
       .then(u => {
+        if (!alive) return;
         if (!u.is_provider) throw new Error('Not a provider account');
         setProviderUser(u);
       })
       .catch(() => {
+        if (!alive) return;
         localStorage.removeItem(STORAGE_KEY);
         setToken(null);
       })
-      .finally(() => setLoading(false));
-  }, []);
+      .finally(() => { if (alive) setLoading(false); });
+    return restore;
+  }, [active]);
 
   const loginWithWidget = useCallback(async (widgetData) => {
     setError(null);

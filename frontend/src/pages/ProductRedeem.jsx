@@ -6,6 +6,7 @@ import { showToast } from '../components/Toast';
 import { useTranslation } from 'react-i18next';
 import { track } from '../analytics';
 import Icon from '../components/Icon';
+import { playSound } from '../utils/sound';
 import { useTelegramBackButton } from '../hooks/useTelegramBackButton';
 
 export default function ProductRedeem() {
@@ -47,6 +48,7 @@ export default function ProductRedeem() {
         : undefined;
       const res = await redeemProduct(id, { delivery_address: delivery });
       setResult(res);
+      playSound('success');
       refreshUser();
     } catch (err) {
       showToast(err.message, 'error');

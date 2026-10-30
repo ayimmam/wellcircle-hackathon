@@ -80,9 +80,7 @@ app = FastAPI(
 )
 
 # CORS
-origins = settings.CORS_ORIGINS.copy()
-if settings.FRONTEND_URL and settings.FRONTEND_URL not in origins:
-    origins.append(settings.FRONTEND_URL)
+origins = settings.cors_origins
 
 app.add_middleware(
     CORSMiddleware,

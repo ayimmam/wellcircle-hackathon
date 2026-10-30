@@ -145,7 +145,7 @@ export default function OnboardingFlow() {
         welcome_points: res?.welcome_points ?? 0,
       });
       // justOnboarded → ForYouScreen shows the one-time completion banner
-      navigate('/home', { replace: true, state: { justOnboarded: true } });
+      navigate(res?.redirectTo || '/home', { replace: true, state: { justOnboarded: true } });
     } catch (err) {
       console.error('Onboarding failed:', err);
       showToast(err.message || 'Onboarding failed. Please try again.', 'error');
@@ -193,7 +193,7 @@ export default function OnboardingFlow() {
             <h2 className="onboarding-title">What's your name?</h2>
             <p className="onboarding-subtitle">
               {formData.name
-                ? 'We got this from Telegram — just confirm, or change how others see you.'
+                ? 'Confirm your name, or change how others see you.'
                 : 'This is how others will see you in Well Circle communities.'}
             </p>
             <input

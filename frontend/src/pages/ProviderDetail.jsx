@@ -115,7 +115,7 @@ export default function ProviderDetail() {
               imageUrl={provider.cover_photo_url}
               title={provider.name}
               subtitle={provider.category}
-              tag="provider_share"
+              tag={`provider_${provider.id}`}
               className="story-share-btn"
               label=""
               size={18}

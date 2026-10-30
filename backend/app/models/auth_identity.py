@@ -23,7 +23,7 @@ class AuthIdentity(Base):
         nullable=False,
         index=True,
     )
-    # 'telegram' | 'whatsapp' | 'google' | 'password'
+    # 'telegram' | 'whatsapp' | 'firebase' | 'google' | 'password'
     provider = Column(String(20), nullable=False)
     # Telegram ID | E.164 phone | Google 'sub' | username
     subject = Column(String(255), nullable=False)

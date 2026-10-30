@@ -5,6 +5,8 @@
  * to connect to the real FastAPI backend.
  */
 
+import { isWebApp, SESSION_EXPIRED_EVENT } from '../utils/platform';
+
 let USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
 /** Vercel proxy target — see frontend/vercel.json rewrites */
@@ -12,6 +14,10 @@ const BACKEND_ORIGIN = 'https://wellcircle-hackathon-backend.vercel.app';
 
 function resolveApiBase() {
   const configured = import.meta.env.VITE_API_BASE_URL;
+  if (isWebApp()) {
+    if (configured && configured !== '/api') return configured;
+    return import.meta.env.PROD ? `${BACKEND_ORIGIN}/api` : '/api';
+  }
   if (import.meta.env.PROD) {
     // The provider portal is hosted outside Vercel (cPanel), so there's no
     // same-origin /api proxy there — always call the backend directly.
@@ -125,6 +131,9 @@ async function request(method, path, body = null, extraOptions = {}) {
       }
       const requestError = new Error(msg);
       requestError.status = res.status;
+      if (res.status === 401 && authToken && isWebApp() && !path.startsWith('/auth/') && !window.location.pathname.startsWith('/provider-portal')) {
+        window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+      }
       requestError.payload = detail && typeof detail === 'object'
         ? { ...err, ...detail }
         : err;
@@ -157,6 +166,9 @@ async function multipartRequest(path, formData) {
         (detail && typeof detail === 'object' ? detail.message : detail) || 'Upload failed'
       );
       err.status = res.status;
+      if (res.status === 401 && authToken && isWebApp() && !window.location.pathname.startsWith('/provider-portal')) {
+        window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+      }
       err.payload = detail && typeof detail === 'object'
         ? { ...payload, ...detail }
         : payload;
@@ -302,6 +314,11 @@ export async function authTelegram(initData) {
 // ({ id, first_name, last_name?, username?, photo_url?, auth_date, hash }).
 // Distinct from authTelegram(): browser tab, not Mini App, and only ever
 // signs in an existing provider account — never creates a user.
+export async function getTelegramLoginConfig() {
+  if (USE_MOCK) return { bot_id: 8839515595 };
+  return request('GET', '/auth/telegram/config');
+}
+
 export async function authTelegramWidget(widgetData) {
   if (USE_MOCK) {
     await delay(600);
@@ -312,6 +329,42 @@ export async function authTelegramWidget(widgetData) {
 
 // Provider website login — username/password, an alt path to the Telegram
 // Login Widget for provider staff accounts without a linked Telegram login.
+// WhatsApp OTP start
+export async function authWhatsAppStart(phone, channel = "whatsapp") {
+  if (USE_MOCK) {
+    await delay(500);
+    return { request_id: "mock-req-" + Date.now(), expires_in: 600, _dev_code: "123456" };
+  }
+  return request("POST", "/auth/whatsapp/start", { phone, channel });
+}
+
+// WhatsApp OTP verify
+export async function authWhatsAppVerify(requestId, code) {
+  if (USE_MOCK) {
+    await delay(600);
+    return { token: "mock-jwt-token", user: { ...MOCK_USER, phone_number: "+251911234567" }, is_new_user: false };
+  }
+  return request("POST", "/auth/whatsapp/verify", { request_id: requestId, code });
+}
+
+// Firebase Google verification -> existing Well Circle session.
+export async function authFirebase(idToken) {
+  if (USE_MOCK) {
+    await delay(300);
+    return { token: 'mock-jwt-token', user: { ...MOCK_USER, phone_number: '+251911234567' }, is_new_user: false };
+  }
+  return request('POST', '/auth/firebase', { id_token: idToken });
+}
+
+// Google Sign-In
+export async function authGoogle(credential) {
+  if (USE_MOCK) {
+    await delay(600);
+    return { token: "mock-jwt-token", user: { ...MOCK_USER, name: "Google User" }, is_new_user: false };
+  }
+  return request("POST", "/auth/google", { credential });
+}
+
 export async function authProviderPassword(username, password) {
   if (USE_MOCK) {
     await delay(600);
@@ -321,8 +374,8 @@ export async function authProviderPassword(username, password) {
 }
 
 // ─── Users ──────────────────────────────────────────
-export async function getMe() {
-  return cached(cacheKeys.me(), async () => {
+export async function getMe({ uncached = false } = {}) {
+  const fetchUser = async () => {
     if (USE_MOCK) {
       await delay();
       try {
@@ -332,7 +385,8 @@ export async function getMe() {
       return { ...MOCK_USER };
     }
     return request('GET', '/users/me');
-  });
+  };
+  return uncached ? fetchUser() : cached(cacheKeys.me(), fetchUser);
 }
 
 export async function onboardUser(data) {

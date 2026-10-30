@@ -1,0 +1,453 @@
+{
+  "source": "https://github.com/leonxlnx/earshot",
+  "bank": "forge_v2r6+forge04r1+fit1+pluck1",
+  "sounds": {
+    "tap": {
+      "id": "fit/click/floss_lid",
+      "seed": 0,
+      "sr": 48000,
+      "onset_s": 0.004,
+      "peak_s": 0.0075,
+      "end_s": 0.069,
+      "dur_s": 0.132,
+      "peak_db": -23.0,
+      "lufs_m_max": -47.2,
+      "edits": {},
+      "checks": {
+        "ok": true,
+        "warnings": [],
+        "notes": [],
+        "summary": "fit/click/floss_lid: clean",
+        "measures": {
+          "clicks": 0,
+          "edge_db": -87.1,
+          "clip_runs": 0,
+          "overs": 0,
+          "dc_db": -117.6,
+          "ring_z": null,
+          "trunc_db": null,
+          "silence_ms": 0.0,
+          "bump_db": 0.0,
+          "attack_ms": 0.75,
+          "t40_ms": 60.0,
+          "crest_db": 17.5,
+          "res_db": 9.1,
+          "res_hz": 2892,
+          "peak_dbfs": -23.0,
+          "live_ms": 49.5
+        },
+        "glide": {
+          "tonal_share": 0.2,
+          "rise_st": 0.0,
+          "from_s": null,
+          "to_s": null
+        },
+        "layers": {
+          "attacks": [
+            0.018
+          ],
+          "count": 1,
+          "pre_swell_ms": 0.0
+        },
+        "context": {
+          "category": "fit",
+          "sound": "fit/click/floss_lid"
+        }
+      }
+    },
+    "open": {
+      "id": "ui_pop/soft",
+      "seed": 1,
+      "sr": 48000,
+      "onset_s": 0.0025,
+      "peak_s": 0.0415,
+      "end_s": 0.157,
+      "dur_s": 0.1805,
+      "peak_db": -25.0,
+      "lufs_m_max": -39.37,
+      "edits": {},
+      "checks": {
+        "ok": true,
+        "warnings": [],
+        "notes": [],
+        "summary": "ui_pop/soft: clean",
+        "measures": {
+          "clicks": 0,
+          "edge_db": -240.0,
+          "clip_runs": 0,
+          "overs": 0,
+          "dc_db": -130.2,
+          "ring_z": 4.1,
+          "trunc_db": null,
+          "silence_ms": 0.0,
+          "bump_db": 0.0,
+          "attack_ms": 6.5,
+          "t40_ms": 110.0,
+          "crest_db": 8.2,
+          "res_db": 19.5,
+          "res_hz": 1115,
+          "peak_dbfs": -25.0,
+          "live_ms": 126.25
+        },
+        "glide": {
+          "tonal_share": 0.36,
+          "rise_st": 0.0,
+          "from_s": null,
+          "to_s": null
+        },
+        "layers": {
+          "attacks": [
+            0.033
+          ],
+          "count": 1,
+          "pre_swell_ms": 0.0
+        },
+        "context": {
+          "category": "ui_pop",
+          "sound": "ui_pop/soft"
+        }
+      }
+    },
+    "close": {
+      "id": "ui_pop/fall",
+      "seed": 1,
+      "sr": 48000,
+      "onset_s": 0.0042,
+      "peak_s": 0.0215,
+      "end_s": 0.164,
+      "dur_s": 0.2043,
+      "peak_db": -27.0,
+      "lufs_m_max": -44.33,
+      "edits": {},
+      "checks": {
+        "ok": true,
+        "warnings": [],
+        "notes": [
+          {
+            "code": "tail",
+            "msg": "the tail rises again by 33 dB (a second event, a roll or a double member)"
+          }
+        ],
+        "summary": "ui_pop/fall: clean (the tail rises again by 33 dB (a second event, a roll or a double member))",
+        "measures": {
+          "clicks": 0,
+          "edge_db": -240.0,
+          "clip_runs": 0,
+          "overs": 0,
+          "dc_db": -161.1,
+          "ring_z": null,
+          "trunc_db": null,
+          "silence_ms": 0.0,
+          "bump_db": 33.3,
+          "attack_ms": 8.5,
+          "t40_ms": 60.0,
+          "crest_db": 10.6,
+          "res_db": 17.6,
+          "res_hz": 2016,
+          "peak_dbfs": -27.0,
+          "live_ms": 89.25
+        },
+        "glide": {
+          "tonal_share": 0.77,
+          "rise_st": 0.0,
+          "from_s": null,
+          "to_s": null
+        },
+        "layers": {
+          "attacks": [
+            0.028
+          ],
+          "count": 1,
+          "pre_swell_ms": 0.0
+        },
+        "context": {
+          "category": "ui_pop",
+          "sound": "ui_pop/fall"
+        }
+      }
+    },
+    "success": {
+      "id": "notify/mid_tine",
+      "seed": 1,
+      "sr": 48000,
+      "onset_s": 0.0035,
+      "peak_s": 0.0385,
+      "end_s": 0.319,
+      "dur_s": 0.425,
+      "peak_db": -21.0,
+      "lufs_m_max": -34.46,
+      "edits": {},
+      "checks": {
+        "ok": true,
+        "warnings": [],
+        "notes": [],
+        "summary": "notify/mid_tine: clean",
+        "measures": {
+          "clicks": 0,
+          "edge_db": -240.0,
+          "clip_runs": 0,
+          "overs": 0,
+          "dc_db": -192.2,
+          "ring_z": 3.9,
+          "trunc_db": null,
+          "silence_ms": 0.0,
+          "bump_db": 0.0,
+          "attack_ms": 20.25,
+          "t40_ms": 240.0,
+          "crest_db": 7.3,
+          "res_db": 33.1,
+          "res_hz": 835,
+          "peak_dbfs": -21.0,
+          "live_ms": 239.5
+        },
+        "glide": {
+          "tonal_share": 1.0,
+          "rise_st": 0.0,
+          "from_s": null,
+          "to_s": null
+        },
+        "layers": {
+          "attacks": [
+            0.037
+          ],
+          "count": 1,
+          "pre_swell_ms": 5.0
+        },
+        "context": {
+          "category": "notify",
+          "sound": "notify/mid_tine"
+        }
+      }
+    },
+    "error": {
+      "id": "knock/wood",
+      "seed": 1,
+      "sr": 48000,
+      "onset_s": 0.0122,
+      "peak_s": 0.0155,
+      "end_s": 0.13,
+      "dur_s": 0.1536,
+      "peak_db": -24.0,
+      "lufs_m_max": -45.85,
+      "edits": {},
+      "checks": {
+        "ok": true,
+        "warnings": [],
+        "notes": [],
+        "summary": "knock/wood: clean",
+        "measures": {
+          "clicks": 0,
+          "edge_db": -240.0,
+          "clip_runs": 0,
+          "overs": 0,
+          "dc_db": -122.3,
+          "ring_z": 5.4,
+          "trunc_db": null,
+          "silence_ms": 0.0,
+          "bump_db": 0.0,
+          "attack_ms": 1.0,
+          "t40_ms": 100.0,
+          "crest_db": 15.1,
+          "res_db": 4.5,
+          "res_hz": 1165,
+          "peak_dbfs": -24.0,
+          "live_ms": 77.75
+        },
+        "glide": {
+          "tonal_share": 0.4,
+          "rise_st": 0.0,
+          "from_s": null,
+          "to_s": null
+        },
+        "layers": {
+          "attacks": [
+            0.022
+          ],
+          "count": 1,
+          "pre_swell_ms": 0.0
+        },
+        "context": {
+          "category": "knock",
+          "sound": "knock/wood"
+        }
+      }
+    },
+    "like": {
+      "id": "ui_pop/step",
+      "seed": 1,
+      "sr": 48000,
+      "onset_s": 0.0025,
+      "peak_s": 0.0445,
+      "end_s": 0.163,
+      "dur_s": 0.1871,
+      "peak_db": -24.0,
+      "lufs_m_max": -38.94,
+      "edits": {},
+      "checks": {
+        "ok": true,
+        "warnings": [],
+        "notes": [],
+        "summary": "ui_pop/step: clean",
+        "measures": {
+          "clicks": 0,
+          "edge_db": -240.0,
+          "clip_runs": 0,
+          "overs": 0,
+          "dc_db": -120.1,
+          "ring_z": 4.6,
+          "trunc_db": null,
+          "silence_ms": 0.0,
+          "bump_db": 0.0,
+          "attack_ms": 20.75,
+          "t40_ms": 110.0,
+          "crest_db": 8.3,
+          "res_db": 19.5,
+          "res_hz": 1446,
+          "peak_dbfs": -24.0,
+          "live_ms": 127.5
+        },
+        "glide": {
+          "tonal_share": 0.43,
+          "rise_st": 0.0,
+          "from_s": null,
+          "to_s": null
+        },
+        "layers": {
+          "attacks": [
+            0.043
+          ],
+          "count": 1,
+          "pre_swell_ms": 0.0
+        },
+        "context": {
+          "category": "ui_pop",
+          "sound": "ui_pop/step"
+        }
+      }
+    },
+    "navigate": {
+      "id": "whoosh_fast/tight",
+      "seed": 1621782255,
+      "sr": 48000,
+      "onset_s": 0.0162,
+      "peak_s": 0.0595,
+      "end_s": 0.201,
+      "dur_s": 0.24,
+      "peak_db": -29.0,
+      "lufs_m_max": -46.33,
+      "edits": {
+        "apex": {
+          "target": 0.06,
+          "measured": 0.0595,
+          "err_ms": -0.5,
+          "search_err_ms": 3.5,
+          "rise": 0.04625,
+          "renders": 3,
+          "fit": "head trim 4.0 ms",
+          "ok": true
+        },
+        "dur": {
+          "target": 0.24,
+          "method": "shape",
+          "post_scale": 0.4801,
+          "renders": 3,
+          "fit": "trim 122 ms (fade 60 ms)"
+        }
+      },
+      "checks": {
+        "ok": true,
+        "warnings": [],
+        "notes": [],
+        "summary": "whoosh_fast/tight: clean",
+        "measures": {
+          "clicks": 0,
+          "edge_db": -240.0,
+          "clip_runs": 0,
+          "overs": 0,
+          "dc_db": -97.8,
+          "ring_z": 4.4,
+          "trunc_db": null,
+          "silence_ms": 0.0,
+          "bump_db": 0.0,
+          "attack_ms": 4.75,
+          "t40_ms": 120.0,
+          "crest_db": 10.5,
+          "res_db": 6.2,
+          "res_hz": 526,
+          "peak_dbfs": -29.0,
+          "live_ms": 149.25
+        },
+        "glide": {
+          "tonal_share": 0.35,
+          "rise_st": 0.0,
+          "from_s": null,
+          "to_s": null
+        },
+        "layers": {
+          "attacks": [
+            0.062
+          ],
+          "count": 1,
+          "pre_swell_ms": 35.0
+        },
+        "context": {
+          "category": "whoosh_fast",
+          "sound": "whoosh_fast/tight"
+        }
+      }
+    },
+    "loading": {
+      "id": "ui_pop/boop",
+      "seed": 1,
+      "sr": 48000,
+      "onset_s": 0.0002,
+      "peak_s": 0.0275,
+      "end_s": 0.168,
+      "dur_s": 0.1949,
+      "peak_db": -30.0,
+      "lufs_m_max": -47.62,
+      "edits": {},
+      "checks": {
+        "ok": true,
+        "warnings": [],
+        "notes": [],
+        "summary": "ui_pop/boop: clean",
+        "measures": {
+          "clicks": 0,
+          "edge_db": -240.0,
+          "clip_runs": 0,
+          "overs": 0,
+          "dc_db": -131.2,
+          "ring_z": 4.9,
+          "trunc_db": null,
+          "silence_ms": 0.0,
+          "bump_db": 0.0,
+          "attack_ms": 9.25,
+          "t40_ms": 110.0,
+          "crest_db": 10.6,
+          "res_db": 10.1,
+          "res_hz": 1600,
+          "peak_dbfs": -30.0,
+          "live_ms": 121.25
+        },
+        "glide": {
+          "tonal_share": 0.79,
+          "rise_st": 0.0,
+          "from_s": null,
+          "to_s": null
+        },
+        "layers": {
+          "attacks": [
+            0.033
+          ],
+          "count": 1,
+          "pre_swell_ms": 0.0
+        },
+        "context": {
+          "category": "ui_pop",
+          "sound": "ui_pop/boop"
+        }
+      }
+    }
+  }
+}

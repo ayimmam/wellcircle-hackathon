@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Icon from './Icon';
+import { isWebApp } from '../utils/platform';
 import { errorVariant } from '../utils/errorState';
 import './ErrorScreen.css';
 
@@ -21,6 +22,8 @@ export default function ErrorScreen({ variant, error, title, description, onRetr
   const { t } = useTranslation();
   const [retrying, setRetrying] = useState(false);
   const [icon, heading, message] = STATES[variant || errorVariant(error)] || STATES.unexpected;
+  const browserAuthMessage = isWebApp() && ['auth', 'session'].includes(variant || errorVariant(error))
+    ? 'Please sign in again to continue using Well Circle.' : null;
   const retry = async () => {
     setRetrying(true);
     try { await onRetry(); } catch { /* The caller retains its error state for another attempt. */ }
@@ -41,7 +44,7 @@ export default function ErrorScreen({ variant, error, title, description, onRetr
         <div className="error-screen__icon"><Icon name={icon} size={36} /></div>
         <p className="error-screen__eyebrow">Well Circle</p>
         <h2>{t(title || heading)}</h2>
-        <p className="error-screen__description">{t(description || message)}</p>
+        <p className="error-screen__description">{t(description || browserAuthMessage || message)}</p>
         <div className="error-screen__actions">
           {onRetry && <button type="button" className="btn btn-secondary" onClick={retry} disabled={retrying} aria-busy={retrying}>
             {t(retrying ? 'Trying again…' : retryLabel)}

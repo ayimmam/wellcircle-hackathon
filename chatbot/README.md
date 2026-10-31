@@ -156,8 +156,8 @@ the history or append a turn.
   is rejected as a user JWT.
 - Client-supplied `history` remains ignored. Ownership is enforced server-side.
 
-Apply Alembic revisions `027`, `028`, then `029`
-(`backend/alembic/versions/029_chat_profile.py`) through the repository's
+Apply Alembic revisions `030`, `031`, then `032`
+(`backend/alembic/versions/032_chat_profile.py`) through the repository's
 Alembic workflow when configured, or execute the canonical
 `backend/supabase/migrations/027_chat_memory_append.sql`,
 `028_chat_memory_ownership.sql`, and `029_chat_profile.sql` directly for a

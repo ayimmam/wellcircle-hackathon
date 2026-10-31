@@ -55,12 +55,6 @@ const PROFILE_WITH_PREFS = {
   consent_recorded: true,
 };
 
-const PROFILE_EMPTY = {
-  display_name: null,
-  preferences: {},
-  consent_recorded: false,
-};
-
 function isSettingsUrl(url, path) {
   return String(url).includes(`/ai/concierge/${path}`);
 }
@@ -240,7 +234,7 @@ describe('AskWellCircle — disabling personalization', () => {
 
   it('cancelling the confirmation changes nothing', async () => {
     window.confirm = vi.fn(() => false);
-    global.fetch = vi.fn((url, options = {}) => {
+    global.fetch = vi.fn((url, _options = {}) => {
       if (isSettingsUrl(url, 'session')) return Promise.resolve(response(SESSION_RESPONSE));
       if (isSettingsUrl(url, 'profile')) return Promise.resolve(response(PROFILE_WITH_PREFS));
       if (isSettingsUrl(url, 'personalization')) return Promise.resolve(response({}));
@@ -260,7 +254,7 @@ describe('AskWellCircle — disabling personalization', () => {
   });
 
   it('a failed withdrawal keeps the toggle On and shows an error', async () => {
-    global.fetch = vi.fn((url, options = {}) => {
+    global.fetch = vi.fn((url, _options = {}) => {
       if (isSettingsUrl(url, 'session')) return Promise.resolve(response(SESSION_RESPONSE));
       if (isSettingsUrl(url, 'personalization')) return Promise.resolve(response({}, { ok: false, status: 503 }));
       if (isSettingsUrl(url, 'profile')) return Promise.resolve(response(PROFILE_WITH_PREFS));
@@ -280,7 +274,7 @@ describe('AskWellCircle — disabling personalization', () => {
 describe('AskWellCircle — deleting saved preferences', () => {
   it('deletes with confirmation and reports that data is gone', async () => {
     let deleted = false;
-    global.fetch = vi.fn((url, options = {}) => {
+    global.fetch = vi.fn((url, _options = {}) => {
       if (isSettingsUrl(url, 'session')) return Promise.resolve(response(SESSION_RESPONSE));
       if (isSettingsUrl(url, 'preferences')) {
         deleted = true;
@@ -305,7 +299,7 @@ describe('AskWellCircle — deleting saved preferences', () => {
 describe('AskWellCircle — clearing conversation history', () => {
   it('clears the server-side conversation and keeps the profile', async () => {
     let historyCleared = false;
-    global.fetch = vi.fn((url, options = {}) => {
+    global.fetch = vi.fn((url, _options = {}) => {
       if (String(url).includes('/ai/concierge/session')) {
         return Promise.resolve(
           response({
@@ -334,7 +328,7 @@ describe('AskWellCircle — clearing conversation history', () => {
   });
 
   it('does not fake a clear when the backend fails', async () => {
-    global.fetch = vi.fn((url, options = {}) => {
+    global.fetch = vi.fn((url, _options = {}) => {
       if (String(url).includes('/ai/concierge/session')) {
         return Promise.resolve(response(SESSION_RESPONSE));
       }

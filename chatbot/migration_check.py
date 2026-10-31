@@ -112,7 +112,7 @@ def run_checks() -> list[CheckResult]:
         results.append(CheckResult(name=name, passed=bool(condition), detail=detail))
 
     try:
-        versions = {number: _read(_version_file(number)) for number in ("027", "028", "029")}
+        versions = {number: _read(_version_file(number)) for number in ("030", "031", "032")}
         sql27 = _read(SQL_DIR / "027_chat_memory_append.sql")
         sql28 = _read(SQL_DIR / "028_chat_memory_ownership.sql")
         sql29 = _read(SQL_DIR / "029_chat_profile.sql")
@@ -121,19 +121,19 @@ def run_checks() -> list[CheckResult]:
         return [CheckResult(name="files present", passed=False, detail=str(exc))]
 
     add(
-        "Alembic 027 follows 026",
-        _has_revision(versions["027"], "027")
-        and _has_down_revision(versions["027"], "026"),
+        "Alembic 030 follows dev's 027 (durable WhatsApp OTP)",
+        _has_revision(versions["030"], "030")
+        and _has_down_revision(versions["030"], "027"),
     )
     add(
-        "Alembic 028 follows 027",
-        _has_revision(versions["028"], "028")
-        and _has_down_revision(versions["028"], "027"),
+        "Alembic 031 follows 030",
+        _has_revision(versions["031"], "031")
+        and _has_down_revision(versions["031"], "030"),
     )
     add(
-        "Alembic 029 follows 028",
-        _has_revision(versions["029"], "029")
-        and _has_down_revision(versions["029"], "028"),
+        "Alembic 032 follows 031",
+        _has_revision(versions["032"], "032")
+        and _has_down_revision(versions["032"], "031"),
     )
 
     for number, sql in (("027", sql27), ("028", sql28), ("029", sql29)):
@@ -232,22 +232,22 @@ def run_checks() -> list[CheckResult]:
     )
 
     add(
-        "027 downgrade removes the Phase 1 RPC",
-        "DROP FUNCTION IF EXISTS public.append_chat_turn(" in versions["027"]
-        and PHASE1_DROP_SIGNATURE in versions["027"]
-        and "NOTIFY pgrst" in versions["027"],
+        "030 downgrade removes the Phase 1 RPC",
+        "DROP FUNCTION IF EXISTS public.append_chat_turn(" in versions["030"]
+        and PHASE1_DROP_SIGNATURE in versions["030"]
+        and "NOTIFY pgrst" in versions["030"],
     )
     add(
-        "028 downgrade restores the Phase 1 RPC",
-        PHASE2_DROP_SIGNATURE in versions["028"]
-        and "DROP COLUMN IF EXISTS owner_id" in versions["028"]
-        and "DROP COLUMN IF EXISTS owner_type" in versions["028"]
-        and "_PHASE1_SQL.read_text" in versions["028"],
+        "031 downgrade restores the Phase 1 RPC",
+        PHASE2_DROP_SIGNATURE in versions["031"]
+        and "DROP COLUMN IF EXISTS owner_id" in versions["031"]
+        and "DROP COLUMN IF EXISTS owner_type" in versions["031"]
+        and "_PHASE1_SQL.read_text" in versions["031"],
     )
     add(
-        "029 downgrade drops the profile and refreshes PostgREST",
-        'DROP TABLE IF EXISTS public.chat_profile' in versions["029"]
-        and "NOTIFY pgrst" in versions["029"],
+        "032 downgrade drops the profile and refreshes PostgREST",
+        'DROP TABLE IF EXISTS public.chat_profile' in versions["032"]
+        and "NOTIFY pgrst" in versions["032"],
     )
 
     for param in RPC_PARAMS:

@@ -143,28 +143,29 @@ Verify (matching `chatbot/memory.py` / `chatbot/profile.py` exactly):
 
 Alembic `env.py`/`alembic.ini` are placeholders in this checkout, so the
 downgrade path is verified by executing the revisions' downgrade SQL
-manually (copied verbatim from `backend/alembic/versions/028_*.py` and
-`029_*.py`):
+manually (copied verbatim from `backend/alembic/versions/031_*.py` and
+`032_*.py`):
 
 ```bash
-# 029 downgrade
+# 032 downgrade (Alembic renumbering; SQL file remains 029)
 docker exec -i circler-mig-verify psql -U postgres -v ON_ERROR_STOP=1 -1 \
   -c "DROP TABLE IF EXISTS public.chat_profile"   # then the NOTIFY
-# 028 downgrade
+# 031 downgrade (Alembic renumbering; SQL file remains 028)
 docker exec -i circler-mig-verify psql -U postgres -v ON_ERROR_STOP=1 -1 -c "
   DROP FUNCTION IF EXISTS public.append_chat_turn(
       text, text, text, text, text, timestamptz, integer, double precision);
   ALTER TABLE public.chat_memory
       DROP COLUMN IF EXISTS owner_id,
       DROP COLUMN IF EXISTS owner_type;"
-# 028 downgrade re-executes the canonical Phase-1 SQL file to rebuild the RPC:
+# 031 downgrade re-executes the canonical Phase-1 SQL file to rebuild the RPC:
 docker exec -i circler-mig-verify psql -U postgres -v ON_ERROR_STOP=1 -1 \
   -f backend/supabase/migrations/027_chat_memory_append.sql
 ```
 
-Note the deliberate behavior: 028's downgrade **keeps RLS and revoked table
+Note the deliberate behavior: 031's downgrade **keeps RLS and revoked table
 grants** (hardening is sticky); verify that in Phase-2-style read-only
-queries. Then re-apply 027/028/029 from the top against the recovered schema
+queries. Then re-apply 027/028/029 (SQL files, Alembic 030/031/032) from the top
+against the recovered schema
 to prove the whole chain is safely re-runnable.
 
 Clean up entirely with: `docker rm -f circler-mig-verify` (or delete the

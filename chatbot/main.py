@@ -192,6 +192,8 @@ def update_concierge_profile(
             )
 
     if req.display_name is not None:
+        # Stored on the chat profile only; the verified account's onboarding
+        # name stays authoritative for signed-in users and is never modified.
         if remember_display_name(identity.owner_type, identity.owner_id, name) is None:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -460,7 +462,17 @@ def ai_concierge(
         learned_name = remember_name_from_message(
             identity.owner_type, identity.owner_id, req.message
         )
-        profile_name = learned_name or chat_profile.display_name
+        # A name stated in this message takes precedence over the stored one —
+        # EXCEPT when the verified account's onboarding name is available: the
+        # account profile is authoritative for signed-in users, and a
+        # chat-stated name must never mask (or overwrite) it. Anonymous users
+        # and users without an account name keep the existing behavior: a name
+        # stated in this message wins over the remembered chat display_name,
+        # since it is the user's most recent explicit input.
+        if chat_profile.name_from_account:
+            profile_name = chat_profile.display_name
+        else:
+            profile_name = learned_name or chat_profile.display_name
 
         system_prompt = build_system_prompt(
             providers,

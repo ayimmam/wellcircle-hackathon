@@ -94,6 +94,10 @@ class ChatProfile:
     # to be stored and used. Distinct from the name, which is consented to
     # through ordinary conversation and survives consent withdrawal.
     consent_recorded: bool = False
+    # True when display_name came from the verified account's onboarding
+    # profile (public.users). The chat-stored display_name stays untouched and
+    # resumes as the name if the account later has none.
+    name_from_account: bool = False
 
 
 def _get_supabase_client():
@@ -222,8 +226,35 @@ def _profile_row_to_profile(row: object) -> ChatProfile:
     )
 
 
+def _account_display_name(client, owner_id: str) -> str | None:
+    """Read the account/onboarding name for a verified user id, or None."""
+    try:
+        res = (
+            client.table("users")
+            .select("name")
+            .eq("id", owner_id)
+            .limit(1)
+            .execute()
+        )
+        rows = getattr(res, "data", None)
+        if isinstance(rows, list) and rows and isinstance(rows[0], dict):
+            return normalize_display_name(rows[0].get("name"))
+        return None
+    except Exception as exc:
+        logger.info("User profile name read unavailable: %s", exc)
+        return None
+
+
 def get_profile(owner_type: str, owner_id: str) -> ChatProfile:
-    """Load the persistent profile, falling back to the users table name."""
+    """Load the profile with the account/onboarding name as authority.
+
+    The chat-profile ``display_name`` (a name the user stated to the chatbot)
+    is only used when the signed-in user's account has no usable name or the
+    account lookup fails. Reading ``public.users.name`` every time keeps the
+    chatbot from serving an outdated name after the account profile changes.
+    The account name is usable regardless of personalization consent: it was
+    provided through the user's account, not as a chatbot preference.
+    """
     client = _get_supabase_client()
     if client is None:
         return ChatProfile()
@@ -246,26 +277,15 @@ def get_profile(owner_type: str, owner_id: str) -> ChatProfile:
         # running against an older project. Degrade to no profile.
         logger.info("Chat profile read unavailable for %s: %s", owner_type, exc)
 
-    if profile.display_name is None and owner_type == "user":
-        try:
-            res = (
-                client.table("users")
-                .select("name")
-                .eq("id", owner_id)
-                .limit(1)
-                .execute()
+    if owner_type == "user":
+        account_name = _account_display_name(client, owner_id)
+        if account_name:
+            return ChatProfile(
+                display_name=account_name,
+                preferences=profile.preferences,
+                consent_recorded=profile.consent_recorded,
+                name_from_account=True,
             )
-            rows = getattr(res, "data", None)
-            if isinstance(rows, list) and rows and isinstance(rows[0], dict):
-                name = normalize_display_name(rows[0].get("name"))
-                if name:
-                    profile = ChatProfile(
-                        display_name=name,
-                        preferences=profile.preferences,
-                        consent_recorded=profile.consent_recorded,
-                    )
-        except Exception as exc:
-            logger.info("User profile name read unavailable: %s", exc)
 
     return profile
 

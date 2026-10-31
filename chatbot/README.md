@@ -120,8 +120,12 @@ Migration `029` adds `public.chat_profile`, keyed by the same
 `(owner_type, owner_id)` identity as chat memory. It stores:
 
 - `display_name` — remembered independently of short-term history, so an expired
-  conversation still greets the user by name. Signed-in users may also fall back
-  to `users.name` when no chat profile row exists.
+  conversation still greets the user by name. For signed-in users the account's
+  onboarding name (`public.users.name`, read with the verified JWT identity) is
+  authoritative and is re-read on every session/turn, so account renames are
+  picked up automatically; the chat-stored name is only a fallback when the
+  account has no usable name, and a name stated in chat never modifies — or
+  masks — the account. The account name needs no personalization consent.
 - `preferences` — only when the client sends `consent: true` to
   `PATCH /ai/concierge/profile`. Preference data is not inferred from ordinary
   chat messages, and writes without explicit consent return HTTP 400. The read
@@ -130,6 +134,8 @@ Migration `029` adds `public.chat_profile`, keyed by the same
 An explicit conversational statement such as “my name is Selam” or “you can
 call me Selam” is treated as consent to remember the name. Name extraction is
 deliberately conservative; generic phrases like “I'm stressed” are not names.
+For a signed-in user whose account already has a name, the stated name is still
+remembered on the chat profile, but the account name remains what Circler uses.
 Profile reads/writes are best-effort: if migration 029 has not been applied or
 the profile table is unreachable, chat still works with an empty profile.
 

@@ -72,12 +72,58 @@ def compact_providers(providers):
     ]
 
 
+def build_fallback_events(now: datetime | None = None) -> list[dict]:
+    """Return the demo events shifted to the next future weekend.
+
+    ``FALLBACK_EVENTS`` is a fixed fixture, so its literal 2026 dates eventually
+    become past events. Recommending a past event is an availability
+    hallucination even when the id is real. Shift the fixture relative to the
+    current time while preserving ids, names, prices and remaining spots.
+    """
+    if not FALLBACK_EVENTS:
+        return []
+
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+
+    try:
+        template_start = datetime.fromisoformat(str(FALLBACK_EVENTS[0]["starts_at"]))
+    except (KeyError, TypeError, ValueError):
+        return [dict(event) for event in FALLBACK_EVENTS]
+
+    # Weekday 5 is Saturday. If this Saturday's first event time has already
+    # passed, use next Saturday so every fallback event is strictly upcoming.
+    days_until_saturday = (5 - current.weekday()) % 7
+    target_date = current.date() + timedelta(days=days_until_saturday)
+    candidate = datetime.combine(target_date, template_start.timetz())
+    if candidate.tzinfo is None:
+        candidate = candidate.replace(tzinfo=timezone.utc)
+    if candidate <= current:
+        target_date += timedelta(days=7)
+
+    shift = target_date - template_start.date()
+    shifted: list[dict] = []
+    for event in FALLBACK_EVENTS:
+        copy = dict(event)
+        for key in ("starts_at", "ends_at"):
+            value = copy.get(key)
+            if value is None:
+                continue
+            try:
+                copy[key] = (datetime.fromisoformat(str(value)) + shift).isoformat()
+            except (TypeError, ValueError):
+                pass
+        shifted.append(copy)
+    return shifted
+
+
 def fetch_events():
     """Load upcoming, non-cancelled events. Never raises — empty list on failure."""
     supabase_client = _get_supabase_client()
     if supabase_client is None:
         logger.info("Supabase client not initialized — using fallback events")
-        return FALLBACK_EVENTS, "fallback"
+        return build_fallback_events(), "fallback"
 
     now = datetime.now(timezone.utc)
     until = now + timedelta(days=EVENT_WINDOW_DAYS)

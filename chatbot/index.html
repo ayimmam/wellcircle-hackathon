@@ -119,41 +119,239 @@
     cursor: pointer;
     border: none;
   }
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .settings-btn {
+    border: none;
+    background: var(--bubble);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    font-size: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
+  }
+  .settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+  }
+  /* The author display:flex below would otherwise defeat the UA rule for
+     [hidden], leaving the panel visible from page load. */
+  .settings-overlay[hidden] { display: none; }
+  .settings-header {
+    padding: 16px;
+    font-weight: 600;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .settings-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .settings-body h4 { margin: 0 0 6px; font-size: 15px; }
+  .settings-body .hint {
+    margin: 0 0 12px;
+    color: var(--hint);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 14px;
+  }
+  .switch-btn {
+    padding: 6px 16px;
+    border-radius: 14px;
+    border: none;
+    background: var(--bubble);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .switch-btn.is-on { background: var(--button); color: var(--button-text); }
+  .switch-btn:disabled,
+  .settings-save:disabled,
+  .settings-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .settings-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .settings-save {
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: none;
+    background: var(--button);
+    color: var(--button-text);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .settings-secondary {
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    background: transparent;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .settings-note { color: var(--hint); font-size: 13px; margin: 10px 0 0; }
+  .settings-status { color: var(--text); font-size: 13px; margin: 0; }
+  .settings-error { color: #b00020; font-size: 13px; margin: 0; }
+  .settings-field {
+    display: block;
+    font-size: 12px;
+    color: var(--hint);
+    margin: 8px 0 2px;
+  }
+  .settings-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: inherit;
+  }
 </style>
 </head>
 <body>
 
-<div class="header">✨ Ask Well Circle</div>
-
-<!-- RULE 1: Empty on load. No hardcoded greeting. -->
-<div class="messages" id="messages"></div>
-
-<div class="suggestions" id="suggestions">
-  <button class="suggestion" onclick="useSuggestion('I am stressed and have 500 ETB')">😩 Stressed, 500 ETB</button>
-  <button class="suggestion" onclick="useSuggestion('I want a relaxing massage')">💆 Relaxing massage</button>
-  <button class="suggestion" onclick="useSuggestion('I need a nutritionist on a budget')">🥗 Budget nutritionist</button>
+<div class="header">
+  <span>✨ Ask Well Circle</span>
+  <button
+    type="button"
+    id="settingsBtn"
+    class="settings-btn"
+    aria-label="Circler settings"
+    aria-haspopup="dialog"
+    title="Circler settings"
+  >⚙</button>
 </div>
+
+<!-- Conversation state and welcome copy are owned by the server. Nothing is
+     rendered until GET /ai/concierge/session answers. -->
+<div class="messages" id="messages"></div>
+<div class="suggestions" id="suggestions"></div>
 
 <div class="input-row">
   <input type="text" id="input" placeholder="Type how you're feeling..." />
   <button id="sendBtn" onclick="sendMessage()">Send</button>
 </div>
 
+<!-- Circler settings: personalization consent + conversation reset.
+     All actions go through the same owner-scoped concierge API; nothing is
+     faked when a request fails. -->
+<div class="settings-overlay" id="settingsPanel" role="dialog" aria-modal="true" aria-label="Circler settings" hidden>
+  <div class="settings-header">
+    <span>Circler settings</span>
+    <button type="button" id="settingsCloseBtn" class="settings-btn" aria-label="Close settings">✕</button>
+  </div>
+  <div class="settings-body">
+    <p id="settingsStatus" class="settings-status" role="status" hidden></p>
+    <p id="settingsError" class="settings-error" role="alert" hidden></p>
+
+    <div id="settingsSections" hidden>
+    <section aria-label="Personalization">
+      <h4>Personalization</h4>
+      <p class="hint">
+        Circler can use saved preferences — like budget or neighbourhood — to
+        personalize recommendations. Turning it off deletes them; your name is
+        kept.
+      </p>
+      <div class="settings-row">
+        <span>Circler personalization</span>
+        <button
+          type="button"
+          id="personalizationToggle"
+          class="switch-btn"
+          role="switch"
+          aria-checked="false"
+        >Off</button>
+      </div>
+
+      <p id="prefsSummary" class="settings-note" hidden></p>
+      <div class="settings-actions" style="margin-top:10px;">
+        <button type="button" id="editPrefsBtn" class="settings-secondary" hidden>Edit preferences</button>
+        <button type="button" id="deletePrefsBtn" class="settings-secondary" hidden>Delete saved preferences</button>
+      </div>
+
+      <div id="prefsEditor" hidden>
+        <label class="settings-field" for="prefNeighbourhood">Neighbourhood</label>
+        <input class="settings-input" id="prefNeighbourhood" type="text" maxlength="100" />
+        <label class="settings-field" for="prefBudget">Budget per visit (ETB)</label>
+        <input class="settings-input" id="prefBudget" type="number" min="0" inputmode="numeric" />
+        <label class="settings-field" for="prefInterests">Interests (comma-separated)</label>
+        <input class="settings-input" id="prefInterests" type="text" maxlength="400" />
+        <div class="settings-actions" style="margin-top:10px;">
+          <button type="button" id="savePrefsBtn" class="settings-save">Save preferences</button>
+          <button type="button" id="cancelPrefsBtn" class="settings-secondary">Cancel</button>
+        </div>
+      </div>
+    </section>
+
+    <section aria-label="Conversation">
+      <h4>Conversation</h4>
+      <p class="hint">
+        The current conversation is kept for up to 24 hours of inactivity.
+        Clearing it starts a fresh chat — your profile name and saved
+        preferences are not affected.
+      </p>
+      <button type="button" id="clearHistoryBtn" class="settings-secondary">Clear conversation history</button>
+    </section>
+    </div>
+  </div>
+</div>
+
 <script>
-  const API_URL = "https://well-circle-concierge.onrender.com/ai/concierge";
+  const DEFAULT_API_URL = "https://well-circle-concierge.vercel.app/ai/concierge";
+  // Local/testing override: append ?api=http://127.0.0.1:8000/ai/concierge to
+  // this page's URL. Anything absent or not an http(s) URL keeps the
+  // production endpoint, so normal deployments are unaffected.
+  const API_URL = (() => {
+    const override = new URLSearchParams(window.location.search).get('api');
+    if (override && /^https?:\/\//.test(override)) return override;
+    return DEFAULT_API_URL;
+  })();
 
   const messagesEl = document.getElementById('messages');
   const inputEl = document.getElementById('input');
   const sendBtn = document.getElementById('sendBtn');
   const suggestionsEl = document.getElementById('suggestions');
 
-  // RULE 4: isFirstMessage starts true, flips to false after first successful transaction
-  let isFirstMessage = true;
-  let conversationHistory = []; // {role: 'user'|'assistant', content: string}
-
-  // NEW: persisted session id so the backend can remember the last few
-  // turns of this conversation across reloads of the mini app.
+  // Persisted session id so the backend can remember the last few turns of
+  // this conversation across reloads of the mini app.
   let sessionId = localStorage.getItem('wellcircle_session_id') || null;
+  // Server-signed anonymous credential. The first response issues it; later
+  // requests send it so the server can bind this conversation to one identity.
+  let anonymousToken = localStorage.getItem('wellcircle_anonymous_token') || null;
+
+  const FALLBACK_SUGGESTIONS = [
+    { id: 'events', label: 'Wellness events this week', prompt: 'Wellness events this week', needs_location: false },
+    { id: 'gyms', label: 'Affordable gyms around me', prompt: 'Affordable gyms around me', needs_location: true },
+    { id: 'yoga', label: 'Yoga classes this week', prompt: 'Yoga classes this week', needs_location: false },
+    { id: 'nutrition', label: 'Nutrition coaching options', prompt: 'Nutrition coaching options', needs_location: false },
+  ];
 
   function addMessage(text, role) {
     const div = document.createElement('div');
@@ -181,6 +379,21 @@
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
+  function clearSuggestions() {
+    suggestionsEl.innerHTML = '';
+  }
+
+  function renderSuggestions(cards) {
+    clearSuggestions();
+    (cards && cards.length ? cards : []).forEach((card) => {
+      const button = document.createElement('button');
+      button.className = 'suggestion';
+      button.textContent = card.label;
+      button.onclick = () => useSuggestion(card.prompt || card.label);
+      suggestionsEl.appendChild(button);
+    });
+  }
+
   function useSuggestion(text) {
     inputEl.value = text;
     sendMessage();
@@ -196,65 +409,174 @@
   }
 
   /**
-   * Core transaction function. Sends a message to the backend and processes
-   * the response using strict conditional split routing (RULE 3).
+   * Load the server-owned first-visit / returning / expired experience.
+   * This is a GET and never invokes the model, so opening the widget does not
+   * create an unsolicited assistant reply.
+   */
+  async function bootstrapConversation({ sid = sessionId, anon = anonymousToken } = {}) {
+    const request = (requestSessionId, requestAnon) => {
+      const headers = {};
+      if (requestAnon) headers['X-Circler-Anonymous-Token'] = requestAnon;
+      const query = requestSessionId
+        ? `?session_id=${encodeURIComponent(requestSessionId)}`
+        : '';
+      return fetch(`${API_URL}/session${query}`, { headers, cache: 'no-store' });
+    };
+
+    try {
+      let res = await request(sid, anon);
+
+
+      if (res.status === 401 && anon) {
+        anonymousToken = null;
+        sessionId = null;
+        localStorage.removeItem('wellcircle_anonymous_token');
+        localStorage.removeItem('wellcircle_session_id');
+        res = await request(null, null);
+      } else if (res.status === 403) {
+        sessionId = null;
+        localStorage.removeItem('wellcircle_session_id');
+        res = await request(null, anon);
+      }
+
+      if (!res.ok) throw new Error('session load failed');
+      const data = await res.json();
+
+      if (data.anonymous_token) {
+        anonymousToken = data.anonymous_token;
+        localStorage.setItem('wellcircle_anonymous_token', anonymousToken);
+      }
+      if (data.session_id) {
+        sessionId = data.session_id;
+        localStorage.setItem('wellcircle_session_id', sessionId);
+      }
+
+      // A post-clear bootstrap renders cards again: undo the display:none
+      // that sendMessage applied to the chips row.
+      suggestionsEl.style.display = '';
+      messagesEl.innerHTML = '';
+      if (Array.isArray(data.history) && data.history.length > 0) {
+        data.history.forEach((message) => {
+          if (message && typeof message.content === 'string') {
+            addMessage(message.content, message.role === 'user' ? 'user' : 'assistant');
+          }
+        });
+        clearSuggestions();
+      } else if (data.welcome && data.welcome.text) {
+        addMessage(data.welcome.text, 'assistant');
+        renderSuggestions(
+          Array.isArray(data.welcome.cards) && data.welcome.cards.length
+            ? data.welcome.cards
+            : FALLBACK_SUGGESTIONS
+        );
+      } else {
+        // A returning conversation or a temporary memory outage: never
+        // repeat onboarding copy.
+        clearSuggestions();
+      }
+    } catch (err) {
+      console.error(err);
+      messagesEl.innerHTML = '';
+      addMessage("I couldn't load your conversation. Please try again.", 'assistant');
+      addRetryOption();
+      clearSuggestions();
+    }
+  }
+
+  /**
+   * After a failed conversation bootstrap, offer one-click recovery without
+   * reloading the page. Uses the same bootstrap request the widget performs
+   * on open, so a retry succeeds whenever the server itself has recovered.
+   */
+  function addRetryOption() {
+    const row = document.createElement('div');
+    row.id = 'circler-retry-load';
+    row.style.cssText = 'margin-top:8px;';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip';
+    btn.id = 'circler-retry-load-btn';
+    btn.textContent = 'Try again';
+    btn.addEventListener('click', async () => {
+      if (sendBtn.disabled) return; // a load is already in progress
+      row.remove();
+      sendBtn.disabled = true;
+      try {
+        await bootstrapConversation();
+      } finally {
+        sendBtn.disabled = false;
+      }
+    });
+    row.appendChild(btn);
+    messagesEl.appendChild(row);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  /**
+   * Send one user turn to the backend.
    *
    * @param {string} userText - The text to send as `message`.
-   * @param {boolean} displayUserBubble - Whether to render userText as a user bubble
-   *                                       (false for the silent __init__ call).
    */
-  async function sendToBackend(userText, displayUserBubble) {
+  async function sendToBackend(userText) {
     const typingEl = showTyping();
 
     try {
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userText,
-          is_first_message: isFirstMessage,
-          history: conversationHistory,
-          session_id: sessionId, // NEW: server-side memory key
-        }),
-      });
+      const postConcierge = async (sid, anonToken) => {
+        const headers = { 'Content-Type': 'application/json' };
+        if (anonToken) headers['X-Circler-Anonymous-Token'] = anonToken;
+        const payload = { message: userText };
+        if (sid) payload.session_id = sid;
+        return fetch(API_URL, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        });
+      };
+
+      let res = await postConcierge(sessionId, anonymousToken);
+
+      if (res.status === 401 && anonymousToken) {
+        // Expired or tampered anonymous credential: start a new anonymous
+        // identity. The old session id is not reusable under the new owner.
+        anonymousToken = null;
+        sessionId = null;
+        localStorage.removeItem('wellcircle_anonymous_token');
+        localStorage.removeItem('wellcircle_session_id');
+        res = await postConcierge(null, null);
+      } else if (res.status === 403) {
+        // The stored session belongs to an earlier identity or a pre-ownership
+        // row. Start a fresh conversation; never reuse the old id.
+        sessionId = null;
+        localStorage.removeItem('wellcircle_session_id');
+        res = await postConcierge(null, anonymousToken);
+      }
 
       if (!res.ok) throw new Error('Request failed');
 
       const data = await res.json();
       typingEl.remove();
 
-      // NEW: persist whatever session_id the backend assigned/echoed so
-      // the next message keeps using the same remembered conversation.
+      if (data.anonymous_token) {
+        anonymousToken = data.anonymous_token;
+        localStorage.setItem('wellcircle_anonymous_token', anonymousToken);
+      }
+
+      // Persist whatever session_id the backend assigned/echoed so the next
+      // message keeps using the same remembered conversation.
       if (data.session_id && data.session_id !== sessionId) {
         sessionId = data.session_id;
         localStorage.setItem('wellcircle_session_id', sessionId);
       }
 
-      // RULE 3: Strict conditional split routing - never render both fields
-      if (data.intro && data.intro.trim().length > 0) {
-        addMessage(data.intro, 'assistant');
-
-        // Onboarding turn: don't pollute history with the huge intro text
-        if (displayUserBubble) {
-          conversationHistory.push({ role: 'user', content: userText });
-        }
-      } else if (data.reply && data.reply.trim().length > 0) {
+      // One validated reply per successful turn. Welcome copy is never
+      // generated here; it comes from the opening session request.
+      if (data.reply && data.reply.trim().length > 0) {
         addMessage(data.reply, 'assistant');
-
-        if (displayUserBubble) {
-          conversationHistory.push({ role: 'user', content: userText });
-        }
-        conversationHistory.push({ role: 'assistant', content: data.reply });
       }
 
-      // RULE 5: Robust provider link handling
       if (data.provider_id && data.provider_name) {
         addProviderLink(data.provider_id, data.provider_name);
       }
-
-      // RULE 4: Flip state after successful transaction
-      isFirstMessage = false;
-
     } catch (err) {
       typingEl.remove();
       addMessage("Sorry, I couldn't reach the concierge right now. Please try again.", 'assistant');
@@ -271,7 +593,7 @@
     sendBtn.disabled = true;
     suggestionsEl.style.display = 'none';
 
-    await sendToBackend(text, true);
+    await sendToBackend(text);
 
     sendBtn.disabled = false;
   }
@@ -280,9 +602,278 @@
     if (e.key === 'Enter') sendMessage();
   });
 
-  // RULE 2: Automatic onboarding trigger on load.
-  // Silent fetch with is_first_message: true, message: "__init__".
-  // No user bubble is rendered for this initialization call.
+  // ------------------------------------------------------------------
+  // Circler settings: personalization consent + conversation reset.
+  // The identity comes entirely from the stored anonymous credential —
+  // no client-supplied owner id is ever trusted. Failed requests show an
+  // error and change nothing.
+  // ------------------------------------------------------------------
+  const settingsPanelEl = document.getElementById('settingsPanel');
+  const settingsStatusEl = document.getElementById('settingsStatus');
+  const settingsErrorEl = document.getElementById('settingsError');
+  const personalizationToggleEl = document.getElementById('personalizationToggle');
+  const prefsSummaryEl = document.getElementById('prefsSummary');
+  const editPrefsBtnEl = document.getElementById('editPrefsBtn');
+  const deletePrefsBtnEl = document.getElementById('deletePrefsBtn');
+  const prefsEditorEl = document.getElementById('prefsEditor');
+  const prefNeighbourhoodEl = document.getElementById('prefNeighbourhood');
+  const prefBudgetEl = document.getElementById('prefBudget');
+  const prefInterestsEl = document.getElementById('prefInterests');
+  const savePrefsBtnEl = document.getElementById('savePrefsBtn');
+  const cancelPrefsBtnEl = document.getElementById('cancelPrefsBtn');
+  const clearHistoryBtnEl = document.getElementById('clearHistoryBtn');
+
+  let settingsBusy = false;
+  let settingsProfile = null;
+
+  function settingsHeaders() {
+    const headers = {};
+    if (anonymousToken) headers['X-Circler-Anonymous-Token'] = anonymousToken;
+    return headers;
+  }
+
+  async function settingsRequest(path, options = {}) {
+    const headers = { ...settingsHeaders(), ...(options.headers || {}) };
+    if (options.body) headers['Content-Type'] = 'application/json';
+    return fetch(`${API_URL}${path}`, { cache: 'no-store', ...options, headers });
+  }
+
+  function setSettingsBusy(busy) {
+    settingsBusy = busy;
+    for (const el of [
+      personalizationToggleEl, editPrefsBtnEl, deletePrefsBtnEl,
+      savePrefsBtnEl, cancelPrefsBtnEl, clearHistoryBtnEl,
+    ]) el.disabled = busy;
+  }
+
+  function showSettingsStatus(text) {
+    settingsStatusEl.textContent = text;
+    settingsStatusEl.hidden = !text;
+  }
+
+  function showSettingsError(text) {
+    settingsErrorEl.textContent = text;
+    settingsErrorEl.hidden = !text;
+  }
+
+  function prefSummary(profile) {
+    const preferences = profile?.preferences ?? {};
+    const parts = [];
+    if (preferences.budget_etb != null) parts.push(`Budget: up to ETB ${preferences.budget_etb}`);
+    if (preferences.neighbourhood) parts.push(`Area: ${preferences.neighbourhood}`);
+    if (Array.isArray(preferences.interests) && preferences.interests.length) {
+      parts.push(`Interests: ${preferences.interests.join(', ')}`);
+    }
+    if (preferences.notes) parts.push(`Notes: ${preferences.notes}`);
+    return parts.join(' · ');
+  }
+
+  function renderSettings(profile) {
+    settingsProfile = profile;
+    const enabled = !!profile?.consent_recorded;
+    personalizationToggleEl.textContent = enabled ? 'On' : 'Off';
+    personalizationToggleEl.classList.toggle('is-on', enabled);
+    personalizationToggleEl.setAttribute('aria-checked', String(enabled));
+
+    const summary = prefSummary(profile);
+    prefsSummaryEl.textContent = summary
+      ? summary
+      : 'No preferences saved yet.';
+    prefsSummaryEl.hidden = false;
+    editPrefsBtnEl.hidden = !enabled;
+    deletePrefsBtnEl.hidden = !enabled;
+    prefsEditorEl.hidden = true;
+  }
+
+  async function loadSettingsProfile() {
+    setSettingsBusy(true);
+    showSettingsStatus('');
+    showSettingsError('');
+    document.getElementById('settingsSections').hidden = true;
+    try {
+      const res = await settingsRequest('/profile');
+      if (!res.ok) throw new Error(res.status === 401 ? 'AUTH' : 'LOAD');
+      settingsProfile = await res.json();
+      renderSettings(settingsProfile);
+      document.getElementById('settingsSections').hidden = false;
+    } catch (e) {
+      settingsProfile = null;
+      prefsSummaryEl.hidden = true;
+      editPrefsBtnEl.hidden = true;
+      deletePrefsBtnEl.hidden = true;
+      prefsEditorEl.hidden = true;
+      showSettingsError(
+        e?.message === 'AUTH'
+          ? 'Your session has expired. Reopen the chat to continue.'
+          : "Circler couldn't load your settings. Please try again.",
+      );
+    } finally {
+      setSettingsBusy(false);
+    }
+  }
+
+  function openSettings() {
+    settingsPanelEl.hidden = false;
+    loadSettingsProfile();
+  }
+
+  function closeSettings() {
+    settingsPanelEl.hidden = true;
+  }
+
+  // A PATCH replaces the whole saved set, so always send the complete
+  // merged object instead of a partial draft.
+  function buildPreferencesDraft() {
+    const next = { ...(settingsProfile?.preferences ?? {}) };
+    delete next.neighbourhood;
+    delete next.budget_etb;
+    delete next.interests;
+    const neighbourhood = prefNeighbourhoodEl.value.trim();
+    if (neighbourhood) next.neighbourhood = neighbourhood;
+    const budgetText = prefBudgetEl.value.trim();
+    if (budgetText) {
+      const budget = Number(budgetText);
+      if (!Number.isInteger(budget) || budget < 0 || budget > 100000000) {
+        return null;
+      }
+      next.budget_etb = budget;
+    }
+    const interests = prefInterestsEl.value
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (interests.length) next.interests = interests;
+    return next;
+  }
+
+  function startEditingPreferences() {
+    const preferences = settingsProfile?.preferences ?? {};
+    prefNeighbourhoodEl.value = typeof preferences.neighbourhood === 'string' ? preferences.neighbourhood : '';
+    prefBudgetEl.value = preferences.budget_etb != null ? String(preferences.budget_etb) : '';
+    prefInterestsEl.value = Array.isArray(preferences.interests) ? preferences.interests.join(', ') : '';
+    prefsSummaryEl.hidden = true;
+    editPrefsBtnEl.hidden = true;
+    deletePrefsBtnEl.hidden = true;
+    prefsEditorEl.hidden = false;
+    showSettingsStatus('');
+    showSettingsError('');
+  }
+
+  async function runSettingsAction(actionText, request) {
+    setSettingsBusy(true);
+    showSettingsStatus('');
+    showSettingsError('');
+    try {
+      const res = await request();
+      if (!res.ok) throw new Error(res.status === 401 ? 'AUTH' : 'ACTION');
+      const data = await res.json();
+      if (data && typeof data === 'object' && 'consent_recorded' in data) {
+        renderSettings(data);
+      }
+      showSettingsStatus(actionText);
+    } catch (e) {
+      showSettingsError(
+        e?.message === 'AUTH'
+          ? 'Your session has expired. Reopen the chat to continue.'
+          : "That change couldn't be saved. Please try again.",
+      );
+    } finally {
+      setSettingsBusy(false);
+    }
+  }
+
+  async function handleTogglePersonalization() {
+    if (settingsBusy || !settingsProfile) return;
+    if (settingsProfile.consent_recorded) {
+      // Disabling withdraws consent AND deletes saved preferences. Say so
+      // before doing it.
+      if (!window.confirm('Turning off personalization deletes your saved preferences. Your profile name is kept. Continue?')) return;
+      await runSettingsAction('Personalization is off. Saved preferences were deleted.', () =>
+        settingsRequest('/personalization', { method: 'DELETE' }));
+    } else {
+      await runSettingsAction('Personalization is on. Add preferences below so Circler can use them.', () =>
+        settingsRequest('/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            consent: true,
+            preferences: settingsProfile?.preferences ?? {},
+          }),
+        }));
+    }
+  }
+
+  async function handleSavePreferences() {
+    if (settingsBusy || !settingsProfile?.consent_recorded) return;
+    const draft = buildPreferencesDraft();
+    if (draft === null) {
+      showSettingsError('Budget must be a whole number of ETB between 0 and 100000000.');
+      return;
+    }
+    await runSettingsAction('Preferences saved.', () =>
+      settingsRequest('/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ consent: true, preferences: draft }),
+      }));
+  }
+
+  async function handleDeletePreferences() {
+    if (settingsBusy || !settingsProfile?.consent_recorded) return;
+    if (!window.confirm('Delete your saved preferences? Circler will no longer use them.')) return;
+    await runSettingsAction('Saved preferences were deleted.', () =>
+      settingsRequest('/preferences', { method: 'DELETE' }));
+  }
+
+  async function handleClearHistory() {
+    if (settingsBusy) return;
+    if (!sessionId) {
+      showSettingsStatus('The conversation is already clear.');
+      return;
+    }
+    if (!window.confirm('Clear the current conversation? Your profile name and saved preferences are not affected.')) return;
+    setSettingsBusy(true);
+    showSettingsStatus('');
+    showSettingsError('');
+    try {
+      const res = await settingsRequest(`/history?session_id=${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(res.status === 401 ? 'AUTH' : 'ACTION');
+      const data = await res.json();
+      // Reset to the fresh session id and reload the server-owned opening
+      // experience. The anonymous credential (and therefore the profile) is
+      // intentionally kept.
+      sessionId = data.session_id || null;
+      if (sessionId) localStorage.setItem('wellcircle_session_id', sessionId);
+      showSettingsStatus('Conversation cleared. Your profile was not affected.');
+      await bootstrapConversation({ sid: sessionId, anon: anonymousToken });
+      closeSettings();
+    } catch (e) {
+      showSettingsError(
+        e?.message === 'AUTH'
+          ? 'Your session has expired. Reopen the chat to continue.'
+          : "That change couldn't be saved. Please try again.",
+      );
+    } finally {
+      setSettingsBusy(false);
+    }
+  }
+
+  document.getElementById('settingsBtn').addEventListener('click', openSettings);
+  document.getElementById('settingsCloseBtn').addEventListener('click', closeSettings);
+  personalizationToggleEl.addEventListener('click', handleTogglePersonalization);
+  editPrefsBtnEl.addEventListener('click', startEditingPreferences);
+  deletePrefsBtnEl.addEventListener('click', handleDeletePreferences);
+  savePrefsBtnEl.addEventListener('click', handleSavePreferences);
+  cancelPrefsBtnEl.addEventListener('click', () => {
+    if (settingsBusy) return;
+    prefsEditorEl.hidden = true;
+    settingsProfile && renderSettings(settingsProfile);
+  });
+  clearHistoryBtnEl.addEventListener('click', handleClearHistory);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !settingsPanelEl.hidden) closeSettings();
+  });
+
   window.addEventListener('DOMContentLoaded', () => {
     // Apply Telegram theme if available
     if (window.Telegram && window.Telegram.WebApp) {
@@ -294,7 +885,7 @@
     }
 
     sendBtn.disabled = true;
-    sendToBackend("__init__", false).finally(() => {
+    bootstrapConversation().finally(() => {
       sendBtn.disabled = false;
     });
   });

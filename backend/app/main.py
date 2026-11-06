@@ -6,7 +6,6 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
     auth, providers, communities, bookings, payments, users, circles, posts,
@@ -14,10 +13,12 @@ from app.api import (
     followers, maintenance, strava, trainer, uploads, home, feed, stories, wearables,
 )
 from app.api.admin import router as admin_router
+from app.api.account_reconciliation import router as account_reconciliation_router
 from app.api.bot import router as bot_router
 from app.config import settings
 from app.utils.logger import get_logger
 from app.utils.error_handlers import register_error_handling
+from app.utils.security import install_cors, security_headers_middleware
 
 logger = get_logger("wellcircle.app")
 
@@ -79,18 +80,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
-origins = settings.cors_origins
+# CORS — explicit first-party origins; preview wildcard requires opt-in.
+install_cors(app)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    # Allow Vercel preview/production frontends (e.g. /admin deep links from Telegram)
-    allow_origin_regex=r"https://.*\.vercel\.app",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Low-risk security headers on every API response.
+app.middleware("http")(security_headers_middleware)
 
 # Graceful error responses + request timing/logging
 register_error_handling(app)
@@ -106,6 +100,11 @@ app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
 app.include_router(circles.router, prefix="/api/circles", tags=["Circles"])
 app.include_router(posts.router, prefix="/api/posts", tags=["Posts"])
 app.include_router(admin_router, prefix="/api/admin", tags=["Admin"])
+app.include_router(
+    account_reconciliation_router,
+    prefix="/api/account-reconciliation",
+    tags=["Account Reconciliation"],
+)
 app.include_router(bot_router, prefix="/api/bot", tags=["Bot"])
 
 # Phase 3

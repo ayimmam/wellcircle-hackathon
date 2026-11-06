@@ -131,6 +131,10 @@ async function request(method, path, body = null, extraOptions = {}) {
       }
       const requestError = new Error(msg);
       requestError.status = res.status;
+      // Rate-limited endpoints (account linking) send Retry-After so the UI
+      // can wait exactly as long as the server asks instead of guessing.
+      const retryAfter = Number(res.headers?.get?.('Retry-After'));
+      if (Number.isFinite(retryAfter) && retryAfter > 0) requestError.retryAfter = retryAfter;
       if (res.status === 401 && authToken && isWebApp() && !path.startsWith('/auth/') && !window.location.pathname.startsWith('/provider-portal')) {
         window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
       }
@@ -371,6 +375,102 @@ export async function authProviderPassword(username, password) {
     return { token: 'mock-provider-jwt-token', user: { ...MOCK_USER, is_provider: true }, is_new_user: false };
   }
   return request('POST', '/auth/provider-login', { username, password });
+}
+
+// ─── Verified account linking ───────────────────────
+// These endpoints attach an additional sign-in method to the *signed-in*
+// canonical account. Provider proofs (Google ID token / Telegram payload)
+// are only ever held in memory for the duration of a request — never cached,
+// never written to localStorage/sessionStorage, never logged.
+const mockLinkChallenges = new Map();
+let mockLinkedIdentities = [
+  { provider: 'telegram', subject: 'mock-telegram-identity', email: null, verified_at: null, created_at: null },
+];
+
+function mockIdentityList() {
+  return { identities: mockLinkedIdentities.map(identity => ({ ...identity })) };
+}
+
+export async function getMyIdentities() {
+  if (USE_MOCK) {
+    await delay(250);
+    return mockIdentityList();
+  }
+  return request('GET', '/users/me/identities');
+}
+
+export async function startIdentityLink(provider) {
+  if (USE_MOCK) {
+    await delay(250);
+    const now = Date.now();
+    const challengeId = `mock-challenge-${now}-${mockLinkChallenges.size + 1}`;
+    mockLinkChallenges.set(challengeId, { provider, verified: null });
+    return {
+      challenge_id: challengeId,
+      provider,
+      expires_in: 300,
+      expires_at: Math.floor(now / 1000) + 300,
+    };
+  }
+  return request('POST', '/auth/linking/challenges', { provider });
+}
+
+export async function verifyIdentityLink(challengeId, proof) {
+  if (USE_MOCK) {
+    await delay(250);
+    const challenge = mockLinkChallenges.get(challengeId);
+    if (!challenge) {
+      throw Object.assign(new Error('This connection attempt has expired.'), { status: 400 });
+    }
+    const email = challenge.provider === 'google' ? 'demo@wellcircle.et' : null;
+    const subject = `mock-${challenge.provider}-subject`;
+    challenge.verified = { subject, email };
+    return {
+      challenge_id: challengeId,
+      provider: challenge.provider,
+      subject,
+      email,
+      expires_in: 300,
+      requires_confirmation: true,
+    };
+  }
+  return request('POST', `/auth/linking/challenges/${encodeURIComponent(challengeId)}/verify`, proof);
+}
+
+export async function confirmIdentityLink(challengeId) {
+  if (USE_MOCK) {
+    await delay(250);
+    const challenge = mockLinkChallenges.get(challengeId);
+    if (!challenge?.verified) {
+      throw Object.assign(new Error('This connection attempt has expired.'), { status: 400 });
+    }
+    const alreadyLinked = mockLinkedIdentities.some(
+      identity => identity.provider === challenge.provider && identity.subject === challenge.verified.subject
+    );
+    if (!alreadyLinked) {
+      const now = new Date().toISOString();
+      mockLinkedIdentities = [
+        ...mockLinkedIdentities,
+        {
+          provider: challenge.provider,
+          subject: challenge.verified.subject,
+          email: challenge.verified.email,
+          verified_at: now,
+          created_at: now,
+        },
+      ];
+    }
+    mockLinkChallenges.delete(challengeId);
+    return {
+      linked: !alreadyLinked,
+      already_linked: alreadyLinked,
+      provider: challenge.provider,
+      subject: challenge.verified.subject,
+      user_id: MOCK_USER.id,
+      ...mockIdentityList(),
+    };
+  }
+  return request('POST', `/auth/linking/challenges/${encodeURIComponent(challengeId)}/confirm`);
 }
 
 // ─── Users ──────────────────────────────────────────

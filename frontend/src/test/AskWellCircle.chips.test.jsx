@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { useLocation } from 'react-router-dom';
 import AskWellCircle from '../components/AskWellCircle';
 import { renderWithProviders } from './renderWithProviders';
 import { MOCK_USER } from '../data/mock';
@@ -12,11 +13,57 @@ vi.mock('../analytics', () => ({
 
 import { track } from '../analytics';
 
+const CARDS = [
+  { id: 'events', label: 'Wellness events this week', prompt: 'Wellness events this week', needs_location: false },
+  { id: 'gyms', label: 'Affordable gyms around me', prompt: 'Affordable gyms around me', needs_location: true },
+  { id: 'yoga', label: 'Yoga classes this week', prompt: 'Yoga classes this week', needs_location: false },
+  { id: 'nutrition', label: 'Nutrition coaching options', prompt: 'Nutrition coaching options', needs_location: false },
+];
+
+const SESSION_RESPONSE = {
+  session_id: 'server-session-1',
+  experience: 'first_visit',
+  welcome: {
+    text: "🌿 Welcome to Well Circle — I'm Circler, your personal wellness concierge.",
+    cards: CARDS,
+  },
+  history: [],
+  profile_name: null,
+  anonymous_token: 'anon-token-1',
+  memory_available: true,
+};
+
+const CHAT_RESPONSE = {
+  reply: 'Here are some options.',
+  data_source: 'live',
+  session_id: 'server-session-1',
+  anonymous_token: null,
+};
+
+function response(body, { ok = true, status = 200 } = {}) {
+  return { ok, status, json: () => Promise.resolve(body) };
+}
+
+function isSessionRequest(url) {
+  return String(url).includes('/ai/concierge/session');
+}
+
+function chatCalls() {
+  return global.fetch.mock.calls.filter(
+    ([url, options]) => !isSessionRequest(url) && options?.method === 'POST',
+  );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{`${location.pathname}${location.search}`}</div>;
+}
+
 beforeEach(() => {
-  localStorage.removeItem('concierge_messages');
-  localStorage.removeItem('concierge_is_first');
-  global.fetch = vi.fn().mockResolvedValue({
-    json: () => Promise.resolve({ reply: 'Here are some options.', intro: '', data_source: 'live' }),
+  localStorage.clear();
+  global.fetch = vi.fn((url) => {
+    if (isSessionRequest(url)) return Promise.resolve(response(SESSION_RESPONSE));
+    return Promise.resolve(response(CHAT_RESPONSE));
   });
 });
 
@@ -26,15 +73,15 @@ afterEach(() => {
 });
 
 describe('AskWellCircle — concierge quick-request chips', () => {
-  it('shows the chip row on a fresh conversation (just the greeting)', async () => {
+  it('loads a server-owned welcome and all four cards on a fresh conversation', async () => {
     renderWithProviders(<AskWellCircle />);
     fireEvent.click(document.querySelector('.fab-ask'));
 
     await screen.findByText(/I'm Circler/);
     expect(document.getElementById('concierge-chips')).toBeInTheDocument();
-    expect(screen.getByText('Wellness events this week')).toBeInTheDocument();
-    expect(screen.queryByText('Best-rated spas')).not.toBeInTheDocument();
-    expect(screen.queryByText('Nutrition coaching options')).not.toBeInTheDocument();
+    CARDS.forEach((card) => {
+      expect(screen.getByText(card.label)).toBeInTheDocument();
+    });
   });
 
   it('sends the Wellness events this week chip through the concierge API', async () => {
@@ -46,8 +93,8 @@ describe('AskWellCircle — concierge quick-request chips', () => {
 
     await waitFor(() => expect(screen.getByText('Wellness events this week')).toBeInTheDocument());
     expect(track).toHaveBeenCalledWith('concierge_chip_click', { chip: 'Wellness events this week' });
-    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
-    const body = JSON.parse(global.fetch.mock.calls[0][1].body);
+    await waitFor(() => expect(chatCalls()).toHaveLength(1));
+    const body = JSON.parse(chatCalls()[0][1].body);
     expect(body.message).toBe('Wellness events this week');
   });
 
@@ -60,8 +107,8 @@ describe('AskWellCircle — concierge quick-request chips', () => {
 
     await waitFor(() => expect(screen.getByText('Yoga classes this week')).toBeInTheDocument());
     expect(track).toHaveBeenCalledWith('concierge_chip_click', { chip: 'Yoga classes this week' });
-    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
-    const body = JSON.parse(global.fetch.mock.calls[0][1].body);
+    await waitFor(() => expect(chatCalls()).toHaveLength(1));
+    const body = JSON.parse(chatCalls()[0][1].body);
     expect(body.message).toBe('Yoga classes this week');
   });
 
@@ -77,29 +124,53 @@ describe('AskWellCircle — concierge quick-request chips', () => {
     await new Promise(r => setTimeout(r, 850));
     fireEvent.click(screen.getByText('Affordable gyms around me'));
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
-    const body = JSON.parse(global.fetch.mock.calls[0][1].body);
+    await waitFor(() => expect(chatCalls()).toHaveLength(1));
+    const body = JSON.parse(chatCalls()[0][1].body);
     expect(body.message).toBe('Affordable gyms around Bole');
   });
 
   it('renders a calendar pill when the concierge returns an event', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({
+    global.fetch = vi.fn((url) => {
+      if (isSessionRequest(url)) return Promise.resolve(response(SESSION_RESPONSE));
+      return Promise.resolve(response({
         reply: 'Weekend Restorative Yoga is this Saturday.',
-        intro: '',
         data_source: 'live',
         event_id: 'fe-002',
         event_name: 'Weekend Restorative Yoga',
         event_provider_id: 'fb-002',
-      }),
+      }));
     });
 
-    renderWithProviders(<AskWellCircle />);
+    renderWithProviders(<><AskWellCircle /><LocationProbe /></>);
     fireEvent.click(document.querySelector('.fab-ask'));
     await screen.findByText(/I'm Circler/);
     fireEvent.click(screen.getByText('Yoga classes this week'));
 
-    expect(await screen.findByText('Weekend Restorative Yoga')).toBeInTheDocument();
+    fireEvent.click(await screen.findByText('Weekend Restorative Yoga'));
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/booking/fb-002?event_id=fe-002',
+    );
+  });
+
+  it('opens the events list when an event came from fallback ids', async () => {
+    global.fetch = vi.fn((url) => {
+      if (isSessionRequest(url)) return Promise.resolve(response(SESSION_RESPONSE));
+      return Promise.resolve(response({
+        reply: 'Weekend Restorative Yoga is this Saturday.',
+        data_source: 'fallback',
+        event_id: 'fe-002',
+        event_name: 'Weekend Restorative Yoga',
+        event_provider_id: 'fb-002',
+      }));
+    });
+
+    renderWithProviders(<><AskWellCircle /><LocationProbe /></>);
+    fireEvent.click(document.querySelector('.fab-ask'));
+    await screen.findByText(/I'm Circler/);
+    fireEvent.click(screen.getByText('Yoga classes this week'));
+
+    fireEvent.click(await screen.findByText('Weekend Restorative Yoga'));
+    expect(screen.getByTestId('location')).toHaveTextContent('/events');
   });
 
   it('prefills (does not auto-send) the location chip when no neighbourhood is set', async () => {
@@ -109,7 +180,7 @@ describe('AskWellCircle — concierge quick-request chips', () => {
 
     fireEvent.click(screen.getByText('Affordable gyms around me'));
 
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(chatCalls()).toHaveLength(0);
     expect(screen.getByPlaceholderText('Ask about wellness services...').value).toBe('Affordable gyms around ');
   });
 });

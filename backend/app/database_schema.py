@@ -87,6 +87,34 @@ def ensure_db_schema(engine):
         SELECT gen_random_uuid(), id, 'telegram', telegram_id::text, COALESCE(created_at, NOW()), COALESCE(created_at, NOW())
         FROM users WHERE telegram_id IS NOT NULL
         ON CONFLICT (provider, subject) DO NOTHING;""",
+        # Account-link challenges (WEB_APP_PLAN Phase B). Latest schema:
+        # alembic revision 034. This fragment keeps local/dev boot self-heal
+        # working; shared environments must apply the migration.
+        """CREATE TABLE IF NOT EXISTS account_link_challenges (
+            id VARCHAR(64) PRIMARY KEY,
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            provider VARCHAR(16) NOT NULL,
+            target_subject VARCHAR(255) NULL,
+            target_email VARCHAR(255) NULL,
+            status VARCHAR(16) NOT NULL DEFAULT 'pending',
+            attempts INTEGER NOT NULL DEFAULT 0,
+            created_at BIGINT NOT NULL,
+            expires_at BIGINT NOT NULL,
+            verified_at BIGINT NULL,
+            consumed_at BIGINT NULL
+        );""",
+        "CREATE INDEX IF NOT EXISTS ix_account_link_challenges_user_id ON account_link_challenges(user_id);",
+        "CREATE INDEX IF NOT EXISTS ix_account_link_challenges_expires_at ON account_link_challenges(expires_at);",
+        "CREATE INDEX IF NOT EXISTS ix_link_user_created ON account_link_challenges(user_id, created_at);",
+        # Ephemeral counters for expensive authenticated dry-run endpoints
+        # (Phase F). Latest schema: alembic revision 035.
+        """CREATE TABLE IF NOT EXISTS api_rate_limits (
+            id VARCHAR(64) PRIMARY KEY,
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            action VARCHAR(32) NOT NULL,
+            created_at BIGINT NOT NULL
+        );""",
+        "CREATE INDEX IF NOT EXISTS ix_api_rate_limits_user_action_created ON api_rate_limits(user_id, action, created_at);",
         # Circles table — banner (alembic 018 never ran in production; the
         # circle_stories/circle_story_views tables below are the actual fix
         # for the "story posted but never visible" bug: create_story() wrote

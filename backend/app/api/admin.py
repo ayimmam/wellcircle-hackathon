@@ -4,13 +4,13 @@ import math
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timezone, timedelta
 
 from app.database import get_db
-from app.dependencies import get_super_admin
+from app.dependencies import get_super_admin, get_super_admin_readonly
 from app.models.user import User
 from app.models.provider import Provider
 from app.models.community import Community
@@ -52,10 +52,64 @@ from app.schemas.product import (
     AdminRedemptionListResponse, AdminRedemptionItem,
 )
 from app.schemas.circle_subscription import PaidCircleAdminReviewRequest
+from app.schemas.account_reconciliation import (
+    ReconciliationAdminDryRunRequest,
+    ReconciliationDryRunResponse,
+)
+from app.services.account_reconciliation import (
+    ReconciliationError,
+    build_reconciliation_plan,
+)
+from app.services.rate_limit import (
+    RECONCILIATION_ADMIN_DRY_RUN,
+    RECONCILIATION_ADMIN_LIMIT,
+    RateLimitExceeded,
+    enforce_rate_limit,
+)
 from app.models.circle import Circle, CircleMember
 from app.crud.circle_subscription import owner_lifetime_points, review_paid_circle
 
 router = APIRouter()
+
+
+@router.post(
+    "/accounts/reconciliation/dry-run",
+    response_model=ReconciliationDryRunResponse,
+)
+async def account_reconciliation_dry_run(
+    payload: ReconciliationAdminDryRunRequest,
+    admin: User = Depends(get_super_admin_readonly),
+    db: Session = Depends(get_db),
+):
+    """Read-only duplicate-account reconciliation plan.
+
+    This endpoint never mutates either account. It returns a blocker-aware plan
+    for a super admin to review before any future reconciliation operation.
+    """
+    try:
+        enforce_rate_limit(
+            db,
+            admin.id,
+            RECONCILIATION_ADMIN_DRY_RUN,
+            limit=RECONCILIATION_ADMIN_LIMIT,
+        )
+    except RateLimitExceeded as error:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many reconciliation checks. Please wait and try again.",
+            headers={"Retry-After": str(error.retry_after)},
+        ) from error
+    try:
+        return build_reconciliation_plan(
+            db,
+            payload.canonical_user_id,
+            payload.source_user_id,
+        )
+    except ReconciliationError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": exc.code, "message": exc.message},
+        ) from exc
 
 
 @router.get("/analytics", response_model=PlatformAnalytics)

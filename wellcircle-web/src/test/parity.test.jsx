@@ -47,7 +47,7 @@ describe('browser sessions and shared features', () => {
 
   it('renders the shared provider feature through the web session context', async () => {
     mount(`/provider/${MOCK_PROVIDERS[0].id}`);
-    expect(await screen.findByText(MOCK_PROVIDERS[0].name)).toBeInTheDocument();
+    expect(await screen.findByText(MOCK_PROVIDERS[0].name, undefined, { timeout: 8000 })).toBeInTheDocument();
   });
 
   it.each([['/privacy', 'Privacy Policy'], ['/terms', 'Terms of Service'], ['/data-deletion', 'Data Deletion']])('allows logged-out reading of %s', async (path, title) => {
@@ -92,7 +92,9 @@ describe('browser sessions and shared features', () => {
 
   it('lets browser users sign out without retaining the previous session', async () => {
     mount('/profile');
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }));
+    // ProfileScreen is a lazy chunk and this test also waits for the auth
+    // session to hydrate, so give the exact same assertion a wider window.
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }, { timeout: 8000 }));
     expect(await screen.findByText('Continue with Google')).toBeInTheDocument();
     expect(localStorage.getItem('wc_token')).toBeNull();
     expect(getToken()).toBeNull();

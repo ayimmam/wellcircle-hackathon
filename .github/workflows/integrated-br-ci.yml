@@ -135,8 +135,9 @@ jobs:
             "CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) PRIMARY KEY); TRUNCATE alembic_version; INSERT INTO alembic_version VALUES ('032');"
           python -m alembic heads
           python -m alembic upgrade head
-          current=$(python -m alembic current | tr -d ' ')
-          test "$current" = "035 (head)" || { echo "unexpected current revision: $current"; exit 1; }
+          python -m alembic current | head -n 1 | grep '^035 (head)' >/dev/null || {
+            echo "unexpected current revision:"; python -m alembic current; exit 1;
+          }
 
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "\d+ auth_identities"
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "\d+ account_link_challenges"

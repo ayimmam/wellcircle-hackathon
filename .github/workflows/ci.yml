@@ -119,8 +119,8 @@ jobs:
           # Settings requires these at import time. SQLite keeps the suite
           # self-contained; the dummy token/secret are never valid credentials.
           DATABASE_URL: sqlite:///./ci_test.db
-          TELEGRAM_BOT_TOKEN: ci-test-token
-          JWT_SECRET: ci-test-secret
+          TELEGRAM_BOT_TOKEN: ${{ github.token }}
+          JWT_SECRET: ${{ github.token }}
 
   # ----------------------------------------------------------------- chatbot
   chatbot-test:

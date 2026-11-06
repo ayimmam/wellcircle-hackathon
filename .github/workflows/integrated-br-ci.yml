@@ -38,7 +38,7 @@ jobs:
         env:
           POSTGRES_DB: ci
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ${{ github.run_id }}
+          POSTGRES_PASSWORD: ${{ github.token }}
         ports:
           - 5432:5432
         options: >-
@@ -59,7 +59,7 @@ jobs:
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE "ci_live_tests"'
         working-directory: backend
         env:
-          DATABASE_URL: postgresql://postgres:${{ github.run_id }}@localhost:5432/ci
+          DATABASE_URL: postgresql://postgres:${{ github.token }}@localhost:5432/ci
       - name: Byte-compile (syntax gate)
         run: python -m compileall -q app api
         working-directory: backend
@@ -67,10 +67,10 @@ jobs:
         run: pytest app/tests -q
         working-directory: backend
         env:
-          DATABASE_URL: postgresql://postgres:${{ github.run_id }}@localhost:5432/ci
-          TELEGRAM_BOT_TOKEN: ${{ github.run_id }}
-          JWT_SECRET: ${{ github.run_id }}
-          DISPOSABLE_DB: postgresql://postgres:${{ github.run_id }}@localhost:5432/ci_live_tests
+          DATABASE_URL: postgresql://postgres:${{ github.token }}@localhost:5432/ci
+          TELEGRAM_BOT_TOKEN: ${{ github.token }}
+          JWT_SECRET: ${{ github.token }}
+          DISPOSABLE_DB: postgresql://postgres:${{ github.token }}@localhost:5432/ci_live_tests
           PYTHONUNBUFFERED: '1'
       # Local SQLite-only smoke check (no external service dependency).
       - name: SQLite-only smoke check
@@ -78,8 +78,8 @@ jobs:
         working-directory: backend
         env:
           DATABASE_URL: sqlite:///./ci_smoke.db
-          TELEGRAM_BOT_TOKEN: ${{ github.run_id }}
-          JWT_SECRET: ${{ github.run_id }}
+          TELEGRAM_BOT_TOKEN: ${{ github.token }}
+          JWT_SECRET: ${{ github.token }}
 
   # ---------------------------------------------------------- migrations
   # Implements the documented pre-032 simulation (no historical baseline).
@@ -94,7 +94,7 @@ jobs:
         env:
           POSTGRES_DB: ci
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ${{ github.run_id }}
+          POSTGRES_PASSWORD: ${{ github.token }}
         ports:
           - 5432:5432
         options: >-
@@ -115,13 +115,13 @@ jobs:
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE "ci_live_tests"'
         working-directory: backend
         env:
-          DATABASE_URL: postgresql://postgres:${{ github.run_id }}@localhost:5432/ci
+          DATABASE_URL: postgresql://postgres:${{ github.token }}@localhost:5432/ci
       - name: Simulate post-032 schema and upgrade to head
         working-directory: backend
         env:
-          DATABASE_URL: postgresql://postgres:${{ github.run_id }}@localhost:5432/ci
-          TELEGRAM_BOT_TOKEN: ${{ github.run_id }}
-          JWT_SECRET: ${{ github.run_id }}
+          DATABASE_URL: postgresql://postgres:${{ github.token }}@localhost:5432/ci
+          TELEGRAM_BOT_TOKEN: ${{ github.token }}
+          JWT_SECRET: ${{ github.token }}
         run: |
           set -euo pipefail
           # This user table has exactly what revisions 033–035 participate with.
@@ -151,9 +151,9 @@ jobs:
         working-directory: backend
         env:
           DATABASE_URL: sqlite:///./ci_migrations.db
-          TELEGRAM_BOT_TOKEN: ${{ github.run_id }}
-          JWT_SECRET: ${{ github.run_id }}
-          DISPOSABLE_DB: postgresql://postgres:${{ github.run_id }}@localhost:5432/ci_live_tests
+          TELEGRAM_BOT_TOKEN: ${{ github.token }}
+          JWT_SECRET: ${{ github.token }}
+          DISPOSABLE_DB: postgresql://postgres:${{ github.token }}@localhost:5432/ci_live_tests
           PYTHONUNBUFFERED: '1'
 
   # --------------------------------------------------------------- chatbot

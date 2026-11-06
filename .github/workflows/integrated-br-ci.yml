@@ -55,6 +55,11 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r requirements.txt
         working-directory: backend
+      - name: Create disposable live-test database
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE "ci_live_tests"'
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci
       - name: Byte-compile (syntax gate)
         run: python -m compileall -q app api
         working-directory: backend
@@ -104,8 +109,13 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: backend/requirements.txt
-      - run: pip install -r "backend/requirements.txt" alembic
+      - run: pip install -r requirements.txt alembic
         working-directory: backend
+      - name: Create disposable live-test database
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE "ci_live_tests"'
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci
       - name: Simulate post-032 schema and upgrade to head
         working-directory: backend
         env:

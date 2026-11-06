@@ -20,9 +20,11 @@ from app.services.points import (
     POINTS_WELCOME, TXN_PROFILE_PHOTO,
 )
 from app.crud.community import join_community, get_suggested_communities
+from app.crud.auth_identity import get_user_identities
 from app.schemas.user import (
     UserResponse, UserOnboardingRequest, UserProfileUpdate,
     PointsHistoryResponse,
+    UserIdentityResponse, UserIdentityListResponse,
 )
 from app.crud.follower import get_follower_count, get_following_count
 
@@ -71,6 +73,32 @@ async def get_my_profile(
     db: Session = Depends(get_db),
 ):
     return _build_response(user, db)
+
+
+@router.get("/me/identities", response_model=UserIdentityListResponse)
+async def get_my_identities(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List the verified authentication identities linked to the caller.
+
+    The user is resolved exclusively from the verified JWT — there is no
+    request parameter that can select another user's identities. Only safe
+    fields are returned: no tokens, secrets, or password hashes.
+    """
+    rows = get_user_identities(db, user.id)
+    return UserIdentityListResponse(
+        identities=[
+            UserIdentityResponse(
+                provider=row.provider,
+                subject=row.subject,
+                email=row.email,
+                verified_at=row.verified_at,
+                created_at=row.created_at,
+            )
+            for row in rows
+        ]
+    )
 
 
 @router.post("/me/onboard")

@@ -27,3 +27,13 @@
     Header set Cache-Control "no-cache, no-store, must-revalidate"
   </FilesMatch>
 </IfModule>
+
+# Phase F security headers. The CSP keeps Firebase, Telegram Login Widget and
+# PostHog working; the website is intentionally not embeddable.
+<IfModule mod_headers.c>
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "DENY"
+  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' https://telegram.org https://*.telegram.org https://www.gstatic.com https://apis.google.com https://accounts.google.com https://*.googleapis.com https://*.firebaseapp.com https://us.i.posthog.com https://*.posthog.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://wellcircle-hackathon-backend.vercel.app https://*.vercel.app https://*.wellcircle.et https://*.supabase.co wss://*.supabase.co https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://www.googleapis.com https://apis.google.com https://accounts.google.com https://telegram.org https://*.telegram.org https://api.telegram.org https://us.i.posthog.com https://*.posthog.com; frame-src https://accounts.google.com https://*.firebaseapp.com https://telegram.org https://*.telegram.org https://oauth.telegram.org; worker-src 'self' blob:; manifest-src 'self'; form-action 'self' https://accounts.google.com https://oauth.telegram.org; frame-ancestors 'none'"
+</IfModule>

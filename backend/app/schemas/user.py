@@ -160,6 +160,73 @@ class AuthResponse(BaseModel):
     is_new_user: bool = False
 
 
+class UserIdentityResponse(BaseModel):
+    """One verified authentication identity of the signed-in user.
+
+    Only safe fields: the provider, its opaque subject, the verified email
+    when the provider delivered one (Google), and the timestamps. Never
+    includes tokens, secrets or password hashes.
+    """
+    provider: str
+    subject: str
+    email: Optional[str] = None
+    verified_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+
+class UserIdentityListResponse(BaseModel):
+    """All authentication identities linked to the verified caller."""
+    identities: List[UserIdentityResponse]
+
+
+class IdentityLinkChallengeRequest(BaseModel):
+    """Start an explicit account-linking challenge."""
+    provider: Literal["google", "telegram"] = Field(
+        ..., description="Provider identity to attach to the signed-in account"
+    )
+
+
+class IdentityLinkChallengeResponse(BaseModel):
+    """Short-lived, single-use challenge bound to the caller and provider."""
+    challenge_id: str
+    provider: str
+    expires_in: int
+    expires_at: int
+
+
+class IdentityLinkVerifyRequest(BaseModel):
+    """Fresh provider proof. The challenge's provider decides which field is used."""
+    google_id_token: Optional[str] = Field(
+        default=None, description="Firebase/Google ID token from a fresh Google sign-in"
+    )
+    telegram_init_data: Optional[str] = Field(
+        default=None, description="Raw Telegram Mini App initData (fresh, HMAC-signed)"
+    )
+    telegram_login: Optional[dict] = Field(
+        default=None, description="Telegram Login Widget callback payload (fresh, HMAC-signed)"
+    )
+
+
+class IdentityLinkVerifyResponse(BaseModel):
+    """Verified target identity, awaiting explicit confirmation."""
+    challenge_id: str
+    provider: str
+    subject: str
+    email: Optional[str] = None
+    expires_in: int
+    requires_confirmation: bool = True
+
+
+class IdentityLinkConfirmResponse(BaseModel):
+    """Result of consuming the challenge and attaching the identity."""
+    linked: bool
+    already_linked: bool
+    provider: str
+    subject: str
+    user_id: str
+    identities: List[UserIdentityResponse]
+
+
 class PointsHistoryItem(BaseModel):
     """Single points transaction."""
     action: str

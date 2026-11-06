@@ -27,6 +27,8 @@ from app.models.circle_subscription import CircleSubscription, CircleRevenueLedg
 from app.models.strava_activity_cache import StravaActivityCache
 from app.models.auth_identity import AuthIdentity
 from app.models.otp_challenge import OTPChallenge
+from app.models.account_link_challenge import AccountLinkChallenge
+from app.models.api_rate_limit import ApiRateLimit
 from app.models.story import Story, StoryView
 from app.models.wearable import UserWearable, WearableDailySteps, WalkScoreDay
 
@@ -63,6 +65,8 @@ __all__ = [
     "StravaActivityCache",
     "AuthIdentity",
     "OTPChallenge",
+    "AccountLinkChallenge",
+    "ApiRateLimit",
     "Story",
     "StoryView",
     "UserWearable", "WearableDailySteps", "WalkScoreDay",

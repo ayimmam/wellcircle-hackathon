@@ -6,6 +6,7 @@ story (method, path, status, duration, traceback, correlation id) in the logs.
 Call ``register_error_handling(app)`` once during app construction.
 """
 
+import re
 import time
 import uuid
 
@@ -17,6 +18,21 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.utils.logger import get_logger
 
 logger = get_logger("wellcircle.request")
+
+# Path segments that carry a bearer-style value must never reach the logs.
+# Linking challenge ids are single-use and short-lived, but they are still
+# secrets: redact the id while keeping the route (and the error) observable.
+_REDACTED_PATH_PATTERNS = (
+    re.compile(r"(/api/auth/linking/challenges/)[^/]+"),
+)
+
+
+def redact_path(path: str) -> str:
+    """Return a log-safe path with bearer-style segments masked."""
+    for pattern in _REDACTED_PATH_PATTERNS:
+        path = pattern.sub(r"\1<redacted>", path)
+    return path
+
 
 # Shown when something genuinely unexpected breaks. Friendly, blame-free, and
 # carries an id the user can quote to support so we can find the real error.
@@ -54,7 +70,7 @@ def register_error_handling(app: FastAPI) -> None:
         log(
             "%s %s -> %s in %.0fms [req:%s]",
             request.method,
-            request.url.path,
+            redact_path(request.url.path),
             response.status_code,
             duration_ms,
             request_id,
@@ -74,7 +90,7 @@ def register_error_handling(app: FastAPI) -> None:
                 "HTTPException %s on %s %s: %s [req:%s]",
                 exc.status_code,
                 request.method,
-                request.url.path,
+                redact_path(request.url.path),
                 exc.detail,
                 request_id,
             )
@@ -91,7 +107,7 @@ def register_error_handling(app: FastAPI) -> None:
         logger.warning(
             "Validation error on %s %s: %s [req:%s]",
             request.method,
-            request.url.path,
+            redact_path(request.url.path),
             exc.errors(),
             request_id,
         )
@@ -114,7 +130,7 @@ def register_error_handling(app: FastAPI) -> None:
         logger.exception(
             "Unhandled error on %s %s [req:%s]",
             request.method,
-            request.url.path,
+            redact_path(request.url.path),
             request_id,
         )
         return JSONResponse(

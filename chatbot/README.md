@@ -177,6 +177,24 @@ The backend `alembic/env.py` is currently a placeholder in this checkout, so
 do not assume `alembic upgrade` runs until that pre-existing setup is verified;
 the SQL files are the operational path meanwhile.
 
+Revision `033` (`backend/alembic/versions/033_auth_identities.py`, parent
+`032`) is independent of the chat tables: it brings the pre-existing
+`auth_identities` table into the Alembic chain and backfills Telegram users.
+Apply it through the same workflow; its disposable-database drill is
+`docs/MIGRATION_VERIFICATION.md` Phase 6.
+
+Revision `034` (`backend/alembic/versions/034_account_link_challenges.py`,
+parent `033`) adds the short-lived, single-use `account_link_challenges` table
+used by verified account linking (Telegram ↔ Google). It stores no provider
+tokens or durable user data and is independent of the chat tables; its
+disposable-database drill is `docs/MIGRATION_VERIFICATION.md` Phase 7.
+
+Revision `035` (`backend/alembic/versions/035_api_rate_limits.py`, parent `034`)
+adds only the ephemeral `api_rate_limits` counter table used before the
+authenticated reconciliation dry run. It stores no chat data and does not
+affect Circler ownership; its drill is Phase 9 of
+`docs/MIGRATION_VERIFICATION.md`.
+
 Before applying, verify the existing `public.chat_memory` table definition:
 the repository does not contain its `CREATE TABLE`. Revision `028` marks any
 pre-existing rows as inaccessible `legacy` rows, enables RLS, and revokes direct

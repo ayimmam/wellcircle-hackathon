@@ -105,6 +105,36 @@ def _has_down_revision(text: str, revision: str) -> bool:
     )
 
 
+_REVISION_RE = re.compile(
+    r'^revision(?:\s*:\s*[^=\n]+)?\s*=\s*["\']([^"\']+)["\']', re.M
+)
+_DOWN_REVISION_RE = re.compile(
+    r'^down_revision(?:\s*:\s*[^=\n]+)?\s*=\s*(?:["\']([^"\']+)["\']|None)', re.M
+)
+
+
+def _revision_graph() -> dict[str, str | None]:
+    """Map every revision id to its parent (None for the root).
+
+    A duplicate id or a dangling parent in a file raises ``FileNotFoundError``
+    so ``run_checks`` reports the broken contract instead of silently passing.
+    """
+    graph: dict[str, str | None] = {}
+    for path in sorted(VERSIONS.glob("*.py")):
+        text = _read(path)
+        revision = _REVISION_RE.search(text)
+        if revision is None:
+            raise FileNotFoundError(f"no revision id in {path.name}")
+        down = _DOWN_REVISION_RE.search(text)
+        if down is None:
+            raise FileNotFoundError(f"no down_revision in {path.name}")
+        revision_id = revision.group(1)
+        if revision_id in graph:
+            raise FileNotFoundError(f"duplicate revision id {revision_id!r} in {path.name}")
+        graph[revision_id] = down.group(1)
+    return graph
+
+
 def run_checks() -> list[CheckResult]:
     results: list[CheckResult] = []
 
@@ -112,11 +142,15 @@ def run_checks() -> list[CheckResult]:
         results.append(CheckResult(name=name, passed=bool(condition), detail=detail))
 
     try:
-        versions = {number: _read(_version_file(number)) for number in ("030", "031", "032")}
+        versions = {
+            number: _read(_version_file(number))
+            for number in ("030", "031", "032", "033", "034", "035")
+        }
         sql27 = _read(SQL_DIR / "027_chat_memory_append.sql")
         sql28 = _read(SQL_DIR / "028_chat_memory_ownership.sql")
         sql29 = _read(SQL_DIR / "029_chat_profile.sql")
         memory_py = _read(MEMORY_PY)
+        graph = _revision_graph()
     except (OSError, FileNotFoundError) as exc:
         return [CheckResult(name="files present", passed=False, detail=str(exc))]
 
@@ -134,6 +168,95 @@ def run_checks() -> list[CheckResult]:
         "Alembic 032 follows 031",
         _has_revision(versions["032"], "032")
         and _has_down_revision(versions["032"], "031"),
+    )
+    add(
+        "Alembic 033 follows 032 (auth_identities in the chain)",
+        _has_revision(versions["033"], "033")
+        and _has_down_revision(versions["033"], "032"),
+    )
+    add(
+        "Alembic 034 follows 033 (account-link challenges in the chain)",
+        _has_revision(versions["034"], "034")
+        and _has_down_revision(versions["034"], "033"),
+    )
+    add(
+        "Alembic 035 follows 034 (dry-run rate-limit counters in the chain)",
+        _has_revision(versions["035"], "035")
+        and _has_down_revision(versions["035"], "034"),
+    )
+
+    parents = [parent for parent in graph.values() if parent is not None]
+    heads = sorted(set(graph) - set(parents))
+    dangling = sorted(parent for parent in parents if parent not in graph)
+    add(
+        "Alembic graph has exactly one head (035) and no dangling parents",
+        heads == ["035"] and not dangling,
+        f"heads={heads} dangling={dangling}" if heads != ["035"] or dangling else "",
+    )
+
+    add(
+        "033 declares the canonical auth_identities schema",
+        "CREATE TABLE auth_identities (" in versions["033"]
+        and "CONSTRAINT uq_auth_identity_provider_subject UNIQUE (provider, subject)"
+        in versions["033"]
+        and "REFERENCES users(id) ON DELETE CASCADE" in versions["033"]
+        and "ix_auth_identities_user_id" in versions["033"],
+    )
+    add(
+        "033 backfills Telegram identities without touching user UUIDs",
+        "'telegram'" in versions["033"]
+        and "telegram_id::text" in versions["033"]
+        and "ON CONFLICT (provider, subject) DO NOTHING" in versions["033"],
+    )
+    add(
+        "033 fails loudly on schema drift instead of accepting it",
+        "auth_identities already exists but deviates" in versions["033"]
+        and "raise RuntimeError(" in versions["033"]
+        and "_drift_problems" in versions["033"],
+    )
+    add(
+        "033 downgrade refuses to drop non-Telegram identities",
+        "cannot reverse 033" in versions["033"]
+        and "provider <> 'telegram'" in versions["033"],
+    )
+    add(
+        "034 declares the canonical account_link_challenges schema",
+        "CREATE TABLE account_link_challenges (" in versions["034"]
+        and "id VARCHAR(64) PRIMARY KEY" in versions["034"]
+        and "REFERENCES users(id) ON DELETE CASCADE" in versions["034"]
+        and "expires_at BIGINT NOT NULL" in versions["034"]
+        and "ix_link_user_created" in versions["034"],
+    )
+    add(
+        "034 fails loudly on schema drift instead of accepting it",
+        "account_link_challenges already exists but deviates" in versions["034"]
+        and "raise RuntimeError(" in versions["034"]
+        and "_drift_problems" in versions["034"],
+    )
+    add(
+        "034 downgrade only drops the ephemeral challenge table",
+        "DROP TABLE account_link_challenges"
+        in versions["034"].split("def downgrade", 1)[1]
+        and "DROP TABLE auth_identities" not in versions["034"].split("def downgrade", 1)[1],
+    )
+    add(
+        "035 declares the canonical api_rate_limits schema",
+        "CREATE TABLE api_rate_limits (" in versions["035"]
+        and "id VARCHAR(64) PRIMARY KEY" in versions["035"]
+        and "REFERENCES users(id) ON DELETE CASCADE" in versions["035"]
+        and "created_at BIGINT NOT NULL" in versions["035"]
+        and "ix_api_rate_limits_user_action_created" in versions["035"],
+    )
+    add(
+        "035 fails loudly on schema drift instead of accepting it",
+        "api_rate_limits already exists but deviates" in versions["035"]
+        and "raise RuntimeError(" in versions["035"]
+        and "_drift_problems" in versions["035"],
+    )
+    add(
+        "035 downgrade only drops the ephemeral counter table",
+        "DROP TABLE api_rate_limits" in versions["035"].split("def downgrade", 1)[1]
+        and "DROP TABLE users" not in versions["035"].split("def downgrade", 1)[1],
     )
 
     for number, sql in (("027", sql27), ("028", sql28), ("029", sql29)):

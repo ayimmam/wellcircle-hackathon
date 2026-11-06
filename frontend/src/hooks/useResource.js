@@ -57,6 +57,14 @@ export default function useResource(key, fetcher, options = {}) {
     return undefined;
   }, [loading, enabled]);
 
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
   const load = useCallback(async (cacheKey, { force = false } = {}) => {
     if (!cacheKey) return undefined;
     const hadCached = readCache(cacheKey) !== undefined;
@@ -65,15 +73,15 @@ export default function useResource(key, fetcher, options = {}) {
       if (force) invalidate(cacheKey);
       const result = await fetcherRef.current();
       const next = selectRef.current ? selectRef.current(result) : result;
-      setData(next);
-      setError(null);
+      if (mounted.current) setData(next);
+      if (mounted.current) setError(null);
       return next;
     } catch (err) {
-      setError(err);
+      if (mounted.current) setError(err);
       onErrorRef.current?.(err);
       return undefined;
     } finally {
-      setLoading(false);
+      if (mounted.current) setLoading(false);
     }
   }, [readCache]);
 

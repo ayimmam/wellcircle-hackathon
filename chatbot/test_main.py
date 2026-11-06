@@ -9,11 +9,14 @@ that matter most for this service: that it never invents providers
 import json
 import os
 import types
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
 
+import data
 import main
+import memory
 
 
 # --- Test doubles ----------------------------------------------------------
@@ -40,14 +43,6 @@ class FakeGroqClient:
         self.chat = types.SimpleNamespace(
             completions=types.SimpleNamespace(create=create)
         )
-
-
-@pytest.fixture(autouse=True)
-def reset_caches():
-    """Each test starts with a cold provider and event cache."""
-    main._provider_cache.update(data=None, source=None, ts=0.0)
-    main._event_cache.update(data=None, source=None, ts=0.0)
-    yield
 
 
 @pytest.fixture
@@ -79,7 +74,7 @@ def test_health_ok(client, monkeypatch):
 
 # --- Every turn reaches the model -----------------------------------------
 def test_every_message_reaches_the_model(client, monkeypatch):
-    """is_first_message / __init__ no longer short-circuit — welcome copy is frontend-owned."""
+    """Chat turns are never short-circuited into a welcome response."""
     _use_fallback_providers(monkeypatch)
     fake = _set_model_reply(monkeypatch, {
         "reply": "Tell me what wellness service you need.",
@@ -88,11 +83,12 @@ def test_every_message_reaches_the_model(client, monkeypatch):
         "event_id": None,
         "event_name": None,
     })
-    res = client.post("/ai/concierge", json={"message": "__init__", "is_first_message": True})
+    res = client.post("/ai/concierge", json={"message": "hello"})
     assert res.status_code == 200
     body = res.json()
     assert "wellness" in body["reply"].lower()
-    assert fake.calls  # the model must be called on every turn
+    assert "intro" not in body  # welcome copy is served only by GET /session
+    assert fake.calls  # the model must be called on every real turn
 
 
 # --- Low-hallucination guards ---------------------------------------------
@@ -436,6 +432,145 @@ def test_event_fetch_failure_does_not_break_providers(client, monkeypatch):
     assert body["event_id"] is None
 
 
+def test_invented_provider_price_is_rewritten_before_response(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    _set_model_reply(monkeypatch, {
+        "reply": "Bole Wellness Hub costs only 100 ETB. Want details?",
+        "provider_id": "fb-001",
+        "provider_name": "Bole Wellness Hub",
+        "event_id": None,
+        "event_name": None,
+    })
+    res = client.post("/ai/concierge", json={"message": "gym in Bole"})
+    body = res.json()
+    assert body["provider_id"] == "fb-001"
+    assert "ETB 800-2500" in body["reply"]
+    assert "100 ETB" not in body["reply"]
+
+
+def test_grounded_reply_is_what_gets_persisted(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    saved = _capture_append(monkeypatch)
+    _set_model_reply(monkeypatch, {
+        "reply": "Bole Wellness Hub costs only 100 ETB. Want details?",
+        "provider_id": "fb-001",
+        "provider_name": "Bole Wellness Hub",
+        "event_id": None,
+        "event_name": None,
+    })
+    res = client.post("/ai/concierge", json={"message": "gym in Bole"})
+    assert res.status_code == 200
+    assert "ETB 800-2500" in saved["assistant_content"]
+    assert "100 ETB" not in saved["assistant_content"]
+
+
+def test_correct_event_price_and_availability_are_preserved(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    expected = "Sunrise HIIT is 250 ETB with 8 spots remaining."
+    _set_model_reply(monkeypatch, {
+        "reply": expected,
+        "provider_id": None,
+        "provider_name": None,
+        "event_id": "fe-001",
+        "event_name": "Sunrise HIIT at Bole Wellness Hub",
+    })
+    res = client.post("/ai/concierge", json={"message": "events this weekend"})
+    body = res.json()
+    assert body["event_id"] == "fe-001"
+    assert body["reply"] == expected
+
+
+def test_invented_event_availability_is_rewritten(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    _set_model_reply(monkeypatch, {
+        "reply": "Sunrise HIIT has only 2 spots left.",
+        "provider_id": None,
+        "provider_name": None,
+        "event_id": "fe-001",
+        "event_name": "Sunrise HIIT at Bole Wellness Hub",
+    })
+    res = client.post("/ai/concierge", json={"message": "events this weekend"})
+    body = res.json()
+    assert body["event_id"] == "fe-001"
+    assert "8 spots remaining" in body["reply"]
+    assert "only 2 spots" not in body["reply"]
+
+
+def test_provider_fetch_exception_uses_local_fallback(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+
+    def boom():
+        raise RuntimeError("provider query exploded")
+
+    monkeypatch.setattr(main, "get_providers", boom)
+    _set_model_reply(monkeypatch, {
+        "reply": "Bole Wellness Hub has great group classes.",
+        "provider_id": "fb-001",
+        "provider_name": "Bole Wellness Hub",
+        "event_id": None,
+        "event_name": None,
+    })
+    res = client.post("/ai/concierge", json={"message": "gym in Bole"})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["data_source"] == "fallback"
+    assert body["provider_id"] == "fb-001"
+
+
+def test_event_fetch_exception_does_not_break_chat(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+
+    def boom():
+        raise RuntimeError("event query exploded")
+
+    monkeypatch.setattr(main, "get_events", boom)
+    _set_model_reply(monkeypatch, {
+        "reply": "Bole Wellness Hub has great group classes.",
+        "provider_id": "fb-001",
+        "provider_name": "Bole Wellness Hub",
+        "event_id": None,
+        "event_name": None,
+    })
+    res = client.post("/ai/concierge", json={"message": "gym in Bole"})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["provider_id"] == "fb-001"
+    assert body["event_id"] is None
+
+
+@pytest.mark.parametrize(
+    "fixed_now",
+    [
+        datetime(2026, 10, 28, 12, 0, tzinfo=timezone.utc),
+        datetime(2026, 10, 31, 6, 29, tzinfo=timezone.utc),
+        datetime(2026, 10, 31, 6, 30, tzinfo=timezone.utc),
+        datetime(2026, 11, 1, 12, 0, tzinfo=timezone.utc),
+    ],
+)
+def test_fallback_events_are_shifted_to_the_future(fixed_now):
+    events = data.build_fallback_events(now=fixed_now)
+    assert [event["id"] for event in events] == ["fe-001", "fe-002"]
+    assert [event["service_name"] for event in events] == [
+        "Sunrise HIIT at Bole Wellness Hub",
+        "Weekend Restorative Yoga",
+    ]
+    for event in events:
+        assert datetime.fromisoformat(event["starts_at"]) > fixed_now
+        assert datetime.fromisoformat(event["ends_at"]) > datetime.fromisoformat(
+            event["starts_at"]
+        )
+
+
+def test_fallback_events_refresh_on_each_fetch(monkeypatch):
+    monkeypatch.setattr(main, "supabase_client", None)
+    before = datetime.now(timezone.utc)
+    events, source = main.fetch_events()
+    assert source == "fallback"
+    assert events
+    for event in events:
+        assert datetime.fromisoformat(event["starts_at"]) > before
+
+
 def test_events_are_cached_between_requests(client, monkeypatch):
     calls = {"n": 0}
 
@@ -468,3 +603,343 @@ def test_event_extra_fields_are_not_sent_to_the_model(client, monkeypatch):
     system_prompt = fake.calls[0]["messages"][0]["content"]
     assert "staff_user_id" not in system_prompt
     assert "user-should-not-leak" not in system_prompt
+
+
+# --- Conversation memory / expiry -----------------------------------------
+def _memory_state(messages=None, status="active", updated_at=None):
+    return types.SimpleNamespace(
+        messages=messages or [],
+        updated_at=updated_at,
+        status=status,
+    )
+
+
+def _capture_append(
+    monkeypatch,
+    *,
+    persisted=True,
+    stale_turn=False,
+    reset_applied=False,
+):
+    saved = {}
+
+    def capture(
+        session_id,
+        user_content,
+        assistant_content,
+        *,
+        owner_type,
+        owner_id,
+        expected_updated_at=None,
+    ):
+        saved.update(
+            session_id=session_id,
+            user_content=user_content,
+            assistant_content=assistant_content,
+            owner_type=owner_type,
+            owner_id=owner_id,
+            expected_updated_at=expected_updated_at,
+        )
+        return types.SimpleNamespace(
+            persisted=persisted,
+            messages=[],
+            updated_at=None,
+            reset_applied=reset_applied,
+            stale_turn=stale_turn,
+        )
+
+    monkeypatch.setattr(main, "append_session_turn", capture)
+    return saved
+
+
+def test_tests_are_isolated_from_live_supabase():
+    assert main.supabase_client is None
+    assert memory._get_supabase_client() is None
+
+
+def test_active_server_history_is_sent_to_model(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    history = [
+        {"role": "user", "content": "I prefer yoga in Bole"},
+        {"role": "assistant", "content": "Try Serenity Yoga Studio."},
+    ]
+    read_timestamp = object()
+    monkeypatch.setattr(
+        main,
+        "get_session_state",
+        lambda _session_id, **_kwargs: _memory_state(
+            history, status="active", updated_at=read_timestamp
+        ),
+    )
+    saved = _capture_append(monkeypatch)
+    fake = _set_model_reply(monkeypatch, {
+        "reply": "Here is another yoga option.",
+        "provider_id": None,
+        "provider_name": None,
+    })
+
+    res = client.post(
+        "/ai/concierge",
+        json={"message": "Show me another one", "session_id": "active-session"},
+    )
+
+    assert res.status_code == 200
+    sent = fake.calls[0]["messages"][1:]
+    assert history[0] in sent
+    assert history[1] in sent
+    assert {"role": "user", "content": "Show me another one"} in sent
+
+    assert saved["session_id"] == "active-session"
+    assert saved["user_content"] == "Show me another one"
+    assert saved["assistant_content"] == "Here is another yoga option."
+    assert saved["expected_updated_at"] is read_timestamp
+
+
+def test_expired_history_and_client_history_never_reach_model(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    expired_server_history = [
+        {"role": "user", "content": "EXPIRED_SERVER_CONTEXT"},
+        {"role": "assistant", "content": "EXPIRED_ASSISTANT_CONTEXT"},
+    ]
+    # Deliberately return non-empty messages with an expired status to verify
+    # main.py itself refuses to forward them, independent of memory.py.
+    monkeypatch.setattr(
+        main,
+        "get_session_state",
+        lambda _session_id, **_kwargs: _memory_state(expired_server_history, status="expired"),
+    )
+    saved = _capture_append(monkeypatch)
+    fake = _set_model_reply(monkeypatch, {
+        "reply": "Fresh reply.",
+        "provider_id": None,
+        "provider_name": None,
+    })
+
+    res = client.post(
+        "/ai/concierge",
+        json={
+            "message": "fresh request",
+            "session_id": "expired-session",
+            "is_first_message": False,
+            "history": [
+                {"role": "user", "content": "CLIENT_SUPPLIED_EXPIRED_CONTEXT"},
+                {"role": "assistant", "content": "CLIENT_SUPPLIED_ASSISTANT_CONTEXT"},
+            ],
+        },
+    )
+
+    assert res.status_code == 200
+    sent = fake.calls[0]["messages"]
+    sent_text = json.dumps(sent)
+    assert "EXPIRED_SERVER_CONTEXT" not in sent_text
+    assert "EXPIRED_ASSISTANT_CONTEXT" not in sent_text
+    assert "CLIENT_SUPPLIED_EXPIRED_CONTEXT" not in sent_text
+    assert "CLIENT_SUPPLIED_ASSISTANT_CONTEXT" not in sent_text
+    assert saved["session_id"] == "expired-session"
+    assert saved["user_content"] == "fresh request"
+    assert saved["assistant_content"] == "Fresh reply."
+    assert saved["expected_updated_at"] is None
+
+
+def test_client_supplied_session_with_no_row_ignores_history(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    monkeypatch.setattr(
+        main,
+        "get_session_state",
+        lambda _session_id, **_kwargs: _memory_state([], status="new"),
+    )
+    _capture_append(monkeypatch)
+    fake = _set_model_reply(monkeypatch, {
+        "reply": "ok",
+        "provider_id": None,
+        "provider_name": None,
+    })
+
+    client.post(
+        "/ai/concierge",
+        json={
+            "message": "hello",
+            "session_id": "unknown-client-id",
+            "history": [{"role": "user", "content": "POSSIBLE_RESURRECTION"}],
+        },
+    )
+
+    assert "POSSIBLE_RESURRECTION" not in json.dumps(fake.calls[0]["messages"])
+
+
+def test_brand_new_session_ignores_client_history(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    monkeypatch.setattr(
+        main,
+        "get_session_state",
+        lambda _session_id, **_kwargs: _memory_state([], status="new"),
+    )
+    saved = _capture_append(monkeypatch)
+    fake = _set_model_reply(monkeypatch, {
+        "reply": "ok",
+        "provider_id": None,
+        "provider_name": None,
+    })
+
+    client.post(
+        "/ai/concierge",
+        json={
+            "message": "continue",
+            "history": [{"role": "user", "content": "LEGACY_FIRST_TURN"}],
+        },
+    )
+
+    assert "LEGACY_FIRST_TURN" not in json.dumps(fake.calls[0]["messages"])
+    assert saved["user_content"] == "continue"
+    assert saved["assistant_content"] == "ok"
+
+
+def test_failed_llm_response_does_not_append_turn(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    monkeypatch.setattr(
+        main,
+        "get_session_state",
+        lambda _session_id, **_kwargs: _memory_state([], status="active"),
+    )
+    saved = _capture_append(monkeypatch)
+    _set_model_reply(monkeypatch, raises=RuntimeError("groq exploded"))
+
+    res = client.post(
+        "/ai/concierge",
+        json={"message": "anything", "session_id": "failing-session"},
+    )
+
+    assert res.status_code == 200
+    assert "trouble matching" in res.json()["reply"]
+    assert saved == {}
+
+
+def test_successful_validated_turn_appends_only_current_turn(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    monkeypatch.setattr(
+        main,
+        "get_session_state",
+        lambda _session_id, **_kwargs: _memory_state(
+            [{"role": "user", "content": "earlier"}],
+            status="active",
+        ),
+    )
+    saved = _capture_append(monkeypatch)
+    _set_model_reply(monkeypatch, {
+        "reply": "validated reply",
+        "provider_id": None,
+        "provider_name": None,
+    })
+
+    res = client.post(
+        "/ai/concierge",
+        json={"message": "new turn", "session_id": "successful-session"},
+    )
+
+    assert res.status_code == 200
+    assert res.json()["reply"] == "validated reply"
+    assert saved["session_id"] == "successful-session"
+    assert saved["user_content"] == "new turn"
+    assert saved["assistant_content"] == "validated reply"
+
+
+def test_memory_unavailable_skips_persistence_to_avoid_overwriting_unknown_state(
+    client, monkeypatch
+):
+    _use_fallback_providers(monkeypatch)
+    monkeypatch.setattr(
+        main,
+        "get_session_state",
+        lambda _session_id, **_kwargs: _memory_state([], status="unavailable"),
+    )
+    saved = _capture_append(monkeypatch)
+    _set_model_reply(monkeypatch, {
+        "reply": "still answered",
+        "provider_id": None,
+        "provider_name": None,
+    })
+
+    res = client.post(
+        "/ai/concierge",
+        json={"message": "hello", "session_id": "unavailable-session"},
+    )
+
+    assert res.status_code == 200
+    assert res.json()["reply"] == "still answered"
+    assert saved == {}
+
+
+def test_persistence_failure_still_returns_the_validated_reply(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    monkeypatch.setattr(
+        main,
+        "get_session_state",
+        lambda _session_id, **_kwargs: _memory_state([], status="active"),
+    )
+    saved = _capture_append(monkeypatch, persisted=False)
+    _set_model_reply(monkeypatch, {
+        "reply": "answered without memory",
+        "provider_id": None,
+        "provider_name": None,
+    })
+
+    res = client.post(
+        "/ai/concierge",
+        json={"message": "hello", "session_id": "write-failure"},
+    )
+
+    assert res.status_code == 200
+    assert res.json()["reply"] == "answered without memory"
+    assert saved["user_content"] == "hello"
+
+
+def test_stale_turn_does_not_break_the_response(client, monkeypatch):
+    _use_fallback_providers(monkeypatch)
+    monkeypatch.setattr(
+        main,
+        "get_session_state",
+        lambda _session_id, **_kwargs: _memory_state([], status="active"),
+    )
+    _capture_append(monkeypatch, stale_turn=True)
+    _set_model_reply(monkeypatch, {
+        "reply": "still useful",
+        "provider_id": None,
+        "provider_name": None,
+    })
+
+    res = client.post(
+        "/ai/concierge",
+        json={"message": "hello", "session_id": "stale-session"},
+    )
+
+    assert res.status_code == 200
+    assert res.json()["reply"] == "still useful"
+
+
+def test_unexpected_memory_exception_does_not_replace_validated_reply(
+    client, monkeypatch
+):
+    _use_fallback_providers(monkeypatch)
+    monkeypatch.setattr(
+        main,
+        "get_session_state",
+        lambda _session_id, **_kwargs: _memory_state([], status="active"),
+    )
+
+    def explode(*_args, **_kwargs):
+        raise RuntimeError("memory bug")
+
+    monkeypatch.setattr(main, "append_session_turn", explode)
+    _set_model_reply(monkeypatch, {
+        "reply": "validated reply survives",
+        "provider_id": None,
+        "provider_name": None,
+    })
+
+    res = client.post(
+        "/ai/concierge",
+        json={"message": "hello", "session_id": "exploding-memory"},
+    )
+
+    assert res.status_code == 200
+    assert res.json()["reply"] == "validated reply survives"

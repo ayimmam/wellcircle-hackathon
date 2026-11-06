@@ -13,8 +13,27 @@ const renderChat = (searchActive = false) => render(
 );
 
 describe('Circler discovery nudge', () => {
-  beforeEach(() => { localStorage.clear(); sessionStorage.clear(); vi.clearAllMocks(); vi.useFakeTimers(); });
-  afterEach(() => vi.useRealTimers());
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({
+        session_id: 'session-1',
+        experience: 'first_visit',
+        welcome: null,
+        history: [],
+        anonymous_token: null,
+      }),
+    });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
 
   it('waits four seconds, disappears after seven seconds, and only appears once per session', () => {
     const first = renderChat();

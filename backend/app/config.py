@@ -97,6 +97,10 @@ class Settings(BaseSettings):
         "https://wellcircle.et",
         "https://app.wellcircle.et",
     ]
+    # Optional, explicit preview/staging regex. Empty by default: do not accept
+    # arbitrary *.vercel.app origins. Example:
+    #   ^https://wellcircle-hackathon-[a-z0-9-]+\.vercel\.app$
+    CORS_ORIGIN_REGEX: str = ""
 
     @property
     def cors_origins(self) -> List[str]:

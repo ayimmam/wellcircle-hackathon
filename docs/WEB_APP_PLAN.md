@@ -97,6 +97,20 @@ Two accounts merging is a data problem (points, streaks, circle memberships,
 bookings). Getting the rule right at sign-up is much cheaper than writing a
 merge tool later.
 
+**Implementation status (Phase B).** Explicit, verified linking is live on the
+backend for Telegram ↔ Google: `POST /api/auth/linking/challenges` (JWT) →
+`POST .../{id}/verify` (fresh Google/Firebase or Telegram credential, checked by
+the existing verifiers) → `POST .../{id}/confirm` (atomic attach). Challenges
+live in `account_link_challenges` (Alembic 034), expire after five minutes, are
+single-use and bound to the canonical account + verified subject. Nothing is
+inferred from email, name or phone; an identity owned by another account is a
+safe 409 and is never reassigned. Telegram linking sets the legacy
+`users.telegram_id` when free so bot/Mini App logins resolve the same canonical
+`users.id`. Unlinking is intentionally deferred: removing a Telegram identity
+would be recreated by the next Telegram login, and removing the last usable
+method needs a fresh-reauth design (Phase D). WhatsApp/phone linking is not part
+of Phase B.
+
 ---
 
 ## 2. Sign-in options

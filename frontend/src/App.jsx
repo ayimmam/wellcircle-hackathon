@@ -60,6 +60,7 @@ const ProductsStore = lazy(() => import('./pages/ProductsStore'));
 const ProductDetail = lazy(() => import('./pages/ProductDetail'));
 const ProductRedeem = lazy(() => import('./pages/ProductRedeem'));
 const MyRedemptions = lazy(() => import('./pages/MyRedemptions'));
+const ConnectedAccounts = lazy(() => import('./pages/ConnectedAccounts'));
 
 // Admin bundle — only ever loaded for super admins, so keep it out of the
 // main chunk entirely.
@@ -160,6 +161,7 @@ export function AppShell({ entryElement, extraRoutes, web = false }) {
               <Route path="/users/me/bookings" element={<MyBookings />} />
               <Route path="/community" element={<CommunityList />} />
               <Route path="/profile" element={<ProfileScreen />} />
+              <Route path="/account/sign-ins" element={<ConnectedAccounts />} />
 
               {/* Burger-menu destinations — the screens with no permanent
                   entry point on the bottom nav or header. */}

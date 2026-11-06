@@ -14,7 +14,6 @@ from app.database import get_db
 from app.models.user import User
 from app.models.auth_identity import AuthIdentity
 from app.crud.user import (
-    get_user_by_telegram_id,
     create_user_from_telegram_auth,
     get_user_joined_community_ids,
 )
@@ -22,18 +21,30 @@ from app.crud.auth_identity import (
     get_identity,
     get_user_by_identity,
     create_identity,
+    ensure_telegram_identity,
     find_user_by_phone,
+    resolve_user_by_telegram,
 )
 from app.services.points import get_points_tier
 from app.schemas.user import (
     TelegramAuthRequest, TelegramWidgetLoginRequest, ProviderPasswordLoginRequest,
     WhatsAppStartRequest, WhatsAppVerifyRequest, GoogleAuthRequest, FirebaseAuthRequest,
     WhatsAppStartResponse, AuthResponse, UserResponse,
+    IdentityLinkChallengeRequest, IdentityLinkChallengeResponse,
+    IdentityLinkVerifyRequest, IdentityLinkVerifyResponse,
+    IdentityLinkConfirmResponse,
 )
 from app.services.telegram_auth import validate_init_data, validate_init_data_dev
 from app.services.telegram_login_widget import validate_login_widget_data
 from app.services.otp import start_otp, verify_otp, OTPDeliveryUnavailable
 from app.services.firebase_auth import verify_google_token, FirebaseUnavailable
+from app.services.account_linking import (
+    LinkingError,
+    start_challenge,
+    verify_challenge,
+    confirm_challenge,
+)
+from app.dependencies import get_current_user
 from app.utils.password import verify_password
 
 router = APIRouter()
@@ -73,8 +84,9 @@ async def telegram_auth(request: TelegramAuthRequest, db: Session = Depends(get_
     telegram_id = user_data["telegram_id"]
     is_new = False
 
-    # Find or create user
-    user = get_user_by_telegram_id(db, telegram_id)
+    # Find or create user. The identity table is authoritative for accounts
+    # that linked Telegram from Google (their users.telegram_id may be unset).
+    user = resolve_user_by_telegram(db, telegram_id)
     if not user:
         user = create_user_from_telegram_auth(
             db,
@@ -84,8 +96,12 @@ async def telegram_auth(request: TelegramAuthRequest, db: Session = Depends(get_
         )
         is_new = True
         # Also write an auth_identities row so the new identity table stays in sync
-        create_identity(db, user.id, "telegram", str(telegram_id))
+        ensure_telegram_identity(db, user.id, telegram_id)
     else:
+        # Keep the identity table consistent: a user created by the bot (or
+        # whose identity row is missing) gets one on login. Verified subject
+        # only, idempotent, and never taken away from another owner.
+        ensure_telegram_identity(db, user.id, telegram_id)
         # Update photo/handle if changed — never once the user has set a
         # custom photo (WS9 of docs/AUDIT_IMPLEMENTATION_PLAN_SEP2026.md),
         # or it would revert to the Telegram photo on the next login.
@@ -145,7 +161,10 @@ async def telegram_widget_auth(request: TelegramWidgetLoginRequest, db: Session 
         )
 
     telegram_id = user_data["telegram_id"]
-    user = get_user_by_telegram_id(db, telegram_id)
+    # Identity-first resolution: a Telegram identity linked from a
+    # Google-created account must resolve to that same canonical user instead
+    # of creating a duplicate account.
+    user = resolve_user_by_telegram(db, telegram_id)
     is_new = False
 
     if not user:
@@ -166,7 +185,13 @@ async def telegram_widget_auth(request: TelegramWidgetLoginRequest, db: Session 
             db.commit()
             db.refresh(user)
         is_new = True
-        create_identity(db, user.id, "telegram", str(telegram_id))
+        ensure_telegram_identity(db, user.id, telegram_id)
+    else:
+        # Bot-created or web-registered user missing an identity row: record
+        # the verified Telegram identity on login. Idempotent; if the same
+        # verified identity is already owned by a different user, it is left
+        # untouched and the login proceeds unchanged.
+        ensure_telegram_identity(db, user.id, telegram_id)
 
     token = _create_token(str(user.id))
 
@@ -388,3 +413,115 @@ async def google_auth(req: GoogleAuthRequest, db: Session = Depends(get_db)):
         is_new_user=is_new,
     )
 
+
+
+# ── Verified account linking ─────────────────────────────────
+#
+# Linking is deliberately two-phase: a dashboard-authenticated caller starts a
+# short-lived challenge, then proves control of the target provider with a
+# fresh server-verified credential. Nothing the client sends (user id, subject,
+# email, phone) is trusted; the only identifiers stored are those the existing
+# Google/Telegram verifiers returned. See app/services/account_linking.py.
+
+def _link_error(error: LinkingError) -> HTTPException:
+    headers = {"Retry-After": "60"} if error.status_code == 429 else None
+    return HTTPException(
+        status_code=error.status_code, detail=error.detail, headers=headers
+    )
+
+
+def _identity_rows(rows) -> list:
+    from app.schemas.user import UserIdentityResponse
+
+    return [
+        UserIdentityResponse(
+            provider=row.provider,
+            subject=row.subject,
+            email=row.email,
+            verified_at=row.verified_at,
+            created_at=row.created_at,
+        )
+        for row in rows
+    ]
+
+
+@router.post(
+    "/linking/challenges",
+    response_model=IdentityLinkChallengeResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_link_challenge(
+    request: IdentityLinkChallengeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Start an account-linking challenge for the signed-in canonical account.
+    POST /api/auth/linking/challenges  { "provider": "google" | "telegram" }
+      → 201 { challenge_id, provider, expires_in, expires_at }
+
+    The challenge is random, single-use, bound to this account and provider,
+    and expires after five minutes. Rate-limited per account.
+    """
+    try:
+        return start_challenge(db, current_user.id, request.provider)
+    except LinkingError as error:
+        raise _link_error(error) from error
+
+
+@router.post(
+    "/linking/challenges/{challenge_id}/verify",
+    response_model=IdentityLinkVerifyResponse,
+)
+def verify_link_challenge(
+    challenge_id: str,
+    request: IdentityLinkVerifyRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Verify the target provider credential and bind it to the challenge.
+    POST /api/auth/linking/challenges/{id}/verify
+      google:   { "google_id_token": "<fresh Firebase/Google ID token>" }
+      telegram: { "telegram_init_data": "<fresh Mini App initData>" }
+             or { "telegram_login": { ...Login Widget callback fields... } }
+      → 200 { challenge_id, provider, subject, email?, expires_in, requires_confirmation }
+
+    The verifier is chosen by the stored challenge provider, never by the body.
+    """
+    payload = {
+        "google_id_token": request.google_id_token,
+        "telegram_init_data": request.telegram_init_data,
+        "telegram_login": request.telegram_login,
+    }
+    try:
+        return verify_challenge(db, current_user.id, challenge_id, payload)
+    except LinkingError as error:
+        raise _link_error(error) from error
+
+
+@router.post(
+    "/linking/challenges/{challenge_id}/confirm",
+    response_model=IdentityLinkConfirmResponse,
+)
+def confirm_link_challenge(
+    challenge_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Atomically consume the verified challenge and attach the identity.
+    POST /api/auth/linking/challenges/{id}/confirm  (no body)
+      → 200 { linked, already_linked, provider, subject, user_id, identities }
+
+    Conflicts with an identity owned by another account return 409 and never
+    reassign or merge anything. Repeating a completed link returns
+    ``already_linked: true`` instead of creating a duplicate.
+    """
+    try:
+        result = confirm_challenge(db, current_user.id, challenge_id)
+    except LinkingError as error:
+        raise _link_error(error) from error
+    result = dict(result)
+    result["identities"] = _identity_rows(result["identities"])
+    return result

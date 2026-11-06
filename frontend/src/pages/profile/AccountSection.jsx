@@ -2,8 +2,10 @@ import Icon from '../../components/Icon';
 import VerifiedBadge from '../../components/VerifiedBadge';
 import PhoneInput from '../../components/PhoneInput';
 import CollapsibleList from '../../components/CollapsibleList';
+import ConnectedSignins from '../../components/ConnectedSignins';
 import { parsePhone } from '../../utils/phone';
 import { clickableDivProps } from '../../utils/a11y';
+import { isWebApp } from '../../utils/platform';
 
 export default function AccountSection({
   user, t, navigate,
@@ -201,6 +203,10 @@ export default function AccountSection({
           )}
         </div>
       </div>
+
+      {/* Sign-in methods. Read-only in the Mini App; the website adds a
+          "Manage" entry point to the verified linking flow. */}
+      <ConnectedSignins onManage={isWebApp() ? () => navigate('/account/sign-ins') : undefined} />
 
       {/* Support */}
       <div className="profile-section">

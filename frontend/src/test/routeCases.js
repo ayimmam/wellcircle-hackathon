@@ -16,6 +16,7 @@ export const ROUTE_CASES = [
   ['My Bookings', '/my-bookings'],
   ['Community list', '/community'],
   ['Profile', '/profile'],
+  ['Connected sign-ins', '/account/sign-ins'],
   ['Events', '/events'],
   ['Events (past tab)', '/events?tab=past'],
   ['About', '/about'],

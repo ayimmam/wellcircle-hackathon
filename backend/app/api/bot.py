@@ -17,6 +17,7 @@ from app.crud.user import (
     get_day1_return_users, mark_user_day1_reminder, mark_user_day1_reminder_for_user,
     mark_user_proactive_reminder,
 )
+from app.crud.auth_identity import ensure_telegram_identity
 from app.crud.evidence import get_staff_events, create_evidence_submission
 from app.crud.circle import get_weekly_digest_circles
 from app.services.promotion_service import get_reengagement_promos
@@ -96,6 +97,8 @@ async def bot_register(
     """Called by Telegram bot on /start. Creates minimal user record. Idempotent."""
     existing = get_user_by_telegram_id(db, request.telegram_id)
     if existing:
+        # Keep the identity table consistent for legacy bot-created users.
+        ensure_telegram_identity(db, existing.id, request.telegram_id)
         # Update handle / photo if changed
         changed = False
         if request.telegram_handle and request.telegram_handle != existing.telegram_handle:
@@ -124,6 +127,7 @@ async def bot_register(
         telegram_handle=request.telegram_handle,
         photo_url=request.photo_url,
     )
+    ensure_telegram_identity(db, user.id, request.telegram_id)
     is_admin = user.telegram_id in settings.super_admin_ids or user.is_super_admin
     return {
         "id": str(user.id),

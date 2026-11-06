@@ -222,7 +222,14 @@ def test_tampered_anonymous_credential_is_401_and_never_calls_the_model(
     _setup(monkeypatch)
     model = _model(monkeypatch)
     token = auth.create_anonymous_token(ANON_1)
-    tampered = token[:-1] + ("A" if token[-1] != "A" else "B")
+    head, payload, signature = token.split(".")
+    # The real failure mode is a signed-role credential that differs by bytes.
+    # Changing the final base64url character is not reliable (the last
+    # base64url char only carries 2 bits for a 32-byte digest), so mutate the
+    # first signature character, which always changes the leading byte.
+    tampered = ".".join(
+        (head, payload, ("A" if signature[0] != "A" else "B") + signature[1:])
+    )
 
     response = client.post(
         "/ai/concierge",

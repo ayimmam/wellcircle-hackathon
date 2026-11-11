@@ -11,20 +11,20 @@
     "prebuild": "node ../frontend/scripts/generate-legal-pages.mjs"
   },
   "dependencies": {
-    "firebase": "^13.1.0",
+    "firebase": "^13.2.0",
     "i18next": "^26.3.1",
     "motion": "^13.4.0",
-    "posthog-js": "^1.399.2",
+    "posthog-js": "^1.447.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-i18next": "^17.0.8",
-    "react-router-dom": "^7.18.3"
+    "react-router-dom": "^7.18.5"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^6.1.1",
-    "vite": "^8.3.0"
+    "@vitejs/plugin-react": "^6.2.1",
+    "vite": "^8.3.6"
   },
   "overrides": {
     "@grpc/grpc-js": "^1.13.6"
